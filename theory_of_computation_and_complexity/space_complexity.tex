@@ -1,56 +1,95 @@
-\documentclass{article}
-\usepackage{amsmath, amssymb}
+\section{Introduction to Space Complexity}
 
-\title{Introduction to Space Complexity}
-\author{}
-\date{}
-
-\begin{document}
-
-\maketitle
-
-\section*{Introduction to Space Complexity}
-
-So far, we have focused on \textbf{time complexity}. Today, we will explore \textbf{space complexity}, which measures the memory resources an algorithm uses. Space complexity is important for two key reasons:
+So far, we have focused on \textbf{time complexity}. Today, we will explore \textbf{space complexity}, which measures the memory resources
+an algorithm uses. Space complexity is important for two key reasons:
 
 \begin{enumerate}
     \item It quantifies the \textbf{memory consumption} of an algorithm.
     \item If two algorithms have the \textbf{same time complexity}, but one uses more space, the latter may run slower due to higher memory overhead.
 \end{enumerate}
 
-We will only consider space complexity for \textbf{decidable Turing Machines (TMs)}, meaning they halt on all inputs. With this in mind, let's formally define space complexity.
+We will only consider space complexity for \textbf{decidable Turing Machines (TMs)}, meaning they halt on all inputs. 
+With this in mind, let's formally define space complexity.
 
-\section*{Space Complexity Definitions}
+\section{Space Complexity Definitions}
 
-\subsection*{1. Deterministic Turing Machines (DTM)}
-The \textbf{space complexity} of a decidable deterministic TM is a function \( f: \mathbb{N} \rightarrow \mathbb{N} \), where \( f(n) \) is the \textbf{maximum number of tape cells visited} by the TM on any input of size \( n \).
+\subsection{1. Deterministic Turing Machines (DTM)}
+The \textbf{space complexity} of a decidable deterministic TM is a function \( f: \mathbb{N} \rightarrow \mathbb{N} \), where \( f(n) \) is 
+the \textbf{maximum number of tape cells visited} by the TM on any input of size \( n \).
 
-\subsection*{2. Non-Deterministic Turing Machines (NTM)}
-The \textbf{space complexity} of a decidable non-deterministic TM is a function \( f: \mathbb{N} \rightarrow \mathbb{N} \), where \( f(n) \) is the \textbf{maximum number of tape cells visited} by the TM \textbf{on any computational branch} for any input of size \( n \).
+\subsection{2. Non-Deterministic Turing Machines (NTM)}
+The \textbf{space complexity} of a decidable non-deterministic TM is a function \( f: \mathbb{N} \rightarrow \mathbb{N} \), 
+where \( f(n) \) is the \textbf{maximum number of tape cells visited} by the TM \textbf{along any computational branch} for any input of size \( n \).
 
-\section*{Complexity Classes for Space}
+\section{Clarifying the Notion of ``Visited'' in Space Complexity}
 
-We now define two fundamental classes of space complexity:
+To properly analyze space complexity, we must precisely define what constitutes a ``visited'' tape cell:
 
-\subsection*{1. SPACE(\( f(n) \))}
+\begin{definition}[Visited Cell]
+A tape cell is considered \textbf{visited} if the Turing Machine's read/write head ever occupies or scans that cell during computation. Each distinct cell visited contributes exactly one unit to the space complexity, regardless of how many times it is accessed.
+\end{definition}
+
+\subsection{Contrast with Time Complexity}
+\begin{itemize}
+    \item \textbf{Space Complexity} counts only the \textit{number of distinct cells} ever accessed during computation. Multiple accesses to the same cell do not increase the space measure.
+
+    \item \textbf{Time Complexity} counts the \textit{total number of transitions} executed by the TM. Each basic operation (read, write, move, state change) constitutes one transition, regardless of whether it involves previously accessed cells.
+
+%    \item \textbf{Configuration vs Transition}: While a configuration (complete state snapshot including tape contents, head position, and control state) is useful for decidability proofs, time complexity specifically counts transitions between configurations.
+\end{itemize}
+
+\subsection{Key Implications}
+\begin{itemize}
+    \item Space complexity depends only on the \textit{maximum workspace} needed, not on how frequently cells are reused.
+
+    \item Time complexity depends on the \textit{total computation length}, counting every transition, including repeated operations on the same cells.
+
+    \item This distinction explains why some problems can have different space and time complexity classes (e.g., problems in $\text{PSPACE}$ but not $\text{P}$).
+\end{itemize}
+
+\begin{example}
+Consider a TM that writes $n$ bits by repeatedly moving back-and-forth across $O(1)$ cells:
+\begin{itemize}
+    \item Its \textit{space complexity} is $O(1)$ (fixed number of cells)
+    \item Its \textit{time complexity} is $\Omega(n)$ ($n$ transitions needed)
+\end{itemize}
+\end{example}
+
+
+
+\section{Complexity Classes for Space}
+
+We now define some fundamental classes of space complexity:
+
+\subsection{SPACE(\( f(n) \))}
 \[
-\text{SPACE}(f(n)) = \{ B \mid \text{some deterministic 1-tape TM } M \text{ decides } B \text{ in space } O(f(n)) \}
+\text{SPACE}(f(n)) = \{ B \mid \text{some deterministic 1-tape TM } M \text{ decides } B \text{ using } O(f(n)) \text{ space} \}
 \]
 A more precise name for this class is \textbf{DSPACE(\( f(n) \))}, but we will use the conventional notation.
 
-\subsection*{2. NSPACE(\( f(n) \))}
+\subsection{NSPACE(\( f(n) \))}
 \[
-\text{NSPACE}(f(n)) = \{ B \mid \text{some non-deterministic 1-tape TM } M \text{ decides } B \text{ in space } O(f(n)) \}
+\text{NSPACE}(f(n)) = \{ B \mid \text{some non-deterministic 1-tape TM } M \text{ decides } B \text{ using } O(f(n)) \text{ space} \}
 \]
 
-These classes help us categorize problems based on their \textbf{memory requirements} in deterministic and non-deterministic computation models.
+\subsection{PSPACE}
+\[
+\text{PSPACE} = \bigcup_{k \in \mathbb{N}} \text{SPACE}(n^k)
+\]
+Thus, PSPACE contains all languages decidable by a deterministic TM using \textbf{polynomial space}.
 
-\section*{Key Observations}
+\subsection{NPSPACE}
+\[
+\text{NPSPACE} = \bigcup_{k \in \mathbb{N}} \text{NSPACE}(n^k)
+\]
+Thus, NPSPACE contains all languages decidable by a non-deterministic TM using \textbf{polynomial space}.
+
+These classes help us categorize problems based on their \textbf{memory requirements} under deterministic and non-deterministic computation models.
+
+\section{Key Observations}
 \begin{itemize}
-    \item Unlike time complexity, \textbf{space can sometimes be reused}, leading to different relationships between time and space classes.
+    \item Unlike time complexity, \textbf{space can sometimes be reused}, leading to different relationships between time and space complexity classes.
     \item We will later explore important theorems, such as \textbf{Savitch's Theorem}, which connects deterministic and non-deterministic space.
 \end{itemize}
 
-This sets the foundation for deeper study into space-bounded computation.
-
-\end{document}
+This sets the foundation for a deeper study into space-bounded computation.
