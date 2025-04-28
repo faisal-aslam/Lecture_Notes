@@ -1,0 +1,56 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb}
+
+\title{Introduction to Space Complexity}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction to Space Complexity}
+
+So far, we have focused on \textbf{time complexity}. Today, we will explore \textbf{space complexity}, which measures the memory resources an algorithm uses. Space complexity is important for two key reasons:
+
+\begin{enumerate}
+    \item It quantifies the \textbf{memory consumption} of an algorithm.
+    \item If two algorithms have the \textbf{same time complexity}, but one uses more space, the latter may run slower due to higher memory overhead.
+\end{enumerate}
+
+We will only consider space complexity for \textbf{decidable Turing Machines (TMs)}, meaning they halt on all inputs. With this in mind, let's formally define space complexity.
+
+\section*{Space Complexity Definitions}
+
+\subsection*{1. Deterministic Turing Machines (DTM)}
+The \textbf{space complexity} of a decidable deterministic TM is a function \( f: \mathbb{N} \rightarrow \mathbb{N} \), where \( f(n) \) is the \textbf{maximum number of tape cells visited} by the TM on any input of size \( n \).
+
+\subsection*{2. Non-Deterministic Turing Machines (NTM)}
+The \textbf{space complexity} of a decidable non-deterministic TM is a function \( f: \mathbb{N} \rightarrow \mathbb{N} \), where \( f(n) \) is the \textbf{maximum number of tape cells visited} by the TM \textbf{on any computational branch} for any input of size \( n \).
+
+\section*{Complexity Classes for Space}
+
+We now define two fundamental classes of space complexity:
+
+\subsection*{1. SPACE(\( f(n) \))}
+\[
+\text{SPACE}(f(n)) = \{ B \mid \text{some deterministic 1-tape TM } M \text{ decides } B \text{ in space } O(f(n)) \}
+\]
+A more precise name for this class is \textbf{DSPACE(\( f(n) \))}, but we will use the conventional notation.
+
+\subsection*{2. NSPACE(\( f(n) \))}
+\[
+\text{NSPACE}(f(n)) = \{ B \mid \text{some non-deterministic 1-tape TM } M \text{ decides } B \text{ in space } O(f(n)) \}
+\]
+
+These classes help us categorize problems based on their \textbf{memory requirements} in deterministic and non-deterministic computation models.
+
+\section*{Key Observations}
+\begin{itemize}
+    \item Unlike time complexity, \textbf{space can sometimes be reused}, leading to different relationships between time and space classes.
+    \item We will later explore important theorems, such as \textbf{Savitch's Theorem}, which connects deterministic and non-deterministic space.
+\end{itemize}
+
+This sets the foundation for deeper study into space-bounded computation.
+
+\end{document}
