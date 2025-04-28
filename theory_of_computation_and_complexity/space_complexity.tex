@@ -56,7 +56,6 @@ Consider a TM that writes $n$ bits by repeatedly moving back-and-forth across $O
 \end{example}
 
 
-
 \section{Complexity Classes for Space}
 
 We now define some fundamental classes of space complexity:
@@ -86,10 +85,227 @@ Thus, NPSPACE contains all languages decidable by a non-deterministic TM using \
 
 These classes help us categorize problems based on their \textbf{memory requirements} under deterministic and non-deterministic computation models.
 
-\section{Key Observations}
+\section{Space Complexity of Multitape Turing Machines}
+
+\begin{definition}
+For a $k$-tape Turing machine $M$, its \textbf{space complexity} is the function $f: \mathbb{N} \rightarrow \mathbb{N}$ where $f(n)$ represents the 
+maximum total number of distinct cells visited across \emph{all} tapes during $M$'s computation on any input of length $n$. 
+\end{definition}
+
+\begin{theorem}[Multitape to Single-Tape Simulation]
+    Any $k$-tape Turing machine (TM) with space complexity $O(s(n))$ can be simulated by a single-tape TM with the same space complexity, 
+    i.e., $O(s(n))$, with the space only increased by a constant factor. 
+    This constant factor depends only on the number of tapes $k$, and not on the input size $n$.
+\end{theorem}
+
+    
+\section{Relationship Between Time and Space Complexity}
+
+\begin{theorem}[Time-Space Containment]
+    For any space-constructible function $t(n) \geq n$:
+    \begin{enumerate}
+        \item $\text{TIME}(t(n)) \subseteq \text{SPACE}(t(n))$ \\
+        (A machine using $t(n)$ time can visit at most $t(n)$ tape cells, hence its space usage is bounded by $t(n)$.)
+        
+        \item $\text{SPACE}(t(n)) \subseteq \text{TIME}(2^{O(t(n))})$ \\
+        (A machine using $t(n)$ space has at most $2^{O(t(n))}$ possible configurations, so it must halt within that many transitions if it halts at all.)
+    
+        \item Based on the first inclusion, we can conclude that:
+        \begin{itemize}
+            \item $P \subseteq PSPACE$
+            \item $EXPTIME \subseteq EXPSPACE$
+            \item $NP \subseteq NPSPACE$
+        \end{itemize}
+    
+        \item Based on the second inclusion, we can conclude that:
+        \begin{itemize}
+            \item $PSPACE \subseteq EXPTIME$
+            \item $NPSPACE \subseteq EXPTIME$ \\
+            (Because by Savitch’s theorem, $NPSPACE = PSPACE$, so the same time bound applies.)
+        \end{itemize}
+    \end{enumerate}    
+\end{theorem}
+
+\subsection{Explanation of the Containments}
+
+\begin{description}
+    \item[Time Bounds Space:] 
+    Each transition of a TM can access at most one new tape cell. Therefore, a machine that halts after $O(t(n))$ transitions cannot use more than $O(t(n))$ space:
+    \[
+    \text{TIME}(t(n)) \subseteq \text{SPACE}(t(n))
+    \]
+    
+    \item[Space Bounds Time via Configurations:]
+    For a TM using $O(t(n))$ space:
+    \begin{itemize}
+        \item Let $Q$ be the set of states ($|Q|$ constant)
+        \item Let $\Gamma$ be the tape alphabet ($|\Gamma|$ constant)
+        \item Number of head positions: $O(t(n))$
+        \item Number of possible tape contents: $|\Gamma|^{O(t(n))} = 2^{O(t(n))}$
+    \end{itemize}
+    Thus, the total number of distinct configurations is:
+    \[
+    |Q| \times O(t(n)) \times 2^{O(t(n))} = 2^{O(t(n))}
+    \]
+    
+    Since the machine must halt (by decidability), it cannot execute more transitions than its number of possible configurations (otherwise it would repeat a configuration and loop forever). Therefore:
+    \[
+    \text{SPACE}(t(n)) \subseteq \text{TIME}(2^{O(t(n))})
+    \]
+\end{description}
+
+\subsection{Key Observations}
 \begin{itemize}
-    \item Unlike time complexity, \textbf{space can sometimes be reused}, leading to different relationships between time and space complexity classes.
-    \item We will later explore important theorems, such as \textbf{Savitch's Theorem}, which connects deterministic and non-deterministic space.
+    \item Each transition corresponds to one unit of time complexity
+    \item The configuration count ($2^{O(t(n))}$) provides an upper bound on possible distinct transitions before halting
+    \item This explains why $\text{PSPACE} \subseteq \text{EXP}$ (problems solvable in polynomial space can require exponential time)
 \end{itemize}
 
-This sets the foundation for a deeper study into space-bounded computation.
+\section{Relationship Between NP and PSPACE}
+
+\begin{theorem}
+    $NP \subseteq PSPACE$
+\end{theorem}
+
+\begin{proof}
+The proof proceeds in the following steps:
+\begin{enumerate}
+    \item \textbf{Proof that $SAT \in PSPACE$:}  
+    Although $SAT$ is an NP-complete problem, it can be decided using polynomial space by trying all possible truth assignments sequentially without storing all of them simultaneously. We can evaluate each assignment one-by-one using only polynomial space, because storing a single assignment and checking the formula can be done within space proportional to the input size.
+
+    \item \textbf{Proof that if $A \le_p B$ and $B \in PSPACE$, then $A \in PSPACE$:}  
+    Suppose $f$ is a polynomial-time reduction from $A$ to $B$, and we have a polynomial-space algorithm for $B$. To decide if $x \in A$, we compute $f(x)$ (which requires only polynomial time, and hence polynomial space), and then decide whether $f(x) \in B$ using the polynomial-space algorithm for $B$. Thus, $A$ can be decided in polynomial space.
+
+    \item \textbf{Conclusion:}  
+    Every language $L \in NP$ is polynomial-time reducible to $SAT$ (since $SAT$ is NP-complete). By steps 1 and 2, and since polynomial-time reductions preserve membership in $PSPACE$, we conclude that $L \in PSPACE$. Hence, $NP \subseteq PSPACE$.
+\end{enumerate}
+\end{proof}
+
+\begin{theorem} $PSPACE = coPSPACE$\end{theorem}
+\begin{proof}
+    \subsection{Closure Under Complementation}
+
+\begin{theorem}[PSPACE = coPSPACE]
+The complexity class PSPACE is closed under complementation. That is:
+\[
+\text{PSPACE} = \text{coPSPACE}
+\]
+\end{theorem}
+
+\begin{proof}[Proof Sketch]
+For any language $L \in \text{PSPACE}$, let $M$ be a TM that decides $L$ using polynomial space. We can construct a machine $M'$ that decides $\overline{L}$ (the complement of $L$) as follows:
+
+\begin{enumerate}
+    \item $M'$ simulates $M$ using the same polynomial space bound $p(n)$
+    \item When $M$ would accept, $M'$ rejects
+    \item When $M$ would reject, $M'$ accepts
+    \item $M'$ maintains the same space complexity since:
+    \begin{itemize}
+        \item It uses exactly the same tape cells as $M$
+        \item The finite control only needs constant additional space to track the inverted acceptance condition
+    \end{itemize}
+\end{enumerate}
+
+The key observations are:
+\begin{itemize}
+    \item Space-bounded computation can be \textit{deterministically} complemented without increasing space usage
+    \item Unlike time complexity, we don't need to worry about "timing out" - the space bound guarantees termination
+    \item This fails for nondeterministic space classes unless Savitch's theorem gives us determinization (which it does for polynomial space)
+\end{itemize}
+\end{proof}
+
+\paragraph{Contrast with Other Complexity Classes}
+\begin{itemize}
+    \item \textbf{Time Classes:} $\text{P} = \text{coP}$ (by similar argument), but it remains unknown whether $\text{NP} = \text{coNP}$
+    \item \textbf{Logarithmic Space:} $\text{L} = \text{coL}$ (by Szelepcsényi's theorem for NSPACE)
+    \item \textbf{General Pattern:} Space-bounded classes tend to be closed under complementation, while time-bounded classes may not be
+\end{itemize}
+
+\paragraph{Significance}
+This property demonstrates an important advantage of space-bounded computation:
+\begin{itemize}
+    \item Space resources can be \textit{reused} during computation
+    \item There's no need to store computation history for complementation
+    \item Contrast with time-bounded computation where complementation might require storing or recomputing information
+\end{itemize}
+\end{proof}
+
+\begin{theorem}
+    $coNP \subseteq PSPACE$
+\end{theorem}
+
+\begin{proof}
+The proof proceeds as follows:
+\begin{enumerate}
+    \item \textbf{Fact:} It is known that $PSPACE = coPSPACE$, meaning the class of languages decidable in polynomial space is closed under 
+    complementation.
+
+    \item \textbf{Conclusion:}  
+    Since $NP \subseteq PSPACE$, taking complements yields $coNP \subseteq coPSPACE = PSPACE$.
+\end{enumerate}
+\end{proof}
+
+\section{Open Problems in Space Complexity}
+
+Space complexity theory contains several fundamental unresolved questions. Below we present the most significant open problems with their current status:
+
+\subsection{Class Containment Problems}
+
+\begin{itemize}
+    \item \textbf{$\mathbf{P}$ vs $\mathbf{PSPACE}$}
+    \begin{itemize}
+        \item[\textit{Known}:] $\mathbf{P} \subseteq \mathbf{PSPACE}$ (via space-time hierarchy)
+        \item[\textit{Open}:] Is the containment proper?
+        \item[\textit{Significance}:] Would imply all polynomial-space algorithms can be made time-efficient
+        \item[\textit{Conjecture}:] $\mathbf{P} \neq \mathbf{PSPACE}$
+    \end{itemize}
+
+    \item \textbf{$\mathbf{NP}$ vs $\mathbf{PSPACE}$}
+    \begin{itemize}
+        \item[\textit{Known}:] $\mathbf{NP} \subseteq \mathbf{PSPACE} \subseteq \mathbf{EXP}$
+        \item[\textit{Open}:] Is $\mathbf{NP} = \mathbf{PSPACE}$?
+        \item[\textit{Note}:] Resolution may require new proof techniques beyond relativization
+    \end{itemize}
+
+    \item \textbf{$\mathbf{L}$ vs $\mathbf{P}$}
+    \begin{itemize}
+        \item[\textit{Known}:] $\mathbf{L} \subseteq \mathbf{NL} \subseteq \mathbf{P}$
+        \item[\textit{Open}:] Does $\mathbf{L} = \mathbf{P}$ hold?
+        \item[\textit{Implications}:] Negative answer would confirm fundamental limits of space-restricted computation
+    \end{itemize}
+\end{itemize}
+
+\subsection{Specific Separation Problems}
+
+\begin{itemize}
+    \item \textbf{Space Hierarchy Tightness}
+    \begin{itemize}
+        \item[\textit{Theorem}:] $\mathbf{SPACE}(o(f(n))) \subsetneq \mathbf{SPACE}(f(n))$ for space-constructible $f$
+        \item[\textit{Open}:] Find natural problems in $\mathbf{SPACE}(n^2) \setminus \mathbf{SPACE}(n)$
+        \item[\textit{Recent Progress}:] Limited for sub-polynomial separations
+    \end{itemize}
+
+    \item \textbf{$\mathbf{NL}$ vs $\mathbf{L}$}
+    \begin{itemize}
+        \item[\textit{Known}:] $\mathbf{NL} = \mathbf{coNL}$ (Immerman-Szelepcsényi)
+        \item[\textit{Open}:] Does nondeterminism help in logspace?
+        \item[\textit{Approaches}:] Current attempts focus on branching programs
+    \end{itemize}
+\end{itemize}
+
+\subsection{Space-Time Tradeoffs}
+
+\begin{itemize}
+    \item \textbf{Fundamental Limits}
+    \begin{itemize}
+        \item[\textit{Key Question}:] Can SAT be solved in $n^{1+o(1)}$ space and $2^{n^{o(1)}}$ time?
+        \item[\textit{Barriers}:] Current techniques cannot rule out mild exponential time
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Research Connections} These problems relate to:
+\begin{itemize}
+    \item Circuit complexity (e.g., $\mathbf{NC}$ vs $\mathbf{P}$)
+    \item Descriptive complexity (logical characterizations)
+    \item Pseudorandomness and derandomization
+\end{itemize}
