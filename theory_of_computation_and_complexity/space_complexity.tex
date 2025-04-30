@@ -247,7 +247,37 @@ The proof proceeds as follows:
 
 \section{Open Problems in Space Complexity}
 
-Space complexity theory contains several fundamental unresolved questions. Below we present the most significant open problems with their current status:
+Space complexity theory contains several fundamental unresolved questions. Below we present the most significant open problems with their current status.
+
+Although we know that $\mathbf{NP}, \mathbf{coNP} \subseteq \mathbf{PSPACE}$, it is still unknown whether $\mathbf{NP} = \mathbf{coNP}$ or whether either of them equals $\mathbf{P}$. These inclusions help structure the complexity landscape, as illustrated in the diagram below.
+
+\begin{center}
+    \begin{tikzpicture}[scale=1.4]
+      % PSPACE - largest container
+      \draw[thick, rounded corners=12pt, fill=blue!5] (-3.2,-1.8) rectangle (3.2,1.8);
+      \node at (0,2.1) {\large\textbf{PSPACE}};
+      
+      % NP and coNP - properly contained intersecting ellipses
+      \begin{scope}
+        \clip (-1.4,-0.6) ellipse (1.8cm and 1.1cm);
+        \fill[green!8] (1.4,-0.6) ellipse (1.8cm and 1.1cm);
+      \end{scope}
+      \draw[thick] (-1.4,-0.6) ellipse (1.8cm and 1.1cm);
+      \draw[thick] (1.4,-0.6) ellipse (1.8cm and 1.1cm);
+      \node at (-2.1,-0.1) {\textbf{NP}};
+      \node at (2.1,-0.1) {\textbf{coNP}};
+      
+      % P - smallest circle in the intersection
+      \draw[thick, fill=white] (0,-0.6) circle (0.6cm);
+      \node at (0,-0.6) {\textbf{P}};
+      
+      % Right-side text explanations
+      \node[align=left, anchor=west] at (4,1.0) {$\bullet\ \mathbf{P} \subseteq \mathbf{NP} \subseteq \mathbf{PSPACE}$};
+      \node[align=left, anchor=west] at (4,0.5) {$\bullet\ \mathbf{P} \subseteq \mathbf{coNP} \subseteq \mathbf{PSPACE}$};
+      \node[align=left, anchor=west,red] at (4,0.0) {$\bullet\ \mathbf{NP} \stackrel{?}{=} \mathbf{coNP}$ (Open)};
+      \node[align=left, anchor=west,red] at (4,-0.5) {$\bullet\ \mathbf{P} \stackrel{?}{=} \mathbf{NP}$ (Open)};
+    \end{tikzpicture}
+\end{center}
 
 \subsection{Class Containment Problems}
 
@@ -309,3 +339,282 @@ Space complexity theory contains several fundamental unresolved questions. Below
     \item Descriptive complexity (logical characterizations)
     \item Pseudorandomness and derandomization
 \end{itemize}
+
+\section{The Complexity of TQBF}
+
+\subsection{Basic Properties and PSPACE Membership}
+
+\begin{definition}[TQBF]
+\texttt{TQBF} (True Quantified Boolean Formula) is the set of fully quantified Boolean formulas of the form:
+\[
+\Phi = Q_1 x_1 \; Q_2 x_2 \; \dots \; Q_n x_n \; \phi(x_1, x_2, \dots, x_n)
+\]
+where:
+\begin{itemize}
+    \item Each $Q_i \in \{\exists, \forall\}$ is a quantifier,
+    \item $\phi$ is a propositional Boolean formula over the variables $x_1, \dots, x_n$,
+    \item Every variable appears within the scope of its quantifier.
+\end{itemize}
+The goal is to determine whether $\Phi$ evaluates to true.
+\end{definition}
+
+\begin{theorem}
+\texttt{TQBF} $\in$ \texttt{PSPACE}.
+\end{theorem}
+
+\begin{proof}
+We describe a recursive algorithm to evaluate a fully quantified Boolean formula:
+\begin{enumerate}
+    \item If $\Phi$ has no quantifiers, evaluate $\phi$ directly under the current assignment
+    \item For $\Phi = Qx \; \Psi$:
+    \begin{itemize}
+        \item Recursively evaluate $\Psi$ with $x=0$ and $x=1$
+        \item Return $\text{Eval}(\Psi|_{x=0}) \lor \text{Eval}(\Psi|_{x=1})$ if $Q = \exists$
+        \item Return $\text{Eval}(\Psi|_{x=0}) \land \text{Eval}(\Psi|_{x=1})$ if $Q = \forall$
+    \end{itemize}
+\end{enumerate}
+
+\paragraph{Space Analysis:}
+\begin{itemize}
+    \item Depth of recursion: $n$ (number of variables)
+    \item Space per frame: $O(1)$ (current variable assignment)
+    \item Total space: $O(n)$
+\end{itemize}
+Thus, \texttt{TQBF} can be decided in polynomial space.
+\end{proof}
+
+\subsection{NP-Completeness of TQBF}
+
+\begin{theorem}
+The restricted version of \texttt{TQBF} with only existential quantifiers is \texttt{NP}-complete.
+\end{theorem}
+
+\begin{proof}
+We show $\exists$-TQBF is \texttt{NP}-complete:
+
+\paragraph{Membership in NP:}
+\begin{itemize}
+    \item For $\exists x_1 \cdots \exists x_n \phi(x_1,\ldots,x_n)$:
+    \item Guess values for $x_1,\ldots,x_n$ (polynomial size certificate)
+    \item Verify $\phi$ in polynomial time
+\end{itemize}
+
+\paragraph{NP-Hardness:}
+\begin{itemize}
+    \item Standard \texttt{SAT} reduces to $\exists$-TQBF:
+    \item Given CNF $\phi$, view it as $\exists x_1 \cdots \exists x_n \phi(x_1,\ldots,x_n)$
+    \item $\phi$ is satisfiable iff the quantified formula is true
+\end{itemize}
+
+Thus, $\exists$-TQBF captures the full complexity of \texttt{NP}.
+\end{proof}
+
+\subsection{Visualizing the Recursive Evaluation}
+
+\begin{center}
+\begin{tikzpicture}[
+    level distance=1.5cm,
+    level 1/.style={sibling distance=4cm},
+    level 2/.style={sibling distance=2.5cm},
+    every node/.style={draw, rounded corners, align=center}]
+  
+  \node {$\exists x$}
+    child {
+        node {$\forall y$}
+        child {node[rectangle] {$(0 \lor 0)$\\$\rightarrow 0$}}
+        child {node[rectangle] {$(0 \lor 1)$\\$\rightarrow 1$}}}
+    child {
+        node {$\forall y$}
+        child {node[rectangle] {$(1 \lor 0)$\\$\rightarrow 1$}}
+        child {node[rectangle] {$(1 \lor 1)$\\$\rightarrow 1$}}};
+  
+  \node[draw=none] at (0,-4.5) {
+    Result: $\exists x\forall y(x\lor y)$ is true since right subtree satisfies $\forall y$
+  };
+\end{tikzpicture}
+\end{center}
+
+\subsection{Space Efficiency}
+
+Key observations about the algorithm:
+\begin{itemize}
+    \item \textbf{Depth-first evaluation}: Only one path active at any time
+    \item \textbf{Space reuse}: Each completed subtree's space is reclaimed
+    \item \textbf{Constant overhead}: Per recursive call uses $O(1)$ space
+    \item \textbf{Total space}: $O(n)$ for $n$ variables
+\end{itemize}
+
+This shows how \texttt{TQBF} can be in \texttt{PSPACE} despite the exponential recursion tree.
+
+    
+\section{The Ladder Problem}
+
+\begin{definition}[Ladder Problem]
+The \emph{Ladder Problem} refers to the question: \emph{Given two space bounds $f(n)$ and $g(n)$ where $f(n) = o(g(n))$, does it hold that $\mathbf{SPACE}(f(n)) \subsetneq \mathbf{SPACE}(g(n))$?}
+
+In other words, are there problems that require strictly more space than $f(n)$, but can be solved within $g(n)$ space?
+\end{definition}
+
+\begin{theorem}[Space Hierarchy Theorem (Ladder Theorem)]
+Let $f(n)$ be a space-constructible function. Then there exists a language $L$ such that:
+\[
+L \in \mathbf{SPACE}(f(n)) \setminus \bigcup_{g(n) = o(f(n))} \mathbf{SPACE}(g(n)).
+\]
+That is, $\mathbf{SPACE}(o(f(n))) \subsetneq \mathbf{SPACE}(f(n))$.
+\end{theorem}
+
+\begin{proof}
+The proof uses diagonalization. We construct a language $L$ that cannot be computed in space $o(f(n))$, but can be computed in $O(f(n))$ space.
+
+Let $f(n)$ be a space-constructible function. This means we can design a Turing machine that, on input $1^n$, uses exactly $f(n)$ space.
+
+We construct a language $L$ that "diagonalizes" against all Turing machines $M_1, M_2, M_3, \dots$ that run in $o(f(n))$ space.
+
+On input $x$, the machine $D$ (deciding $L$) proceeds as follows:
+\begin{enumerate}
+    \item Compute $f(|x|)$ (possible due to space-constructibility).
+    \item Simulate $M_{\#(x)}$ on input $x$, where $\#(x)$ is the Gödel number of $x$.
+    \item If $M_{\#(x)}(x)$ accepts within $f(|x|)$ space, then $D$ rejects; otherwise, $D$ accepts.
+\end{enumerate}
+
+This construction ensures that $L$ differs from each $M_i$ on at least one input—specifically, its own index. Thus, $L$ cannot be decided by any machine running in $o(f(n))$ space.
+
+\paragraph{Space Used:} All of the above can be implemented within $O(f(n))$ space: computing $f(n)$, simulating a machine up to $f(n)$ space, and inverting its result.
+
+Hence, $L \in \mathbf{SPACE}(f(n))$ but $L \notin \mathbf{SPACE}(o(f(n)))$.
+
+\end{proof}
+
+\begin{remark}
+This theorem justifies the term ``ladder'' because space complexity classes form a proper hierarchy as we increase the available space. That is:
+\[
+\mathbf{SPACE}(\log n) \subsetneq \mathbf{SPACE}(n) \subsetneq \mathbf{SPACE}(n^2) \subsetneq \dots
+\]
+as long as the space bounds are space-constructible and differ asymptotically.
+\end{remark}
+
+\section{Savitch's Theorem}
+
+\begin{theorem}[Savitch's Theorem]
+For any function $f(n) \geq \log n$ that is space-constructible,
+\[
+\texttt{NSPACE}(f(n)) \subseteq \texttt{DSPACE}(f(n)^2).
+\]
+\end{theorem}
+
+\begin{remark}
+Savitch's Theorem shows that nondeterministic space is not much more powerful than deterministic space. In particular, it implies that:
+\[
+\texttt{PSPACE} = \texttt{NPSPACE}.
+\]
+This is in stark contrast with time complexity, where it is widely conjectured that $\texttt{P} \ne \texttt{NP}$.
+\end{remark}
+
+\begin{proof}
+We describe a deterministic algorithm that simulates a nondeterministic Turing machine (NTM) using only $O(f(n)^2)$ space.
+
+Let $M$ be a nondeterministic Turing machine that operates in $f(n)$ space on input $x$ of length $n$. Let $C_1$ and $C_2$ be two configurations of $M$ on input $x$.
+
+We define a recursive procedure:
+\[
+\texttt{REACH}(C_1, C_2, t)
+\]
+which returns true if there is a computation path from $C_1$ to $C_2$ in at most $t$ steps.
+
+\paragraph{Base Case:} If $t = 1$, return true iff $C_2$ is directly reachable from $C_1$ in one step.
+
+\paragraph{Recursive Case:} If $t > 1$, we guess a middle configuration $C_m$ and check:
+\[
+\texttt{REACH}(C_1, C_m, \lfloor t/2 \rfloor) \text{ and } \texttt{REACH}(C_m, C_2, \lceil t/2 \rceil)
+\]
+We try all possible $C_m$. The total number of configurations is at most $2^{O(f(n))}$ since each configuration uses at most $f(n)$ space.
+
+\paragraph{Space Analysis:}
+\begin{itemize}
+    \item Each recursive call stores $C_1$, $C_2$, $t$, and the guessed $C_m$, requiring $O(f(n))$ space per call.
+    \item The recursion depth is $O(\log t)$, and $t \leq 2^{O(f(n))}$.
+    \item Therefore, total space is $O(f(n) \cdot \log t) = O(f(n)^2)$.
+\end{itemize}
+
+Thus, a deterministic Turing machine can simulate the NTM using $O(f(n)^2)$ space.
+\end{proof}
+
+\begin{remark}
+The key insight is that while time is inherently sequential and expensive to simulate deterministically, space can be reused. Savitch's algorithm uses divide-and-conquer to recursively check for reachability in the configuration graph of the machine.
+\end{remark}
+
+
+\section{The Classes \textsf{L} and \textsf{NL}}
+
+\subsection{Definitions}
+
+\begin{definition}[Logarithmic Space Complexity]
+Let $M$ be a Turing machine with:
+\begin{itemize}
+    \item A read-only input tape
+    \item A read/write work tape
+    \item (For nondeterministic machines) A read-once witness tape
+\end{itemize}
+We say $M$ operates in \emph{logarithmic space} if it uses at most $O(\log n)$ cells on its work tape(s) for inputs of size $n$.
+\end{definition}
+
+\begin{definition}[The Class \textsf{L}]
+\textsf{L} is the class of languages decidable by deterministic Turing machines in logarithmic space.
+\end{definition}
+
+\begin{definition}[The Class \textsf{NL}]
+\textsf{NL} is the class of languages decidable by nondeterministic Turing machines in logarithmic space.
+\end{definition}
+
+\subsection{Key Results}
+
+\begin{theorem}[Basic Relationships]
+The logarithmic space classes satisfy:
+\[
+\textsf{L} \subseteq \textsf{NL} \subseteq \textsf{P} \subseteq \textsf{NP}
+\]
+\end{theorem}
+
+\begin{theorem}[Immerman-Szelepcsényi]
+\textsf{NL} = \textsf{coNL}, demonstrating that nondeterministic logarithmic space is closed under complement.
+\end{theorem}
+
+\subsection{Complete Problems}
+
+\begin{itemize}
+    \item \textsf{L}-complete: 
+    \begin{itemize}
+        \item Undirected $s$-$t$ connectivity (USTCON)
+        \item Deterministic acyclic automaton emptiness
+    \end{itemize}
+    
+    \item \textsf{NL}-complete:
+    \begin{itemize}
+        \item Directed $s$-$t$ connectivity (STCON)
+        \item 2SAT (satisfiability of 2-CNF formulas)
+    \end{itemize}
+\end{itemize}
+
+\subsection{Algorithmic Techniques}
+
+\begin{example}[Reachability in \textsf{NL}]
+The STCON problem can be solved by:
+\begin{algorithmic}[1]
+\STATE Initialize $c \gets s$ (current vertex)
+\FOR{$i \gets 1$ to $n$}
+\STATE Nondeterministically choose neighbor $v$ of $c$
+\STATE $c \gets v$
+\IF{$c = t$} \RETURN true \ENDIF
+\ENDFOR
+\RETURN false
+\end{algorithmic}
+This uses $O(\log n)$ space to track the current vertex.
+\end{example}
+
+\subsection{Open Problems}
+
+\begin{itemize}
+    \item Does \textsf{L} = \textsf{NL}? (Widely believed to be false)
+    \item Is \textsf{NL} = \textsf{P}? (Related to whether we can derandomize space-bounded computation)
+\end{itemize}
+
