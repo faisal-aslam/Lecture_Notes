@@ -364,51 +364,98 @@ The goal is to determine whether $\Phi$ evaluates to true.
 
 \begin{proof}
 We describe a recursive algorithm to evaluate a fully quantified Boolean formula:
+
 \begin{enumerate}
-    \item If $\Phi$ has no quantifiers, evaluate $\phi$ directly under the current assignment
-    \item For $\Phi = Qx \; \Psi$:
+    \item If $\Phi$ has no quantifiers, evaluate the propositional formula $\phi$ directly under the current variable assignment.
+    \item Otherwise, let $\Phi = Qx \; \Psi$ where $Q \in \{\exists, \forall\}$ and $\Psi$ is the subformula.
     \begin{itemize}
-        \item Recursively evaluate $\Psi$ with $x=0$ and $x=1$
-        \item Return $\text{Eval}(\Psi|_{x=0}) \lor \text{Eval}(\Psi|_{x=1})$ if $Q = \exists$
-        \item Return $\text{Eval}(\Psi|_{x=0}) \land \text{Eval}(\Psi|_{x=1})$ if $Q = \forall$
+        \item Recursively evaluate $\Psi$ with $x = 0$ and $x = 1$.
+        \item If $Q = \exists$, return \texttt{true} if at least one of the two recursive calls returns \texttt{true}.
+        \item If $Q = \forall$, return \texttt{true} only if both recursive calls return \texttt{true}.
     \end{itemize}
 \end{enumerate}
 
-\paragraph{Space Analysis:}
+\paragraph{Time vs Space Clarification:}
+This algorithm makes up to $2^n$ recursive calls due to the binary branching at each quantifier. So the \textbf{time complexity is exponential} in $n$.
+
+However, at any point in the execution, only \textbf{one branch of the recursion} is being explored. Hence, we only need to store:
 \begin{itemize}
-    \item Depth of recursion: $n$ (number of variables)
-    \item Space per frame: $O(1)$ (current variable assignment)
-    \item Total space: $O(n)$
+    \item the current variable assignment (one bit per variable),
+    \item the current position in the recursion (call stack frame).
 \end{itemize}
-Thus, \texttt{TQBF} can be decided in polynomial space.
+
+Thus:
+\begin{itemize}
+    \item The depth of the recursion is at most $n$ (one level per quantifier).
+    \item Each call uses $O(\text{poly}(n))$ space to store the variable value and local data.
+    \item Total space used is $O(n \cdot \text{poly}(n)) = \text{poly}(n)$.
+\end{itemize}
+
+\paragraph{Analogy for Students:} 
+Think of a depth-first search in a binary tree of depth $n$: it visits $2^n$ nodes, but only needs $O(n)$ space because it explores only one path at a time. Similarly, our TQBF algorithm never holds the entire tree in memory — only the current path being evaluated.
+
+\paragraph{Conclusion:}
+The algorithm correctly determines the truth of any fully quantified Boolean formula using only polynomial space. Hence:
+\[
+\texttt{TQBF} \in \texttt{PSPACE}.
+\]
 \end{proof}
 
-\subsection{NP-Completeness of TQBF}
-
-\begin{theorem}
-The restricted version of \texttt{TQBF} with only existential quantifiers is \texttt{NP}-complete.
-\end{theorem}
-
-\begin{proof}
-We show $\exists$-TQBF is \texttt{NP}-complete:
-
-\paragraph{Membership in NP:}
-\begin{itemize}
-    \item For $\exists x_1 \cdots \exists x_n \phi(x_1,\ldots,x_n)$:
-    \item Guess values for $x_1,\ldots,x_n$ (polynomial size certificate)
-    \item Verify $\phi$ in polynomial time
-\end{itemize}
-
-\paragraph{NP-Hardness:}
-\begin{itemize}
-    \item Standard \texttt{SAT} reduces to $\exists$-TQBF:
-    \item Given CNF $\phi$, view it as $\exists x_1 \cdots \exists x_n \phi(x_1,\ldots,x_n)$
-    \item $\phi$ is satisfiable iff the quantified formula is true
-\end{itemize}
-
-Thus, $\exists$-TQBF captures the full complexity of \texttt{NP}.
-\end{proof}
-
+\begin{definition}[PSPACE-Completeness]
+    A language $L$ is \textbf{PSPACE-complete} if:
+    \begin{enumerate}
+        \item $L \in \texttt{PSPACE}$, and
+        \item For every language $A \in \texttt{PSPACE}$, there exists a polynomial-time computable function $f$ such that:
+        \[
+        x \in A \iff f(x) \in L.
+        \]
+    \end{enumerate}
+    That is, every PSPACE problem reduces to $L$ under a polynomial-time reduction.
+    \end{definition}
+    
+    \begin{theorem}
+    \texttt{TQBF} is \texttt{PSPACE}-complete.
+    \end{theorem}
+    
+    \begin{proof}
+    We already proved that $\texttt{TQBF} \in \texttt{PSPACE}$.
+    
+    To show completeness, we need to show that any language $A \in \texttt{PSPACE}$ can be reduced to $\texttt{TQBF}$ in polynomial time.
+    
+    Let $M$ be a deterministic Turing machine that decides $A$ in polynomial space, say space $n^k$ on inputs of length $n$. The idea is to construct, given an input $x$, a fully quantified Boolean formula $\Phi_x$ that is true if and only if $M$ accepts $x$.
+    
+    \paragraph{High-Level Idea:}
+    We encode the computation of $M$ on input $x$ as a sequence of configurations and construct a formula that checks whether there exists a valid accepting computation path. This technique is known as the \emph{configuration graph} approach.
+    
+    \paragraph{Key Steps:}
+    \begin{itemize}
+        \item A configuration consists of the current state, tape contents, and head position.
+        \item Since $M$ uses at most $n^k$ space, the total number of configurations is at most $2^{O(n^k)}$.
+        \item Construct a Boolean formula $\phi_{\text{reach}}(C_{\text{start}}, C_{\text{accept}}, t)$ that is true iff $C_{\text{accept}}$ is reachable from $C_{\text{start}}$ in $t$ steps.
+        \item Use a recursive formula similar to Savitch’s Theorem:
+        \[
+        \text{Reach}(C_1, C_2, t) =
+        \begin{cases}
+            \text{true} & \text{if } t = 1 \text{ and } C_1 \vdash C_2 \\
+            \exists C_m \; \big(\text{Reach}(C_1, C_m, t/2) \land \text{Reach}(C_m, C_2, t/2)\big) & \text{if } t > 1
+        \end{cases}
+        \]
+        \item This recursion can be encoded into a quantified Boolean formula of polynomial size.
+    \end{itemize}
+    
+    \paragraph{Result:}
+    The formula $\Phi_x$ can be constructed in polynomial time, and it is true iff $M$ accepts $x$. Thus:
+    \[
+    x \in A \iff \Phi_x \in \texttt{TQBF}.
+    \]
+    
+    \paragraph{Conclusion:}
+    Every problem in \texttt{PSPACE} can be reduced to \texttt{TQBF} in polynomial time. Therefore:
+    \[
+    \texttt{TQBF} \text{ is } \texttt{PSPACE}\text{-complete}.
+    \]
+    \end{proof}
+    
 \subsection{Visualizing the Recursive Evaluation}
 
 \begin{center}
@@ -446,52 +493,6 @@ Key observations about the algorithm:
 
 This shows how \texttt{TQBF} can be in \texttt{PSPACE} despite the exponential recursion tree.
 
-    
-\section{The Ladder Problem}
-
-\begin{definition}[Ladder Problem]
-The \emph{Ladder Problem} refers to the question: \emph{Given two space bounds $f(n)$ and $g(n)$ where $f(n) = o(g(n))$, does it hold that $\mathbf{SPACE}(f(n)) \subsetneq \mathbf{SPACE}(g(n))$?}
-
-In other words, are there problems that require strictly more space than $f(n)$, but can be solved within $g(n)$ space?
-\end{definition}
-
-\begin{theorem}[Space Hierarchy Theorem (Ladder Theorem)]
-Let $f(n)$ be a space-constructible function. Then there exists a language $L$ such that:
-\[
-L \in \mathbf{SPACE}(f(n)) \setminus \bigcup_{g(n) = o(f(n))} \mathbf{SPACE}(g(n)).
-\]
-That is, $\mathbf{SPACE}(o(f(n))) \subsetneq \mathbf{SPACE}(f(n))$.
-\end{theorem}
-
-\begin{proof}
-The proof uses diagonalization. We construct a language $L$ that cannot be computed in space $o(f(n))$, but can be computed in $O(f(n))$ space.
-
-Let $f(n)$ be a space-constructible function. This means we can design a Turing machine that, on input $1^n$, uses exactly $f(n)$ space.
-
-We construct a language $L$ that "diagonalizes" against all Turing machines $M_1, M_2, M_3, \dots$ that run in $o(f(n))$ space.
-
-On input $x$, the machine $D$ (deciding $L$) proceeds as follows:
-\begin{enumerate}
-    \item Compute $f(|x|)$ (possible due to space-constructibility).
-    \item Simulate $M_{\#(x)}$ on input $x$, where $\#(x)$ is the Gödel number of $x$.
-    \item If $M_{\#(x)}(x)$ accepts within $f(|x|)$ space, then $D$ rejects; otherwise, $D$ accepts.
-\end{enumerate}
-
-This construction ensures that $L$ differs from each $M_i$ on at least one input—specifically, its own index. Thus, $L$ cannot be decided by any machine running in $o(f(n))$ space.
-
-\paragraph{Space Used:} All of the above can be implemented within $O(f(n))$ space: computing $f(n)$, simulating a machine up to $f(n)$ space, and inverting its result.
-
-Hence, $L \in \mathbf{SPACE}(f(n))$ but $L \notin \mathbf{SPACE}(o(f(n)))$.
-
-\end{proof}
-
-\begin{remark}
-This theorem justifies the term ``ladder'' because space complexity classes form a proper hierarchy as we increase the available space. That is:
-\[
-\mathbf{SPACE}(\log n) \subsetneq \mathbf{SPACE}(n) \subsetneq \mathbf{SPACE}(n^2) \subsetneq \dots
-\]
-as long as the space bounds are space-constructible and differ asymptotically.
-\end{remark}
 
 \section{Savitch's Theorem}
 
@@ -566,51 +567,6 @@ We say $M$ operates in \emph{logarithmic space} if it uses at most $O(\log n)$ c
 \textsf{NL} is the class of languages decidable by nondeterministic Turing machines in logarithmic space.
 \end{definition}
 
-\subsection{Key Results}
-
-\begin{theorem}[Basic Relationships]
-The logarithmic space classes satisfy:
-\[
-\textsf{L} \subseteq \textsf{NL} \subseteq \textsf{P} \subseteq \textsf{NP}
-\]
-\end{theorem}
-
-\begin{theorem}[Immerman-Szelepcsényi]
-\textsf{NL} = \textsf{coNL}, demonstrating that nondeterministic logarithmic space is closed under complement.
-\end{theorem}
-
-\subsection{Complete Problems}
-
-\begin{itemize}
-    \item \textsf{L}-complete: 
-    \begin{itemize}
-        \item Undirected $s$-$t$ connectivity (USTCON)
-        \item Deterministic acyclic automaton emptiness
-    \end{itemize}
-    
-    \item \textsf{NL}-complete:
-    \begin{itemize}
-        \item Directed $s$-$t$ connectivity (STCON)
-        \item 2SAT (satisfiability of 2-CNF formulas)
-    \end{itemize}
-\end{itemize}
-
-\subsection{Algorithmic Techniques}
-
-\begin{example}[Reachability in \textsf{NL}]
-The STCON problem can be solved by:
-\begin{algorithmic}[1]
-\STATE Initialize $c \gets s$ (current vertex)
-\FOR{$i \gets 1$ to $n$}
-\STATE Nondeterministically choose neighbor $v$ of $c$
-\STATE $c \gets v$
-\IF{$c = t$} \RETURN true \ENDIF
-\ENDFOR
-\RETURN false
-\end{algorithmic}
-This uses $O(\log n)$ space to track the current vertex.
-\end{example}
-
 \subsection{Open Problems}
 
 \begin{itemize}
@@ -618,3 +574,70 @@ This uses $O(\log n)$ space to track the current vertex.
     \item Is \textsf{NL} = \textsf{P}? (Related to whether we can derandomize space-bounded computation)
 \end{itemize}
 
+\section{Space Complexity of LADDER Problem}
+
+\subsection{Problem Definition}
+The \boldmath$LADDER_{DFA}$ problem consists of:
+\begin{itemize}
+    \item A deterministic finite automaton (DFA) $D = (Q, \Sigma, \delta, q_0, F)$
+    \item Two strings $s$ and $t$ of equal length $n$ over $\Sigma$
+\end{itemize}
+We must decide if there exists a sequence of strings from $s$ to $t$ where:
+\begin{enumerate}
+    \item Each intermediate string is accepted by $D$
+    \item Consecutive strings differ in exactly one character position
+\end{enumerate}
+
+\subsection*{Recursive Algorithm for \boldmath$LADDER_{DFA}$}
+
+Let $\texttt{isReachable}(x, t, d)$ be a recursive function that returns \texttt{true} if string $t$ is reachable from string $x$ using a ladder of at most $d$ steps, such that all intermediate strings are in $L(D)$ and each step changes exactly one character.
+
+\begin{algorithm}[H]
+\caption{Recursive Reachability Check}
+\begin{algorithmic}[1]
+\Function{isReachable}{$x, t, d$}
+    \If{$x = t$}
+        \State \Return true
+    \EndIf
+    \If{$d = 0$}
+        \State \Return false
+    \EndIf
+    \For{each string $y$ such that $y$ differs from $x$ in exactly one position}
+        \If{$y \in L(D)$}
+            \If{\Call{isReachable}{$y, t, d-1$}}
+                \State \Return true
+            \EndIf
+        \EndIf
+    \EndFor
+    \State \Return false
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Main idea:} Call \texttt{isReachable}($s, t, |\Sigma|^n$), the maximum number of ladder steps possible. In practice, a tighter bound suffices (e.g., $n \cdot (|\Sigma| - 1)$), but exponential bounds still allow a PSPACE algorithm if space is carefully bounded.
+
+\subsection*{Why the Algorithm is in PSPACE}
+
+To prove that the recursive algorithm runs in PSPACE, observe the following:
+
+\begin{itemize}
+    \item The input strings $x$ and $t$ are each of length $n$.
+    \item Each recursive call adds only a small amount of space: $O(n)$ to store the current string and loop variables.
+    \item The maximum recursion depth is at most $|\Sigma|^n$, but **we do not store the whole path**, only one string per level.
+    \item Each string’s membership in $L(D)$ can be checked in polynomial time using the DFA.
+    \item The space used is proportional to the maximum depth of the call stack multiplied by the space used per call. However, since we recompute neighbors on the fly and don’t store the full graph or path, we reuse space.
+\end{itemize}
+
+Thus, we are performing a depth-first search over an implicitly defined exponential-size graph, but without storing the graph or the visited set explicitly.
+
+\subsubsection*{Savitch’s Theorem Connection}
+
+Savitch’s Theorem states that for any function $f(n) \ge \log n$,
+\[
+NSPACE(f(n)) \subseteq DSPACE(f(n)^2)
+\]
+Since reachability in this exponential graph can be done nondeterministically in $O(n)$ space (guess the next string, check $L(D)$ membership), it can be done deterministically in $O(n^2)$ space.
+
+\subsection*{Conclusion}
+
+Even though the number of possible paths is exponential, the algorithm checks them one at a time using depth-first recursion and polynomial space per call. Thus, the recursive algorithm for $LADDER_{DFA}$ runs in PSPACE.
