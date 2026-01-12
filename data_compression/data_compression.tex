@@ -20,6 +20,12 @@
 \usepackage{tikz}
 \usepackage{float}  % Added for better float control
 \usepackage{tabularx}
+\usepackage{amsthm}
+
+\newtheorem{theorem}{Theorem}
+
+\usepackage{mathtools} % Bonus
+\DeclarePairedDelimiter\norm\lVert\rVert
 
 \lstset{
     basicstyle=\ttfamily\footnotesize,
@@ -79,8 +85,8 @@
 \end{center}
 
 
-\section*{Lecture 1: Introduction to Data Compression}
-\subsection*{Learning Objectives}
+\section{Lecture 1: Introduction to Data Compression}
+\subsection{Learning Objectives}
 By the end of this lecture, students will be able to:
 \begin{itemize}[leftmargin=*]
     \item Define data compression and explain its practical importance with real-world examples
@@ -420,7 +426,7 @@ Z & 0.0007 & 10.48 & 0.007 \\
 
     \textbf{Example}: For English letters ($H = 4.18$ bits):
     \begin{itemize}
-        \item Impossible: Average < 4.18 bits/letter
+        \item Impossible: Average $<$ 4.18 bits/letter
         \item Possible but wasteful: 8 bits/letter (ASCII)
         \item Good: 4.3 bits/letter (Huffman)
         \item Approaching limit: 4.19 bits/letter (Arithmetic with context)
@@ -434,15 +440,16 @@ Z & 0.0007 & 10.48 & 0.007 \\
     \item \textbf{Requirements}: Lossless, fast random access, incremental updates
     \item \textbf{Challenges}: Small files, need for searching within compressed data
     \item \textbf{Solutions}: gzip (DEFLATE), LZ4, Zstandard
-    \begin{examplebox}
-    \textbf{Git Version Control}: Uses zlib (DEFLATE) for compression:
-    \begin{itemize}
-        \item Stores each file version compressed separately
-        \item Achieves 2:1 to 10:1 compression on source code
-        \item Fast decompression for diffs and merges
-        \item Example: Linux kernel repository: 4 GB uncompressed, ~1 GB compressed
-    \end{itemize}
-    \end{examplebox}
+   \begin{examplebox}
+\textbf{Git Version Control}: Uses zlib (DEFLATE) and delta compression:
+\begin{itemize}
+    \item Stores file versions as compressed objects
+    \item Applies delta compression for similar versions (packfiles)
+    \item Exploits low \emph{conditional entropy} between revisions
+    \item Example: Linux kernel repository: $\sim$4\,GB raw, $\sim$1\,GB stored
+\end{itemize}
+\end{examplebox}
+
 \end{itemize}
 
 \subsubsection{Multimedia Compression}
@@ -697,320 +704,463 @@ In the next lecture, we will dive deeper into:
 \end{importantbox}
 
 
-\section*{Lecture 2: Shannon's Source Coding and Prefix Codes}
-\subsection*{Learning Objectives}
+%---------------------------- End of lecture 1
+
+
+\section{Lecture 2: Shannon's Source Coding Theorem and Kraft-McMillan Inequality}
+\subsection{Learning Objectives}
 By the end of this lecture, students will be able to:
 \begin{itemize}[leftmargin=*]
-    \item State and interpret Shannon's Source Coding Theorem
-    \item Apply the Kraft-McMillan inequality to validate prefix codes
-    \item Construct prefix codes and understand their properties
-    \item Explain the relationship between entropy and achievable compression
-    \item Calculate code efficiency and redundancy
+    \item Formally state and prove Shannon's Source Coding Theorem for discrete memoryless sources
+    \item Apply the Kraft-McMillan inequality to characterize uniquely decodable codes
+    \item Construct optimal prefix codes and analyze their properties
+    \item Derive and interpret the relationship between entropy and achievable compression rates
+    \item Compute code efficiency, redundancy, and performance bounds
+    \item Understand the mathematical foundations of lossless compression limits
 \end{itemize}
 
-\subsection{Shannon's Source Coding Theorem}
+\subsection{Mathematical Preliminaries and Notation}
+Let $X$ be a discrete random variable taking values in alphabet $\mathcal{X} = \{x_1, x_2, \ldots, x_m\}$ with probability mass function $p(x) = \Pr(X = x)$.
+
 \begin{definitionbox}
-\textbf{Shannon's Source Coding Theorem (First Theorem)}: For any discrete memoryless source with entropy $H(X)$, the expected code length $L$ of any uniquely decodable code satisfies:
+\textbf{Source Code}: A mapping $C: \mathcal{X} \to \mathcal{D}^*$ where $\mathcal{D} = \{0, 1\}$ is the code alphabet, and $\mathcal{D}^*$ is the set of all finite binary strings. The code $C$ assigns to each symbol $x_i$ a codeword $c_i$ of length $\ell_i = |c_i|$.
+\end{definitionbox}
+
+\subsubsection{Expected Code Length}
+For a source with probabilities $p_1, p_2, \ldots, p_m$ and corresponding codeword lengths $\ell_1, \ell_2, \ldots, \ell_m$, the expected code length is:
+\[
+L(C) = \mathbb{E}[\ell(X)] = \sum_{i=1}^m p_i \ell_i
+\]
+
+\subsection{Shannon's Source Coding Theorem: Formal Statement}
+\begin{definitionbox}
+\textbf{Shannon's Source Coding Theorem (1948)}: For any discrete memoryless source $X$ with entropy $H(X)$ and any uniquely decodable code $C$, the expected length $L(C)$ satisfies:
+\[
+H(X) \leq L(C) < H(X) + 1
+\]
+Moreover, for the $n$th extension of the source (coding $n$ symbols together), there exists a uniquely decodable code $C_n$ such that:
+\[
+\frac{1}{n} L(C_n) \to H(X) \quad \text{as } n \to \infty
+\]
+\end{definitionbox}
+
+\subsubsection{Interpretation and Significance}
+\begin{itemize}
+    \item \textbf{Fundamental Limit}: $H(X)$ bits/symbol is the absolute minimum for lossless compression
+    \item \textbf{Achievability}: We can get arbitrarily close to this limit by coding in blocks
+    \item \textbf{Penalty Term}: The "+1" represents overhead from integer codeword lengths
+\end{itemize}
+
+\begin{examplebox}
+\textbf{Binary Source Analysis}: Consider a binary source with $P(0) = p$, $P(1) = 1-p$:
+\begin{itemize}
+    \item Entropy: $H(p) = -p\log_2 p - (1-p)\log_2(1-p)$
+    \item For $p = 0.1$: $H(0.1) \approx 0.469$ bits/symbol
+    \item Theorem guarantees: $0.469 \leq L < 1.469$ bits/symbol
+    \item Simple code: 0→0, 1→1 gives $L = 1$ bit/symbol (efficiency 46.9\%)
+    \item Block coding can approach 0.469 bits/symbol
+\end{itemize}
+\end{examplebox}
+
+\subsection{Code Classification and Properties}
+\subsubsection{Hierarchical Classification of Codes}
+\begin{center}
+\textbf{Hierarchy of Codes:}
+
+\medskip
+\begin{tabular}{c}
+All Codes \\
+$\downarrow$ \\
+Non-singular Codes \\
+$\downarrow$ \\
+Uniquely Decodable Codes \\
+$\downarrow$ \\
+Prefix Codes
+\end{tabular}
+\end{center}
+
+
+\subsubsection{Formal Definitions}
+\begin{enumerate}
+    \item \textbf{Non-singular}: $C(x_i) \neq C(x_j)$ for $i \neq j$
+    \item \textbf{Uniquely Decodable}: Extension $C^n$ is non-singular for all $n$
+    \item \textbf{Prefix (Instantaneous)}: No codeword is a prefix of another
+\end{enumerate}
+
+\begin{examplebox}
+\textbf{Code Classification Examples}:
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Code} & \textbf{Mapping} & \textbf{Singular?} & \textbf{Uniquely Decodable?} & \textbf{Prefix?} \\
+\hline
+$C_1$ & a→0, b→0, c→1 & Yes & No & No \\
+\hline
+$C_2$ & a→0, b→01, c→11 & No & No & No \\
+\hline
+$C_3$ & a→0, b→01, c→011 & No & Yes & No \\
+\hline
+$C_4$ & a→0, b→10, c→110 & No & Yes & Yes \\
+\hline
+\end{tabular}
+\caption{Classification of different codes for alphabet $\{a,b,c\}$}
+\end{table}
+
+\textbf{Analysis of $C_3$}: Code "011" could be decoded as "ab" or "c" - ambiguous!
+\end{examplebox}
+
+\subsection{Kraft-McMillan Inequality: Mathematical Foundation}
+\begin{theorem}[Kraft-McMillan Inequality]
+For any prefix code (or more generally, any uniquely decodable code) with codeword lengths $\ell_1, \ell_2, \ldots, \ell_m$ over a $D$-ary alphabet:
+\[
+\sum_{i=1}^m D^{-\ell_i} \leq 1
+\]
+where $D$ is the size of the code alphabet (2 for binary).
+\end{theorem}
+
+\subsubsection{Proof Sketch for Binary Prefix Codes}
+\begin{enumerate}
+    \item Consider a complete binary tree of depth $L = \max_i \ell_i$
+    \item Each codeword of length $\ell_i$ occupies $2^{L-\ell_i}$ leaf positions
+    \item Total occupied positions: $\sum_{i=1}^m 2^{L-\ell_i} \leq 2^L$
+    \item Dividing by $2^L$: $\sum_{i=1}^m 2^{-\ell_i} \leq 1$
+\end{enumerate}
+
+\subsubsection{Converse: Constructing Codes from Lengths}
+\begin{theorem}[Kraft Inequality Converse]
+If integers $\ell_1, \ell_2, \ldots, \ell_m$ satisfy $\sum_{i=1}^m 2^{-\ell_i} \leq 1$, then there exists a binary prefix code with these lengths.
+\end{theorem}
+
+\begin{examplebox}
+\textbf{Verifying Kraft Inequality}:
+\begin{enumerate}
+    \item Consider lengths $\{1, 2, 3, 3\}$:
+    \[
+    \sum 2^{-\ell_i} = 2^{-1} + 2^{-2} + 2^{-3} + 2^{-3} = 0.5 + 0.25 + 0.125 + 0.125 = 1
+    \]
+    A prefix code exists (e.g., 0, 10, 110, 111)
+
+    \item Consider lengths $\{1, 1, 2\}$:
+    \[
+    \sum 2^{-\ell_i} = 2^{-1} + 2^{-1} + 2^{-2} = 0.5 + 0.5 + 0.25 = 1.25 > 1
+    \]
+    No prefix code exists with these lengths!
+\end{enumerate}
+\end{examplebox}
+
+\subsection{Optimal Code Lengths and Shannon Coding}
+\subsubsection{Shannon's Length Assignment}
+For a source with probabilities $p_i$, Shannon proposed the length assignment:
+\[
+\ell_i = \lceil -\log_2 p_i \rceil
+\]
+where $\lceil x \rceil$ is the ceiling function.
+
+\begin{theorem}
+The lengths $\ell_i = \lceil -\log_2 p_i \rceil$ satisfy the Kraft inequality.
+\end{theorem}
+
+\begin{proof}
+Since $\ell_i \geq -\log_2 p_i$, we have $-\ell_i \leq \log_2 p_i$, so:
+\[
+2^{-\ell_i} \leq p_i \quad \Rightarrow \quad \sum_{i=1}^m 2^{-\ell_i} \leq \sum_{i=1}^m p_i = 1
+\]
+\end{proof}
+
+\begin{examplebox}
+\textbf{Shannon Coding Example}: Source with probabilities $\{0.4, 0.3, 0.2, 0.1\}$
+\begin{enumerate}
+    \item Compute ideal lengths: $-\log_2 p_i = \{1.32, 1.74, 2.32, 3.32\}$
+    \item Ceiling gives: $\ell_i = \{2, 2, 3, 4\}$
+    \item Check Kraft: $2^{-2} + 2^{-2} + 2^{-3} + 2^{-4} = 0.25 + 0.25 + 0.125 + 0.0625 = 0.6875 \leq 1$
+    \item Expected length: $L = 0.4\times2 + 0.3\times2 + 0.2\times3 + 0.1\times4 = 2.4$ bits/symbol
+    \item Entropy: $H = 1.846$ bits/symbol
+    \item Efficiency: $\eta = 1.846/2.4 = 76.9\%$
+\end{enumerate}
+\end{examplebox}
+
+\subsection{Detailed Proof of Shannon's Theorem}
+\subsubsection{Lower Bound: $L \geq H(X)$}
+\begin{proof}
+Let $p_i$ be symbol probabilities and $\ell_i$ be codeword lengths of a uniquely decodable code. From Kraft-McMillan:
+\[
+\sum_{i=1}^m 2^{-\ell_i} \leq 1
+\]
+Define $r_i = 2^{-\ell_i} / \sum_{j=1}^m 2^{-\ell_j}$, so $\{r_i\}$ is a probability distribution.
+
+Using the non-negativity of KL-divergence:
+\[
+D(p \| r) = \sum_{i=1}^m p_i \log_2 \frac{p_i}{r_i} \geq 0
+\]
+Substituting $r_i$:
+\[
+\sum_{i=1}^m p_i \log_2 p_i - \sum_{i=1}^m p_i \log_2 2^{-\ell_i} + \sum_{i=1}^m p_i \log_2 \left(\sum_{j=1}^m 2^{-\ell_j}\right) \geq 0
+\]
+Since $\sum_{j=1}^m 2^{-\ell_j} \leq 1$, the last term is $\leq 0$, giving:
+\[
+-H(X) + \sum_{i=1}^m p_i \ell_i \geq 0 \quad \Rightarrow \quad L \geq H(X)
+\]
+\end{proof}
+
+\subsubsection{Upper Bound: $L < H(X) + 1$}
+\begin{proof}
+Choose $\ell_i = \lceil -\log_2 p_i \rceil$. Then:
+\[
+-\log_2 p_i \leq \ell_i < -\log_2 p_i + 1
+\]
+Multiply by $p_i$ and sum over $i$:
+\[
+-\sum_{i=1}^m p_i \log_2 p_i \leq \sum_{i=1}^m p_i \ell_i < -\sum_{i=1}^m p_i \log_2 p_i + \sum_{i=1}^m p_i
+\]
 \[
 H(X) \leq L < H(X) + 1
 \]
-\end{definitionbox}
+\end{proof}
 
-\subsubsection{Interpretation}
-\begin{itemize}
-    \item \textbf{Lower bound}: Cannot compress below entropy on average
-    \item \textbf{Upper bound}: Can get within 1 bit of entropy
-    \item \textbf{For extended sources}: With $n$-symbol blocks, can approach $H(X)$ arbitrarily close:
-    \[
-    H(X) \leq \frac{L_n}{n} < H(X) + \frac{1}{n}
-    \]
-\end{itemize}
+\subsection{Extended Source Coding and Block Codes}
+\subsubsection{The $n$th Extension of a Source}
+For a discrete memoryless source $X$, the $n$th extension $X^n = (X_1, X_2, \ldots, X_n)$ has:
+\[
+H(X^n) = nH(X)
+\]
+Applying Shannon's theorem to $X^n$ gives a code $C_n$ with:
+\[
+nH(X) \leq L(C_n) < nH(X) + 1
+\]
+Thus, the average length per symbol satisfies:
+\[
+H(X) \leq \frac{L(C_n)}{n} < H(X) + \frac{1}{n}
+\]
 
 \begin{examplebox}
-For a source with $H(X) = 2.3$ bits/symbol:
+\textbf{Block Coding Improvement}: Binary source with $p = 0.1$, $H = 0.469$ bits/symbol
 \begin{itemize}
-    \item No code can achieve $L < 2.3$ bits/symbol on average
-    \item A good code can achieve $2.3 \leq L < 3.3$ bits/symbol
-    \item By coding in blocks of 10 symbols: $2.3 \leq L/10 < 2.4$ bits/symbol
+    \item Single symbol coding: Best code gives $L = 1$ bit/symbol (efficiency 46.9\%)
+    \item Block coding with $n=2$: There are 4 possible blocks:
+    \begin{align*}
+        &00: p^2 = 0.81 \quad \ell = 1 \\
+        &01: p(1-p) = 0.09 \quad \ell = 4 \\
+        &10: p(1-p) = 0.09 \quad \ell = 4 \\
+        &11: (1-p)^2 = 0.01 \quad \ell = 7
+    \end{align*}
+    \item Expected length: $L_2 = 0.81\times1 + 0.18\times4 + 0.01\times7 = 1.6$ bits/block
+    \item Per symbol: $L_2/2 = 0.8$ bits/symbol (efficiency 58.6\%)
+    \item For $n=10$: Efficiency approaches 90\%
 \end{itemize}
 \end{examplebox}
 
-\subsection{Types of Codes}
-\subsubsection{Non-singular Codes}
-Each source symbol maps to a distinct binary string. Not necessarily uniquely decodable.
+\subsection{Code Efficiency and Redundancy Analysis}
+\subsubsection{Performance Metrics}
+\begin{definitionbox}
+For a code $C$ with expected length $L$ coding a source with entropy $H$:
+\[
+\text{Efficiency: } \eta = \frac{H}{L} \times 100\% \quad \text{Redundancy: } \rho = L - H
+\]
+\end{definitionbox}
 
-\subsubsection{Uniquely Decodable Codes}
-Any finite sequence of codewords corresponds to at most one message.
+\subsubsection{Theoretical Bounds}
+From Shannon's theorem:
+\[
+\frac{H}{H+1} \leq \eta \leq 1 \quad \text{and} \quad 0 \leq \rho < 1
+\]
 
-\subsubsection{Prefix Codes (Instantaneous Codes)}
-No codeword is a prefix of another codeword. This guarantees immediate decodability.
-
-% Removed the table from inside examplebox to avoid nested floats
 \begin{examplebox}
-Examples of codes for alphabet $\{a, b, c, d\}$:
-
-\medskip
-\noindent\begin{minipage}{\textwidth}
+\textbf{Efficiency vs. Entropy}:
+\begin{table}[H]
 \centering
 \begin{tabular}{|c|c|c|c|}
 \hline
-Symbol & Non-singular & Uniquely Decodable & Prefix Code \\
+$H$ (bits/symbol) & Minimum $\eta$ & Maximum $\rho$ & Interpretation \\
 \hline
-a & 0 & 0 & 0 \\
-b & 1 & 01 & 10 \\
-c & 00 & 011 & 110 \\
-d & 11 & 0111 & 111 \\
+0.1 & 9.1\% & 0.9 bits & Very compressible, but +1 term dominates \\
+\hline
+1.0 & 50\% & 1.0 bit & Fair coin, maximum +1 overhead \\
+\hline
+2.0 & 66.7\% & 1.0 bit & +1 becomes less significant \\
+\hline
+4.0 & 80\% & 1.0 bit & High entropy, good efficiency possible \\
+\hline
+7.0 & 87.5\% & 1.0 bit & +1 overhead relatively small \\
 \hline
 \end{tabular}
-\end{minipage}
+\caption{Theoretical limits on code efficiency for different entropy values}
+\end{table}
 \end{examplebox}
 
-\subsection{Kraft-McMillan Inequality}
-\begin{definitionbox}
-\textbf{Kraft Inequality}: For any prefix code with codeword lengths $\ell_1, \ell_2, \ldots, \ell_n$:
-\[
-\sum_{i=1}^{n} 2^{-\ell_i} \leq 1
-\]
-\textbf{McMillan Inequality}: The same condition holds for any uniquely decodable code.
-\end{definitionbox}
-
-\subsubsection{Implications}
-\begin{itemize}
-    \item Provides a necessary condition for prefix codes
-    \item Also sufficient: If lengths satisfy Kraft, a prefix code exists
-    \item Helps find optimal code lengths before constructing the code
-\end{itemize}
-
-\begin{examplebox}
-Check if these lengths can form a prefix code: $\{2, 2, 3, 3\}$
-\[
-2^{-2} + 2^{-2} + 2^{-3} + 2^{-3} = \frac{1}{4} + \frac{1}{4} + \frac{1}{8} + \frac{1}{8} = 1
-\]
-Yes, a prefix code exists with these lengths.
-\end{examplebox}
-
-\subsection{Constructing Prefix Codes}
-\subsubsection{Binary Tree Representation}
-Prefix codes correspond to leaves of a binary tree:
-\begin{itemize}
-    \item Each leaf represents a codeword
-    \item Path from root gives the binary code
-    \item Depth equals codeword length
-\end{itemize}
-
-\begin{figure}[H]  % Changed from [h] to [H]
-\centering
-\begin{tikzpicture}[
-    level distance=1.5cm,
-    level 1/.style={sibling distance=4cm},
-    level 2/.style={sibling distance=2cm},
-    level 3/.style={sibling distance=1cm}
-]
-\node [circle, draw] {root}
-    child {
-        node [circle, draw] {0}
-        child {
-            node [circle, draw] {00}
-            child {
-                node [rectangle, draw] {a (0)}
-                edge from parent node[left] {0}
-            }
-            child {
-                node [rectangle, draw] {b (10)}
-                edge from parent node[right] {1}
-            }
-            edge from parent node[left] {0}
-        }
-        child {
-            node [rectangle, draw] {c (110)}
-            edge from parent node[right] {1}
-        }
-        edge from parent node[left] {0}
-    }
-    child {
-        node [rectangle, draw] {d (111)}
-        edge from parent node[right] {1}
-    };
-\end{tikzpicture}
-\caption{Binary tree representation of prefix code: a=0, b=10, c=110, d=111}
-\end{figure}
-
-\subsection{Optimal Code Lengths}
-For a source with symbol probabilities $p_i$, optimal codeword lengths satisfy:
-\[
-\ell_i^* = \lceil -\log_2 p_i \rceil
-\]
-These satisfy Kraft inequality and are close to the theoretical minimum.
-
-\begin{examplebox}
-For symbols with probabilities $\{0.5, 0.25, 0.125, 0.125\}$:
-\begin{align*}
-\ell_1 &= \lceil -\log_2 0.5 \rceil = \lceil 1 \rceil = 1 \\
-\ell_2 &= \lceil -\log_2 0.25 \rceil = \lceil 2 \rceil = 2 \\
-\ell_3 &= \lceil -\log_2 0.125 \rceil = \lceil 3 \rceil = 3 \\
-\ell_4 &= \lceil -\log_2 0.125 \rceil = \lceil 3 \rceil = 3
-\end{align*}
-Check Kraft: $2^{-1} + 2^{-2} + 2^{-3} + 2^{-3} = 0.5 + 0.25 + 0.125 + 0.125 = 1$
-\end{examplebox}
-
-\subsection{Code Efficiency and Redundancy}
-\begin{definitionbox}
-\textbf{Code Efficiency}:
-\[
-\eta = \frac{H(X)}{L} \times 100\%
-\]
-\textbf{Redundancy}:
-\[
-\rho = L - H(X) \quad \text{(bits/symbol)}
-\]
-\end{definitionbox}
-
-\subsubsection{Upper Bound on Efficiency}
-From Shannon's theorem:
-\[
-\frac{H(X)}{H(X)+1} \leq \eta \leq 1
-\]
-
-\begin{examplebox}
-For a source with $H(X) = 2.3$ bits/symbol and code achieving $L = 2.5$ bits/symbol:
-\[
-\eta = \frac{2.3}{2.5} \times 100\% = 92\%
-\]
-\[
-\rho = 2.5 - 2.3 = 0.2 \text{ bits/symbol}
-\]
-\end{examplebox}
-
-\subsection{Extended Coding (Block Coding)}
-By coding blocks of $n$ symbols together:
-\begin{itemize}
-    \item Achieve average length per symbol: $L_n/n \rightarrow H(X)$ as $n \rightarrow \infty$
-    \item Redundancy per symbol: $\rho_n < 1/n$
-    \item Trade-off: Larger $n$ requires more memory and complexity
-\end{itemize}
-
-\subsection{Proof Sketch of Shannon's Theorem}
-\subsubsection{Lower Bound \texorpdfstring{($L \geq H(X)$)}{(L >= H(X))}}
-\begin{enumerate}
-    \item Let $p_i$ be symbol probabilities, $\ell_i$ be codeword lengths
-    \item From information theory: $-\log_2 p_i$ is the ideal length
-    \item Using Gibbs' inequality or convexity arguments:
-    \[
-    \sum p_i \ell_i \geq -\sum p_i \log_2 p_i = H(X)
-    \]
-\end{enumerate}
-
-\subsubsection{Upper Bound \texorpdfstring{($L < H(X) + 1$)}{(L < H(X) + 1)}}
-\begin{enumerate}
-    \item Choose lengths: $\ell_i = \lceil -\log_2 p_i \rceil$
-    \item Then: $-\log_2 p_i \leq \ell_i < -\log_2 p_i + 1$
-    \item Multiply by $p_i$ and sum:
-    \[
-    H(X) \leq \sum p_i \ell_i < H(X) + 1
-    \]
-\end{enumerate}
-
-\subsection{Applications and Implications}
-\begin{importantbox}
-\textbf{Practical Implications}:
-\begin{itemize}
-    \item Entropy provides the absolute limit for lossless compression
-    \item Real compressors have additional overhead (model storage, headers)
-    \item For small alphabets, the "+1" term can be significant
-    \item Block coding helps approach the entropy limit
-\end{itemize}
-\end{importantbox}
-
-\subsection{Limitations and Extensions}
-\subsubsection{Assumptions in Shannon's Theorem}
-\begin{itemize}
-    \item Discrete memoryless source (symbols independent)
-    \item Known probability distribution
-    \item Noiseless channel
-    \item These assumptions are often violated in practice
-\end{itemize}
-
-\subsubsection{Extensions}
-\begin{itemize}
-    \item \textbf{Markov sources}: Consider dependencies between symbols
-    \item \textbf{Universal coding}: No prior knowledge of distribution
-    \item \textbf{Rate-distortion theory}: Lossy compression extension
-\end{itemize}
-
-\subsection{Algorithm: Constructing a Prefix Code from Given Lengths}
-\begin{algorithm}[H]  % Changed to [H]
-\caption{Construct Prefix Code from Lengths}
+\subsection{Algorithmic Construction of Prefix Codes}
+\begin{algorithm}[H]
+\caption{Canonical Prefix Code Construction from Lengths}
 \begin{algorithmic}[1]
-\REQUIRE Codeword lengths $\ell_1, \ell_2, \ldots, \ell_n$ satisfying Kraft inequality
-\ENSURE Prefix code with given lengths
-\STATE Sort lengths in non-decreasing order: $\ell_{(1)} \leq \ell_{(2)} \leq \cdots \leq \ell_{(n)}$
-\STATE Initialize current code to 0 (binary)
-\FOR{$i = 1$ to $n$}
-    \STATE Assign current code to symbol with length $\ell_{(i)}$
-    \STATE Increment current code (binary addition)
-    \STATE Shift left by $\ell_{(i+1)} - \ell_{(i)}$ bits (if $i < n$)
+\REQUIRE Integer lengths $\ell_1 \leq \ell_2 \leq \cdots \leq \ell_m$ satisfying Kraft inequality
+\ENSURE Binary prefix code with given lengths in canonical form
+\STATE Initialize $code \gets 0$ (binary)
+\FOR{$i = 1$ to $m$}
+    \STATE Assign $c_i \gets$ first $\ell_i$ bits of $code$
+    \STATE \textbf{Print} Symbol $i$: $c_i$ (length $\ell_i$)
+    \STATE Increment $code$ by 1 (binary addition)
+    \IF{$i < m$}
+        \STATE Shift $code$ left by $\ell_{i+1} - \ell_i$ bits
+    \ENDIF
 \ENDFOR
-\RETURN The assigned codes
 \end{algorithmic}
 \end{algorithm}
 
 \begin{examplebox}
-Construct prefix code for lengths $\{2, 2, 3, 3\}$:
+\textbf{Canonical Code Construction}: Lengths $\{2, 2, 3, 3, 3\}$
 \begin{enumerate}
-    \item Sorted lengths: $\{2, 2, 3, 3\}$
-    \item Start with code = 00
-    \item Assign: symbol1 = 00, increment → 01
-    \item Assign: symbol2 = 01, increment → 10, no shift (same length)
-    \item Assign: symbol3 = 10, increment → 11, shift left 1 bit → 110
-    \item Assign: symbol4 = 110, done
+    \item Start: $code = 00$
+    \item $\ell_1=2$: $c_1 = 00$, increment → 01, no shift (same length)
+    \item $\ell_2=2$: $c_2 = 01$, increment → 10, shift left 1 → 100
+    \item $\ell_3=3$: $c_3 = 100$, increment → 101, no shift
+    \item $\ell_4=3$: $c_4 = 101$, increment → 110, no shift
+    \item $\ell_5=3$: $c_5 = 110$
 \end{enumerate}
-Result: $\{00, 01, 10, 110\}$
+Result: $\{00, 01, 100, 101, 110\}$
 \end{examplebox}
 
-\subsection{Homework Assignment}
+\subsection{Practical Implications and Limitations}
+\subsubsection{Assumptions of Shannon's Theorem}
+\begin{itemize}
+    \item \textbf{Discrete Memoryless Source}: Symbols independent and identically distributed
+    \item \textbf{Known Distribution}: Probabilities $p_i$ are known in advance
+    \item \textbf{Arbitrary Delay}: Block coding allows infinite delay for encoding/decoding
+    \item \textbf{No Complexity Constraints}: No limits on computational resources
+\end{itemize}
+
+\subsubsection{Violations in Practice}
+\begin{examplebox}
+\textbf{Real-world Violations}:
+\begin{itemize}
+    \item \textbf{Dependencies}: English text has strong correlations between letters
+    \item \textbf{Unknown Distribution}: Must estimate probabilities from data
+    \item \textbf{Delay Constraints}: Real-time applications limit block size
+    \item \textbf{Complexity}: Exponential growth with block size ($m^n$ sequences)
+\end{itemize}
+\end{examplebox}
+
+\subsection{Extensions and Generalizations}
+\subsubsection{Markov Sources}
+For a $k$th order Markov source with conditional entropy $H(X|X^{k})$, the theorem extends to:
+\[
+H(X|X^{k}) \leq L < H(X|X^{k}) + 1
+\]
+
+\subsubsection{Universal Coding}
+When the source distribution is unknown, universal codes achieve:
+\[
+\frac{1}{n} L_n \to H(X) \quad \text{almost surely}
+\]
+Examples: Lempel-Ziv codes, arithmetic coding with adaptive models.
+
+\subsubsection{Rate-Distortion Theory}
+For lossy compression with distortion $D$, the rate-distortion function $R(D)$ gives the minimum achievable rate:
+\[
+R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
+\]
+
+\subsection{Advanced Examples and Applications}
+\begin{examplebox}
+\textbf{DNA Sequence Compression}: Alphabet $\{A,C,G,T\}$ with typical probabilities $\{0.3, 0.2, 0.2, 0.3\}$
+\begin{itemize}
+    \item Entropy: $H = 1.97$ bits/base
+    \item Simple code: 2 bits/base (efficiency 98.5\%)
+    \item Exploiting dependencies: Adjacent bases are correlated in genomes
+    \item Conditional entropy: $H(X_n|X_{n-1}) \approx 1.5$ bits/base
+    \item Practical compressors achieve ~1.6 bits/base
+\end{itemize}
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Image Compression Limit}: Grayscale image with 256 levels
+\begin{itemize}
+    \item Naive: 8 bits/pixel
+    \item Actual entropy from pixel correlations: Typically 1-4 bits/pixel
+    \item PNG (lossless): 2-6 bits/pixel
+    \item JPEG (lossy): 0.5-2 bits/pixel with visual quality
+    \item Theoretical limit from image statistics
+\end{itemize}
+\end{examplebox}
+
+\subsection{Homework Assignment: Advanced Problems}
 \begin{enumerate}
-    \item For a source with probabilities $\{0.4, 0.3, 0.2, 0.1\}$:
-    \begin{itemize}
-        \item Calculate the entropy
-        \item Find optimal integer codeword lengths
-        \item Verify they satisfy Kraft inequality
-        \item Construct a prefix code with these lengths
-        \item Calculate expected length and efficiency
-    \end{itemize}
+    \item \textbf{Mathematical Proofs}:
+    \begin{enumerate}
+        \item Prove that for any uniquely decodable code, $\sum 2^{-\ell_i} \leq 1$
+        \item Show that if $\ell_i = \lfloor -\log_2 p_i \rfloor$, then $\sum 2^{-\ell_i} \geq 1$
+        \item Derive the optimal length assignment that minimizes $\sum p_i \ell_i$ subject to Kraft inequality
+    \end{enumerate}
 
-    \item Prove that for any prefix code with $n$ codewords, the average length satisfies:
-    \[
-    L \geq \log_2 n
-    \]
-    When does equality hold?
+    \item \textbf{Code Design}:
+    \begin{enumerate}
+        \item Design an optimal prefix code for source with probabilities $\{0.25, 0.25, 0.2, 0.15, 0.1, 0.05\}$
+        \item Calculate its expected length, efficiency, and redundancy
+        \item Compare with Shannon code and Huffman code
+    \end{enumerate}
 
-    \item Consider a binary source with $P(0) = p$. Plot:
-    \begin{itemize}
-        \item Entropy $H(p)$ vs $p$
-        \item Minimum achievable $L$ vs $p$
-        \item The gap $L - H(p)$ for simple coding schemes
-    \end{itemize}
+    \item \textbf{Block Coding Analysis}:
+    \begin{enumerate}
+        \item For a binary source with $p=0.9$, design block codes for $n=1,2,3,4$
+        \item Plot efficiency vs. block size
+        \item Determine how large $n$ must be to achieve 90\% efficiency
+    \end{enumerate}
 
-    \item Research and explain one practical limitation of Shannon's theorem in real-world compression systems.
+    \item \textbf{Theoretical Limits}:
+    \begin{enumerate}
+        \item Prove that for a source with $m$ equally likely symbols, $L \geq \log_2 m$
+        \item Show this is achievable with $\ell_i = \log_2 m$ for all $i$
+        \item What happens when $\log_2 m$ is not an integer?
+    \end{enumerate}
 
-    \item Design a prefix code for the alphabet $\{A, B, C, D, E, F\}$ with lengths $\{1, 2, 3, 3, 4, 4\}$. Show the binary tree representation.
+    \item \textbf{Research Extension}:
+    \begin{enumerate}
+        \item Investigate the concept of "minimum description length" (MDL)
+        \item Compare with Shannon's approach
+        \item Explain how MDL handles unknown distributions
+    \end{enumerate}
 \end{enumerate}
 
-\subsection{Reading Assignment}
+\subsection{Reading Assignment and References}
 \begin{itemize}
-    \item \textbf{Required}: Cover \& Thomas, Chapter 5: Data Compression
-    \item \textbf{Required}: Sayood, Chapter 2: Mathematical Preliminaries
-    \item \textbf{Recommended}: MacKay, Chapter 5: Symbol Codes
-    \item \textbf{Additional}: Original papers by Shannon (1948) and Kraft (1949)
+    \item \textbf{Required Reading}:
+    \begin{itemize}
+        \item Cover \& Thomas, \textit{Elements of Information Theory}, Chapter 5: Sections 5.1-5.4
+        \item Shannon, C. E. (1948). "A Mathematical Theory of Communication"
+    \end{itemize}
+
+    \item \textbf{Advanced References}:
+    \begin{itemize}
+        \item Gallager, R. G. (1968). \textit{Information Theory and Reliable Communication}
+        \item Csiszár, I., \& Körner, J. (2011). \textit{Information Theory: Coding Theorems for Discrete Memoryless Systems}
+    \end{itemize}
+
+    \item \textbf{Historical Context}:
+    \begin{itemize}
+        \item Kraft, L. G. (1949). "A device for quantizing, grouping, and coding amplitude-modulated pulses"
+        \item McMillan, B. (1956). "Two inequalities implied by unique decipherability"
+    \end{itemize}
 \end{itemize}
 
-\subsection{Looking Ahead}
+\subsection{Looking Ahead: Beyond Shannon's Theorem}
 In the next lecture, we will explore:
 \begin{itemize}
-    \item Kolmogorov complexity: A different perspective on information
-    \item Algorithmic information theory
-    \item The concept of incompressibility
-    \item Relationship between Kolmogorov complexity and practical compression
+    \item \textbf{Huffman Coding}: Optimal prefix code construction algorithm
+    \item \textbf{Arithmetic Coding}: Overcoming the integer length constraint
+    \item \textbf{Universal Compression}: Coding without known statistics
+    \item \textbf{Kolmogorov Complexity}: Algorithmic information theory perspective
 \end{itemize}
+
+\begin{importantbox}
+\textbf{Key Theoretical Insights from Lecture 2}:
+\begin{enumerate}
+    \item Shannon's theorem establishes $H(X)$ as the fundamental limit for lossless compression
+    \item The Kraft-McMillan inequality characterizes all uniquely decodable codes
+    \item Block coding asymptotically achieves the entropy limit
+    \item The "+1" overhead becomes negligible for high-entropy sources or large blocks
+    \item Practical codes must balance optimality with complexity and delay constraints
+\end{enumerate}
+\end{importantbox}
+
+
 
 \end{document}
