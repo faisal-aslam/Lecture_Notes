@@ -720,59 +720,180 @@ Most compressors follow this two-stage process:
 \end{itemize}
 \end{importantbox}
 
-\subsection{Homework Assignment: Practical Exercises}
-\begin{enumerate}
-    \item \textbf{Compression Calculation}:
-    \begin{itemize}
-        \item A 4K video frame is 3840$\times$2160 pixels, 24-bit color. Calculate:
-        \begin{enumerate}
-            \item Uncompressed size in MB
-            \item Size after 10:1 compression
-            \item Size after 50:1 compression
-            \item For a 2-hour movie at 24 fps, calculate total sizes
-        \end{enumerate}
-    \end{itemize}
+\section*{Homework Assignment 1: Fundamentals of Data Compression}
 
-    \item \textbf{Entropy Calculation}:
-    \begin{itemize}
-        \item Calculate entropy for these sources:
-        \begin{enumerate}
-            \item A die roll (6 equally likely outcomes)
-            \item Weather: Sunny(0.6), Cloudy(0.3), Rainy(0.1)
-            \item Binary source: P(0)=0.99, P(1)=0.01
-        \end{enumerate}
-        \item Which is most compressible? Why?
-    \end{itemize}
+\subsection*{Assignment Details}
+\begin{tabular}{p{0.15\textwidth}p{0.8\textwidth}}
+\textbf{Due:} & One week after the class \\
+\textbf{Total Points:} & 100 points \\
+\textbf{Objective:} & This assignment reinforces the fundamental concepts introduced in Lecture 1: compression ratios, entropy, redundancy, and the practical trade-offs in data compression. \\
+\end{tabular}
 
-    \item \textbf{Real-world Analysis}:
-    \begin{itemize}
-        \item Take three files from your computer: a .txt document, a .jpg image, and a .zip file
-        \item Record their sizes
-        \item Compress them using gzip at maximum compression
-        \item Calculate compression ratios
-        \item Explain why they compress differently
-    \end{itemize}
+\vspace{1em}
 
-    \item \textbf{Huffman Coding Practice}:
-    \begin{itemize}
-        \item For the message "MISSISSIPPI":
-        \begin{enumerate}
-            \item Calculate symbol frequencies
-            \item Build Huffman tree
-            \item Assign codes
-            \item Encode the message
-            \item Calculate compression ratio vs 8-bit ASCII
-            \item Compare to entropy limit
-        \end{enumerate}
-    \end{itemize}
+\subsection*{Part 1: Compression Metrics and Real-World Calculations (30 points)}
 
-    \item \textbf{Research and Analysis}:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Video Storage Calculations (15 points)}
+    
+    A streaming service stores 4K video with the following specifications:
     \begin{itemize}
-        \item Find a current research paper on neural compression
-        \item Summarize its approach in 200 words
-        \item Compare its claimed performance to traditional methods
-        \item Identify one advantage and one limitation
+        \item Resolution: 3840 × 2160 pixels
+        \item Color depth: 24 bits per pixel
+        \item Frame rate: 24 frames per second
+        \item Average video duration: 2 hours
     \end{itemize}
+    
+    Calculate:
+    \begin{enumerate}[label=(\alph*)]
+        \item The uncompressed size of one frame in megabytes (MB)
+        \item The uncompressed size of the entire 2-hour video in terabytes (TB)
+        \item The compressed size if using a lossy codec with a 50:1 compression ratio
+        \item The bandwidth required to stream the compressed video in real-time (in Mbps)
+    \end{enumerate}
+    
+    \emph{Show all calculations step by step.}
+
+    \item \textbf{Economic Impact Analysis (15 points)}
+    
+    A cloud storage company charges \$0.023 per GB per month. A client needs to store:
+    \begin{itemize}
+        \item 50 TB of medical images (lossless compression, average ratio 3:1)
+        \item 200 TB of surveillance video (lossy compression, average ratio 20:1)
+        \item 10 TB of legal documents (lossless compression, average ratio 2.5:1)
+    \end{itemize}
+    
+    Calculate:
+    \begin{enumerate}[label=(\alph*)]
+        \item The monthly and annual storage costs WITHOUT compression
+        \item The monthly and annual storage costs WITH compression
+        \item The annual savings due to compression
+        \item Assuming bandwidth costs of \$0.05 per GB transferred, how much would compression save if 10\% of this data is downloaded each month?
+    \end{enumerate}
 \end{enumerate}
 
+\subsection*{Part 2: Entropy and Information Theory (30 points)}
+
+\begin{enumerate}[leftmargin=*, start=3]
+    \item \textbf{Basic Entropy Calculations (10 points)}
+    
+    Calculate the Shannon entropy (in bits) for the following sources:
+    \begin{enumerate}[label=(\alph*)]
+        \item A fair six-sided die
+        \item Weather in a desert: Sunny (probability 0.85), Cloudy (0.10), Rainy (0.05)
+        \item A binary source where 0 appears with probability 0.99 and 1 with probability 0.01
+    \end{enumerate}
+    
+    \emph{Show the entropy formula with values substituted for each case.}
+
+    \item \textbf{Interpretation and Analysis (10 points)}
+    
+    Based on your calculations from question 3:
+    \begin{enumerate}[label=(\alph*)]
+        \item Which source has the highest entropy? Why?
+        \item Which source is most compressible? Explain using the concept of redundancy.
+        \item If you observed "Rainy" in the desert weather example, how many bits of information would this convey? Show your calculation.
+        \item What does an entropy of 0 bits mean practically?
+    \end{enumerate}
+
+    \item \textbf{English Text Entropy Analysis (10 points)}
+    
+    Consider the first-order letter frequencies in English:
+    \begin{itemize}
+        \item E: 12.7\%, T: 9.1\%, A: 8.2\%, O: 7.5\%, I: 7.0\%, N: 6.7\%, S: 6.3\%, H: 6.1\%
+        \item The remaining 18 letters share the remaining 42.4\% (you may assume equal distribution for simplicity)
+    \end{itemize}
+    
+    \begin{enumerate}[label=(\alph*)]
+        \item Calculate the first-order entropy of English text using these frequencies
+        \item Compare this to the 5 bits needed for a naive fixed-length encoding of 26 letters
+        \item Explain why actual compression algorithms can achieve better than 4.18 bits/letter in practice
+    \end{enumerate}
+\end{enumerate}
+
+\subsection*{Part 3: Lossless vs. Lossy Compression Analysis (25 points)}
+
+\begin{enumerate}[leftmargin=*, start=6]
+    \item \textbf{Scenario-Based Decision Making (15 points)}
+    
+    For each scenario below, recommend either lossless or lossy compression and justify your answer with at least two reasons from the lecture:
+    \begin{enumerate}[label=(\alph*)]
+        \item Archiving a software source code repository
+        \item Streaming music to mobile devices over cellular data
+        \item Storing MRI scans in a hospital database
+        \item Video conferencing with limited bandwidth
+        \item Backing up a financial transactions database
+    \end{enumerate}
+
+    \item \textbf{Compression Ratio Comparison (10 points)}
+    
+    The following compression ratios are achieved on different file types:
+    \begin{itemize}
+        \item Text document (.txt): 3.5:1
+        \item CD Audio (.wav to .flac): 2.2:1
+        \item Same audio (.wav to .mp3 at 128 kbps): 6.8:1
+        \item 4K Video (uncompressed to H.265): 55:1
+        \item Digital photo (RAW to JPEG): 8:1
+    \end{itemize}
+    
+    \begin{enumerate}[label=(\alph*)]
+        \item Calculate the percentage savings for each case
+        \item Explain why video achieves much higher compression ratios than audio
+        \item Why does lossless audio compression achieve relatively low ratios compared to lossy?
+    \end{enumerate}
+\end{enumerate}
+
+\subsection*{Part 4: Practical Investigation and Critical Thinking (15 points)}
+
+\begin{enumerate}[leftmargin=*, start=8]
+    \item \textbf{File Compression Experiment (10 points)}
+    
+    Find three files on your computer: a plain text file (.txt), a Microsoft Word document (.docx), and a JPEG image (.jpg). For each:
+    \begin{enumerate}[label=(\alph*)]
+        \item Record the original file size
+        \item Compress it using ZIP compression (standard settings)
+        \item Record the compressed size
+        \item Calculate the compression ratio
+        \item Explain the results based on the concepts of redundancy and entropy discussed in class
+    \end{enumerate}
+    
+    \emph{Note: You can use built-in compression tools on your operating system.}
+
+    \item \textbf{Future Trends Analysis (5 points)}
+    
+    Based on the lecture's discussion of application domains:
+    \begin{enumerate}[label=(\alph*)]
+        \item Identify one emerging application that will create new compression challenges
+        \item What type of compression (lossless/lossy) would it likely use and why?
+        \item What specific requirements might it have (e.g., real-time, ultra-high compression, etc.)?
+    \end{enumerate}
+\end{enumerate}
+
+\subsection*{Submission Guidelines}
+\begin{itemize}
+    \item Submit a PDF document with all calculations, answers, and explanations
+    \item Show all work for mathematical calculations
+    \item Write explanations in complete sentences
+    \item For Part 4, include screenshots or clear documentation of your file compression experiment
+\end{itemize}
+
+\subsection*{Grading Rubric}
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{Section} & \textbf{Points} & \textbf{Criteria} \\
+\hline
+Part 1 & 30 & Correct calculations, proper units, clear steps \\
+\hline
+Part 2 & 30 & Accurate entropy calculations, correct interpretations \\
+\hline
+Part 3 & 25 & Reasoned justifications, application of lecture concepts \\
+\hline
+Part 4 & 15 & Thoughtful analysis, clear documentation \\
+\hline
+\textbf{Total} & \textbf{100} & \\
+\hline
+\end{tabularx}
+\end{table}
 

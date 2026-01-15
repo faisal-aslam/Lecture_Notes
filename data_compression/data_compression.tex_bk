@@ -1,0 +1,2234 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{float}  % Added for better float control
+\usepackage{tabularx}
+\usepackage{amsthm}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+
+
+\usepackage{mathtools} % Bonus
+\DeclarePairedDelimiter\norm\lVert\rVert
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{white},
+    frame=single,
+    rulecolor=\color{black},
+    tabsize=2,
+    captionpos=b,
+    breaklines=true,
+    breakatwhitespace=false,
+    showspaces=false,
+    showstringspaces=false
+}
+
+\setstretch{1.2}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{definitionbox}{
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    fonttitle=\bfseries,
+    title=Definition,
+    sharp corners
+}
+
+\newtcolorbox{examplebox}{
+    colback=green!5!white,
+    colframe=green!75!black,
+    fonttitle=\bfseries,
+    title=Example,
+    sharp corners
+}
+
+\newtcolorbox{importantbox}{
+    colback=red!5!white,
+    colframe=red!75!black,
+    fonttitle=\bfseries,
+    title=Important,
+    sharp corners
+}
+
+\begin{document}
+
+\begin{center}
+    {\LARGE \textbf{Data Compression}}\\[0.3em]
+    {\Large \textbf{Lecture Notes}}\\[0.5em]
+    \textbf{Dr. Faisal Aslam}\\[1em]
+\end{center}
+
+
+\section{Lecture 1: Introduction to Data Compression}
+\subsection{Learning Objectives}
+By the end of this lecture, students will be able to:
+\begin{itemize}[leftmargin=*]
+    \item Define data compression and explain its practical importance with real-world examples
+    \item Differentiate between lossless and lossy compression with concrete applications
+    \item Calculate and interpret basic compression metrics (compression ratio, bit-rate, savings)
+    \item Explain the concepts of information, redundancy, and entropy with computational examples
+    \item Identify major application domains and their specific compression requirements
+    \item Understand the fundamental limits of compression from information theory
+\end{itemize}
+
+\subsection{Introduction and Motivation: Why Compress Data?}
+Data compression is the process of encoding information using fewer bits than the original representation. Every day, we encounter compression without realizing it: from streaming videos to sending emails, from saving photos to downloading software updates.
+
+\begin{definitionbox}
+\textbf{Data Compression}: The process of reducing the number of bits needed to represent information, while either:
+\begin{itemize}
+    \item \textbf{Lossless}: Preserving all original information exactly
+    \item \textbf{Lossy}: Accepting some controlled loss of information for higher compression
+\end{itemize}
+\end{definitionbox}
+
+\subsubsection{Real-World Motivation: A Concrete Example}
+Consider a typical smartphone photo: 12 megapixels, 24-bit color (8 bits per RGB channel). Uncompressed size:
+\[
+12,000,000 \text{ pixels} \times 24 \text{ bits/pixel} = 288,000,000 \text{ bits} = 36 \text{ MB}
+\]
+But your phone stores it as a ~3 MB JPEG file. That's a 12:1 compression ratio! Without compression:
+\begin{itemize}
+    \item Your 128 GB phone could store only ~3,500 photos instead of ~40,000
+    \item Uploading to social media would take 12 times longer
+    \item Cloud storage costs would be 12 times higher
+\end{itemize}
+
+\subsubsection{The Economics of Compression}
+\begin{examplebox}
+\textbf{Cloud Storage Example}: A major cloud provider charges \$0.023 per GB per month. For 1 PB (petabyte = 1000 TB) of data:
+\begin{itemize}
+    \item Uncompressed: 1 PB = 1,000,000 GB gives \$23,000/month
+    \item With 4:1 compression: 250,000 GB gives \$5,750/month
+    \item Annual savings: (\$23,000 - \$5,750) × 12 = \$207,000/year
+\end{itemize}
+This doesn't even consider bandwidth costs, which are typically charged per GB transferred!
+\end{examplebox}
+
+\subsection{Lossless vs. Lossy Compression: A Detailed Comparison}
+\subsubsection{Lossless Compression: Perfect Reconstruction}
+\textbf{How it works}: Exploits statistical redundancy and patterns without losing information.
+
+\textbf{Key techniques}:
+\begin{enumerate}
+    \item \textbf{Entropy coding}: Assign shorter codes to frequent symbols (Huffman, Arithmetic)
+    \item \textbf{Dictionary methods}: Replace repeated patterns with references (LZ77, LZ78)
+    \item \textbf{Predictive coding}: Encode differences from predictions rather than raw values
+\end{enumerate}
+
+\begin{examplebox}
+\textbf{Text Compression Example}: The word "compression" appears 100 times in a document.
+\begin{itemize}
+    \item Uncompressed: "compression" = 11 characters $\times$ 8 bits = 88 bits $\times$ 100 = 8,800 bits
+    \item Compressed: Assign code "01" (2 bits) for "compression" $\rightarrow$ 2 bits $\times$ 100 = 200 bits
+    \item Plus dictionary entry: "compression" = 88 bits (stored once)
+    \item Total: 200 + 88 = 288 bits vs 8,800 bits $\rightarrow$ 30:1 compression!
+\end{itemize}
+This is essentially how LZW (used in GIF, ZIP) works.
+\end{examplebox}
+
+\subsubsection{Lossy Compression: Intelligent Approximation}
+\textbf{How it works}: Removes information that is:
+\begin{itemize}
+    \item Imperceptible to humans (psychovisual/psychoacoustic models)
+    \item Less important for the intended use
+    \item Redundant beyond a certain quality threshold
+\end{itemize}
+
+\begin{examplebox}
+\textbf{JPEG Image Compression - Step by Step}:
+\begin{enumerate}
+    \item \textbf{Color Space Conversion}: RGB to YCbCr (separates luminance from color)
+    \item \textbf{Chrominance Downsampling}: Reduce color resolution (4:2:0) - humans are less sensitive to color details
+    \item \textbf{Discrete Cosine Transform (DCT)}: Convert 8×8 pixel blocks to frequency domain
+    \item \textbf{Quantization}: Divide frequency coefficients by quantization matrix - small high-frequency coefficients become zero
+    \item \textbf{Entropy Coding}: Huffman code the results
+
+    \textbf{Result}: Typical 10:1 to 20:1 compression with minimal visible artifacts
+\end{enumerate}
+\end{examplebox}
+
+\subsubsection{When to Use Which? Decision Factors}
+% Using tabularx for better table control
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\textwidth}{|p{3.5cm}|X|X|}
+\hline
+\textbf{Factor} & \textbf{Choose Lossless When} & \textbf{Choose Lossy When} \\
+\hline
+\textbf{Fidelity Requirement} & Exact reconstruction is critical (code, financial data, legal documents) & Some quality loss is acceptable (media streaming, web images) \\
+\hline
+\textbf{Data Type} & Discrete data with exact values (text, databases, executables) & Continuous data with perceptual limits (images, audio, video) \\
+\hline
+\textbf{Compression Ratio Needed} & Moderate ratios suffice (2:1 to 10:1) & High ratios needed (10:1 to 200:1+) \\
+\hline
+\textbf{Processing Requirements} & Fast decompression needed, encode speed less critical & Real-time encoding/decoding needed (streaming, videoconferencing) \\
+\hline
+\textbf{Regulatory Constraints} & Legal/medical requirements mandate exact copies & No regulatory constraints on quality \\
+\hline
+\end{tabularx}
+\caption{Decision Factors for Lossless vs. Lossy Compression}
+\end{table}
+
+\subsection{Performance Metrics: Beyond Simple Ratios}
+\subsubsection{Compression Ratio and Savings}
+
+\begin{align*}
+\text{Compression Ratio} &= \frac{\text{Original Size}}{\text{Compressed Size}} \\
+\text{Savings2} = \left(1 - \frac{\text{Compressed Size}}{\text{Original Size}}\right) \times 100\%
+\end{align*}
+
+
+
+
+\begin{examplebox}
+\textbf{Comparing Different Compression Scenarios}:
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Scenario} & \textbf{Original} & \textbf{Compressed} & \textbf{Ratio} & \textbf{Savings} \\
+\hline
+Text document (ZIP) & 1.5 MB & 450 KB & 3.33:1 & 70\% \\
+\hline
+CD Audio (FLAC lossless) & 700 MB & 350 MB & 2:1 & 50\% \\
+\hline
+Same Audio (MP3 128kbps) & 700 MB & 112 MB & 6.25:1 & 84\% \\
+\hline
+4K Video (H.265) & 100 GB & 2 GB & 50:1 & 98\% \\
+\hline
+DNA sequence (specialized) & 3 GB & 300 MB & 10:1 & 90\% \\
+\hline
+\end{tabular}
+\end{center}
+\end{examplebox}
+
+\subsubsection{Bit-rate: The Quality Control Knob}
+For lossy compression, bit-rate determines quality:
+\[
+\text{Bit-rate} = \frac{\text{Compressed Size in bits}}{\text{Duration (seconds)}} \quad \text{or} \quad \frac{\text{Compressed Size in bits}}{\text{Number of samples}}
+\]
+
+\begin{examplebox}
+\textbf{Audio Quality at Different Bit-rates}:
+\begin{itemize}
+    \item \textbf{32 kbps}: Telephone quality, speech only
+    \item \textbf{96 kbps}: FM radio quality
+    \item \textbf{128 kbps}: "Good enough" for most listeners
+    \item \textbf{192 kbps}: Near CD quality for most people
+    \item \textbf{320 kbps}: Essentially transparent (FLAC: ~900 kbps)
+
+    \textbf{Storage impact}: A 60-minute album:
+    \begin{itemize}
+        \item At 128 kbps: 60 MB
+        \item At 320 kbps: 144 MB
+        \item FLAC lossless: ~400 MB
+        \item Uncompressed CD: 700 MB
+    \end{itemize}
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Time and Space Trade-offs}
+Compression involves multiple dimensions:
+\[
+\text{Space-Time Trade-off} = \frac{\text{Compression Ratio}}{\text{Encoding Time} \times \text{Decoding Time}}
+\]
+
+\begin{examplebox}
+\textbf{Real-world Compressor Comparison}:
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Algorithm} & \textbf{Ratio (text)} & \textbf{Encode Speed} & \textbf{Decode Speed} & \textbf{Memory} \\
+\hline
+gzip (-6) & 3.2:1 & 100 MB/s & 400 MB/s & 10 MB \\
+\hline
+bzip2 (-6) & 3.8:1 & 20 MB/s & 50 MB/s & 50 MB \\
+\hline
+LZ4 & 2.5:1 & 500 MB/s & 2000 MB/s & 1 MB \\
+\hline
+Zstd (-3) & 3.0:1 & 300 MB/s & 800 MB/s & 5 MB \\
+\hline
+xz (-6) & 4.2:1 & 10 MB/s & 80 MB/s & 100 MB \\
+\hline
+\end{tabular}
+\end{center}
+Approximate performance on typical text data (higher is better)
+\end{examplebox}
+
+\subsection{Information and Redundancy: The Core Concepts}
+\subsubsection{Information: Quantifying Surprise}
+Claude Shannon's revolutionary insight: Information is inversely related to probability.
+
+\begin{definitionbox}
+\textbf{Information Content} of an event with probability $p$:
+\[
+I(p) = -\log_2 p \quad \text{bits}
+\]
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Daily Weather Forecast - Information Content}:
+\begin{itemize}
+    \item Sunny in Phoenix (probability 0.9): $I = -\log_2 0.9 \approx 0.15$ bits
+    \item Snow in Phoenix (probability 0.001): $I = -\log_2 0.001 \approx 9.97$ bits
+    \item Rain in Seattle (probability 0.3): $I = -\log_2 0.3 \approx 1.74$ bits
+
+    \textbf{Interpretation}: Rare events carry more information! Snow in Phoenix tells you much more about the weather pattern than yet another sunny day.
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Redundancy: The Enemy of Compression}
+Redundancy comes in several forms:
+
+\begin{enumerate}
+    \item \textbf{Spatial Redundancy}: Neighboring pixels are correlated
+    \begin{examplebox}
+    In a blue sky photo, most pixels are similar shades of blue. Instead of storing each pixel independently:
+    \begin{itemize}
+        \item Naive: RGB values for each of 1 million pixels
+        \item Smart: "The next 1000 pixels are color (135, 206, 235)" - Run-length encoding
+        \item Even smarter: Predict each pixel from its neighbors, encode only differences
+    \end{itemize}
+    \end{examplebox}
+
+    \item \textbf{Statistical Redundancy}: Uneven symbol frequencies
+    \begin{examplebox}
+    English text letter frequencies:
+    \begin{center}
+    \begin{tabular}{|c|c||c|c|}
+    \hline
+    Letter & Frequency & Letter & Frequency \\
+    \hline
+    E & 12.7\% & Z & 0.07\% \\
+    T & 9.1\% & Q & 0.10\% \\
+    A & 8.2\% & J & 0.15\% \\
+    \hline
+    \end{tabular}
+    \end{center}
+    \textbf{Inefficient}: Fixed 5 bits per letter (32 possible)
+    \textbf{Efficient}: Huffman coding: E = 3 bits, Z = 9 bits
+    Average bits per letter drops from 5 to ~4.1
+    \end{examplebox}
+
+    \item \textbf{Knowledge Redundancy}: Information known to both encoder and decoder
+    \begin{examplebox}
+    \textbf{Medical Imaging}: Both sides know the image represents a chest X-ray:
+    \begin{itemize}
+        \item Don't need to encode that lungs should be in certain positions
+        \item Can use anatomical models to predict and encode differences
+        \item Can focus bits on diagnostically important regions
+    \end{itemize}
+    \end{examplebox}
+
+    \item \textbf{Perceptual Redundancy}: Information humans can't perceive
+    \begin{examplebox}
+    \textbf{Audio Compression (MP3)}:
+    \begin{itemize}
+        \item \textbf{Frequency masking}: A loud sound at 1 kHz makes nearby frequencies (950-1050 Hz) inaudible
+        \item \textbf{Temporal masking}: A loud sound makes preceding/following quiet sounds inaudible
+        \item \textbf{Result}: Can discard ~90\% of audio data without audible difference
+    \end{itemize}
+    \end{examplebox}
+\end{enumerate}
+
+\subsection{Entropy: The Fundamental Limit}
+\subsubsection{Calculating Entropy: Step by Step}
+Entropy is the average information content per symbol:
+
+\begin{definitionbox}
+\textbf{Entropy} of a discrete source with symbols $s_1, s_2, \ldots, s_n$ having probabilities $p_1, p_2, \ldots, p_n$:
+\[
+H = -\sum_{i=1}^{n} p_i \log_2 p_i \quad \text{bits per symbol}
+\]
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Binary Source Example - Detailed Calculation}:
+Consider a biased coin: P(Heads) = 0.8, P(Tails) = 0.2
+
+\begin{enumerate}
+    \item Information content of Heads: $I_H = -\log_2 0.8 \approx 0.3219$ bits
+    \item Information content of Tails: $I_T = -\log_2 0.2 \approx 2.3219$ bits
+    \item Entropy: $H = 0.8 \times 0.3219 + 0.2 \times 2.3219 = 0.7219$ bits
+\end{enumerate}
+
+\textbf{Interpretation}:
+\begin{itemize}
+    \item On average, each coin flip gives us 0.72 bits of information
+    \item We need at least 0.72 bits per flip to encode the sequence
+    \item If coins were fair (P=0.5), $H = 1.0$ bit - maximum uncertainty
+    \item If always heads (P=1.0), $H = 0$ bits - no information
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Entropy of English Text}
+\begin{examplebox}
+\textbf{Calculating English Letter Entropy}:
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+Letter & Probability & $-\log_2 p$ & Contribution \\
+\hline
+E & 0.127 & 2.98 & 0.378 \\
+T & 0.091 & 3.46 & 0.315 \\
+A & 0.082 & 3.61 & 0.296 \\
+... & ... & ... & ... \\
+Z & 0.0007 & 10.48 & 0.007 \\
+\hline
+\textbf{Total} & & & \textbf{4.18 bits} \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{What this means}:
+\begin{itemize}
+    \item \textbf{Naive encoding}: 5 bits per letter (32 possibilities)
+    \item \textbf{Entropy limit}: 4.18 bits per letter
+    \item \textbf{Practical Huffman}: ~4.3 bits per letter
+    \item \textbf{With word models}: ~2.3 bits per letter (exploiting word-level patterns)
+    \item \textbf{With context}: ~1.5 bits per letter (exploiting grammar, semantics)
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{The Entropy Theorem: Why It Matters}
+\begin{importantbox}
+\textbf{Shannon's Source Coding Theorem (Informal)}:
+\begin{itemize}
+    \item \textbf{Lower bound}: No lossless compressor can average fewer than $H$ bits/symbol
+    \item \textbf{Upper bound}: You can get arbitrarily close to $H$ bits/symbol
+    \item \textbf{Implication}: Entropy is the absolute limit for lossless compression
+
+    \textbf{Example}: For English letters ($H = 4.18$ bits):
+    \begin{itemize}
+        \item Impossible: Average $<$ 4.18 bits/letter
+        \item Possible but wasteful: 8 bits/letter (ASCII)
+        \item Good: 4.3 bits/letter (Huffman)
+        \item Approaching limit: 4.19 bits/letter (Arithmetic with context)
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\subsection{Application Domains: Specialized Requirements}
+\subsubsection{Text and Code Compression}
+\begin{itemize}
+    \item \textbf{Requirements}: Lossless, fast random access, incremental updates
+    \item \textbf{Challenges}: Small files, need for searching within compressed data
+    \item \textbf{Solutions}: gzip (DEFLATE), LZ4, Zstandard
+   \begin{examplebox}
+\textbf{Git Version Control}: Uses zlib (DEFLATE) and delta compression:
+\begin{itemize}
+    \item Stores file versions as compressed objects
+    \item Applies delta compression for similar versions (packfiles)
+    \item Exploits low \emph{conditional entropy} between revisions
+    \item Example: Linux kernel repository: $\sim$4\,GB raw, $\sim$1\,GB stored
+\end{itemize}
+\end{examplebox}
+
+\end{itemize}
+
+\subsubsection{Multimedia Compression}
+\begin{itemize}
+    \item \textbf{Requirements}: High compression, perceptual quality, real-time
+    \item \textbf{Challenges}: Massive data volumes, human perception constraints
+    \item \textbf{Solutions}: JPEG, MP3, H.264/HEVC, AV1
+    \begin{examplebox}
+    \textbf{Streaming Service Economics (Netflix/YouTube)}:
+    \begin{itemize}
+        \item 1 hour of 4K video: Uncompressed ~500 GB
+        \item H.265 compressed: ~4 GB (125:1 compression)
+        \item Bandwidth cost: \$0.05/GB (typical CDN pricing)
+        \item Uncompressed stream: \$25/hour
+        \item Compressed stream: \$0.20/hour
+        \item For 100 million hours/day: \$20M/day vs \$2.5B/day!
+    \end{itemize}
+    \end{examplebox}
+\end{itemize}
+
+\subsubsection{Scientific and Medical Data}
+\begin{itemize}
+    \item \textbf{Requirements}: Lossless or controlled loss, reproducibility, standards
+    \item \textbf{Challenges}: Huge datasets, precision requirements, regulatory compliance
+    \item \textbf{Solutions}: Specialized compressors (SZ, ZFP), format standards (DICOM)
+    \begin{examplebox}
+    \textbf{Large Hadron Collider (LHC) Data}:
+    \begin{itemize}
+        \item Generates 1 PB/second (yes, per second!)
+        \item Stores 50 PB/year after filtering
+        \item Uses specialized compression algorithms
+        \item Compression saves ~\$50M/year in storage costs
+        \item Enables global collaboration (data distributed worldwide)
+    \end{itemize}
+    \end{examplebox}
+\end{itemize}
+
+\subsection{The Compression Pipeline: How Compressors Actually Work}
+Most compressors follow this two-stage process:
+
+% Simple text-based diagram
+\begin{center}
+\textbf{Compression Pipeline:}
+
+\medskip
+\begin{tabular}{cccc}
+\textbf{Input Data} & $\longrightarrow$ & \textbf{Modeling Stage} & $\longrightarrow$ \\
+& \scriptsize{Analyzes patterns} & & \scriptsize{Builds probability model} \\
+\end{tabular}
+
+\medskip
+\begin{tabular}{cccc}
+& $\longrightarrow$ & \textbf{Coding Stage} & $\longrightarrow$ \\
+& & \scriptsize{Converts to bits} & \scriptsize{Using entropy coding} \\
+\end{tabular}
+
+\medskip
+\begin{tabular}{cccc}
+& $\longrightarrow$ & \textbf{Compressed Data} \\
+\end{tabular}
+\end{center}
+
+
+\textbf{Two-Stage Compression Pipeline}:
+\begin{itemize}
+    \item \textbf{Modeling Stage}: Analyzes data patterns and builds probability model
+    \item \textbf{Coding Stage}: Converts symbols to bits using entropy coding (Huffman, Arithmetic, ANS)
+\end{itemize}
+
+\subsubsection{Modeling Strategies in Practice}
+\begin{examplebox}
+\textbf{Huffman Coding Example - Complete Process}:
+\begin{enumerate}
+    \item \textbf{Modeling}: Count symbol frequencies in "ABRACADABRA"
+    \begin{center}
+    \begin{tabular}{|c|c|c|}
+    \hline
+    Symbol & Frequency & Probability \\
+    \hline
+    A & 5 & 5/11 $\approx$ 0.455 \\
+    B & 2 & 2/11 $\approx$ 0.182 \\
+    R & 2 & 2/11 $\approx$ 0.182 \\
+    C & 1 & 1/11 $\approx$ 0.091 \\
+    D & 1 & 1/11 $\approx$ 0.091 \\
+    \hline
+    \end{tabular}
+    \end{center}
+
+    \item \textbf{Coding}: Build Huffman tree (simplified):
+    \begin{itemize}
+        \item Combine lowest frequencies: C(1) + D(1) = CD(2)
+        \item Continue combining: CD(2) + B(2) = CDB(4)
+        \item Combine: CDB(4) + R(2) = CDBR(6)
+        \item Final: CDBR(6) + A(5) = Root(11)
+    \end{itemize}
+
+    \item \textbf{Code assignment}:
+    \begin{center}
+    \begin{tabular}{|c|c|c|}
+    \hline
+    Symbol & Code & Length \\
+    \hline
+    A & 0 & 1 bit \\
+    R & 10 & 2 bits \\
+    B & 110 & 3 bits \\
+    C & 1110 & 4 bits \\
+    D & 1111 & 4 bits \\
+    \hline
+    \end{tabular}
+    \end{center}
+
+    \item \textbf{Compress "ABRACADABRA"}:
+    \begin{itemize}
+        \item A(0) B(110) R(10) A(0) C(1110) A(0) D(1111) A(0) B(110) R(10) A(0)
+        \item Total bits: 1+3+2+1+4+1+4+1+3+2+1 = 23 bits
+        \item Original: 11 characters $\times$ 8 bits = 88 bits
+        \item Compression: 88 $\rightarrow$ 23 bits (3.8:1 ratio)
+        \item Entropy limit: $H \approx 2.04$ bits/char $\times$ 11 = 22.5 bits
+        \item Efficiency: 22.5/23 = 97.8\% efficient!
+    \end{itemize}
+\end{enumerate}
+\end{examplebox}
+
+\subsection{Important Terminology and Concepts}
+\subsubsection{Key Definitions with Examples}
+\begin{itemize}
+    \item \textbf{Symbol}: The basic unit being compressed
+    \begin{examplebox}
+    Different domains use different symbols:
+    \begin{itemize}
+        \item Text: Characters (bytes)
+        \item Images: Pixels (RGB triples)
+        \item Audio: Samples (16-bit integers)
+        \item Video: Macroblocks (16$\times$16 pixel regions)
+    \end{itemize}
+    \end{examplebox}
+
+    \item \textbf{Alphabet}: Set of all possible symbols
+    \begin{examplebox}
+    \begin{itemize}
+        \item English text: 256 possible bytes (ASCII/UTF-8)
+        \item Binary data: 256 possible byte values
+        \item DNA sequences: 4 symbols \{A, C, G, T\}
+        \item Black-white image: 2 symbols \{0=black, 1=white\}
+    \end{itemize}
+    \end{examplebox}
+
+    \item \textbf{Prefix Code}: Crucial for instant decoding
+    \begin{examplebox}
+    \textbf{Why prefix codes matter}:
+    \begin{itemize}
+        \item Good: A=0, B=10, C=110, D=111
+        \item "010110" decodes unambiguously: A(0) B(10) C(110)
+        \item Bad: A=0, B=1, C=01 (not prefix-free)
+        \item "01" could be AB or C - ambiguous!
+    \end{itemize}
+    \end{examplebox}
+\end{itemize}
+
+\subsubsection{The Fundamental Insight}
+\begin{importantbox}
+\textbf{The Core Principle of Compression}:
+\begin{itemize}
+    \item \textbf{Random data cannot be compressed}: Maximum entropy = no redundancy
+    \item \textbf{Real-world data is not random}: Contains patterns, structure, predictability
+    \item \textbf{Compression finds and exploits these patterns}
+
+    \textbf{Example - Encryption vs Compression}:
+    \begin{itemize}
+        \item Encrypted data looks random (high entropy)
+        \item Compressing encrypted data gives little or no savings
+        \item Always compress \textbf{before} encrypting, not after!
+        \item Rule: Encrypt $\rightarrow$ High entropy $\rightarrow$ No compression
+        \item Rule: Compress $\rightarrow$ Lower entropy $\rightarrow$ Then encrypt
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\subsection{Homework Assignment: Practical Exercises}
+\begin{enumerate}
+    \item \textbf{Compression Calculation}:
+    \begin{itemize}
+        \item A 4K video frame is 3840$\times$2160 pixels, 24-bit color. Calculate:
+        \begin{enumerate}
+            \item Uncompressed size in MB
+            \item Size after 10:1 compression
+            \item Size after 50:1 compression
+            \item For a 2-hour movie at 24 fps, calculate total sizes
+        \end{enumerate}
+    \end{itemize}
+
+    \item \textbf{Entropy Calculation}:
+    \begin{itemize}
+        \item Calculate entropy for these sources:
+        \begin{enumerate}
+            \item A die roll (6 equally likely outcomes)
+            \item Weather: Sunny(0.6), Cloudy(0.3), Rainy(0.1)
+            \item Binary source: P(0)=0.99, P(1)=0.01
+        \end{enumerate}
+        \item Which is most compressible? Why?
+    \end{itemize}
+
+    \item \textbf{Real-world Analysis}:
+    \begin{itemize}
+        \item Take three files from your computer: a .txt document, a .jpg image, and a .zip file
+        \item Record their sizes
+        \item Compress them using gzip at maximum compression
+        \item Calculate compression ratios
+        \item Explain why they compress differently
+    \end{itemize}
+
+    \item \textbf{Huffman Coding Practice}:
+    \begin{itemize}
+        \item For the message "MISSISSIPPI":
+        \begin{enumerate}
+            \item Calculate symbol frequencies
+            \item Build Huffman tree
+            \item Assign codes
+            \item Encode the message
+            \item Calculate compression ratio vs 8-bit ASCII
+            \item Compare to entropy limit
+        \end{enumerate}
+    \end{itemize}
+
+    \item \textbf{Research and Analysis}:
+    \begin{itemize}
+        \item Find a current research paper on neural compression
+        \item Summarize its approach in 200 words
+        \item Compare its claimed performance to traditional methods
+        \item Identify one advantage and one limitation
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Looking Ahead: What's Next?}
+In the next lecture, we will dive deeper into:
+\begin{itemize}
+    \item \textbf{Shannon's Source Coding Theorem}: Formal statement and proof
+    \item \textbf{Kraft-McMillan Inequality}: Mathematical foundation of prefix codes
+    \item \textbf{Optimal Code Construction}: How to achieve the entropy limit
+    \item \textbf{Practical Implications}: What these theorems mean for real compressors
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Key Takeaways from Lecture 1}:
+\begin{enumerate}
+    \item Compression is economically and practically essential in modern computing
+    \item Lossless vs lossy involves trade-offs between fidelity and compression ratio
+    \item Entropy defines the absolute limit for lossless compression
+    \item Real compressors work by modeling data patterns, then encoding efficiently
+    \item Different applications require specialized compression approaches
+\end{enumerate}
+\end{importantbox}
+
+
+%---------------------------- End of lecture 1
+
+
+\section{Lecture 2: Shannon's Source Coding Theorem and Kraft-McMillan Inequality}
+\subsection{Learning Objectives}
+By the end of this lecture, students will be able to:
+\begin{itemize}[leftmargin=*]
+    \item Formally state and prove Shannon's Source Coding Theorem for discrete memoryless sources
+    \item Apply the Kraft-McMillan inequality to characterize uniquely decodable codes
+    \item Construct optimal prefix codes and analyze their properties
+    \item Derive and interpret the relationship between entropy and achievable compression rates
+    \item Compute code efficiency, redundancy, and performance bounds
+    \item Understand the mathematical foundations of lossless compression limits
+\end{itemize}
+
+\subsection{Mathematical Preliminaries and Notation}
+Let $X$ be a discrete random variable taking values in alphabet $\mathcal{X} = \{x_1, x_2, \ldots, x_m\}$ with probability mass function $p(x) = \Pr(X = x)$.
+
+\begin{definitionbox}
+\textbf{Source Code}: A mapping $C: \mathcal{X} \to \mathcal{D}^*$ where $\mathcal{D} = \{0, 1\}$ is the code alphabet, and $\mathcal{D}^*$ is the set of all finite binary strings. The code $C$ assigns to each symbol $x_i$ a codeword $c_i$ of length $\ell_i = |c_i|$.
+\end{definitionbox}
+
+\subsubsection{Expected Code Length}
+For a source with probabilities $p_1, p_2, \ldots, p_m$ and corresponding codeword lengths $\ell_1, \ell_2, \ldots, \ell_m$, the expected code length is:
+\[
+L(C) = \mathbb{E}[\ell(X)] = \sum_{i=1}^m p_i \ell_i
+\]
+
+\subsection{Shannon's Source Coding Theorem: Formal Statement}
+\begin{definitionbox}
+\textbf{Shannon's Source Coding Theorem (1948)}: For any discrete memoryless source $X$ with entropy $H(X)$ and any uniquely decodable code $C$, the expected length $L(C)$ satisfies:
+\[
+H(X) \leq L(C) < H(X) + 1
+\]
+Moreover, for the $n$th extension of the source (coding $n$ symbols together), there exists a uniquely decodable code $C_n$ such that:
+\[
+\frac{1}{n} L(C_n) \to H(X) \quad \text{as } n \to \infty
+\]
+\end{definitionbox}
+
+\subsubsection{Interpretation and Significance}
+\begin{itemize}
+    \item \textbf{Fundamental Limit}: $H(X)$ bits/symbol is the absolute minimum for lossless compression
+    \item \textbf{Achievability}: We can get arbitrarily close to this limit by coding in blocks
+    \item \textbf{Penalty Term}: The "+1" represents overhead from integer codeword lengths
+\end{itemize}
+
+\begin{examplebox}
+\textbf{Binary Source Analysis}: Consider a binary source with $P(0) = p$, $P(1) = 1-p$:
+\begin{itemize}
+    \item Entropy: $H(p) = -p\log_2 p - (1-p)\log_2(1-p)$
+    \item For $p = 0.1$: $H(0.1) \approx 0.469$ bits/symbol
+    \item Theorem guarantees: $0.469 \leq L < 1.469$ bits/symbol
+    \item Simple code: 0→0, 1→1 gives $L = 1$ bit/symbol (efficiency 46.9\%)
+    \item Block coding can approach 0.469 bits/symbol
+\end{itemize}
+\end{examplebox}
+
+\subsection{Code Classification and Properties}
+\subsubsection{Hierarchical Classification of Codes}
+\begin{center}
+\textbf{Hierarchy of Codes:}
+
+\medskip
+\begin{tabular}{c}
+All Codes \\
+$\downarrow$ \\
+Non-singular Codes \\
+$\downarrow$ \\
+Uniquely Decodable Codes \\
+$\downarrow$ \\
+Prefix Codes
+\end{tabular}
+\end{center}
+
+
+\subsubsection{Formal Definitions}
+\begin{enumerate}
+    \item \textbf{Non-singular}: $C(x_i) \neq C(x_j)$ for $i \neq j$
+    \item \textbf{Uniquely Decodable}: Extension $C^n$ is non-singular for all $n$
+    \item \textbf{Prefix (Instantaneous)}: No codeword is a prefix of another
+\end{enumerate}
+
+\begin{examplebox}
+\textbf{Code Classification Examples}:
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Code} & \textbf{Mapping} & \textbf{Singular?} & \textbf{Uniquely Decodable?} & \textbf{Prefix?} \\
+\hline
+$C_1$ & a→0, b→0, c→1 & Yes & No & No \\
+\hline
+$C_2$ & a→0, b→01, c→11 & No & No & No \\
+\hline
+$C_3$ & a→0, b→01, c→011 & No & Yes & No \\
+\hline
+$C_4$ & a→0, b→10, c→110 & No & Yes & Yes \\
+\hline
+\end{tabular}
+\caption{Classification of different codes for alphabet $\{a,b,c\}$}
+\end{table}
+
+\textbf{Analysis of $C_3$}: Code "011" could be decoded as "ab" or "c" - ambiguous!
+\end{examplebox}
+
+\subsection{Kraft-McMillan Inequality: Mathematical Foundation}
+\begin{theorem}[Kraft-McMillan Inequality]
+For any prefix code (or more generally, any uniquely decodable code) with codeword lengths $\ell_1, \ell_2, \ldots, \ell_m$ over a $D$-ary alphabet:
+\[
+\sum_{i=1}^m D^{-\ell_i} \leq 1
+\]
+where $D$ is the size of the code alphabet (2 for binary).
+\end{theorem}
+
+\subsubsection{Proof Sketch for Binary Prefix Codes}
+\begin{enumerate}
+    \item Consider a complete binary tree of depth $L = \max_i \ell_i$
+    \item Each codeword of length $\ell_i$ occupies $2^{L-\ell_i}$ leaf positions
+    \item Total occupied positions: $\sum_{i=1}^m 2^{L-\ell_i} \leq 2^L$
+    \item Dividing by $2^L$: $\sum_{i=1}^m 2^{-\ell_i} \leq 1$
+\end{enumerate}
+
+\subsubsection{Converse: Constructing Codes from Lengths}
+\begin{theorem}[Kraft Inequality Converse]
+If integers $\ell_1, \ell_2, \ldots, \ell_m$ satisfy $\sum_{i=1}^m 2^{-\ell_i} \leq 1$, then there exists a binary prefix code with these lengths.
+\end{theorem}
+
+\begin{examplebox}
+\textbf{Verifying Kraft Inequality}:
+\begin{enumerate}
+    \item Consider lengths $\{1, 2, 3, 3\}$:
+    \[
+    \sum 2^{-\ell_i} = 2^{-1} + 2^{-2} + 2^{-3} + 2^{-3} = 0.5 + 0.25 + 0.125 + 0.125 = 1
+    \]
+    A prefix code exists (e.g., 0, 10, 110, 111)
+
+    \item Consider lengths $\{1, 1, 2\}$:
+    \[
+    \sum 2^{-\ell_i} = 2^{-1} + 2^{-1} + 2^{-2} = 0.5 + 0.5 + 0.25 = 1.25 > 1
+    \]
+    No prefix code exists with these lengths!
+\end{enumerate}
+\end{examplebox}
+
+\subsection{Optimal Code Lengths and Shannon Coding}
+\subsubsection{Shannon's Length Assignment}
+For a source with probabilities $p_i$, Shannon proposed the length assignment:
+\[
+\ell_i = \lceil -\log_2 p_i \rceil
+\]
+where $\lceil x \rceil$ is the ceiling function.
+
+\begin{theorem}
+The lengths $\ell_i = \lceil -\log_2 p_i \rceil$ satisfy the Kraft inequality.
+\end{theorem}
+
+\begin{proof}
+Since $\ell_i \geq -\log_2 p_i$, we have $-\ell_i \leq \log_2 p_i$, so:
+\[
+2^{-\ell_i} \leq p_i \quad \Rightarrow \quad \sum_{i=1}^m 2^{-\ell_i} \leq \sum_{i=1}^m p_i = 1
+\]
+\end{proof}
+
+\begin{examplebox}
+\textbf{Shannon Coding Example}: Source with probabilities $\{0.4, 0.3, 0.2, 0.1\}$
+\begin{enumerate}
+    \item Compute ideal lengths: $-\log_2 p_i = \{1.32, 1.74, 2.32, 3.32\}$
+    \item Ceiling gives: $\ell_i = \{2, 2, 3, 4\}$
+    \item Check Kraft: $2^{-2} + 2^{-2} + 2^{-3} + 2^{-4} = 0.25 + 0.25 + 0.125 + 0.0625 = 0.6875 \leq 1$
+    \item Expected length: $L = 0.4\times2 + 0.3\times2 + 0.2\times3 + 0.1\times4 = 2.4$ bits/symbol
+    \item Entropy: $H = 1.846$ bits/symbol
+    \item Efficiency: $\eta = 1.846/2.4 = 76.9\%$
+\end{enumerate}
+\end{examplebox}
+
+\subsection{Detailed Proof of Shannon's Theorem}
+\subsubsection{Lower Bound: $L \geq H(X)$}
+\begin{proof}
+Let $p_i$ be symbol probabilities and $\ell_i$ be codeword lengths of a uniquely decodable code. From Kraft-McMillan:
+\[
+\sum_{i=1}^m 2^{-\ell_i} \leq 1
+\]
+Define $r_i = 2^{-\ell_i} / \sum_{j=1}^m 2^{-\ell_j}$, so $\{r_i\}$ is a probability distribution.
+
+Using the non-negativity of KL-divergence:
+\[
+D(p \| r) = \sum_{i=1}^m p_i \log_2 \frac{p_i}{r_i} \geq 0
+\]
+Substituting $r_i$:
+\[
+\sum_{i=1}^m p_i \log_2 p_i - \sum_{i=1}^m p_i \log_2 2^{-\ell_i} + \sum_{i=1}^m p_i \log_2 \left(\sum_{j=1}^m 2^{-\ell_j}\right) \geq 0
+\]
+Since $\sum_{j=1}^m 2^{-\ell_j} \leq 1$, the last term is $\leq 0$, giving:
+\[
+-H(X) + \sum_{i=1}^m p_i \ell_i \geq 0 \quad \Rightarrow \quad L \geq H(X)
+\]
+\end{proof}
+
+\subsubsection{Upper Bound: $L < H(X) + 1$}
+\begin{proof}
+Choose $\ell_i = \lceil -\log_2 p_i \rceil$. Then:
+\[
+-\log_2 p_i \leq \ell_i < -\log_2 p_i + 1
+\]
+Multiply by $p_i$ and sum over $i$:
+\[
+-\sum_{i=1}^m p_i \log_2 p_i \leq \sum_{i=1}^m p_i \ell_i < -\sum_{i=1}^m p_i \log_2 p_i + \sum_{i=1}^m p_i
+\]
+\[
+H(X) \leq L < H(X) + 1
+\]
+\end{proof}
+
+\subsection{Extended Source Coding and Block Codes}
+\subsubsection{The $n$th Extension of a Source}
+For a discrete memoryless source $X$, the $n$th extension $X^n = (X_1, X_2, \ldots, X_n)$ has:
+\[
+H(X^n) = nH(X)
+\]
+Applying Shannon's theorem to $X^n$ gives a code $C_n$ with:
+\[
+nH(X) \leq L(C_n) < nH(X) + 1
+\]
+Thus, the average length per symbol satisfies:
+\[
+H(X) \leq \frac{L(C_n)}{n} < H(X) + \frac{1}{n}
+\]
+
+\begin{examplebox}
+\textbf{Block Coding Improvement}: Binary source with $p = 0.1$, $H = 0.469$ bits/symbol
+\begin{itemize}
+    \item Single symbol coding: Best code gives $L = 1$ bit/symbol (efficiency 46.9\%)
+    \item Block coding with $n=2$: There are 4 possible blocks:
+    \begin{align*}
+        &00: p^2 = 0.81 \quad \ell = 1 \\
+        &01: p(1-p) = 0.09 \quad \ell = 4 \\
+        &10: p(1-p) = 0.09 \quad \ell = 4 \\
+        &11: (1-p)^2 = 0.01 \quad \ell = 7
+    \end{align*}
+    \item Expected length: $L_2 = 0.81\times1 + 0.18\times4 + 0.01\times7 = 1.6$ bits/block
+    \item Per symbol: $L_2/2 = 0.8$ bits/symbol (efficiency 58.6\%)
+    \item For $n=10$: Efficiency approaches 90\%
+\end{itemize}
+\end{examplebox}
+
+\subsection{Code Efficiency and Redundancy Analysis}
+\subsubsection{Performance Metrics}
+\begin{definitionbox}
+For a code $C$ with expected length $L$ coding a source with entropy $H$:
+\[
+\text{Efficiency: } \eta = \frac{H}{L} \times 100\% \quad \text{Redundancy: } \rho = L - H
+\]
+\end{definitionbox}
+
+\subsubsection{Theoretical Bounds}
+From Shannon's theorem:
+\[
+\frac{H}{H+1} \leq \eta \leq 1 \quad \text{and} \quad 0 \leq \rho < 1
+\]
+
+\begin{examplebox}
+\textbf{Efficiency vs. Entropy}:
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+$H$ (bits/symbol) & Minimum $\eta$ & Maximum $\rho$ & Interpretation \\
+\hline
+0.1 & 9.1\% & 0.9 bits & Very compressible, but +1 term dominates \\
+\hline
+1.0 & 50\% & 1.0 bit & Fair coin, maximum +1 overhead \\
+\hline
+2.0 & 66.7\% & 1.0 bit & +1 becomes less significant \\
+\hline
+4.0 & 80\% & 1.0 bit & High entropy, good efficiency possible \\
+\hline
+7.0 & 87.5\% & 1.0 bit & +1 overhead relatively small \\
+\hline
+\end{tabular}
+\caption{Theoretical limits on code efficiency for different entropy values}
+\end{table}
+\end{examplebox}
+
+\subsection{Algorithmic Construction of Prefix Codes}
+\begin{algorithm}[H]
+\caption{Canonical Prefix Code Construction from Lengths}
+\begin{algorithmic}[1]
+\REQUIRE Integer lengths $\ell_1 \leq \ell_2 \leq \cdots \leq \ell_m$ satisfying Kraft inequality
+\ENSURE Binary prefix code with given lengths in canonical form
+\STATE Initialize $code \gets 0$ (binary)
+\FOR{$i = 1$ to $m$}
+    \STATE Assign $c_i \gets$ first $\ell_i$ bits of $code$
+    \STATE \textbf{Print} Symbol $i$: $c_i$ (length $\ell_i$)
+    \STATE Increment $code$ by 1 (binary addition)
+    \IF{$i < m$}
+        \STATE Shift $code$ left by $\ell_{i+1} - \ell_i$ bits
+    \ENDIF
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\begin{examplebox}
+\textbf{Canonical Code Construction}: Lengths $\{2, 2, 3, 3, 3\}$
+\begin{enumerate}
+    \item Start: $code = 00$
+    \item $\ell_1=2$: $c_1 = 00$, increment → 01, no shift (same length)
+    \item $\ell_2=2$: $c_2 = 01$, increment → 10, shift left 1 → 100
+    \item $\ell_3=3$: $c_3 = 100$, increment → 101, no shift
+    \item $\ell_4=3$: $c_4 = 101$, increment → 110, no shift
+    \item $\ell_5=3$: $c_5 = 110$
+\end{enumerate}
+Result: $\{00, 01, 100, 101, 110\}$
+\end{examplebox}
+
+\subsection{Practical Implications and Limitations}
+\subsubsection{Assumptions of Shannon's Theorem}
+\begin{itemize}
+    \item \textbf{Discrete Memoryless Source}: Symbols independent and identically distributed
+    \item \textbf{Known Distribution}: Probabilities $p_i$ are known in advance
+    \item \textbf{Arbitrary Delay}: Block coding allows infinite delay for encoding/decoding
+    \item \textbf{No Complexity Constraints}: No limits on computational resources
+\end{itemize}
+
+\subsubsection{Violations in Practice}
+\begin{examplebox}
+\textbf{Real-world Violations}:
+\begin{itemize}
+    \item \textbf{Dependencies}: English text has strong correlations between letters
+    \item \textbf{Unknown Distribution}: Must estimate probabilities from data
+    \item \textbf{Delay Constraints}: Real-time applications limit block size
+    \item \textbf{Complexity}: Exponential growth with block size ($m^n$ sequences)
+\end{itemize}
+\end{examplebox}
+
+\subsection{Extensions and Generalizations}
+\subsubsection{Markov Sources}
+For a $k$th order Markov source with conditional entropy $H(X|X^{k})$, the theorem extends to:
+\[
+H(X|X^{k}) \leq L < H(X|X^{k}) + 1
+\]
+
+\subsubsection{Universal Coding}
+When the source distribution is unknown, universal codes achieve:
+\[
+\frac{1}{n} L_n \to H(X) \quad \text{almost surely}
+\]
+Examples: Lempel-Ziv codes, arithmetic coding with adaptive models.
+
+\subsubsection{Rate-Distortion Theory}
+For lossy compression with distortion $D$, the rate-distortion function $R(D)$ gives the minimum achievable rate:
+\[
+R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
+\]
+
+\subsection{Advanced Examples and Applications}
+\begin{examplebox}
+\textbf{DNA Sequence Compression}: Alphabet $\{A,C,G,T\}$ with typical probabilities $\{0.3, 0.2, 0.2, 0.3\}$
+\begin{itemize}
+    \item Entropy: $H = 1.97$ bits/base
+    \item Simple code: 2 bits/base (efficiency 98.5\%)
+    \item Exploiting dependencies: Adjacent bases are correlated in genomes
+    \item Conditional entropy: $H(X_n|X_{n-1}) \approx 1.5$ bits/base
+    \item Practical compressors achieve ~1.6 bits/base
+\end{itemize}
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Image Compression Limit}: Grayscale image with 256 levels
+\begin{itemize}
+    \item Naive: 8 bits/pixel
+    \item Actual entropy from pixel correlations: Typically 1-4 bits/pixel
+    \item PNG (lossless): 2-6 bits/pixel
+    \item JPEG (lossy): 0.5-2 bits/pixel with visual quality
+    \item Theoretical limit from image statistics
+\end{itemize}
+\end{examplebox}
+
+\subsection{Homework Assignment}
+\begin{enumerate}
+    \item \textbf{Mathematical Proofs}:
+    \begin{enumerate}
+        \item Prove that for any uniquely decodable code, $\sum 2^{-\ell_i} \leq 1$
+        \item Show that if $\ell_i = \lfloor -\log_2 p_i \rfloor$, then $\sum 2^{-\ell_i} \geq 1$
+        \item Derive the optimal length assignment that minimizes $\sum p_i \ell_i$ subject to Kraft inequality
+    \end{enumerate}
+
+    \item \textbf{Code Design}:
+    \begin{enumerate}
+        \item Design an optimal prefix code for source with probabilities $\{0.25, 0.25, 0.2, 0.15, 0.1, 0.05\}$
+        \item Calculate its expected length, efficiency, and redundancy
+        \item Compare with Shannon code and Huffman code
+    \end{enumerate}
+
+    \item \textbf{Block Coding Analysis}:
+    \begin{enumerate}
+        \item For a binary source with $p=0.9$, design block codes for $n=1,2,3,4$
+        \item Plot efficiency vs. block size
+        \item Determine how large $n$ must be to achieve 90\% efficiency
+    \end{enumerate}
+
+    \item \textbf{Theoretical Limits}:
+    \begin{enumerate}
+        \item Prove that for a source with $m$ equally likely symbols, $L \geq \log_2 m$
+        \item Show this is achievable with $\ell_i = \log_2 m$ for all $i$
+        \item What happens when $\log_2 m$ is not an integer?
+    \end{enumerate}
+
+    \item \textbf{Research Extension}:
+    \begin{enumerate}
+        \item Investigate the concept of "minimum description length" (MDL)
+        \item Compare with Shannon's approach
+        \item Explain how MDL handles unknown distributions
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{Reading Assignment and References}
+\begin{itemize}
+    \item \textbf{Required Reading}:
+    \begin{itemize}
+        \item Cover \& Thomas, \textit{Elements of Information Theory}, Chapter 5: Sections 5.1-5.4
+        \item Shannon, C. E. (1948). "A Mathematical Theory of Communication"
+    \end{itemize}
+
+    \item \textbf{Advanced References}:
+    \begin{itemize}
+        \item Gallager, R. G. (1968). \textit{Information Theory and Reliable Communication}
+        \item Csiszár, I., \& Körner, J. (2011). \textit{Information Theory: Coding Theorems for Discrete Memoryless Systems}
+    \end{itemize}
+
+    \item \textbf{Historical Context}:
+    \begin{itemize}
+        \item Kraft, L. G. (1949). "A device for quantizing, grouping, and coding amplitude-modulated pulses"
+        \item McMillan, B. (1956). "Two inequalities implied by unique decipherability"
+    \end{itemize}
+\end{itemize}
+
+\subsection{Looking Ahead: Beyond Shannon's Theorem}
+In the next lecture, we will explore:
+\begin{itemize}
+    \item \textbf{Kolmogorov Complexity}: Algorithmic information theory perspective on information content
+    \item \textbf{Incompressibility}: Formalizing randomness and the limits of compression
+    \item \textbf{Universal Similarity}: Using compression for clustering and classification
+    \item \textbf{Philosophical Implications}: What algorithmic information theory tells us about randomness and knowledge
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Key Theoretical Insights from Lecture 2}:
+\begin{enumerate}
+    \item Shannon's theorem establishes $H(X)$ as the fundamental limit for lossless compression
+    \item The Kraft-McMillan inequality characterizes all uniquely decodable codes
+    \item Block coding asymptotically achieves the entropy limit
+    \item The "+1" overhead becomes negligible for high-entropy sources or large blocks
+    \item Practical codes must balance optimality with complexity and delay constraints
+\end{enumerate}
+\end{importantbox}
+
+
+%---------------------------- End of lecture 2
+
+\section{Lecture 3: Algorithmic Information Theory: Kolmogorov Complexity and Incompressibility}
+\subsection{Learning Objectives}
+By the end of this lecture, students will be able to:
+\begin{itemize}[leftmargin=*]
+    \item Define Kolmogorov complexity $K(x)$ and explain its meaning as a measure of information content
+    \item Distinguish between plain, prefix, and conditional Kolmogorov complexity
+    \item Understand and apply the concepts of incompressibility, randomness, and the Invariance Theorem
+    \item Relate Kolmogorov complexity to Shannon entropy and practical compression limits
+    \item Explain how incompressibility methods are used in mathematical proofs and clustering
+    \item Analyze the strengths, weaknesses, and philosophical implications of this theory
+\end{itemize}
+
+\subsection{Introduction: Beyond Probabilistic Information Theory}
+Shannon's theory measures information from a \emph{probabilistic} perspective: it asks how many bits are needed to represent outcomes from a known random source. But what about individual objects? Is there an \emph{absolute} measure of the information in a single string, image, or dataset, independent of any assumed probability distribution?
+
+\begin{importantbox}
+\textbf{The Fundamental Question}: ``What is the intrinsic information content of an individual object?'' \\
+Shannon: ``The string comes from a known source; its information is its surprise given that source.'' \\
+Kolmogorov/Solomonoff/Chaitin: ``The information in the string is the length of the shortest program that generates it.''
+\end{importantbox}
+
+\subsection{Plain Kolmogorov Complexity: Definition and Intuition}
+\begin{definitionbox}
+\textbf{Plain Kolmogorov Complexity}: Let $U$ be a fixed universal Turing machine. The Kolmogorov complexity $K_U(x)$ of a finite binary string $x$ is the length of the shortest program $p$ (also a binary string) that, when run on $U$, outputs $x$ and halts:
+\[
+K_U(x) = \min_{p:\, U(p) = x} \ell(p)
+\]
+where $\ell(p)$ is the length of program $p$ in bits.
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Simple vs. Complex Strings}:
+\begin{itemize}
+    \item \textbf{Simple pattern}: $x = 0101010101010101$ (16-bit alternating pattern) \\
+    Program: \texttt{print("01"*8)} $\approx$ 20 characters $\approx$ 160 bits in ASCII. \\
+    But a more concise description exists: ``alternate 0 and 1 sixteen times.'' In a suitable language, $K(x) \ll 16$.
+
+    \item \textbf{Seemingly random}: $x = 1100100100001111$ (16 bits, no obvious pattern) \\
+    The shortest program may be: \texttt{print("1100100100001111")} $\approx$ 16 characters + overhead $\approx$ 130 bits. \\
+    Here, $K(x) \approx \ell(x) + c$ (the constant overhead of the print statement).
+
+    \item \textbf{Mathematical constant}: $x$ = first 1 million bits of $\pi$ \\
+    Program: Use a spigot algorithm like \texttt{print\_pi(1000000)}. \\
+    $K(x) \approx$ length of the fixed algorithm (a few KB), \emph{not} 1 million bits.
+\end{itemize}
+\end{examplebox}
+
+\subsection{The Invariance Theorem and Choice of Universal Machine}
+A major concern: Doesn't $K_U(x)$ depend heavily on the choice of universal Turing machine $U$? What if we pick a machine tailor-made for $x$?
+
+\begin{theorem}[Invariance Theorem (Solomonoff–Kolmogorov)]
+There exists a universal Turing machine $U$ such that for any other universal Turing machine $U'$, there is a constant $c_{U'}$ (dependent on $U'$ but \emph{independent of $x$}) satisfying:
+\[
+K_U(x) \leq K_{U'}(x) + c_{U'}
+\]
+for all strings $x$.
+\end{theorem}
+
+\subsubsection{Proof Intuition and Interpretation}
+\begin{proof}[Proof Sketch]
+Let $U$ be our reference universal machine. For any other universal machine $U'$, there exists an \emph{interpreter} program $i$ that makes $U$ simulate $U'$. That is, $U(i \cdot p) = U'(p)$ for any program $p$, where $\cdot$ denotes concatenation.
+
+If $p'$ is a shortest program for $x$ on $U'$ ($U'(p') = x$), then on $U$, the program $i \cdot p'$ also produces $x$. Hence:
+\[
+K_U(x) \leq \ell(i \cdot p') = \ell(p') + \ell(i) = K_{U'}(x) + c_{U'}
+\]
+where $c_{U'} = \ell(i)$ is fixed.
+\end{proof}
+
+\begin{importantbox}
+\textbf{Consequence}: Kolmogorov complexity is \emph{machine-independent up to an additive constant}. Therefore, we can simply write $K(x)$ and drop the subscript $U$, understanding that all results hold within an additive constant.
+\end{importantbox}
+
+\subsection{Variants: Prefix Complexity and Conditional Complexity}
+\subsubsection{Prefix (Self-delimiting) Complexity $K(x)$}
+Plain complexity has a subtle problem: if we concatenate shortest programs, we can't tell where one ends and the next begins. Prefix complexity $K(x)$ solves this by requiring programs to be \emph{self-delimiting}: no program is a prefix of another.
+
+\begin{definitionbox}
+\textbf{Prefix Kolmogorov Complexity}: $K(x)$ is defined similarly to $K(x)$, but the universal machine $U$ is required to have a prefix-free domain (no program is a prefix of another). This ensures $K(x) \geq K(x)$ but they are close: $K(x) \leq K(x) + O(\log K(x))$.
+\end{definitionbox}
+
+\subsubsection{Conditional Complexity $K(x|y)$}
+\begin{definitionbox}
+\textbf{Conditional Kolmogorov Complexity}: $K(x|y)$ is the length of the shortest program that outputs $x$ given $y$ as auxiliary input:
+\[
+K(x|y) = \min_{p:\, U(p, y) = x} \ell(p)
+\]
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Conditional Complexity Examples}:
+\begin{itemize}
+    \item $K(\text{``Hamlet''} | \text{Shakespeare's complete works})$ is small—given the works, generating Hamlet is easy.
+    \item $K(\text{weather tomorrow} | \text{all physics laws})$ might still be large because computing the forecast is complex.
+    \item $K(x|x) = O(1)$: The program is essentially ``print the input.''
+\end{itemize}
+\end{examplebox}
+
+\subsection{Incompressibility and Randomness}
+\subsubsection{Incompressible Strings}
+Most strings cannot be compressed significantly.
+
+\begin{theorem}[Incompressibility Theorem]
+For any length $n$, at least $2^n(1 - 2^{-c})$ of all binary strings $x$ of length $n$ satisfy:
+\[
+K(x) \geq n - c
+\]
+for any $c \geq 0$.
+\end{theorem}
+
+\begin{proof}
+There are only $\sum_{i=0}^{n-c-1} 2^i = 2^{n-c} - 1$ programs shorter than $n-c$ bits. Hence, at most $2^{n-c} - 1$ strings of length $n$ can have $K(x) < n-c$. The remaining $2^n - (2^{n-c} - 1) > 2^n(1 - 2^{-c})$ strings must have $K(x) \geq n-c$.
+\end{proof}
+
+\begin{examplebox}
+\textbf{Most Strings are Incompressible}:
+For $n = 1000$ and $c = 20$:
+\begin{itemize}
+    \item Programs shorter than $980$ bits: at most $2^{980} - 1$
+    \item Total $1000$-bit strings: $2^{1000}$
+    \item Fraction compressible by $\geq 20$ bits: $\leq 2^{980}/2^{1000} = 2^{-20} \approx 0.000000954$
+    \item Thus, $> 99.9999\%$ of 1000-bit strings have $K(x) \geq 980$ bits.
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Kolmogorov Randomness}
+\begin{definitionbox}
+A string $x$ of length $n$ is called \textbf{$c$-random} (or $c$-incompressible) if
+\[
+K(x) \geq n - c
+\]
+\end{definitionbox}
+
+These strings are ``truly random'' in an algorithmic sense: they have no concise description, no patterns, no regularities that allow compression.
+
+\subsection{Relationship to Shannon Entropy}
+\subsubsection{Expected Kolmogorov Complexity vs. Entropy}
+For a computable probability distribution $P$ over strings, there is a deep connection:
+
+\begin{theorem}
+Let $X$ be a random variable distributed according to a computable distribution $P$ over binary strings. Then:
+\[
+\mathbb{E}[K(X)] = H(P) + O(1)
+\]
+where $H(P)$ is the Shannon entropy of $P$, and the constant depends on the universal machine but not on $P$.
+\end{theorem}
+
+\begin{examplebox}
+\textbf{Bernoulli Source Comparison}:
+Consider a binary source with $P(1) = p$.
+\begin{itemize}
+    \item Shannon: Entropy $H(p) = -p\log p - (1-p)\log(1-p)$ bits/symbol.
+    \item Kolmogorov: For a typical long string $x^n$ from this source, with high probability:
+    \[
+    K(x^n) \approx nH(p) + O(\log n)
+    \]
+    The $O(\log n)$ term accounts for storing the parameters $n$ and $p$.
+    \item For $p=0.5$ (fair coin): $H=1$, so $K(x^n) \approx n + O(\log n)$ (incompressible).
+    \item For $p=0.1$: $H \approx 0.469$, so $K(x^n) \approx 0.469n + O(\log n)$ (compressible).
+\end{itemize}
+\end{examplebox}
+
+\subsection{Applications to Clustering and Machine Learning}
+\subsubsection{Normalized Information Distance (NID)}
+Based on Kolmogorov complexity, one can define a universal similarity measure.
+
+\begin{definitionbox}
+\textbf{Information Distance}:
+\[
+E(x,y) = \max\{K(x|y), K(y|x)\}
+\]
+measures the length of the shortest program that transforms $x$ into $y$ or vice versa.
+
+\textbf{Normalized Information Distance (NID)}:
+\[
+NID(x,y) = \frac{\max\{K(x|y), K(y|x)\}}{\max\{K(x), K(y)\}}
+\]
+\end{definitionbox}
+
+Since $K$ is uncomputable, in practice we use computable approximations (compressors).
+
+\subsubsection{Practical Clustering with Compression}
+\begin{examplebox}
+\textbf{The Compression-based Clustering Method (Cilibrasi \& Vitányi)}:
+\begin{enumerate}
+    \item Given objects $x$ and $y$, concatenate them into $xy$.
+    \item Approximate $K(x)$ by $C(x)$ = length of $x$ compressed by a standard compressor (gzip, bzip2, etc.).
+    \item Approximate $K(x|y)$ by $C(xy) - C(y)$ (intuitively, the extra bits needed to describe $x$ given $y$).
+    \item Define the \textbf{Normalized Compression Distance (NCD)}:
+    \[
+    NCD(x,y) = \frac{C(xy) - \min\{C(x), C(y)\}}{\max\{C(x), C(y)\}}
+    \]
+    \item Cluster objects based on small NCD.
+\end{enumerate}
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Application: Music Genre Clustering} (Cilibrasi \& Vitányi, 2005):
+\begin{itemize}
+    \item Represent each MP3 file as a binary string.
+    \item Compress each file alone ($C(x)$) and concatenated pairs ($C(xy)$) using a standard compressor.
+    \item Compute NCD between all pairs.
+    \item Cluster: Classical pieces cluster together, rock together, jazz together, etc., \emph{without any prior knowledge of musical features}.
+    \item The method works because pieces in the same genre share structural regularities that the compressor exploits.
+\end{itemize}
+\end{examplebox}
+
+\subsection{Applications to Proof Methods: Incompressibility Arguments}
+The incompressibility method is a powerful proof technique: assume an object has a short description (low Kolmogorov complexity), derive a contradiction.
+
+\begin{examplebox}
+\textbf{Proving Lower Bounds: Sorting with Comparisons}:
+\begin{itemize}
+    \item There are $n!$ possible permutations of $n$ distinct elements.
+    \item Any comparison-based sorting algorithm must identify which permutation it is given.
+    \item Each comparison yields at most 1 bit of information.
+    \item To specify a permutation out of $n!$ possibilities requires $\log_2(n!)$ bits of information.
+    \item By Stirling: $\log_2(n!) \approx n\log_2 n - n\log_2 e$.
+    \item Hence, any comparison-based sorting algorithm requires $\Omega(n\log n)$ comparisons in the worst case.
+\end{itemize}
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Graph Properties}:
+Prove that checking if a graph on $n$ vertices is connected requires $\Omega(n^2)$ operations in the worst case.
+\begin{itemize}
+    \item Encode the adjacency matrix as a string of length $\binom{n}{2}$.
+    \item There are many connected graphs; they are incompressible (high $K$).
+    \item Any algorithm must read essentially all bits in the worst case.
+\end{itemize}
+\end{examplebox}
+
+\subsection{Limitations and Philosophical Implications}
+\subsubsection{Uncomputability}
+\begin{theorem}
+$K(x)$ is \textbf{uncomputable}. There is no algorithm that, given $x$, computes $K(x)$.
+\end{theorem}
+
+\begin{proof}[Proof Sketch]
+Suppose $K(x)$ were computable. Then we could construct a program that finds the first string $x$ of length $n$ with $K(x) \geq n$ (a ``random'' string). But then $x$ is described by this program plus $n$, giving a short description, contradicting $K(x) \geq n$.
+\end{proof}
+
+\subsubsection{Practical Approximation}
+Since $K(x)$ is uncomputable, in practice we use:
+\begin{itemize}
+    \item \textbf{Standard compressors} (gzip, bzip2, LZMA) as upper bounds: $C(x) \geq K(x)$.
+    \item \textbf{Universal codes} like Lempel-Ziv asymptotically approach $K(x)$ for stationary ergodic sources.
+    \item \textbf{Minimum Description Length (MDL)} principle: choose the model that minimizes description length of data plus model.
+\end{itemize}
+
+\subsubsection{Philosophical Significance}
+\begin{itemize}
+    \item \textbf{Objective randomness}: A string is random if it has no concise explanation.
+    \item \textbf{Occam's razor formalized}: The best theory is the shortest program that reproduces the observations.
+    \item \textbf{Limits of science}: If the universe's laws are a short program, then the universe is compressible and understandable. If not, it may be algorithmically random and ultimately incomprehensible.
+\end{itemize}
+
+\subsection{Homework Assignment}
+\begin{enumerate}
+    \item \textbf{Basic Calculations}:
+    \begin{enumerate}
+        \item Estimate (upper bound) the Kolmogorov complexity of the following strings by describing a short program:
+        \begin{itemize}
+            \item $x = 0^{1000}$ (1000 zeros)
+            \item $x =$ first 100 digits of $\pi$
+            \item $x =$ ``ababababab'' (repeated 10 times)
+        \end{itemize}
+        \item For each, compare $\ell(x)$ with your estimated $K(x)$.
+    \end{enumerate}
+
+    \item \textbf{Incompressibility}:
+    \begin{enumerate}
+        \item How many binary strings of length 1000 have $K(x) \leq 900$?
+        \item What fraction of strings of length $n$ are $c$-incompressible for $c = 10$ and $n = 100, 1000, 10000$?
+        \item Explain why we can never prove a specific string like the binary expansion of $\pi$ is random (incompressible).
+    \end{enumerate}
+
+    \item \textbf{Compression-based Clustering Experiment}:
+    \begin{enumerate}
+        \item Pick 4 text files: two English articles, one Python code file, one random-looking data file.
+        \item Compress each separately using gzip, noting size $C(x)$.
+        \item For each pair, concatenate files and compress the concatenation $C(xy)$.
+        \item Compute NCD for each pair.
+        \item Build a distance matrix and see if the clustering matches your expectation.
+    \end{enumerate}
+
+    \item \textbf{Proof with Incompressibility}:
+    \begin{enumerate}
+        \item Use the incompressibility method to show that there are at least $2^n/n$ binary strings of length $n$ with $K(x) \geq n - \log n$.
+        \item Show that any algorithm that checks whether a string of length $n$ contains a ``1'' must examine at least $n$ bits in the worst case.
+    \end{enumerate}
+
+    \item \textbf{Research \& Analysis}:
+    \begin{enumerate}
+        \item Read Section 2 of \cite{cilibrasi2005clustering} and summarize the NCD method in your own words.
+        \item Find one application of Kolmogorov complexity or the incompressibility method in a research paper (outside of compression). Summarize its use.
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{Reading Assignment and References}
+\begin{itemize}
+    \item \textbf{Required Reading}:
+    \begin{itemize}
+        \item Li, M., \& Vitányi, P. (2008). \textit{An Introduction to Kolmogorov Complexity and Its Applications} (3rd ed.), Chapters 1-2. \cite{li2008introduction}
+        \item Cilibrasi, R., \& Vitányi, P. M. B. (2005). Clustering by compression. \textit{IEEE Transactions on Information theory}, 51(4), 1523-1545. \cite{cilibrasi2005clustering}
+    \end{itemize}
+
+    \item \textbf{Additional References}:
+    \begin{itemize}
+        \item Cover, T. M., \& Thomas, J. A. (2006). \textit{Elements of Information Theory} (2nd ed.), Chapter 14.
+        \item Grünwald, P. D., \& Vitányi, P. (2008). Algorithmic information theory. In \textit{Philosophy of Information} (pp. 281-317).
+    \end{itemize}
+\end{itemize}
+
+\subsection{Looking Ahead: Practical Compression Algorithms}
+In the next lecture, we will return to practical methods:
+\begin{itemize}
+    \item \textbf{Huffman Coding}: Optimal prefix codes in practice.
+    \item \textbf{Arithmetic Coding}: Overcoming integer-length constraints.
+    \item \textbf{Dictionary Methods}: LZ77, LZ78, LZW and their modern variants.
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Key Insights from Lecture 3}:
+\begin{enumerate}
+    \item Kolmogorov complexity $K(x)$ measures the absolute information content of individual objects, independent of probability distributions.
+    \item It is machine-independent up to an additive constant (Invariance Theorem).
+    \item Most strings are incompressible; these are algorithmically random.
+    \item $K(x)$ is uncomputable but can be approximated by practical compressors.
+    \item The theory provides a foundation for universal similarity (NCD) and has deep philosophical implications about randomness and complexity.
+\end{enumerate}
+\end{importantbox}
+
+% -------------------------- end of lecture 3
+
+
+\section{Lecture 4: Shannon-Fano and Huffman Coding: Construction and Optimality}
+\subsection{Learning Objectives}
+By the end of this lecture, students will be able to:
+\begin{itemize}[leftmargin=*]
+    \item Construct Shannon-Fano and Huffman codes for given symbol probabilities
+    \item Prove the optimality of Huffman codes among all prefix codes
+    \item Analyze time and space complexity of Huffman coding algorithms
+    \item Construct and use canonical Huffman codes for efficient representation
+    \item Compare Huffman coding with Shannon's theoretical limits
+    \item Implement Huffman coding for practical compression applications
+\end{itemize}
+
+\subsection{Historical Context: From Shannon-Fano to Huffman}
+\subsubsection{Shannon-Fano Coding: The First Systematic Approach}
+Developed independently by Claude Shannon (1948) and Robert Fano (1949), this was the first systematic method for constructing efficient prefix codes.
+
+\begin{definitionbox}
+\textbf{Shannon-Fano Coding Algorithm}:
+\begin{enumerate}
+    \item Sort symbols in decreasing order of probability
+    \item Partition the list into two subsets with approximately equal total probability
+    \item Assign 0 to the first subset, 1 to the second subset
+    \item Recursively apply steps 2-3 to each subset
+\end{enumerate}
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Shannon-Fano Example}: Source with probabilities $\{0.3, 0.25, 0.2, 0.15, 0.1\}$
+
+\begin{minipage}{0.45\textwidth}
+\begin{enumerate}
+    \item Sort: A(0.3), B(0.25), C(0.2), D(0.15), E(0.1)
+    \item First partition: A(0.3) vs B+C+D+E(0.7) - not balanced
+    \item Better: A+B(0.55) vs C+D+E(0.45)
+    \item Assign: A,B get 0; C,D,E get 1
+    \item Recursively partition subsets
+\end{enumerate}
+\end{minipage}
+\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+Symbol & Probability & Code \\
+\hline
+A & 0.3 & 00 \\
+B & 0.25 & 01 \\
+C & 0.2 & 10 \\
+D & 0.15 & 110 \\
+E & 0.1 & 111 \\
+\hline
+\end{tabular}
+\end{minipage}
+
+Expected length: $L = 0.3\times2 + 0.25\times2 + 0.2\times2 + 0.15\times3 + 0.1\times3 = 2.25$ bits/symbol \\
+Entropy: $H \approx 2.228$ bits/symbol \\
+Efficiency: $\eta = 2.228/2.25 \approx 99.0\%$
+\end{examplebox}
+
+\subsubsection{Limitations of Shannon-Fano}
+\begin{itemize}
+    \item \textbf{Not always optimal}: The partitioning step is heuristic
+    \item \textbf{Multiple valid partitions}: Different partitions lead to different codes
+    \item \textbf{No guarantee of optimality}: Can produce suboptimal codes
+\end{itemize}
+
+\subsection{Huffman Coding: The Optimal Solution}
+David Huffman (1952), while a graduate student at MIT, developed the optimal algorithm as a class project.
+
+\begin{definitionbox}
+\textbf{Huffman Coding Algorithm}:
+\begin{enumerate}
+    \item Create a leaf node for each symbol with its probability
+    \item While more than one node remains:
+    \begin{enumerate}
+        \item Remove the two nodes with smallest probabilities
+        \item Create a new internal node with probability = sum of the two
+        \item Make the two nodes children of the new node
+        \item Insert the new node back into the list
+    \end{enumerate}
+    \item Traverse the tree from root to leaves to assign codes (0 for left, 1 for right)
+\end{enumerate}
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Huffman Coding Step-by-Step}: Same source $\{0.3, 0.25, 0.2, 0.15, 0.1\}$
+
+\begin{minipage}{0.5\textwidth}
+\textbf{Construction}:
+\begin{enumerate}
+    \item Initial: A(0.3), B(0.25), C(0.2), D(0.15), E(0.1)
+    \item Combine D+E = DE(0.25)
+    \item Combine B+DE = BDE(0.5) or C+DE = CDE(0.45)?
+    \item Smallest: C(0.2) and DE(0.25) → CDE(0.45)
+    \item Combine A(0.3) and B(0.25) → AB(0.55)
+    \item Combine AB(0.55) and CDE(0.45) → Root(1.0)
+\end{enumerate}
+\end{minipage}
+\begin{minipage}{0.45\textwidth}
+\centering
+\textbf{Resulting Codes}:
+\begin{tabular}{|c|c|c|}
+\hline
+Symbol & Code & Length \\
+\hline
+A & 00 & 2 \\
+B & 01 & 2 \\
+C & 10 & 2 \\
+D & 110 & 3 \\
+E & 111 & 3 \\
+\hline
+\end{tabular}
+\end{minipage}
+
+Expected length: $L = 0.3\times2 + 0.25\times2 + 0.2\times2 + 0.15\times3 + 0.1\times3 = 2.25$ bits/symbol \\
+Same as Shannon-Fano for this example, but Huffman is \emph{guaranteed} optimal.
+\end{examplebox}
+
+\subsection{Optimality Proof of Huffman Coding}
+\subsubsection{Key Lemmas}
+\begin{lemma}[Sibling Property]
+In an optimal prefix code tree, the two symbols with smallest probabilities must be siblings (share the same parent) at the deepest level of the tree.
+\end{lemma}
+
+\begin{lemma}[Recursive Optimality]
+If we replace two sibling leaves with their parent (creating a reduced source), an optimal code for the reduced source can be extended to an optimal code for the original source by splitting the parent back into the two leaves.
+\end{lemma}
+
+\subsubsection{Optimality Theorem}
+\begin{theorem}[Huffman Optimality]
+The Huffman algorithm produces an optimal prefix code for a given set of symbol probabilities.
+\end{theorem}
+
+\begin{proof}
+By induction on the alphabet size $n$.
+
+\textbf{Base case}: $n=2$. Trivial: codes 0 and 1 are optimal.
+
+\textbf{Inductive step}: Assume Huffman produces optimal codes for $n-1$ symbols. For $n$ symbols, let $x$ and $y$ be the two symbols with smallest probabilities merged first. By the sibling property, in any optimal code, $x$ and $y$ must be siblings at the deepest level. Replace $x$ and $y$ with a new symbol $z$ having probability $p(x)+p(y)$. By induction, Huffman produces an optimal code for the reduced $(n-1)$-symbol alphabet. Splitting $z$ back into $x$ and $y$ (assigning 0 and 1) gives an optimal code for the original $n$ symbols.
+\end{proof}
+
+\subsection{Time and Space Complexity Analysis}
+\subsubsection{Naïve Implementation}
+\begin{itemize}
+    \item \textbf{Time}: $O(n^2)$ - repeatedly scanning for two smallest probabilities
+    \item \textbf{Space}: $O(n)$ - storing probabilities and tree nodes
+\end{itemize}
+
+\subsubsection{Efficient Implementation with Priority Queues}
+\begin{algorithm}[H]
+\caption{Huffman Coding with Priority Queue}
+\begin{algorithmic}[1]
+\REQUIRE Symbols $S = \{s_1, \ldots, s_n\}$ with probabilities $p_1, \ldots, p_n$
+\ENSURE Optimal prefix codes for all symbols
+\STATE Create min-heap $H$ of nodes, each with a symbol and its probability
+\WHILE{$|H| > 1$}
+    \STATE $x \gets \text{extract-min}(H)$
+    \STATE $y \gets \text{extract-min}(H)$
+    \STATE Create new node $z$ with $p(z) = p(x) + p(y)$
+    \STATE Make $x$ left child of $z$, $y$ right child of $z$
+    \STATE Insert $z$ into $H$
+\ENDWHILE
+\STATE $root \gets \text{extract-min}(H)$
+\STATE Traverse tree from $root$, assigning 0 for left edges, 1 for right edges
+\end{algorithmic}
+\end{algorithm}
+
+\begin{itemize}
+    \item \textbf{Time}: $O(n \log n)$ - $2(n-1)$ heap operations
+    \item \textbf{Space}: $O(n)$ - heap and tree storage
+\end{itemize}
+
+\subsection{Canonical Huffman Codes}
+\subsubsection{Motivation and Definition}
+Standard Huffman trees have arbitrary shapes, making code representation inefficient. Canonical Huffman codes impose structure while maintaining optimal lengths.
+
+\begin{definitionbox}
+\textbf{Canonical Huffman Code}: A prefix code where:
+\begin{enumerate}
+    \item All codes of the same length are consecutive binary numbers
+    \item Shorter codes have numerically smaller values than longer codes
+    \item The first code of each length is obtained by left-shifting the last code of the previous length and adding 1
+\end{enumerate}
+\end{definitionbox}
+
+\subsubsection{Construction Algorithm}
+\begin{algorithm}[H]
+\caption{Canonical Huffman Code Construction}
+\begin{algorithmic}[1]
+\REQUIRE Symbol lengths $\ell_1, \ldots, \ell_n$ from Huffman algorithm
+\ENSURE Canonical Huffman codes
+\STATE Sort symbols by code length (ascending), then by symbol value
+\STATE $code \gets 0$
+\FOR{each symbol $s_i$ in sorted order}
+    \STATE Assign $code$ to $s_i$ (padded with leading zeros to length $\ell_i$)
+    \STATE $code \gets code + 1$
+    \IF{next symbol has longer length}
+        \STATE $code \gets code \ll (\ell_{i+1} - \ell_i)$  \COMMENT{Left shift}
+    \ENDIF
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\begin{examplebox}
+\textbf{Canonical Huffman Example}: Symbols with lengths $\{A:2, B:3, C:3, D:3, E:4\}$
+
+\begin{enumerate}
+    \item Sort: A(2), B(3), C(3), D(3), E(4)
+    \item Start: $code = 00$ (binary)
+    \item A: assign 00, increment → 01, shift left 1 → 010 (since next length is 3)
+    \item B: assign 010, increment → 011, no shift
+    \item C: assign 011, increment → 100, no shift
+    \item D: assign 100, increment → 101, shift left 1 → 1010 (since next length is 4)
+    \item E: assign 1010
+\end{enumerate}
+
+Result: A=00, B=010, C=011, D=100, E=1010
+\end{examplebox}
+
+\subsubsection{Benefits of Canonical Codes}
+\begin{itemize}
+    \item \textbf{Compact representation}: Store only lengths, not actual codes
+    \item \textbf{Fast decoding}: Use length-limited lookup tables
+    \item \textbf{Standardized}: Used in DEFLATE (gzip, PNG), JPEG, MPEG
+\end{itemize}
+
+\subsection{Comparison with Theoretical Limits}
+\subsubsection{Huffman vs. Shannon Bound}
+From Shannon's Source Coding Theorem: $H(X) \leq L < H(X) + 1$
+
+For Huffman coding: $H(X) \leq L_{\text{Huffman}} \leq H(X) + p_{\text{max}} + 0.086$ where $p_{\text{max}}$ is the largest probability.
+
+\begin{examplebox}
+\textbf{Worst-case Analysis}:
+\begin{itemize}
+    \item Best case: $L_{\text{Huffman}} = H(X)$ (when all probabilities are powers of 2)
+    \item Worst case: Binary source with $p \to 0$, $H(p) \to 0$, but $L_{\text{Huffman}} = 1$ bit
+    \item Typical: $L_{\text{Huffman}} - H(X) \approx 0.01-0.1$ bits for realistic distributions
+\end{itemize}
+\end{examplebox}
+
+\subsection{Practical Considerations and Variations}
+\subsubsection{Block Huffman Coding}
+Code blocks of $k$ symbols instead of individual symbols:
+\begin{itemize}
+    \item Reduces overhead from $+1$ bound to $+1/k$
+    \item Exponential growth in alphabet size ($m^k$)
+    \item Used in practice for small $k$ (2-4)
+\end{itemize}
+
+\subsubsection{Length-Limited Huffman Codes}
+Sometimes we need to limit maximum code length (e.g., hardware constraints). Algorithms:
+\begin{itemize}
+    \item \textbf{Package-merge algorithm}: $O(nL)$ time, where $L$ is length limit
+    \item \textbf{Larmore-Hirschberg algorithm}: More efficient
+\end{itemize}
+
+\subsubsection{Huffman Coding with Escape Symbols}
+For unknown alphabets or adaptive coding:
+\[
+\text{Code} = \begin{cases}
+\text{Huffman code for known symbol} \\
+\text{Escape code + literal representation}
+\end{cases}
+\]
+
+\subsection{Homework Assignment}
+\begin{enumerate}
+    \item \textbf{Huffman Construction}:
+    \begin{enumerate}
+        \item Construct Huffman codes for symbols with frequencies: A:15, B:7, C:6, D:6, E:5
+        \item Calculate expected code length and efficiency
+        \item Compare with Shannon-Fano coding on the same distribution
+    \end{enumerate}
+
+    \item \textbf{Optimality Proof}:
+    \begin{enumerate}
+        \item Prove that in an optimal prefix code, the two longest codewords have the same length
+        \item Show that if all probabilities are powers of 2, Huffman coding achieves entropy exactly
+        \item Prove that for a binary source with $p(0)=0.9$, Huffman coding gives $L=1$ bit/symbol
+    \end{enumerate}
+
+    \item \textbf{Canonical Codes}:
+    \begin{enumerate}
+        \item Given lengths $\{2,2,3,3,4,4,4,5\}$, construct canonical Huffman codes
+        \item Write pseudocode for decoding canonical Huffman codes using a lookup table
+        \item Calculate space savings compared to storing full tree
+    \end{enumerate}
+
+    \item \textbf{Implementation}:
+    \begin{enumerate}
+        \item Implement Huffman coding in a programming language of your choice
+        \item Test on sample text files
+        \item Measure compression ratio and compare with gzip -1
+    \end{enumerate}
+
+    \item \textbf{Research \& Analysis}:
+    \begin{enumerate}
+        \item Read Huffman's original paper \cite{huffman1952method} and summarize the key insights
+        \item Compare canonical Huffman codes \cite{canonical1989huffman} with standard Huffman
+        \item Find one application where Huffman coding is still preferred over arithmetic coding
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{Reading Assignment and References}
+\begin{itemize}
+    \item \textbf{Required Reading}:
+    \begin{itemize}
+        \item Huffman, D. A. (1952). "A Method for the Construction of Minimum-Redundancy Codes" \cite{huffman1952method}
+        \item Cover \& Thomas, \textit{Elements of Information Theory}, Chapter 5.6-5.8
+    \end{itemize}
+
+    \item \textbf{Additional References}:
+    \begin{itemize}
+        \item Schwartz, E. S., \& Kallick, B. (1964). "Generating a canonical prefix encoding"
+        \item Hirschberg, D. S., \& Lelewer, D. A. (1990). "Efficient decoding of prefix codes"
+    \end{itemize}
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Key Insights from Lecture 4}:
+\begin{enumerate}
+    \item Huffman coding produces optimal prefix codes for given symbol probabilities
+    \item The algorithm runs in $O(n \log n)$ time using priority queues
+    \item Canonical Huffman codes provide efficient representation and fast decoding
+    \item Huffman coding achieves $L < H + p_{\text{max}} + 0.086$, close to Shannon's bound
+    \item Practical implementations must handle large alphabets and length limits
+\end{enumerate}
+\end{importantbox}
+
+\section{Lecture 5: Adaptive Huffman and Arithmetic Coding}
+\subsection{Learning Objectives}
+By the end of this lecture, students will be able to:
+\begin{itemize}[leftmargin=*]
+    \item Implement adaptive Huffman coding (FGK and Vitter algorithms)
+    \item Explain how arithmetic coding overcomes integer-length constraints
+    \item Compare adaptive vs. two-pass coding approaches
+    \item Analyze the precision requirements for arithmetic coding
+    \item Apply range encoding principles for practical implementations
+    \item Understand trade-offs between different adaptive coding methods
+\end{itemize}
+
+\subsection{Motivation for Adaptive Coding}
+\subsubsection{Limitations of Static Huffman Coding}
+\begin{itemize}
+    \item \textbf{Two-pass requirement}: Need to collect statistics before coding
+    \item \textbf{Storage overhead}: Must transmit codebook with compressed data
+    \item \textbf{Inflexibility}: Cannot adapt to changing source statistics
+    \item \textbf{Inefficient for small files}: Codebook overhead dominates
+\end{itemize}
+
+\subsubsection{Adaptive (One-pass) Approaches}
+\begin{definitionbox}
+\textbf{Adaptive Coding}: Codes are updated dynamically as symbols are processed, without prior knowledge of source statistics.
+\end{definitionbox}
+
+\subsection{Adaptive Huffman Coding: FGK Algorithm}
+Developed by Faller, Gallager, and Knuth (1973-1978).
+
+\subsubsection{Sibling Property and Update Rules}
+\begin{definitionbox}
+\textbf{Sibling Property}: In a dynamic Huffman tree, nodes can be numbered such that:
+\begin{enumerate}
+    \item Nodes are in increasing order of weight (probability $\times$ count)
+    \item Each node (except root) has a sibling with the same number
+    \item Nodes with higher numbers have weights $\geq$ nodes with lower numbers
+\end{enumerate}
+\end{definitionbox}
+
+\subsubsection{FGK Algorithm Steps}
+\begin{algorithm}[H]
+\caption{FGK Adaptive Huffman Coding}
+\begin{algorithmic}[1]
+\REQUIRE Symbol stream $s_1, s_2, \ldots, s_n$
+\ENSURE Compressed bitstream
+\STATE Initialize tree with single NYT (Not Yet Transmitted) node with weight 0
+\FOR{each symbol $s$ in input}
+    \IF{$s$ has appeared before}
+        \STATE Output code for $s$ from current tree
+        \STATE Update tree: increment weight of $s$'s node and swap if needed
+    \ELSE
+        \STATE Output code for NYT node
+        \STATE Output literal representation of $s$
+        \STATE Add new node for $s$ as sibling of NYT
+        \STATE Split NYT: old NYT becomes internal node with two children
+    \ENDIF
+    \WHILE{current node $\neq$ root}
+        \STATE Move to parent, increment weight
+        \STATE If sibling property violated, swap with highest-numbered node with same weight
+    \ENDWHILE
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\begin{examplebox}
+\textbf{FGK Example}: Encoding "ABRACADABRA"
+
+\begin{minipage}{0.45\textwidth}
+\textbf{Step-by-step}:
+\begin{enumerate}
+    \item Start: NYT(0)
+    \item 'A': NYT code + 'A', add A(1)
+    \item 'B': NYT code + 'B', add B(1)
+    \item 'R': NYT code + 'R', add R(1)
+    \item 'A': Output A's code (now 0), A.weight++
+    \item Continue updating...
+\end{enumerate}
+\end{minipage}
+\begin{minipage}{0.45\textwidth}
+\centering
+\textbf{Final tree weights}:
+\begin{tabular}{|c|c|}
+\hline
+Symbol & Weight \\
+\hline
+A & 5 \\
+B & 2 \\
+R & 2 \\
+C & 1 \\
+D & 1 \\
+\hline
+\end{tabular}
+\end{minipage}
+\end{examplebox}
+
+\subsection{Vitter's Algorithm: Improved Adaptive Huffman}
+Jeffrey Vitter (1987) improved FGK with better tree restructuring.
+
+\subsubsection{Key Improvements Over FGK}
+\begin{itemize}
+    \item \textbf{Block-wise restructuring}: More efficient than per-symbol updates
+    \item \textbf{Implicit numbering}: Eliminates explicit sibling numbers
+    \item \textbf{Better compression}: Approaches static Huffman performance faster
+\end{itemize}
+
+\begin{theorem}[Vitter's Optimality]
+Vitter's algorithm achieves the same asymptotic compression as static Huffman coding with known statistics.
+\end{theorem}
+
+\subsubsection{Comparison: FGK vs. Vitter}
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{3cm}|p{5cm}|p{5cm}|}
+\hline
+\textbf{Aspect} & \textbf{FGK Algorithm} & \textbf{Vitter's Algorithm} \\
+\hline
+Update frequency & After every symbol & Can be deferred \\
+\hline
+Tree operations & More frequent swaps & Block-based restructuring \\
+\hline
+Compression ratio & Slightly worse & Approaches static Huffman faster \\
+\hline
+Complexity & $O(\log n)$ per symbol & $O(\log n)$ amortized \\
+\hline
+Memory & Stores sibling numbers & Implicit numbering \\
+\hline
+\end{tabular}
+\caption{Comparison of adaptive Huffman algorithms}
+\end{table}
+
+\subsection{Arithmetic Coding: Overcoming Integer Constraints}
+\subsubsection{Fundamental Idea}
+Huffman coding assigns integer bits per symbol. Arithmetic coding encodes the entire message as a single rational number in $[0,1)$.
+
+\begin{definitionbox}
+\textbf{Arithmetic Coding Principle}:
+\begin{enumerate}
+    \item Start with interval $[0,1)$
+    \item For each symbol, partition current interval according to symbol probabilities
+    \item Select subinterval corresponding to the symbol
+    \item Repeat until all symbols processed
+    \item Output any number within final interval (using minimal binary representation)
+\end{enumerate}
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Arithmetic Coding Example}: Encode "BAC" with probabilities P(A)=0.4, P(B)=0.3, P(C)=0.3
+
+\begin{enumerate}
+    \item Initial: $[0,1)$
+    \item Symbol B: range $[0.4, 0.7)$ (since A:[0,0.4), B:[0.4,0.7), C:[0.7,1.0))
+    \item Symbol A: partition $[0.4,0.7)$ proportionally:
+    \begin{itemize}
+        \item A: $[0.4, 0.4+0.3\times0.4] = [0.4, 0.52)$
+        \item B: $[0.52, 0.52+0.3\times0.3] = [0.52, 0.61)$
+        \item C: $[0.61, 0.7)$
+    \end{itemize}
+    Select $[0.4, 0.52)$ for A
+    \item Symbol C: partition $[0.4, 0.52)$:
+    \begin{itemize}
+        \item A: $[0.4, 0.4+0.12\times0.4] = [0.4, 0.448)$
+        \item B: $[0.448, 0.448+0.12\times0.3] = [0.448, 0.484)$
+        \item C: $[0.484, 0.52)$
+    \end{itemize}
+    Final interval: $[0.484, 0.52)$
+    \item Choose number: 0.49 (binary 0.0111110...)
+    \item Output: 011111 (leading 0 indicates fraction)
+\end{enumerate}
+\end{examplebox}
+
+\subsubsection{Precision and Incremental Processing}
+\begin{itemize}
+    \item \textbf{Problem}: Intervals become very small, requiring high precision
+    \item \textbf{Solution}: Output bits as soon as they're determined
+    \item \textbf{Renormalization}: Scale interval when it becomes too small
+\end{itemize}
+
+\subsection{Range Encoding: Practical Implementation}
+Range encoding is a variant of arithmetic coding with simpler integer arithmetic.
+
+\subsubsection{Integer Arithmetic Implementation}
+Instead of real numbers in $[0,1)$, use integers $[0, 2^p-1]$ where $p$ is precision (e.g., 32 bits).
+
+\begin{comment}
+\begin{algorithm}[H]
+\caption{Range Encoding with Integer Arithmetic}
+\begin{algorithmic}[1]
+\REQUIRE Symbols $s_1, \ldots, s_n$, cumulative probabilities $C_i$
+\ENSURE Compressed bitstream
+\STATE $low \gets 0$
+\STATE $range \gets 2^p$
+\STATE $half \gets 2^{p-1}$
+\STATE $quarter \gets 2^{p-2}$
+\STATE $pending \gets 0$
+
+\FOR{each symbol $s$}
+    \STATE $low \gets low + \lfloor range \cdot C_{s-1} \rfloor$
+    \STATE $range \gets \lfloor range \cdot (C_s - C_{s-1}) \rfloor$
+
+    \WHILE{true} \COMMENT{Renormalization}
+        \IF{$low + range \leq half$} \COMMENT{E1}
+            \STATE Output 0
+        \ELSIF{$low \geq half$} \COMMENT{E2}
+            \STATE Output 1
+            \STATE $low \gets low - half$
+        \ELSIF{$low \geq quarter$ \AND $low + range \leq 3 \cdot quarter$} \COMMENT{E3}
+            \STATE $pending \gets pending + 1$
+            \STATE $low \gets low - quarter$
+        \ELSE
+            \STATE \textbf{break}
+        \ENDIF
+        \STATE $low \gets low \ll 1$
+        \STATE $range \gets range \ll 1$
+    \ENDWHILE
+\ENDFOR
+
+\STATE Output final bits to uniquely identify interval
+\end{algorithmic}
+\end{algorithm}
+
+\end{comment} %todo
+
+\subsubsection{Adaptive Arithmetic Coding}
+Combine arithmetic coding with adaptive probability estimation:
+
+\begin{enumerate}
+    \item Start with uniform or estimated probabilities
+    \item Update counts after each symbol
+    \item Periodically rescale counts to prevent overflow
+    \item Use escape symbols for previously unseen symbols
+\end{enumerate}
+
+\subsection{Comparison: Huffman vs. Arithmetic Coding}
+\subsubsection{Theoretical Comparison}
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{3cm}|p{6cm}|p{6cm}|}
+\hline
+\textbf{Aspect} & \textbf{Huffman Coding} & \textbf{Arithmetic Coding} \\
+\hline
+Bits per symbol & Integer bits & Fractional bits \\
+\hline
+Optimality & Optimal for integer bits & Can approach entropy arbitrarily close \\
+\hline
+Overhead & $< H + p_{\text{max}} + 0.086$ & $< H + 2/n$ for $n$ symbols \\
+\hline
+Adaptive versions & FGK, Vitter & Easily adaptive \\
+\hline
+Complexity & $O(\log n)$ per symbol & $O(1)$ with table lookup \\
+\hline
+Precision requirements & None & Finite precision issues \\
+\hline
+Patent issues & None & Historically patented \\
+\hline
+\end{tabular}
+\caption{Theoretical comparison of Huffman and arithmetic coding}
+\end{table}
+
+\subsubsection{Practical Performance}
+\begin{examplebox}
+\textbf{Real-world Comparison}:
+\begin{itemize}
+    \item \textbf{English text}: Huffman ~4.3 bits/char, Arithmetic ~4.19 bits/char
+    \item \textbf{Binary data with skew}: Huffman limited by integer constraint
+    \item \textbf{Small files}: Huffman overhead from codebook
+    \item \textbf{Large files}: Arithmetic approaches entropy limit
+    \item \textbf{Adaptive case}: Both perform similarly after initial learning
+\end{itemize}
+\end{examplebox}
+
+\subsection{Applications and Standards}
+\subsubsection{Where Huffman is Used}
+\begin{itemize}
+    \item \textbf{DEFLATE (gzip, PNG, ZIP)}: Canonical Huffman + LZ77
+    \item \textbf{JPEG}: Huffman for AC/DC coefficients
+    \item \textbf{MP3}: Huffman for frequency coefficients
+    \item \textbf{PKZIP}: Adaptive Huffman (imploding)
+\end{itemize}
+
+\subsubsection{Where Arithmetic Coding is Used}
+\begin{itemize}
+    \item \textbf{JPEG2000}: MQ-coder (binary arithmetic coding)
+    \item \textbf{H.264/AVC}: CABAC (Context-Adaptive Binary Arithmetic Coding)
+    \item \textbf{7-zip}: PPMd with arithmetic coding
+    \item \textbf{FLAC}: Rice coding (simplified arithmetic)
+\end{itemize}
+
+\subsection{Practical Implementation Issues}
+\subsubsection{Finite Precision Arithmetic}
+\begin{itemize}
+    \item \textbf{Problem}: Real numbers have infinite precision
+    \item \textbf{Solution}: Use integers with renormalization
+    \item \textbf{Trade-off}: Higher precision = better compression but slower
+    \item \textbf{Typical}: 32-bit arithmetic with 16-bit renormalization threshold
+\end{itemize}
+
+\subsubsection{Probability Estimation}
+\begin{itemize}
+    \item \textbf{Frequency counts}: Simple but requires rescaling
+    \item \textbf{Exponential smoothing}: $p_{\text{new}} = \alpha + (1-\alpha)p_{\text{old}}$
+    \item \textbf{Escape mechanisms}: For unknown symbols
+    \item \textbf{Context modeling}: Multiple probability distributions based on context
+\end{itemize}
+
+\subsubsection{Error Resilience}
+\begin{itemize}
+    \item \textbf{Problem}: Single bit error can corrupt entire stream
+    \item \textbf{Solutions}:
+    \begin{itemize}
+        \item Resynchronization markers
+        \item Segment into blocks
+        \item Use robust binary codes
+    \end{itemize}
+\end{itemize}
+
+\subsection{Homework Assignment}
+\begin{enumerate}
+    \item \textbf{Adaptive Huffman Implementation}:
+    \begin{enumerate}
+        \item Implement FGK algorithm for text compression
+        \item Test on "ABRACADABRA" and verify step-by-step
+        \item Compare compression ratio with static Huffman
+    \end{enumerate}
+
+    \item \textbf{Arithmetic Coding}:
+    \begin{enumerate}
+        \item Manually encode "MISSISSIPPI" using arithmetic coding
+        \item Calculate final interval and choose output number
+        \item Implement arithmetic decoder for your encoding
+    \end{enumerate}
+
+    \item \textbf{Precision Analysis}:
+    \begin{enumerate}
+        \item Show that with $b$-bit precision, interval can shrink to $2^{-b}$
+        \item Calculate maximum message length for 32-bit arithmetic coding
+        \item Design renormalization scheme for 16-bit implementation
+    \end{enumerate}
+
+    \item \textbf{Comparison Study}:
+    \begin{enumerate}
+        \item Compress same file with: static Huffman, adaptive Huffman, arithmetic coding
+        \item Plot compression ratio vs. file size for each method
+        \item Measure encoding/decoding speed for each method
+    \end{enumerate}
+
+    \item \textbf{Research \& Analysis}:
+    \begin{enumerate}
+        \item Read Vitter's paper \cite{vitter1987design} and summarize improvements over FGK
+        \item Study the arithmetic coding paper \cite{witten1987arithmetic}
+        \item Investigate why arithmetic coding wasn't widely used until patents expired
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{Reading Assignment and References}
+\begin{itemize}
+    \item \textbf{Required Reading}:
+    \begin{itemize}
+        \item Vitter, J. S. (1987). "Design and Analysis of Dynamic Huffman Codes" \cite{vitter1987design}
+        \item Witten, I. H., Neal, R. M., \& Cleary, J. G. (1987). "Arithmetic Coding for Data Compression" \cite{witten1987arithmetic}
+    \end{itemize}
+
+    \item \textbf{Additional References}:
+    \begin{itemize}
+        \item Howard, P. G., \& Vitter, J. S. (1992). "Practical implementations of arithmetic coding"
+        \item Moffat, A., Neal, R. M., \& Witten, I. H. (1998). "Arithmetic coding revisited"
+        \item Said, A. (2004). "Introduction to arithmetic coding - theory and practice"
+    \end{itemize}
+\end{itemize}
+
+\subsection{Looking Ahead: Dictionary Methods}
+In the next lecture, we will explore:
+\begin{itemize}
+    \item \textbf{LZ77 and LZ78}: Foundational dictionary-based algorithms
+    \item \textbf{LZW}: The GIF/UNIX compress algorithm
+    \item \textbf{DEFLATE}: Combined LZ77 + Huffman used in gzip/PNG
+    \item \textbf{Modern variants}: LZ4, Zstandard, Brotli
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Key Insights from Lecture 5}:
+\begin{enumerate}
+    \item Adaptive Huffman (FGK/Vitter) enables one-pass compression without prior statistics
+    \item Arithmetic coding achieves fractional bits per symbol, approaching entropy limit
+    \item Range encoding implements arithmetic coding with efficient integer arithmetic
+    \item Adaptive methods trade some compression for flexibility and single-pass operation
+    \item Practical implementations must handle finite precision, probability estimation, and error resilience
+\end{enumerate}
+\end{importantbox}
+
+\begin{thebibliography}{9}
+\bibitem{huffman1952method} Huffman, D. A. (1952). A method for the construction of minimum-redundancy codes. \textit{Proceedings of the IRE}, 40(9), 1098-1101.
+\bibitem{canonical1989huffman} Hirschberg, D. S., \& Lelewer, D. A. (1990). Efficient decoding of prefix codes. \textit{Communications of the ACM}, 33(4), 449-459.
+\bibitem{vitter1987design} Vitter, J. S. (1987). Design and analysis of dynamic Huffman codes. \textit{Journal of the ACM}, 34(4), 825-845.
+\bibitem{witten1987arithmetic} Witten, I. H., Neal, R. M., \& Cleary, J. G. (1987). Arithmetic coding for data compression. \textit{Communications of the ACM}, 30(6), 520-540.
+\bibitem{li2008introduction} Li, M., \& Vitányi, P. (2008). \textit{An Introduction to Kolmogorov Complexity and Its Applications} (3rd ed.). Springer.
+\bibitem{cilibrasi2005clustering} Cilibrasi, R., \& Vitányi, P. M. B. (2005). Clustering by compression. \textit{IEEE Transactions on Information theory}, 51(4), 1523-1545.
+\end{thebibliography}
+
+
+\end{document}
