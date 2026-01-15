@@ -1,14 +1,26 @@
-\section{Lecture 2: Shannon's Source Coding Theorem and Kraft-McMillan Inequality}
+\section{Shannon's Source Coding Theorem and Huffman Coding}
 \subsection{Learning Objectives}
 By the end of this lecture, students will be able to:
 \begin{itemize}[leftmargin=*]
     \item Formally state and prove Shannon's Source Coding Theorem for discrete memoryless sources
     \item Apply the Kraft-McMillan inequality to characterize uniquely decodable codes
-    \item Construct optimal prefix codes and analyze their properties
+    \item Construct optimal prefix codes using Huffman's algorithm
     \item Derive and interpret the relationship between entropy and achievable compression rates
     \item Compute code efficiency, redundancy, and performance bounds
-    \item Understand the mathematical foundations of lossless compression limits
+    \item Understand practical algorithms that approach the theoretical limits
 \end{itemize}
+
+\begin{importantbox}
+\textbf{Big Picture}:
+\begin{itemize}
+    \item \textbf{Entropy} = Theoretical limit of lossless compression
+    \item \textbf{Kraft inequality} = Feasibility condition for prefix codes
+    \item \textbf{Huffman coding} = Optimal prefix code construction
+    \item \textbf{Block coding} = Approach entropy by coding symbols in blocks
+    \item \textbf{Integer constraint} = Source of the "+1" overhead in Shannon's theorem
+    \item \textbf{Arithmetic coding} = Removes integer constraint using fractional bits
+\end{itemize}
+\end{importantbox}
 
 \subsection{Mathematical Preliminaries and Notation}
 Let $X$ be a discrete random variable taking values in alphabet $\mathcal{X} = \{x_1, x_2, \ldots, x_m\}$ with probability mass function $p(x) = \Pr(X = x)$.
@@ -23,17 +35,23 @@ For a source with probabilities $p_1, p_2, \ldots, p_m$ and corresponding codewo
 L(C) = \mathbb{E}[\ell(X)] = \sum_{i=1}^m p_i \ell_i
 \]
 
-
 \subsection{Shannon's Source Coding Theorem: Formal Statement}
 \begin{definitionbox}
-\textbf{Shannon's Source Coding Theorem (1948)}: For any discrete memoryless source $X$ with entropy $H(X)$ and any uniquely decodable code $C$, the expected length $L(C)$ satisfies:
-\[
-H(X) \leq L(C) < H(X) + 1
-\]
-Moreover, for the $n$th extension of the source (coding $n$ symbols together), there exists a uniquely decodable code $C_n$ such that:
-\[
-\frac{1}{n} L(C_n) \to H(X) \quad \text{as } n \to \infty
-\]
+\textbf{Shannon's Source Coding Theorem (1948)}: 
+\begin{itemize}
+    \item \textbf{Converse (Lower Bound)}: For any uniquely decodable code $C$ for a discrete memoryless source $X$ with entropy $H(X)$, the expected length satisfies:
+    \[
+    L(C) \geq H(X)
+    \]
+    \item \textbf{Achievability (Upper Bound)}: There exists a uniquely decodable code $C$ such that:
+    \[
+    L(C) < H(X) + 1
+    \]
+    \item \textbf{Block Coding}: For the $n$th extension of the source, there exists a uniquely decodable code $C_n$ such that:
+    \[
+    \frac{1}{n} L(C_n) \to H(X) \quad \text{as } n \to \infty
+    \]
+\end{itemize}
 \end{definitionbox}
 
 \subsubsection{Interpretation and Significance}
@@ -41,6 +59,7 @@ Moreover, for the $n$th extension of the source (coding $n$ symbols together), t
     \item \textbf{Fundamental Limit}: $H(X)$ bits/symbol is the absolute minimum for lossless compression
     \item \textbf{Achievability}: We can get arbitrarily close to this limit by coding in blocks
     \item \textbf{Penalty Term}: The "+1" represents overhead from integer codeword lengths
+    \item \textbf{The Integer Constraint}: Codeword lengths must be integers, but ideal lengths $-\log_2 p_i$ are typically not integers
 \end{itemize}
 
 \begin{examplebox}
@@ -71,11 +90,10 @@ Prefix Codes
 \end{tabular}
 \end{center}
 
-
 \subsubsection{Formal Definitions}
 \begin{enumerate}
     \item \textbf{Non-singular}: $C(x_i) \neq C(x_j)$ for $i \neq j$
-    \item \textbf{Uniquely Decodable}: Extension $C^n$ is non-singular for all $n$
+    \item \textbf{Uniquely Decodable}: Every finite concatenation of codewords can be decoded in exactly one way
     \item \textbf{Prefix (Instantaneous)}: No codeword is a prefix of another
 \end{enumerate}
 
@@ -91,7 +109,7 @@ $C_1$ & a→0, b→0, c→1 & Yes & No & No \\
 \hline
 $C_2$ & a→0, b→01, c→11 & No & No & No \\
 \hline
-$C_3$ & a→0, b→01, c→011 & No & Yes & No \\
+$C_3$ & a→0, b→01, c→011 & No & No & No \\
 \hline
 $C_4$ & a→0, b→10, c→110 & No & Yes & Yes \\
 \hline
@@ -99,7 +117,7 @@ $C_4$ & a→0, b→10, c→110 & No & Yes & Yes \\
 \caption{Classification of different codes for alphabet $\{a,b,c\}$}
 \end{table}
 
-\textbf{Analysis of $C_3$}: Code "011" could be decoded as "ab" or "c" - ambiguous!
+\textbf{Analysis of $C_3$}: The string "011" is ambiguous: it could be parsed as "ab" (0 followed by 11) or as "c" (011). Since there exists a string with multiple valid parsings, $C_3$ is not uniquely decodable.
 \end{examplebox}
 
 \subsection{Kraft-McMillan Inequality: Mathematical Foundation}
@@ -137,7 +155,7 @@ If integers $\ell_1, \ell_2, \ldots, \ell_m$ satisfy $\sum_{i=1}^m 2^{-\ell_i} \
     \[
     \sum 2^{-\ell_i} = 2^{-1} + 2^{-1} + 2^{-2} = 0.5 + 0.5 + 0.25 = 1.25 > 1
     \]
-    No prefix code exists with these lengths!
+    No prefix code exists with these lengths! This violates the Kraft inequality.
 \end{enumerate}
 \end{examplebox}
 
@@ -210,6 +228,9 @@ H(X) \leq L < H(X) + 1
 \]
 \end{proof}
 
+\subsubsection{The Integer Length Constraint}
+The "+1" term in Shannon's theorem arises from the integer constraint on codeword lengths. For a \textbf{dyadic source} where all probabilities are of the form $p_i = 2^{-k_i}$ for integers $k_i$, we have $-\log_2 p_i = k_i$, which are integers. In this special case, we can achieve $L = H$ exactly.
+
 \subsection{Extended Source Coding and Block Codes}
 \subsubsection{The $n$th Extension of a Source}
 For a discrete memoryless source $X$, the $n$th extension $X^n = (X_1, X_2, \ldots, X_n)$ has:
@@ -226,19 +247,21 @@ H(X) \leq \frac{L(C_n)}{n} < H(X) + \frac{1}{n}
 \]
 
 \begin{examplebox}
-\textbf{Block Coding Improvement}: Binary source with $p = 0.1$, $H = 0.469$ bits/symbol
+\textbf{Block Coding Improvement}: Binary source with $p(0) = 0.9$, $p(1) = 0.1$, $H = 0.469$ bits/symbol
 \begin{itemize}
     \item Single symbol coding: Best code gives $L = 1$ bit/symbol (efficiency 46.9\%)
-    \item Block coding with $n=2$: There are 4 possible blocks:
+    \item \textbf{Block coding with $n=2$}: Consider coding pairs of symbols:
     \begin{align*}
-        &00: p^2 = 0.81 \quad \ell = 1 \\
-        &01: p(1-p) = 0.09 \quad \ell = 4 \\
-        &10: p(1-p) = 0.09 \quad \ell = 4 \\
-        &11: (1-p)^2 = 0.01 \quad \ell = 7
+        &00: (0.9)^2 = 0.81 \\
+        &01: 0.9\times0.1 = 0.09 \\
+        &10: 0.1\times0.9 = 0.09 \\
+        &11: (0.1)^2 = 0.01
     \end{align*}
-    \item Expected length: $L_2 = 0.81\times1 + 0.18\times4 + 0.01\times7 = 1.6$ bits/block
+    \item Applying Shannon coding: $\ell_i = \lceil -\log_2 p_i \rceil$ gives lengths $\{1, 4, 4, 7\}$
+    \item Expected length: $L_2 = 0.81\times1 + 0.09\times4 + 0.09\times4 + 0.01\times7 = 1.6$ bits/block
     \item Per symbol: $L_2/2 = 0.8$ bits/symbol (efficiency 58.6\%)
-    \item For $n=10$: Efficiency approaches 90\%
+    \item \textbf{Note}: This Shannon code is not optimal; we'll see better Huffman codes next.
+    \item As $n \to \infty$: $L_n/n \to 0.469$ bits/symbol (100\% efficiency)
 \end{itemize}
 \end{examplebox}
 
@@ -280,36 +303,287 @@ $H$ (bits/symbol) & Minimum $\eta$ & Maximum $\rho$ & Interpretation \\
 \end{table}
 \end{examplebox}
 
-\subsection{Algorithmic Construction of Prefix Codes}
+\subsection{Huffman Coding: Optimal Prefix Code Construction}
+
+\subsubsection{The Huffman Algorithm: Step-by-Step}
+\begin{theorem}[Huffman, 1952]
+For a given source with symbol probabilities $p_1, p_2, \ldots, p_m$, the Huffman algorithm produces a prefix code that minimizes the expected code length $L = \sum p_i \ell_i$.
+\end{theorem}
+
 \begin{algorithm}[H]
-\caption{Canonical Prefix Code Construction from Lengths}
+\caption{Huffman Code Construction (Complete Version)}
 \begin{algorithmic}[1]
-\REQUIRE Integer lengths $\ell_1 \leq \ell_2 \leq \cdots \leq \ell_m$ satisfying Kraft inequality
-\ENSURE Binary prefix code with given lengths in canonical form
-\STATE Initialize $code \gets 0$ (binary)
-\FOR{$i = 1$ to $m$}
-    \STATE Assign $c_i \gets$ first $\ell_i$ bits of $code$
-    \STATE \textbf{Print} Symbol $i$: $c_i$ (length $\ell_i$)
-    \STATE Increment $code$ by 1 (binary addition)
-    \IF{$i < m$}
-        \STATE Shift $code$ left by $\ell_{i+1} - \ell_i$ bits
-    \ENDIF
-\ENDFOR
+\REQUIRE Symbols $x_1, \ldots, x_m$ with probabilities $p_1, p_2, \ldots, p_m$
+\ENSURE Optimal binary prefix code
+\STATE Create a min-priority queue $Q$ initialized with $m$ nodes, each containing one symbol and its probability
+\WHILE{$|Q| > 1$}
+    \STATE $a \gets \text{EXTRACT-MIN}(Q)$  \COMMENT{Node with smallest probability}
+    \STATE $b \gets \text{EXTRACT-MIN}(Q)$  \COMMENT{Node with next smallest probability}
+    \STATE Create new node $z$ with $p_z = p_a + p_b$
+    \STATE Make $a$ left child of $z$, $b$ right child of $z$
+    \STATE \text{INSERT}(Q, $z$)
+\ENDWHILE
+\STATE The remaining node in $Q$ is the root of the Huffman tree
+\STATE Traverse tree from root to leaves, assigning 0 to left edges, 1 to right edges
 \end{algorithmic}
 \end{algorithm}
 
 \begin{examplebox}
-\textbf{Canonical Code Construction}: Lengths $\{2, 2, 3, 3, 3\}$
+\textbf{Huffman Coding Example}: Source with probabilities:
+\[
+p(A) = 0.4,\quad p(B) = 0.3,\quad p(C) = 0.2,\quad p(D) = 0.1
+\]
+
 \begin{enumerate}
-    \item Start: $code = 00$
-    \item $\ell_1=2$: $c_1 = 00$, increment → 01, no shift (same length)
-    \item $\ell_2=2$: $c_2 = 01$, increment → 10, shift left 1 → 100
-    \item $\ell_3=3$: $c_3 = 100$, increment → 101, no shift
-    \item $\ell_4=3$: $c_4 = 101$, increment → 110, no shift
-    \item $\ell_5=3$: $c_5 = 110$
+    \item \textbf{Step 1}: Combine C(0.2) and D(0.1) → CD(0.3)
+    \item \textbf{Step 2}: Combine B(0.3) and CD(0.3) → BCD(0.6)
+    \item \textbf{Step 3}: Combine A(0.4) and BCD(0.6) → Root(1.0)
+    \item \textbf{Codes}: A=0 (1 bit), B=10 (2 bits), C=110 (3 bits), D=111 (3 bits)
 \end{enumerate}
-Result: $\{00, 01, 100, 101, 110\}$
+
+\textbf{Huffman Tree Visualization}:
+\begin{center}
+\footnotesize
+\begin{tabular}{cccccc}
+ & & & \multicolumn{2}{c}{Root (1.0)} & \\
+ & & & 0 & & 1 \\
+ & & A (0.4) & & \multicolumn{2}{c}{BCD (0.6)} \\
+ & & & & 0 & 1 \\
+ & & & & B (0.3) & \multicolumn{2}{c}{CD (0.3)} \\
+ & & & & & 0 & 1 \\
+ & & & & & C (0.2) & D (0.1) \\
+\end{tabular}
+\end{center}
+
+\textbf{Analysis}:
+\begin{itemize}
+    \item Expected length: $L = 0.4\times1 + 0.3\times2 + 0.2\times3 + 0.1\times3 = 1.9$ bits/symbol
+    \item Entropy: $H = 1.846$ bits/symbol
+    \item Efficiency: $\eta = 1.846/1.9 = 97.1\%$
+    \item Shannon code (from earlier): $L = 2.4$ bits, $\eta = 76.9\%$
+    \item \textbf{Huffman is significantly better than Shannon coding!}
+\end{itemize}
 \end{examplebox}
+
+\subsubsection{Huffman vs. Shannon's Theorem}
+\begin{itemize}
+    \item \textbf{Shannon's Theorem}: Proves $H \leq L < H + 1$ is achievable
+    \item \textbf{Shannon Coding}: Simple construction with $\ell_i = \lceil -\log_2 p_i \rceil$
+    \item \textbf{Huffman Coding}: Optimal construction that minimizes $L$
+    \item \textbf{Relationship}: $L_{\text{Huffman}} \leq L_{\text{Shannon}} \leq H + 1$
+    \item \textbf{For dyadic sources}: Both achieve $L = H$ exactly
+\end{itemize}
+
+\subsubsection{Huffman Code Properties}
+\begin{theorem}[Huffman Code Length Bound]
+For a Huffman code with codeword lengths $\ell_i$, each length satisfies:
+\[
+\ell_i \leq \lceil -\log_2 p_i \rceil
+\]
+That is, no Huffman codeword is longer than the corresponding Shannon codeword.
+\end{theorem}
+
+\begin{itemize}
+    \item \textbf{Optimality}: Minimizes expected code length among all prefix codes
+    \item \textbf{Uniqueness}: Tree structure unique up to labeling of 0/1 on edges
+    \item \textbf{Length bound}: $\ell_i \leq m-1$ for $m$ symbols
+    \item \textbf{Two least probable}: Always have same length, differ only in last bit
+    \item \textbf{Kraft inequality}: Huffman codes satisfy $\sum_{i=1}^m 2^{-\ell_i} \leq 1$, with equality if and only if the tree is complete
+\end{itemize}
+
+\subsubsection{Optimal Code Structure Lemma}
+\begin{lemma}
+In an optimal prefix code:
+\begin{enumerate}
+    \item If $p_j > p_k$, then $\ell_j \leq \ell_k$ (more probable = shorter code)
+    \item The two least probable symbols have the same length
+    \item The two least probable symbols differ only in the last bit
+\end{enumerate}
+\end{lemma}
+
+\subsubsection{Optimality Proof of Huffman Coding}
+\begin{proof}[Proof Sketch]
+By induction on number of symbols $m$:
+
+\textbf{Base case} ($m=2$): Trivial - need exactly 1 bit per symbol.
+
+\textbf{Inductive step}: Assume Huffman optimal for $m-1$ symbols.
+
+Let $x$ and $y$ be two least probable symbols. Consider reduced alphabet where $x$ and $y$ are merged into $z$ with $p_z = p_x + p_y$.
+
+\begin{enumerate}
+    \item If $C'$ is optimal for reduced alphabet, then creating $C$ by splitting $z$ into $x$ and $y$ (appending 0 and 1) gives:
+    \[
+    L(C) = L(C') + p_x + p_y
+    \]
+    
+    \item Any optimal code for original alphabet must have $x$ and $y$ as siblings (same parent)
+    
+    \item Huffman algorithm finds such sibling pairing
+    
+    \item By induction hypothesis, $C'$ is optimal for reduced alphabet
+    
+    \item Therefore $C$ is optimal for original alphabet
+\end{enumerate}
+\end{proof}
+
+\subsubsection{Redundancy Bound}
+\begin{theorem}[Gallager's Redundancy Bound, 1978]
+For a Huffman code:
+\[
+L - H < p_{\text{min}} + 1 - \log_2 e + \log_2 \log_2 e \approx p_{\text{min}} + 0.086
+\]
+where $p_{\text{min}}$ is the smallest symbol probability. Moreover:
+\begin{itemize}
+    \item This bound is tight (achievable for some distributions)
+    \item For dyadic sources ($p_i = 2^{-k_i}$): $L = H$ exactly
+    \item Worst-case redundancy occurs when $p_{\text{min}} \approx 0$
+\end{itemize}
+\end{theorem}
+
+\begin{examplebox}
+\textbf{Redundancy Analysis}:
+\begin{itemize}
+    \item \textbf{Best-case}: For dyadic source with $p_i = 2^{-k_i}$, $L = H$ exactly
+    \item \textbf{Worst-case}: When smallest probability is very small
+    \item \textbf{Example}: For source with probabilities $\{0.999, 0.001\}$:
+    \begin{itemize}
+        \item Huffman codes: 0→0, 1→1 (1 bit each)
+        \item $L = 1$ bit/symbol, $H \approx 0.011$ bits/symbol
+        \item Redundancy: $\rho \approx 0.989$ bits/symbol
+        \item Efficiency: $\eta \approx 1.1\%$
+    \end{itemize}
+\end{itemize}
+\end{examplebox}
+
+\subsection{Extended Huffman Coding: Approaching the Entropy Limit}
+
+\subsubsection{The Problem with Basic Huffman}
+Even optimal Huffman coding suffers from the "$+1$" term in Shannon's theorem:
+\[
+L < H(X) + 1
+\]
+For low-entropy sources, this overhead is significant:
+\begin{examplebox}
+\textbf{Binary source with $p(0)=0.9$, $p(1)=0.1$}:
+\begin{itemize}
+    \item Entropy: $H(0.9) = 0.469$ bits/symbol
+    \item Basic Huffman: Symbols \{0,1\}, codes \{0,1\}, $L = 1$ bit/symbol
+    \item Efficiency: $\eta = 46.9\%$ (poor!)
+    \item Problem: Overhead 0.531 bits/symbol > entropy itself!
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Block Huffman Coding Solution}
+Code $n$ symbols together as "super-symbols":
+
+\begin{enumerate}
+    \item Consider $n$th extension of source: $X^n = (X_1, X_2, \ldots, X_n)$
+    \item Alphabet size grows to $m^n$ sequences
+    \item Apply Huffman coding to these blocks
+\end{enumerate}
+
+\begin{theorem}[Extended Huffman Performance]
+For the $n$th extension coded with Huffman, the average length per symbol satisfies:
+\[
+H(X) \leq \frac{L_n}{n} < H(X) + \frac{1}{n}
+\]
+\end{theorem}
+
+\begin{examplebox}
+\textbf{Extended Huffman for Binary Source $p(0)=0.9$, $p(1)=0.1$}:
+
+\textbf{$n=2$ blocks (4 sequences)}:
+\begin{itemize}
+    \item Probabilities: $P(00)=0.81$, $P(01)=0.09$, $P(10)=0.09$, $P(11)=0.01$
+    \item Huffman codes: 00→0, 01→10, 10→110, 11→111
+    \item Expected length: $L_2 = 0.81\times1 + 0.09\times2 + 0.09\times3 + 0.01\times3 = 1.29$ bits/block
+    \item Per symbol: $L_2/2 = 0.645$ bits/symbol
+    \item Efficiency: $\eta = 0.469/0.645 = 72.7\%$ (vs 46.9\% for $n=1$)
+\end{itemize}
+
+\textbf{$n=3$ blocks (8 sequences)}:
+\begin{itemize}
+    \item Probabilities: 
+    \begin{align*}
+        &000: 0.729, \quad 001: 0.081, \quad 010: 0.081, \quad 011: 0.009 \\
+        &100: 0.081, \quad 101: 0.009, \quad 110: 0.009, \quad 111: 0.001
+    \end{align*}
+    \item One possible Huffman assignment (showing optimality is complex):
+    \begin{align*}
+        &000 \to 0, \quad 001 \to 100, \quad 010 \to 101, \quad 011 \to 11000 \\
+        &100 \to 1101, \quad 101 \to 11001, \quad 110 \to 1110, \quad 111 \to 1111
+    \end{align*}
+    \item Expected length: $L_3 \approx 1.6$ bits/block
+    \item Per symbol: $L_3/3 \approx 0.533$ bits/symbol
+    \item Efficiency: $\eta = 0.469/0.533 \approx 88.0\%$
+\end{itemize}
+
+\textbf{Trend}: As $n$ increases, $L_n/n \to H(X)$
+\end{examplebox}
+
+\subsubsection{Practical Issues with Block Huffman}
+\begin{itemize}
+    \item \textbf{Exponential complexity}: Alphabet size grows as $m^n$
+    \item \textbf{Memory requirements}: Need to store $2m^n-1$ nodes in Huffman tree
+    \item \textbf{Delay}: Must wait for $n$ symbols before encoding/decoding
+    \item \textbf{Adaptation}: Probabilities may change over time
+\end{itemize}
+
+\begin{importantbox}
+\textbf{⚠️ Warning: Theoretical vs. Practical Use of Block Huffman}
+Block Huffman coding demonstrates that we can approach the entropy limit arbitrarily closely, but it is **of theoretical interest only for large $n$**. The exponential growth in complexity makes it impractical for real applications with large alphabets or large block sizes.
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Complexity Growth for English Text ($m=256$)}:
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+$n$ & \textbf{Block Size} & \textbf{\# Sequences} & \textbf{Tree Nodes} \\
+\hline
+1 & 1 byte & 256 & 511 \\
+2 & 2 bytes & 65,536 & 131,071 \\
+3 & 3 bytes & 16.7 million & 33.5 million \\
+4 & 4 bytes & 4.3 billion & 8.6 billion \\
+5 & 5 bytes & 1.1 trillion & 2.2 trillion \\
+\hline
+\end{tabular}
+\caption{Exponential growth makes large $n$ impractical}
+\end{table}
+\end{examplebox}
+
+\subsection{Adaptive Huffman Coding: Real-time Solution}
+
+\subsubsection{The FGK Algorithm (Faller-Gallager-Knuth)}
+\begin{itemize}
+    \item \textbf{Dynamic}: Updates code as symbols arrive
+    \item \textbf{No initial model}: Learns probabilities on-the-fly
+    \item \textbf{Sibling property}: Maintains optimality after each update
+    \item \textbf{Complexity}: $O(\log m)$ amortized with proper tree maintenance
+    \item \textbf{Applications}: Used in early versions of UNIX compress, modem protocols
+\end{itemize}
+
+\subsubsection{Comparison: Static vs Adaptive vs Block}
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Efficiency} & \textbf{Complexity} & \textbf{Delay} \\
+\hline
+Static Huffman & High if model good & $O(m \log m)$ & None \\
+Adaptive Huffman & Medium-High & $O(\log m)$ per symbol & None \\
+Block Huffman ($n$) & Approaches optimal & $O(m^n \log m^n)$ & $n$ symbols \\
+\hline
+\end{tabular}
+\caption{Trade-offs in Huffman coding variants}
+\end{table}
+
+\begin{importantbox}
+\textbf{Why Arithmetic Coding Beats Huffman}
+Huffman coding is limited by the **integer constraint** on codeword lengths, leading to the "+1" overhead in Shannon's theorem. Arithmetic coding, which we'll cover next, uses **fractional bits** and can achieve average lengths arbitrarily close to $H(X)$ without block coding, removing the "+1" penalty entirely.
+\end{importantbox}
 
 \subsection{Practical Implications and Limitations}
 \subsubsection{Assumptions of Shannon's Theorem}
@@ -328,6 +602,7 @@ Result: $\{00, 01, 100, 101, 110\}$
     \item \textbf{Unknown Distribution}: Must estimate probabilities from data
     \item \textbf{Delay Constraints}: Real-time applications limit block size
     \item \textbf{Complexity}: Exponential growth with block size ($m^n$ sequences)
+    \item \textbf{Solution Approaches}: Adaptive coding, dictionary methods (LZ), arithmetic coding
 \end{itemize}
 \end{examplebox}
 
@@ -368,68 +643,96 @@ R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
 \begin{itemize}
     \item Naive: 8 bits/pixel
     \item Actual entropy from pixel correlations: Typically 1-4 bits/pixel
-    \item PNG (lossless): 2-6 bits/pixel
+    \item PNG (lossless): 2-6 bits/pixel (uses filtering + DEFLATE = LZ77 + Huffman)
     \item JPEG (lossy): 0.5-2 bits/pixel with visual quality
     \item Theoretical limit from image statistics
 \end{itemize}
 \end{examplebox}
 
-\subsection{Homework Assignment: Advanced Problems}
+\subsection*{Historical Notes}
+\begin{itemize}
+    \item \textbf{1948}: Claude Shannon publishes "A Mathematical Theory of Communication"
+    \item \textbf{1949}: Leon Kraft proves inequality for prefix codes
+    \item \textbf{1952}: David Huffman, as a graduate student at MIT, invents optimal prefix coding algorithm
+    \item \textbf{1956}: Brockway McMillan extends Kraft inequality to all uniquely decodable codes
+    \item \textbf{1978}: Robert Gallager proves tight redundancy bound for Huffman codes
+\end{itemize}
+
+\subsection*{Homework Assignment 2: Source Coding Theory and Huffman Coding}
+
+\textbf{Note}: Questions 2 and 3 are comprehensive problems. Question 3 is a challenge problem that explores block coding in depth.
+
 \begin{enumerate}
-    \item \textbf{Mathematical Proofs}:
+    \item \textbf{Kraft-McMillan Applications (20 points)}
     \begin{enumerate}
-        \item Prove that for any uniquely decodable code, $\sum 2^{-\ell_i} \leq 1$
-        \item Show that if $\ell_i = \lfloor -\log_2 p_i \rfloor$, then $\sum 2^{-\ell_i} \geq 1$
-        \item Derive the optimal length assignment that minimizes $\sum p_i \ell_i$ subject to Kraft inequality
+        \item Prove that for any uniquely decodable code with codeword lengths $\ell_1, \ell_2, \ldots, \ell_m$, we have $\sum_{i=1}^m 2^{-\ell_i} \leq 1$
+        \item Given lengths $\{2, 3, 3, 3, 4, 4\}$, verify if a binary prefix code exists
+        \item If a code exists, construct it using the canonical method
     \end{enumerate}
-
-    \item \textbf{Code Design}:
+    
+    \item \textbf{Huffman Code Construction (30 points)}
     \begin{enumerate}
-        \item Design an optimal prefix code for source with probabilities $\{0.25, 0.25, 0.2, 0.15, 0.1, 0.05\}$
-        \item Calculate its expected length, efficiency, and redundancy
-        \item Compare with Shannon code and Huffman code
+        \item For source with probabilities $\{0.35, 0.2, 0.15, 0.1, 0.1, 0.05, 0.05\}$:
+        \begin{itemize}
+            \item Construct Huffman tree step by step (show all intermediate steps)
+            \item Assign codewords and calculate expected length
+            \item Compute efficiency and redundancy
+        \end{itemize}
+        \item Using the lemma from class, prove that in your Huffman code, the two least probable symbols have codewords of equal length
+        \item Verify that your code satisfies the Kraft inequality (note: it may not satisfy it with equality if the tree is not complete)
     \end{enumerate}
-
-    \item \textbf{Block Coding Analysis}:
+    
+    \item \textbf{Extended Huffman Coding: Challenge Problem (25 points)}
     \begin{enumerate}
-        \item For a binary source with $p=0.9$, design block codes for $n=1,2,3,4$
-        \item Plot efficiency vs. block size
-        \item Determine how large $n$ must be to achieve 90\% efficiency
+        \item Consider a binary source with $p(0)=0.8$, $p(1)=0.2$
+        \item Design Huffman codes for $n=1,2,3$ (code blocks of symbols together)
+        \item For each $n$, calculate:
+        \begin{itemize}
+            \item Expected length per block $L_n$
+            \item Expected length per symbol $L_n/n$
+            \item Efficiency $\eta_n$
+        \end{itemize}
+        \item Plot $L_n/n$ vs $n$ (for $n=1,2,3$) and compare to the entropy limit
+        \item Explain mathematically why efficiency improves with $n$
     \end{enumerate}
-
-    \item \textbf{Theoretical Limits}:
+    
+    \item \textbf{Optimality Analysis (15 points)}
     \begin{enumerate}
-        \item Prove that for a source with $m$ equally likely symbols, $L \geq \log_2 m$
-        \item Show this is achievable with $\ell_i = \log_2 m$ for all $i$
-        \item What happens when $\log_2 m$ is not an integer?
+        \item For the source in question 2, design a Shannon code ($\ell_i = \lceil -\log_2 p_i \rceil$)
+        \item Compare the Huffman code with the Shannon code:
+        \begin{itemize}
+            \item Expected lengths
+            \item Efficiencies
+            \item Redundancies
+        \end{itemize}
+        \item Under what conditions (what type of probability distributions) does Huffman coding achieve exactly $L = H$?
     \end{enumerate}
-
-    \item \textbf{Research Extension}:
+    
+    \item \textbf{Practical Considerations (10 points)}
     \begin{enumerate}
-        \item Investigate the concept of "minimum description length" (MDL)
-        \item Compare with Shannon's approach
-        \item Explain how MDL handles unknown distributions
+        \item Explain why block Huffman coding with large $n$ is impractical for real applications
+        \item What alternative approaches exist for approaching the entropy limit without exponential complexity?
+        \item How does arithmetic coding (to be covered in the next lecture) solve the integer constraint problem?
     \end{enumerate}
 \end{enumerate}
 
-\subsection{Reading Assignment and References}
+\subsection*{Reading Assignment and References}
 \begin{itemize}
     \item \textbf{Required Reading}:
     \begin{itemize}
-        \item Cover \& Thomas, \textit{Elements of Information Theory}, Chapter 5: Sections 5.1-5.4
+        \item Cover \& Thomas, \textit{Elements of Information Theory}, Chapter 5: Data Compression
         \item Shannon, C. E. (1948). "A Mathematical Theory of Communication"
     \end{itemize}
-
+    
     \item \textbf{Advanced References}:
     \begin{itemize}
-        \item Gallager, R. G. (1968). \textit{Information Theory and Reliable Communication}
-        \item Csiszár, I., \& Körner, J. (2011). \textit{Information Theory: Coding Theorems for Discrete Memoryless Systems}
+        \item Huffman, D. A. (1952). "A Method for the Construction of Minimum-Redundancy Codes"
+        \item Gallager, R. G. (1978). "Variations on a Theme by Huffman"
     \end{itemize}
-
-    \item \textbf{Historical Context}:
+    
+    \item \textbf{Online Resources}:
     \begin{itemize}
-        \item Kraft, L. G. (1949). "A device for quantizing, grouping, and coding amplitude-modulated pulses"
-        \item McMillan, B. (1956). "Two inequalities implied by unique decipherability"
+        \item Visual Huffman tree generator: \url{https://www.csfieldguide.org.nz/en/interactives/huffman-tree/}
+        \item Kraft inequality calculator: \url{https://planetcalc.com/8157/}
     \end{itemize}
 \end{itemize}
-
