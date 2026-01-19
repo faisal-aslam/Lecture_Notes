@@ -22,6 +22,21 @@ By the end of this lecture, students will be able to:
 \end{itemize}
 \end{importantbox}
 
+\begin{center}
+\fbox{\begin{minipage}{0.9\textwidth}
+\textbf{Three Key Coding Methods:}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Method} & \textbf{Purpose} & \textbf{Key Property} \\
+\hline
+Shannon coding & Proof of achievability & $\ell_i = \lceil -\log_2 p_i \rceil$ \\
+Huffman coding & Optimal prefix code & Minimizes expected length \\
+Arithmetic coding & Near-optimal compression & Fractional bits, removes integer constraint \\
+\hline
+\end{tabular}
+\end{minipage}}
+\end{center}
+
 \subsection{Mathematical Preliminaries and Notation}
 Let $X$ be a discrete random variable taking values in alphabet $\mathcal{X} = \{x_1, x_2, \ldots, x_m\}$ with probability mass function $p(x) = \Pr(X = x)$.
 
@@ -37,7 +52,7 @@ L(C) = \mathbb{E}[\ell(X)] = \sum_{i=1}^m p_i \ell_i
 
 \subsection{Shannon's Source Coding Theorem: Formal Statement}
 \begin{definitionbox}
-\textbf{Shannon's Source Coding Theorem (1948)}: 
+\textbf{Shannon's Source Coding Theorem (1948)}:
 \begin{itemize}
     \item \textbf{Converse (Lower Bound)}: For any uniquely decodable code $C$ for a discrete memoryless source $X$ with entropy $H(X)$, the expected length satisfies:
     \[
@@ -56,10 +71,11 @@ L(C) = \mathbb{E}[\ell(X)] = \sum_{i=1}^m p_i \ell_i
 
 \subsubsection{Interpretation and Significance}
 \begin{itemize}
-    \item \textbf{Fundamental Limit}: $H(X)$ bits/symbol is the absolute minimum for lossless compression
+    \item \textbf{Fundamental Limit}: $H(X)$ bits/symbol is the \textbf{asymptotic lower bound} for lossless compression
     \item \textbf{Achievability}: We can get arbitrarily close to this limit by coding in blocks
     \item \textbf{Penalty Term}: The "+1" represents overhead from integer codeword lengths
     \item \textbf{The Integer Constraint}: Codeword lengths must be integers, but ideal lengths $-\log_2 p_i$ are typically not integers
+    \item \textbf{Important}: The "+1" term is \textbf{not inefficiency of Huffman}, but a fundamental limitation of integer-length codes
 \end{itemize}
 
 \begin{examplebox}
@@ -96,6 +112,10 @@ Prefix Codes
     \item \textbf{Uniquely Decodable}: Every finite concatenation of codewords can be decoded in exactly one way
     \item \textbf{Prefix (Instantaneous)}: No codeword is a prefix of another
 \end{enumerate}
+
+\begin{importantbox}
+\textbf{Hierarchy Theorem}: Every prefix code is uniquely decodable, but not vice versa. However, for every uniquely decodable code, there exists a prefix code with the same codeword lengths (McMillan's theorem).
+\end{importantbox}
 
 \begin{examplebox}
 \textbf{Code Classification Examples}:
@@ -136,6 +156,8 @@ where $D$ is the size of the code alphabet (2 for binary).
     \item Total occupied positions: $\sum_{i=1}^m 2^{L-\ell_i} \leq 2^L$
     \item Dividing by $2^L$: $\sum_{i=1}^m 2^{-\ell_i} \leq 1$
 \end{enumerate}
+
+\textbf{Note}: The tree-based proof above applies to prefix codes; the extension to uniquely decodable codes follows from McMillan's inequality.
 
 \subsubsection{Converse: Constructing Codes from Lengths}
 \begin{theorem}[Kraft Inequality Converse]
@@ -260,7 +282,7 @@ H(X) \leq \frac{L(C_n)}{n} < H(X) + \frac{1}{n}
     \item Applying Shannon coding: $\ell_i = \lceil -\log_2 p_i \rceil$ gives lengths $\{1, 4, 4, 7\}$
     \item Expected length: $L_2 = 0.81\times1 + 0.09\times4 + 0.09\times4 + 0.01\times7 = 1.6$ bits/block
     \item Per symbol: $L_2/2 = 0.8$ bits/symbol (efficiency 58.6\%)
-    \item \textbf{Note}: This Shannon code is not optimal; we'll see better Huffman codes next.
+    \item \textbf{Note}: This Shannon coding is generally suboptimal compared to Huffman coding; we'll see better Huffman codes next.
     \item As $n \to \infty$: $L_n/n \to 0.469$ bits/symbol (100\% efficiency)
 \end{itemize}
 \end{examplebox}
@@ -290,7 +312,7 @@ $H$ (bits/symbol) & Minimum $\eta$ & Maximum $\rho$ & Interpretation \\
 \hline
 0.1 & 9.1\% & 0.9 bits & Very compressible, but +1 term dominates \\
 \hline
-1.0 & 50\% & 1.0 bit & Fair coin, maximum +1 overhead \\
+1.0 & 50\% & 1.0 bit & Worst-case Shannon bound for sources with $H=1$ \\
 \hline
 2.0 & 66.7\% & 1.0 bit & +1 becomes less significant \\
 \hline
@@ -385,7 +407,7 @@ That is, no Huffman codeword is longer than the corresponding Shannon codeword.
 
 \begin{itemize}
     \item \textbf{Optimality}: Minimizes expected code length among all prefix codes
-    \item \textbf{Uniqueness}: Tree structure unique up to labeling of 0/1 on edges
+    \item \textbf{Uniqueness}: \textbf{Not unique in general}. If all probabilities are distinct and no ties occur during merging, the code lengths are unique up to relabeling; otherwise multiple optimal trees may exist.
     \item \textbf{Length bound}: $\ell_i \leq m-1$ for $m$ symbols
     \item \textbf{Two least probable}: Always have same length, differ only in last bit
     \item \textbf{Kraft inequality}: Huffman codes satisfy $\sum_{i=1}^m 2^{-\ell_i} \leq 1$, with equality if and only if the tree is complete
@@ -416,22 +438,22 @@ Let $x$ and $y$ be two least probable symbols. Consider reduced alphabet where $
     \[
     L(C) = L(C') + p_x + p_y
     \]
-    
+
     \item Any optimal code for original alphabet must have $x$ and $y$ as siblings (same parent)
-    
+
     \item Huffman algorithm finds such sibling pairing
-    
+
     \item By induction hypothesis, $C'$ is optimal for reduced alphabet
-    
+
     \item Therefore $C$ is optimal for original alphabet
 \end{enumerate}
 \end{proof}
 
 \subsubsection{Redundancy Bound}
 \begin{theorem}[Gallager's Redundancy Bound, 1978]
-For a Huffman code:
+For a Huffman code, the redundancy is bounded by:
 \[
-L - H < p_{\text{min}} + 1 - \log_2 e + \log_2 \log_2 e \approx p_{\text{min}} + 0.086
+L - H < p_{\text{min}} + 0.086
 \]
 where $p_{\text{min}}$ is the smallest symbol probability. Moreover:
 \begin{itemize}
@@ -486,9 +508,11 @@ Code $n$ symbols together as "super-symbols":
 \begin{theorem}[Extended Huffman Performance]
 For the $n$th extension coded with Huffman, the average length per symbol satisfies:
 \[
-H(X) \leq \frac{L_n}{n} < H(X) + \frac{1}{n}
+\lim_{n\to\infty} \frac{L_n}{n} = H(X)
 \]
 \end{theorem}
+
+\textbf{Note}: While Huffman coding typically performs at least as well as Shannon coding, it lacks a universal closed-form finite-$n$ bound like $L_n/n < H + 1/n$.
 
 \begin{examplebox}
 \textbf{Extended Huffman for Binary Source $p(0)=0.9$, $p(1)=0.1$}:
@@ -504,12 +528,13 @@ H(X) \leq \frac{L_n}{n} < H(X) + \frac{1}{n}
 
 \textbf{$n=3$ blocks (8 sequences)}:
 \begin{itemize}
-    \item Probabilities: 
+    \item Probabilities:
     \begin{align*}
         &000: 0.729, \quad 001: 0.081, \quad 010: 0.081, \quad 011: 0.009 \\
         &100: 0.081, \quad 101: 0.009, \quad 110: 0.009, \quad 111: 0.001
     \end{align*}
-    \item One possible Huffman assignment (showing optimality is complex):
+    \item \textbf{Note}: Showing optimality for large $n$ is complex. The following is illustrative, not proven optimal.
+    \item One possible Huffman assignment:
     \begin{align*}
         &000 \to 0, \quad 001 \to 100, \quad 010 \to 101, \quad 011 \to 11000 \\
         &100 \to 1101, \quad 101 \to 11001, \quad 110 \to 1110, \quad 111 \to 1111
@@ -561,7 +586,7 @@ $n$ & \textbf{Block Size} & \textbf{\# Sequences} & \textbf{Tree Nodes} \\
     \item \textbf{Dynamic}: Updates code as symbols arrive
     \item \textbf{No initial model}: Learns probabilities on-the-fly
     \item \textbf{Sibling property}: Maintains optimality after each update
-    \item \textbf{Complexity}: $O(\log m)$ amortized with proper tree maintenance
+    \item \textbf{Complexity}: $O(m)$ worst-case per update; can be reduced with careful data structures
     \item \textbf{Applications}: Used in early versions of UNIX compress, modem protocols
 \end{itemize}
 
@@ -573,7 +598,7 @@ $n$ & \textbf{Block Size} & \textbf{\# Sequences} & \textbf{Tree Nodes} \\
 \textbf{Method} & \textbf{Efficiency} & \textbf{Complexity} & \textbf{Delay} \\
 \hline
 Static Huffman & High if model good & $O(m \log m)$ & None \\
-Adaptive Huffman & Medium-High & $O(\log m)$ per symbol & None \\
+Adaptive Huffman & Medium-High & $O(m)$ per symbol & None \\
 Block Huffman ($n$) & Approaches optimal & $O(m^n \log m^n)$ & $n$ symbols \\
 \hline
 \end{tabular}
@@ -669,7 +694,7 @@ R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
         \item Given lengths $\{2, 3, 3, 3, 4, 4\}$, verify if a binary prefix code exists
         \item If a code exists, construct it using the canonical method
     \end{enumerate}
-    
+
     \item \textbf{Huffman Code Construction (30 points)}
     \begin{enumerate}
         \item For source with probabilities $\{0.35, 0.2, 0.15, 0.1, 0.1, 0.05, 0.05\}$:
@@ -681,7 +706,7 @@ R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
         \item Using the lemma from class, prove that in your Huffman code, the two least probable symbols have codewords of equal length
         \item Verify that your code satisfies the Kraft inequality (note: it may not satisfy it with equality if the tree is not complete)
     \end{enumerate}
-    
+
     \item \textbf{Extended Huffman Coding: Challenge Problem (25 points)}
     \begin{enumerate}
         \item Consider a binary source with $p(0)=0.8$, $p(1)=0.2$
@@ -695,7 +720,7 @@ R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
         \item Plot $L_n/n$ vs $n$ (for $n=1,2,3$) and compare to the entropy limit
         \item Explain mathematically why efficiency improves with $n$
     \end{enumerate}
-    
+
     \item \textbf{Optimality Analysis (15 points)}
     \begin{enumerate}
         \item For the source in question 2, design a Shannon code ($\ell_i = \lceil -\log_2 p_i \rceil$)
@@ -707,7 +732,7 @@ R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
         \end{itemize}
         \item Under what conditions (what type of probability distributions) does Huffman coding achieve exactly $L = H$?
     \end{enumerate}
-    
+
     \item \textbf{Practical Considerations (10 points)}
     \begin{enumerate}
         \item Explain why block Huffman coding with large $n$ is impractical for real applications
@@ -723,13 +748,13 @@ R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X,\hat{X})] \leq D} I(X;\hat{X})
         \item Cover \& Thomas, \textit{Elements of Information Theory}, Chapter 5: Data Compression
         \item Shannon, C. E. (1948). "A Mathematical Theory of Communication"
     \end{itemize}
-    
+
     \item \textbf{Advanced References}:
     \begin{itemize}
         \item Huffman, D. A. (1952). "A Method for the Construction of Minimum-Redundancy Codes"
         \item Gallager, R. G. (1978). "Variations on a Theme by Huffman"
     \end{itemize}
-    
+
     \item \textbf{Online Resources}:
     \begin{itemize}
         \item Visual Huffman tree generator: \url{https://www.csfieldguide.org.nz/en/interactives/huffman-tree/}
