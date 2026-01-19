@@ -21,28 +21,176 @@ Data compression is the process of encoding information using fewer bits than th
 \end{itemize}
 \end{definitionbox}
 
+\subsubsection{Benefits of Data Compression}
+Data compression provides three key benefits that are critical in modern computing:
+
+\begin{enumerate}
+    \item \textbf{Reduce Storage Space}:
+    \begin{itemize}
+        \item Allows more data to be stored in the same physical space
+        \item Enables archival of historical data that would otherwise be discarded
+        \item Reduces hardware requirements for storage systems
+    \end{itemize}
+
+    \item \textbf{Reduce Communication Time and Bandwidth}:
+    \begin{itemize}
+        \item Enables faster file transfers and downloads
+        \item Makes high-quality streaming (4K/8K video) practical over limited bandwidth
+        \item Reduces latency in real-time applications like video conferencing and online gaming
+        \item Allows IoT devices to transmit data efficiently over wireless networks
+    \end{itemize}
+
+    \item \textbf{Save Money}:
+    \begin{itemize}
+        \item Reduces cloud hosting costs (storage and egress fees)
+        \item Lowers communication costs for data transmission
+        \item Decreases capital expenditure on storage hardware
+        \item Reduces energy consumption for data centers and network infrastructure
+    \end{itemize}
+\end{enumerate}
+
+
 \subsubsection{Real-World Motivation: A Concrete Example}
-Consider a typical smartphone photo: 12 megapixels, 24-bit color (8 bits per RGB channel). Uncompressed size:
-\[
-12,000,000 \text{ pixels} \times 24 \text{ bits/pixel} = 288,000,000 \text{ bits} = 36 \text{ MB}
-\]
-But your phone stores it as a ~3 MB JPEG file. That's a 12:1 compression ratio! Without compression:
+
+Consider a typical smartphone photo with the following properties:
 \begin{itemize}
-    \item Your 128 GB phone could store only ~3,500 photos instead of ~40,000
-    \item Uploading to social media would take 12 times longer
-    \item Cloud storage costs would be 12 times higher
+    \item Resolution: 12 megapixels $= 12{,}000{,}000$ pixels
+    \item Color depth: 24-bit color (8 bits per RGB channel)
 \end{itemize}
 
-\subsubsection{The Economics of Compression}
-\begin{examplebox}
-\textbf{Cloud Storage Example}: A major cloud provider charges \$0.023 per GB per month. For 1 PB (petabyte = 1000 TB) of data:
-\begin{itemize}
-    \item Uncompressed: 1 PB = 1,000,000 GB gives \$23,000/month
-    \item With 4:1 compression: 250,000 GB gives \$5,750/month
-    \item Annual savings: (\$23,000 - \$5,750) × 12 = \$207,000/year
-\end{itemize}
-This doesn't even consider bandwidth costs, which are typically charged per GB transferred!
-\end{examplebox}
+\paragraph{Uncompressed Image Size}
+
+\[
+\begin{aligned}
+\text{Total bits} 
+&= 12{,}000{,}000 \text{ pixels} \times 24 \text{ bits/pixel} \\
+&= 288{,}000{,}000 \text{ bits}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Total bytes}
+&= \frac{288{,}000{,}000}{8} \\
+&= 36{,}000{,}000 \text{ bytes}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Size in MiB}
+&= \frac{36{,}000{,}000}{1{,}048{,}576} \\
+&\approx 34.33 \text{ MiB}
+\end{aligned}
+\]
+
+Thus, an uncompressed photo occupies approximately $\mathbf{34.3}$~MiB.
+
+\paragraph{Compressed Size and Compression Ratio}
+
+In practice, the same photo is stored as a JPEG file of approximately $2.5$--$3.5$~MiB.  
+Taking $3$~MiB as a representative size:
+
+\[
+\text{Compression ratio}
+= \frac{34.3}{3}
+\approx 11.4{:}1
+\]
+
+This lies within the typical range of $10{:}1$ to $14{:}1$ for JPEG compression.
+
+\paragraph{Impact on Storage}
+
+Assume a smartphone with $128$~GiB of storage:
+\[
+128 \text{ GiB} = 128 \times 1{,}024^3 = 137{,}438{,}953{,}472 \text{ bytes}
+\]
+
+\textbf{Uncompressed photos:}
+\[
+\begin{aligned}
+\text{Number of photos}
+&= \frac{128 \times 1{,}024^3}{34.3 \times 1{,}024^2} \\
+&= \frac{128 \times 1{,}024}{34.3} \\
+&\approx 3{,}817 \text{ photos}
+\end{aligned}
+\]
+
+\textbf{Compressed photos (3 MiB each):}
+\[
+\begin{aligned}
+\text{Number of photos}
+&= \frac{128 \times 1{,}024^3}{3 \times 1{,}024^2} \\
+&= \frac{128 \times 1{,}024}{3} \\
+&\approx 43{,}691 \text{ photos}
+\end{aligned}
+\]
+
+\paragraph{Impact on Communication}
+
+Assume an upload speed of $10$~Mbps (megabits per second).
+
+\textbf{Uncompressed photo:}
+\[
+\begin{aligned}
+\text{Upload time}
+&= \frac{34.3 \text{ MiB} \times 8}{10} \\
+&= \frac{274.4}{10} \\
+&\approx 27.4 \text{ seconds}
+\end{aligned}
+\]
+
+\textbf{Compressed photo (3 MiB):}
+\[
+\begin{aligned}
+\text{Upload time}
+&= \frac{3 \times 8}{10} \\
+&= 2.4 \text{ seconds}
+\end{aligned}
+\]
+
+\paragraph{Impact on Cloud Storage Cost}
+
+Assume cloud storage pricing of \$0.023 per GB per month.
+
+\textbf{Uncompressed photo:}
+\[
+\begin{aligned}
+34.3 \text{ MiB}
+&= \frac{34.3}{1{,}024} \text{ GiB}
+\approx 0.0335 \text{ GiB}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Monthly cost}
+&= 0.0335 \times 0.023 \\
+&\approx \$0.00077 \text{ per photo}
+\end{aligned}
+\]
+
+\textbf{Compressed photo (3 MiB):}
+\[
+\begin{aligned}
+3 \text{ MiB}
+&= \frac{3}{1{,}024} \text{ GiB}
+\approx 0.00293 \text{ GiB}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Monthly cost}
+&= 0.00293 \times 0.023 \\
+&\approx \$0.000067 \text{ per photo}
+\end{aligned}
+\]
+
+\paragraph{Conclusion}
+
+This example demonstrates that compression reduces storage requirements, transmission time, and monetary cost by more than an order of magnitude, making large-scale multimedia systems practical.
+
 
 \subsection{Lossless vs. Lossy Compression: A Detailed Comparison}
 \subsubsection{Lossless Compression: Perfect Reconstruction}
