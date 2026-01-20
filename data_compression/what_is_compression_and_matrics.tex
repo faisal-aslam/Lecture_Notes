@@ -299,10 +299,106 @@ DNA sequence (specialized) & 3 GB & 300 MB & 10:1 & 90\% \\
 \end{examplebox}
 
 \subsubsection{Bit-rate: The Quality Control Knob}
-For lossy compression, bit-rate determines quality:
+
+In \textbf{lossy compression}, bit-rate is the \textbf{primary control over quality}.
+
+\medskip
+
+\textbf{Definition.}
+Bit-rate specifies \emph{how many bits the encoder is allowed to use to represent the signal}.
+
 \[
-\text{Bit-rate} = \frac{\text{Compressed Size in bits}}{\text{Duration (seconds)}} \quad \text{or} \quad \frac{\text{Compressed Size in bits}}{\text{Number of samples}}
+\boxed{
+\text{Bit-rate}
+=
+\frac{\text{Total compressed bits}}{\text{time (seconds)}}
+\quad
+\text{or}
+\quad
+\frac{\text{Total compressed bits}}{\text{number of samples}}
+}
 \]
+
+In simple terms:
+\begin{quote}
+\emph{Bit-rate is the number of bits spent to describe one second (or one sample) of audio or video.}
+\end{quote}
+
+\medskip
+
+\textbf{What bit-rate really means}
+
+\begin{itemize}
+    \item \textbf{Higher bit-rate}
+    $\rightarrow$ more bits available
+    $\rightarrow$ less information discarded
+    $\rightarrow$ higher quality, larger file
+
+    \item \textbf{Lower bit-rate}
+    $\rightarrow$ fewer bits available
+    $\rightarrow$ more information discarded
+    $\rightarrow$ lower quality, smaller file
+\end{itemize}
+
+Thus, bit-rate acts like a \textbf{quality dial}:
+
+\begin{center}
+Low bit-rate $\;\longrightarrow\;$ more compression $\;\longrightarrow\;$ lower quality \\
+High bit-rate $\;\longrightarrow\;$ less compression $\;\longrightarrow\;$ higher quality
+\end{center}
+
+\medskip
+
+\textbf{Why bit-rate matters mainly for lossy compression}
+
+\begin{itemize}
+    \item In \textbf{lossless compression}, the bit-rate is determined by the data itself and cannot be freely chosen.
+    \item In \textbf{lossy compression}, the encoder deliberately discards information to meet a \textbf{target bit-rate}.
+\end{itemize}
+
+Therefore, in lossy systems, bit-rate is a \textbf{design parameter}, not a fixed property of the source.
+
+\begin{examplebox}
+\textbf{Audio quality at different bit-rates}
+
+For compressed music (e.g., MP3, AAC):
+
+\begin{itemize}
+    \item \textbf{32 kbps}: Very low quality, suitable mainly for speech
+    \item \textbf{96 kbps}: Acceptable quality (FM-radio–like)
+    \item \textbf{128 kbps}: Good quality for most listeners
+    \item \textbf{192 kbps}: Near-CD quality for most people
+    \item \textbf{320 kbps}: Essentially transparent for almost all listeners
+\end{itemize}
+
+\medskip
+
+\textbf{Storage impact for a 60-minute album}
+
+\begin{itemize}
+    \item 128 kbps $\rightarrow$ $\approx 60$ MB
+    \item 320 kbps $\rightarrow$ $\approx 144$ MB
+    \item FLAC (lossless) $\rightarrow$ $\approx 400$ MB
+    \item Uncompressed CD audio $\rightarrow$ $\approx 700$ MB
+\end{itemize}
+\end{examplebox}
+
+\medskip
+
+\textbf{Key intuition}
+
+\begin{quote}
+\emph{Bit-rate does not measure how much information the original signal contains; it measures how much information we choose to keep.}
+\end{quote}
+
+\medskip
+
+\textbf{One-sentence takeaway}
+
+\begin{quote}
+\emph{Bit-rate specifies how many bits per second the encoder may use, directly trading file size for perceptual quality in lossy compression.}
+\end{quote}
+
 
 \begin{examplebox}
 \textbf{Audio Quality at Different Bit-rates}:
@@ -610,7 +706,7 @@ Z & 0.0007 & 10.48 & 0.007 \\
     \bottomrule
     \end{tabular}
     \end{center}
-    *Percentages >100\% show compression better than first-order entropy by exploiting dependencies
+    *Percentages $>$ 100\% show compression better than first-order entropy by exploiting dependencies
 \end{itemize}
 \end{examplebox}
 
