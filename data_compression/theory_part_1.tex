@@ -1,5 +1,75 @@
 \section{Theory of Compression — Limits and Optimality}
 
+\subsection{Types of Codes: From Ambiguous to Instantaneous}
+
+\begin{definitionbox}
+\textbf{Types of Codes}
+
+\begin{itemize}
+    \item \textbf{Non-singular Code}: Each source symbol maps to a distinct codeword
+    \[
+    x_i \neq x_j \Rightarrow C(x_i) \neq C(x_j)
+    \]
+    
+    \item \textbf{Uniquely Decodable Code}: Every finite sequence of codewords corresponds to exactly one sequence of source symbols
+    \[
+    C(x_1)C(x_2)\cdots C(x_n) = C(y_1)C(y_2)\cdots C(y_m) \Rightarrow n=m \text{ and } x_i = y_i
+    \]
+    
+    \item \textbf{Prefix Code (Instantaneous Code)}: No codeword is a prefix of another codeword
+    \[
+    \forall i \neq j: \quad C(x_i) \text{ is not a prefix of } C(x_j)
+    \]
+\end{itemize}
+
+\textbf{Key Relationships}:
+\[
+\text{Prefix Codes} \subset \text{Uniquely Decodable Codes} \subset \text{Non-singular Codes}
+\]
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{Why Prefix Codes are Special}
+\begin{itemize}
+    \item \textbf{Instantaneous decoding}: Can decode as soon as codeword ends (no lookahead needed)
+    \item \textbf{Tree representation}: Always correspond to leaves of a binary tree
+    \item \textbf{Kraft inequality}: Always satisfy $\sum 2^{-\ell_i} \leq 1$
+    \item \textbf{Practical}: Used in Huffman coding, many real-world compressors
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Example: Comparing Different Code Types}
+
+For symbols $\{A,B,C,D\}$ with probabilities $\{0.5,0.25,0.125,0.125\}$:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Code Type} & \textbf{A} & \textbf{B} & \textbf{C} & \textbf{D} & \textbf{Property} \\
+\hline
+Non-singular & 0 & 1 & 00 & 11 & Distinct but ambiguous: "00" = AA or C? \\
+\hline
+Uniquely decodable & 0 & 01 & 011 & 0111 & Unique but need lookahead \\
+\hline
+Prefix code & 0 & 10 & 110 & 111 & Instant decoding: "0" = A, stop \\
+\hline
+Optimal prefix & 0 & 10 & 110 & 111 & Also Huffman optimal \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Decoding examples}:
+\begin{itemize}
+    \item \textbf{Prefix code "010110"}: 0→A, 10→B, 110→C = "ABC" (instant)
+    \item \textbf{Uniquely decodable "00111"}: Need to scan ahead to determine split
+    \item \textbf{Non-singular "00"}: Ambiguous! Could be "AA" or "C"
+\end{itemize}
+
+\textbf{Key insight}: Prefix codes sacrifice some flexibility in codeword lengths (must satisfy Kraft inequality) for the benefit of instantaneous decoding.
+\end{examplebox}
+
+
 \subsection{Basic Terminology and Notation}
 
 \begin{definitionbox}
@@ -24,12 +94,33 @@ For example, the letter \texttt{E} is a symbol from the English alphabet.
 \begin{definitionbox}
 \textbf{Random Variable}
 
-A \emph{random variable} $X$ is a mathematical model of a source that produces symbols.
-It assigns probabilities to symbols in the alphabet:
+A \emph{random variable} $X$ is a function that assigns a symbol or value
+to each outcome in a sample space:
+
 \[
-P(X = x), \quad x \in \mathcal{X}
+X: \Omega \to \mathcal{X}
 \]
-Entropy is defined on random variables, not directly on symbols themselves.
+
+\begin{itemize}
+    \item $\Omega$: Sample space (e.g., all possible states of a data source)
+    \item $\mathcal{X}$: Set of possible values (alphabet, e.g., $\{0,1\}$, ASCII characters)
+    \item For each $\omega \in \Omega$, $X(\omega)$ is the value assigned to outcome $\omega$
+\end{itemize}
+
+\textbf{Example: Binary Source}
+\begin{itemize}
+    \item $\Omega = \{\text{emits 0}, \text{emits 1}\}$ (or could be more complex underlying physics)
+    \item $\mathcal{X} = \{0, 1\}$
+    \item $X(\text{emits 0}) = 0$, $X(\text{emits 1}) = 1$
+    \item Probabilities: $P(X=0) = P(\{\omega: X(\omega)=0\}) = p$, $P(X=1) = 1-p$
+\end{itemize}
+
+\textbf{Why this matters for compression}:
+\begin{itemize}
+    \item The entropy $H(X)$ depends on the probability distribution induced by $X$
+    \item For $x \in \mathcal{X}$: $P(X=x) = P(\{\omega \in \Omega: X(\omega)=x\})$
+    \item $H(X) = -\sum_{x \in \mathcal{X}} P(X=x) \log_2 P(X=x)$
+\end{itemize}
 \end{definitionbox}
 
 \begin{definitionbox}
@@ -256,14 +347,113 @@ H_\infty = \lim_{N \to \infty} H_N
 
 \subsubsection{The Entropy Theorem: Why It Matters}
 
-\begin{importantbox}
-\textbf{Shannon's Source Coding Theorem}
+\begin{definitionbox}
+\textbf{Expected Code Length}
 
-Let a discrete memoryless source have entropy $H$.
+For a source with symbols $\{x_1, x_2, \dots, x_n\}$ having probabilities $\{p_1, p_2, \dots, p_n\}$, and a code that assigns codeword lengths $\{\ell_1, \ell_2, \dots, \ell_n\}$, the \textbf{expected code length} $L$ is:
+
+\[
+L = \mathbb{E}[\ell(X)] = \sum_{i=1}^n p_i \ell_i \quad \text{(bits per symbol)}
+\]
+
+This measures the average number of bits needed to encode one symbol from the source.
+\end{definitionbox}
+
+\begin{definitionbox}
+\textbf{Compression Ratio and Efficiency}
+
+For a source with entropy $H(X)$ and code with expected length $L$:
+\begin{itemize}
+    \item \textbf{Compression ratio}: $\rho = \frac{\text{original bits}}{\text{compressed bits}}$
+    \item \textbf{Efficiency}: $\eta = \frac{H(X)}{L} \leq 1$
+    \item \textbf{Redundancy}: $R = L - H(X) \geq 0$
+\end{itemize}
+
+Perfect compression occurs when $\eta = 1$ (100\% efficient) and $R = 0$.
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{Shannon's Source Coding Theorem (1948)}
+
+For a discrete memoryless source with entropy $H$ and any $\epsilon > 0$:
 
 \begin{enumerate}
-    \item \textbf{Converse (Impossibility)}: No lossless coding scheme can achieve $L < H$
-    \item \textbf{Achievability (Possibility)}: For any $\epsilon > 0$, there exists a coding scheme with $H \le L < H + \epsilon$ for sufficiently large block sizes
+    \item \textbf{Converse (Impossibility Result)}: \\
+    No lossless coding scheme can achieve expected code length $L < H$.
+    \[
+    \boxed{L \geq H \quad \text{for any uniquely decodable code}}
+    \]
+    
+    \item \textbf{Achievability (Possibility Result)}: \\
+    There exists a lossless coding scheme (specifically, block coding with sufficiently large block size $n$) such that:
+    \[
+    \boxed{H \leq L < H + \epsilon}
+    \]
+    Equivalently: For any $\epsilon > 0$, $\exists n$ such that:
+    \[
+    \frac{L_n}{n} < H + \epsilon
+    \]
+    where $L_n$ is the expected length for blocks of size $n$.
+\end{enumerate}
+
+\textbf{Interpretation}:
+\begin{itemize}
+    \item \textbf{Entropy is the fundamental limit}: $H$ bits/symbol is the best we can ever do
+    \item \textbf{We can get arbitrarily close}: With clever coding, we can approach this limit as closely as desired
+    \item \textbf{The gap is achievable}: The "+$\epsilon$" represents practical overhead that can be made arbitrarily small
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Understanding the Theorem with Numbers}
+
+Consider a binary source with $p(0)=0.9$, $p(1)=0.1$:
+\[
+H = -0.9\log_2 0.9 - 0.1\log_2 0.1 \approx 0.469 \text{ bits/symbol}
+\]
+
+\begin{itemize}
+    \item \textbf{Naive coding}: Use 1 bit per symbol → $L = 1.0$, efficiency $\eta = 0.469/1.0 = 46.9\%$
+    
+    \item \textbf{Huffman coding}: 0→0, 1→1 (same as naive!) → $L = 1.0$, $\eta = 46.9\%$
+    \textit{Why so bad?} Because we're coding symbols individually.
+    
+    \item \textbf{Block coding (n=2)}: Code pairs of symbols:
+    \begin{align*}
+        00 &\to 0 \quad (\ell=1, p=0.81) \\
+        01 &\to 10 \quad (\ell=2, p=0.09) \\
+        10 &\to 110 \quad (\ell=3, p=0.09) \\
+        11 &\to 111 \quad (\ell=3, p=0.01)
+    \end{align*}
+    $L_2 = 0.81\times1 + 0.09\times2 + 0.09\times3 + 0.01\times3 = 1.29$ bits/block
+    Per symbol: $L = L_2/2 = 0.645$ bits/symbol, $\eta = 0.469/0.645 \approx 72.7\%$
+    
+    \item \textbf{Block coding (n=3)}: Would get even closer to 0.469
+    
+    \item \textbf{Theoretical limit}: As $n \to \infty$, $L \to 0.469$
+\end{itemize}
+
+\textbf{Key insight}: The theorem tells us:
+\begin{enumerate}
+    \item We can never beat 0.469 bits/symbol (impossibility)
+    \item We can get as close as we want to 0.469 bits/symbol (achievability)
+\end{enumerate}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{What the Theorem Does NOT Say}
+\begin{itemize}
+    \item \textbf{It doesn't say how to construct the code} - just that one exists
+    \item \textbf{It doesn't guarantee practical implementation} - block size $n$ might need to be huge
+    \item \textbf{It doesn't account for computational complexity} - the code might be too complex to implement
+    \item \textbf{It assumes we know the true probabilities} - in practice, we estimate them
+\end{itemize}
+
+Yet, this theorem is revolutionary because it:
+\begin{enumerate}
+    \item Establishes a \textbf{fundamental limit} (like the speed of light in physics)
+    \item Provides a \textbf{benchmark} for evaluating compression algorithms
+    \item Guides algorithm design toward this limit
 \end{enumerate}
 \end{importantbox}
 
