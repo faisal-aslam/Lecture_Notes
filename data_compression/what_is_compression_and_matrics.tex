@@ -1,14 +1,5 @@
 \section{Introduction to Data Compression}
 \subsection{Learning Objectives}
-By the end of this lecture, students will be able to:
-\begin{itemize}[leftmargin=*]
-    \item Define data compression and explain its practical importance with real-world examples
-    \item Differentiate between lossless and lossy compression with concrete applications
-    \item Calculate and interpret basic compression metrics (compression ratio, bit-rate, savings)
-    \item Explain the concepts of information, redundancy, and entropy with computational examples
-    \item Identify major application domains and their specific compression requirements
-    \item Understand the fundamental limits of compression from information theory
-\end{itemize}
 
 \subsection{Introduction and Motivation: Why Compress Data?}
 Data compression is the process of encoding information using fewer bits than the original representation. Every day, we encounter compression without realizing it: from streaming videos to sending emails, from saving photos to downloading software updates.
@@ -49,147 +40,6 @@ Data compression provides three key benefits that are critical in modern computi
     \end{itemize}
 \end{enumerate}
 
-
-\subsubsection{Real-World Motivation: A Concrete Example}
-
-Consider a typical smartphone photo with the following properties:
-\begin{itemize}
-    \item Resolution: 12 megapixels $= 12{,}000{,}000$ pixels
-    \item Color depth: 24-bit color (8 bits per RGB channel)
-\end{itemize}
-
-\paragraph{Uncompressed Image Size}
-
-\[
-\begin{aligned}
-\text{Total bits} 
-&= 12{,}000{,}000 \text{ pixels} \times 24 \text{ bits/pixel} \\
-&= 288{,}000{,}000 \text{ bits}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Total bytes}
-&= \frac{288{,}000{,}000}{8} \\
-&= 36{,}000{,}000 \text{ bytes}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Size in MiB}
-&= \frac{36{,}000{,}000}{1{,}048{,}576} \\
-&\approx 34.33 \text{ MiB}
-\end{aligned}
-\]
-
-Thus, an uncompressed photo occupies approximately $\mathbf{34.3}$~MiB.
-
-\paragraph{Compressed Size and Compression Ratio}
-
-In practice, the same photo is stored as a JPEG file of approximately $2.5$--$3.5$~MiB.  
-Taking $3$~MiB as a representative size:
-
-\[
-\text{Compression ratio}
-= \frac{34.3}{3}
-\approx 11.4{:}1
-\]
-
-This lies within the typical range of $10{:}1$ to $14{:}1$ for JPEG compression.
-
-\paragraph{Impact on Storage}
-
-Assume a smartphone with $128$~GiB of storage:
-\[
-128 \text{ GiB} = 128 \times 1{,}024^3 = 137{,}438{,}953{,}472 \text{ bytes}
-\]
-
-\textbf{Uncompressed photos:}
-\[
-\begin{aligned}
-\text{Number of photos}
-&= \frac{128 \times 1{,}024^3}{34.3 \times 1{,}024^2} \\
-&= \frac{128 \times 1{,}024}{34.3} \\
-&\approx 3{,}817 \text{ photos}
-\end{aligned}
-\]
-
-\textbf{Compressed photos (3 MiB each):}
-\[
-\begin{aligned}
-\text{Number of photos}
-&= \frac{128 \times 1{,}024^3}{3 \times 1{,}024^2} \\
-&= \frac{128 \times 1{,}024}{3} \\
-&\approx 43{,}691 \text{ photos}
-\end{aligned}
-\]
-
-\paragraph{Impact on Communication}
-
-Assume an upload speed of $10$~Mbps (megabits per second).
-
-\textbf{Uncompressed photo:}
-\[
-\begin{aligned}
-\text{Upload time}
-&= \frac{34.3 \text{ MiB} \times 8}{10} \\
-&= \frac{274.4}{10} \\
-&\approx 27.4 \text{ seconds}
-\end{aligned}
-\]
-
-\textbf{Compressed photo (3 MiB):}
-\[
-\begin{aligned}
-\text{Upload time}
-&= \frac{3 \times 8}{10} \\
-&= 2.4 \text{ seconds}
-\end{aligned}
-\]
-
-\paragraph{Impact on Cloud Storage Cost}
-
-Assume cloud storage pricing of \$0.023 per GB per month.
-
-\textbf{Uncompressed photo:}
-\[
-\begin{aligned}
-34.3 \text{ MiB}
-&= \frac{34.3}{1{,}024} \text{ GiB}
-\approx 0.0335 \text{ GiB}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Monthly cost}
-&= 0.0335 \times 0.023 \\
-&\approx \$0.00077 \text{ per photo}
-\end{aligned}
-\]
-
-\textbf{Compressed photo (3 MiB):}
-\[
-\begin{aligned}
-3 \text{ MiB}
-&= \frac{3}{1{,}024} \text{ GiB}
-\approx 0.00293 \text{ GiB}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Monthly cost}
-&= 0.00293 \times 0.023 \\
-&\approx \$0.000067 \text{ per photo}
-\end{aligned}
-\]
-
-\paragraph{Conclusion}
-
-This example demonstrates that compression reduces storage requirements, transmission time, and monetary cost by more than an order of magnitude, making large-scale multimedia systems practical.
 
 
 \subsection{Lossless vs. Lossy Compression: A Detailed Comparison}
@@ -437,6 +287,147 @@ As a result, practical streaming systems favor compressors that achieve a \emph{
 compression ratio while providing high throughput, low memory usage, and predictable
 latency, even if better compression is theoretically possible.
 
+\subsubsection{Real-World Motivation: A Concrete Example}
+
+Consider a typical smartphone photo with the following properties:
+\begin{itemize}
+    \item Resolution: 12 megapixels $= 12{,}000{,}000$ pixels
+    \item Color depth: 24-bit color (8 bits per RGB channel)
+\end{itemize}
+
+\paragraph{Uncompressed Image Size}
+
+\[
+\begin{aligned}
+\text{Total bits} 
+&= 12{,}000{,}000 \text{ pixels} \times 24 \text{ bits/pixel} \\
+&= 288{,}000{,}000 \text{ bits}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Total bytes}
+&= \frac{288{,}000{,}000}{8} \\
+&= 36{,}000{,}000 \text{ bytes}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Size in MiB}
+&= \frac{36{,}000{,}000}{1{,}048{,}576} \\
+&\approx 34.33 \text{ MiB}
+\end{aligned}
+\]
+
+Thus, an uncompressed photo occupies approximately $\mathbf{34.3}$~MiB.
+
+\paragraph{Compressed Size and Compression Ratio}
+
+In practice, the same photo is stored as a JPEG file of approximately $2.5$--$3.5$~MiB.  
+Taking $3$~MiB as a representative size:
+
+\[
+\text{Compression ratio}
+= \frac{34.3}{3}
+\approx 11.4{:}1
+\]
+
+This lies within the typical range of $10{:}1$ to $14{:}1$ for JPEG compression.
+
+\paragraph{Impact on Storage}
+
+Assume a smartphone with $128$~GiB of storage:
+\[
+128 \text{ GiB} = 128 \times 1{,}024^3 = 137{,}438{,}953{,}472 \text{ bytes}
+\]
+
+\textbf{Uncompressed photos:}
+\[
+\begin{aligned}
+\text{Number of photos}
+&= \frac{128 \times 1{,}024^3}{34.3 \times 1{,}024^2} \\
+&= \frac{128 \times 1{,}024}{34.3} \\
+&\approx 3{,}817 \text{ photos}
+\end{aligned}
+\]
+
+\textbf{Compressed photos (3 MiB each):}
+\[
+\begin{aligned}
+\text{Number of photos}
+&= \frac{128 \times 1{,}024^3}{3 \times 1{,}024^2} \\
+&= \frac{128 \times 1{,}024}{3} \\
+&\approx 43{,}691 \text{ photos}
+\end{aligned}
+\]
+
+\paragraph{Impact on Communication}
+
+Assume an upload speed of $10$~Mbps (megabits per second).
+
+\textbf{Uncompressed photo:}
+\[
+\begin{aligned}
+\text{Upload time}
+&= \frac{34.3 \text{ MiB} \times 8}{10} \\
+&= \frac{274.4}{10} \\
+&\approx 27.4 \text{ seconds}
+\end{aligned}
+\]
+
+\textbf{Compressed photo (3 MiB):}
+\[
+\begin{aligned}
+\text{Upload time}
+&= \frac{3 \times 8}{10} \\
+&= 2.4 \text{ seconds}
+\end{aligned}
+\]
+
+\paragraph{Impact on Cloud Storage Cost}
+
+Assume cloud storage pricing of \$0.023 per GB per month.
+
+\textbf{Uncompressed photo:}
+\[
+\begin{aligned}
+34.3 \text{ MiB}
+&= \frac{34.3}{1{,}024} \text{ GiB}
+\approx 0.0335 \text{ GiB}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Monthly cost}
+&= 0.0335 \times 0.023 \\
+&\approx \$0.00077 \text{ per photo}
+\end{aligned}
+\]
+
+\textbf{Compressed photo (3 MiB):}
+\[
+\begin{aligned}
+3 \text{ MiB}
+&= \frac{3}{1{,}024} \text{ GiB}
+\approx 0.00293 \text{ GiB}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+\text{Monthly cost}
+&= 0.00293 \times 0.023 \\
+&\approx \$0.000067 \text{ per photo}
+\end{aligned}
+\]
+
+\paragraph{Conclusion}
+
+This example demonstrates that compression reduces storage requirements, transmission time, and monetary cost by more than an order of magnitude, making large-scale multimedia systems practical.
+
 
 \begin{examplebox}
 \textbf{Real-world Compressor Comparison}:
@@ -460,414 +451,8 @@ xz (-6) & 4.2:1 & 10 MB/s & 80 MB/s & 100 MB \\
 Approximate performance on typical text data (higher is better)
 \end{examplebox}
 
-\subsection{Information and Redundancy: The Core Concepts}
+\subsection{Huffman Coding - Complete Process}
 
-
-\subsubsection{Information: A Formal Measure of Uncertainty Reduction}
-
-In common usage, ``information'' is often conflated with data, messages, or symbols. In \textbf{information theory}, information is defined rigorously as a \textbf{quantitative measure of the reduction in uncertainty} that results from observing the outcome of a random event.
-
-The fundamental principle, established by Claude Shannon (1948), is:
-
-\begin{quote}
-    The information gained from an event is inversely related to its probability of occurrence. Highly probable events are unsurprising and convey little information; improbable events are surprising and convey substantial information.
-\end{quote}
-
-\begin{definition}
-    Let $X$ be a random event that occurs with probability $p = \Pr(X)$. The \textbf{information content} (or \emph{self-information}) $I(X)$ provided by the occurrence of $X$ is defined as:
-    \[
-    I(X) = \log_b\left(\frac{1}{p}\right) = -\log_b(p)
-    \]
-    where:
-    \begin{itemize}[noitemsep, topsep=2pt]
-        \item The base $b$ of the logarithm determines the unit of information.
-        \item $b=2$ yields \textbf{bits} (binary digits).
-        \item $b=e$ yields \textbf{nats} (natural units).
-        \item $b=10$ yields \textbf{hartleys} or \textbf{dits}.
-    \end{itemize}
-    The choice of base is a convention; the underlying concept is scale-invariant.
-\end{definition}
-
-
-This definition captures an important intuition: as an event becomes more predictable
-($p \rightarrow 1$), its information content approaches zero.
-
-\begin{examplebox}
-\textbf{Predictability vs.\ Information}:
-\begin{itemize}
-    \item In a city where it rains every day, the statement ``It rained today'' conveys
-    almost no information because it was already expected.
-    \item A file that contains only the bit `1' provides very little information, since
-    after seeing a few bits, the rest of the file can be predicted with certainty.
-    \item A coin that always lands heads produces outcomes, but no information, because
-    there is no uncertainty to resolve.
-\end{itemize}
-
-\textbf{Key idea}: Perfect predictability implies zero information gain.
-\end{examplebox}
-
-\begin{examplebox}
-\textbf{Daily Weather Forecast — Information Content}:
-\begin{itemize}
-    \item Sunny in Phoenix (probability $0.9$):
-    $I = -\log_2 0.9 \approx 0.15$ bits
-    \item Snow in Phoenix (probability $0.001$):
-    $I = -\log_2 0.001 \approx 9.97$ bits
-    \item Rain in Seattle (probability $0.3$):
-    $I = -\log_2 0.3 \approx 1.74$ bits
-\end{itemize}
-
-\textbf{Interpretation}: Rare events carry more information because they reduce uncertainty
-the most. Snow in Phoenix reveals far more about the weather system than another sunny day.
-\end{examplebox}
-
-In summary, information is not about how much data is observed, but about how much
-uncertainty is removed. This distinction between information and predictability forms
-the foundation of redundancy, entropy, and data compression.
-
-\subsubsection{Redundancy: The Enemy of Information and the Friend of Compression}
-
-Redundancy refers to predictable or repeated structure in data.
-From the perspective of information theory, redundancy is the \emph{enemy of information}
-because it does not reduce uncertainty. However, from the perspective of data compression,
-redundancy is a \emph{valuable resource}: it is precisely what allows data to be represented
-using fewer bits.
-
-Compression algorithms work by identifying, modeling, and removing redundancy while
-preserving the underlying information (in lossless compression) or perceptually important
-information (in lossy compression).
-
-Redundancy appears in several common forms:
-
-\begin{enumerate}
-    \item \textbf{Spatial Redundancy}: Neighboring data values are highly correlated.
-    \begin{examplebox}
-    In a photograph of a clear blue sky, most neighboring pixels have nearly identical
-    color values.
-    \begin{itemize}
-        \item \textbf{Naive}: Store the RGB value of each pixel independently.
-        \item \textbf{Smarter}: Encode repeated pixel values using run-length encoding.
-        \item \textbf{Even smarter}: Predict each pixel from its neighbors and encode
-        only the small prediction error.
-    \end{itemize}
-    \end{examplebox}
-
-    \item \textbf{Statistical Redundancy}: Some symbols occur far more frequently than others.
-    \begin{examplebox}
-    \textbf{English letter frequencies}:
-    \begin{center}
-    \begin{tabular}{|c|c||c|c|}
-    \hline
-    Letter & Frequency & Letter & Frequency \\
-    \hline
-    E & 12.7\% & Z & 0.07\% \\
-    T & 9.1\% & Q & 0.10\% \\
-    A & 8.2\% & J & 0.15\% \\
-    \hline
-    \end{tabular}
-    \end{center}
-    \begin{itemize}
-        \item \textbf{Inefficient}: Fixed-length coding (5 bits per letter).
-        \item \textbf{Efficient}: Variable-length coding (e.g., Huffman coding), where
-        frequent letters get shorter codes.
-    \end{itemize}
-    This reduces the average bits per letter from 5 to approximately 4.1.
-    \end{examplebox}
-
-    \item \textbf{Knowledge Redundancy}: Information already known to both encoder and decoder.
-    \begin{examplebox}
-    \textbf{Medical Imaging}:
-    Both the encoder and decoder know the image represents a chest X-ray.
-    \begin{itemize}
-        \item The general structure of lungs and bones does not need to be encoded explicitly.
-        \item Anatomical models can be used to predict expected structures.
-        \item Bits can be concentrated on unexpected or diagnostically important regions.
-    \end{itemize}
-    \end{examplebox}
-
-    \item \textbf{Perceptual Redundancy}: Information that humans cannot perceive.
-    \begin{examplebox}
-    \textbf{Audio Compression (MP3)}:
-    \begin{itemize}
-        \item \textbf{Frequency masking}: Loud sounds mask nearby frequencies.
-        \item \textbf{Temporal masking}: Loud sounds mask quieter sounds before or after them.
-        \item \textbf{Result}: A large fraction of the audio data can be discarded without
-        perceptible loss in quality.
-    \end{itemize}
-    \end{examplebox}
-\end{enumerate}
-
-
-\subsubsection{What is Entropy? Different Perspectives}
-
-The term "entropy" appears in multiple fields (thermodynamics, information theory, statistics) with related but distinct meanings. In information theory, we primarily discuss \textbf{Shannon Entropy}, named after Claude Shannon who founded the field in 1948. While there are other entropy measures (like Kolmogorov-Sinai, Rényi, and Tsallis entropies in various contexts), Shannon entropy is the foundational concept for data compression.
-
-\begin{definitionbox}
-\textbf{Shannon Entropy} of a discrete random variable $X$ with possible values $\{x_1, x_2, \ldots, x_n\}$ having probabilities $\{p_1, p_2, \ldots, p_n\}$:
-\[
-H(X) = -\sum_{i=1}^{n} p_i \log_2 p_i \quad \text{bits}
-\]
-\end{definitionbox}
-
-\textbf{Two Complementary Interpretations}:
-
-1. \textbf{Average Information Content}: When a symbol with probability $p_i$ occurs, it conveys $-\log_2 p_i$ bits of information (rare events tell us more). Entropy is the \textit{expected value} or average of this information content across all symbols.
-
-2. \textbf{Uncertainty or Surprise}: Entropy measures how uncertain we are about the next symbol before observing it. Higher entropy means more unpredictability.
-
-These interpretations are two sides of the same coin: \textit{The average information gained equals the uncertainty removed by observation.}
-
-\subsubsection{Calculating Entropy: Step by Step}
-
-Let's examine both interpretations through detailed calculations:
-
-\begin{examplebox}
-\textbf{Binary Source Example - Detailed Calculation}:
-
-Consider a biased coin: P(Heads) = 0.8, P(Tails) = 0.2
-
-\begin{enumerate}[label=\textbf{Step \arabic*}:]
-    \item \textbf{Calculate individual information content}:
-    \begin{align*}
-        I_H &= -\log_2(0.8) \approx 0.3219 \text{ bits} \\
-        I_T &= -\log_2(0.2) \approx 2.3219 \text{ bits}
-    \end{align*}
-    \textit{Interpretation}: Tails (rarer event) carries more information.
-    
-    \item \textbf{Calculate entropy as expected value}:
-    \[
-    H = 0.8 \times 0.3219 + 0.2 \times 2.3219 = 0.7219 \text{ bits}
-    \]
-    
-    \item \textbf{Verify using direct formula}:
-    \[
-    H = -[0.8\log_2(0.8) + 0.2\log_2(0.2)] \approx 0.7219 \text{ bits}
-    \]
-\end{enumerate}
-
-\textbf{Key Insights}:
-\begin{itemize}
-    \item \textbf{Average information}: Each flip gives 0.72 bits of information on average
-    \item \textbf{Uncertainty}: We're 72\% as uncertain as with a fair coin
-    \item \textbf{Extreme cases}:
-    \begin{itemize}
-        \item Fair coin (P=0.5): $H = 1.0$ bit (maximum uncertainty/information)
-        \item Always heads (P=1.0): $H = 0$ bits (no uncertainty, no information)
-        \item 90\% heads: $H \approx 0.469$ bits (less uncertainty than 80\% case)
-    \end{itemize}
-\end{itemize}
-\end{examplebox}
-
-\textbf{Mathematical Properties of Entropy}:
-
-\begin{itemize}
-    \item \textbf{Non-negativity}: $H(X) \geq 0$, with equality only when one outcome is certain
-    \item \textbf{Maximum value}: For $n$ symbols, maximum entropy is $\log_2 n$, achieved when all probabilities are equal ($p_i = 1/n$)
-    \item \textbf{Concavity}: Entropy is a concave function of probabilities
-\end{itemize}
-
-\subsubsection{Entropy of English Text: A Practical Case Study}
-
-\begin{examplebox}
-\textbf{Calculating English Letter Entropy}:
-
-Based on letter frequencies in typical English text:
-
-\begin{center}
-\begin{tabular}{|c|c|c|c|}
-\hline
-\textbf{Letter} & \textbf{Probability ($p_i$)} & $\mathbf{-\log_2 p_i}$ & \textbf{Contribution ($p_i \times -\log_2 p_i$)} \\
-\hline
-E & 0.127 & 2.98 & 0.378 \\
-T & 0.091 & 3.46 & 0.315 \\
-A & 0.082 & 3.61 & 0.296 \\
-O & 0.075 & 3.74 & 0.281 \\
-I & 0.070 & 3.84 & 0.269 \\
-N & 0.067 & 3.90 & 0.261 \\
-S & 0.063 & 3.99 & 0.251 \\
-H & 0.061 & 4.04 & 0.246 \\
-R & 0.060 & 4.06 & 0.244 \\
-D & 0.043 & 4.54 & 0.195 \\
-\vdots & \vdots & \vdots & \vdots \\
-Z & 0.0007 & 10.48 & 0.007 \\
-\hline
-\textbf{Total} & 1.0 & & \textbf{4.18 bits} \\
-\hline
-\end{tabular}
-\end{center}
-
-\textbf{Layered Interpretation}:
-\begin{itemize}
-    \item \textbf{First-order entropy (letters independent)}: 4.18 bits/letter
-    \item \textbf{Why not 5 bits?} Because letters are not equally likely
-    \item \textbf{Actual uncertainty is lower}: Letters have dependencies (Q is usually followed by U)
-    
-    \item \textbf{Comparison with encoding schemes}:
-    \begin{center}
-    \begin{tabular}{lcl}
-    \toprule
-    \textbf{Encoding Method} & \textbf{Bits/Letter} & \textbf{Efficiency} \\
-    \midrule
-    Naive (5 bits for 26 letters) & 5.00 & 83.6\% \\
-    Huffman (letter-based) & 4.30 & 97.2\% \\
-    Using digram frequencies & 3.90 & 107.2\%* \\
-    Using word frequencies & 2.30 & 181.7\%* \\
-    Optimal with full context & ~1.50 & 278.7\%* \\
-    \bottomrule
-    \end{tabular}
-    \end{center}
-    *Percentages $>$ 100\% show compression better than first-order entropy by exploiting dependencies
-\end{itemize}
-\end{examplebox}
-
-\subsubsection{Beyond First-Order Entropy: The Full Picture}
-
-\textbf{Higher-Order Entropy} accounts for dependencies between symbols:
-
-\begin{itemize}
-    \item \textbf{Zero-order entropy}: $H_0 = \log_2 n$ (equal probabilities)
-    \item \textbf{First-order entropy}: $H_1 = -\sum p_i \log_2 p_i$ (letter frequencies only)
-    \item \textbf{Second-order entropy}: $H_2 = -\sum p(i,j) \log_2 p(i|j)$ (letter pairs)
-    \item \textbf{N-th order entropy}: $H_N = -\sum p(\text{block}) \log_2 p(\text{last}|\text{previous})$
-\end{itemize}
-
-\textbf{The Entropy Rate} is the limit as $N \to \infty$:
-\[
-H_{\infty} = \lim_{N \to \infty} H_N
-\]
-For English, $H_{\infty} \approx 1.0-1.5$ bits/letter, much lower than first-order entropy!
-
-\subsubsection{The Entropy Theorem: Why It Matters}
-
-\begin{importantbox}
-\textbf{Shannon's Source Coding Theorem (Formal Statement)}:
-
-Given a discrete memoryless source with entropy $H$, for any $\epsilon > 0$:
-\begin{enumerate}
-    \item \textbf{Converse}: No code can have average length $L < H$ without losing information
-    \item \textbf{Achievability}: There exists a code with average length $L < H + \epsilon$
-\end{enumerate}
-
-\textbf{Implications for Compression}:
-\begin{itemize}
-    \item \textbf{Fundamental limit}: $H$ is the absolute lower bound for lossless compression
-    \item \textbf{Redundancy}: Difference between actual code length and $H$ is wasted space
-    \item \textbf{Optimality}: Good compressors approach $H$ from above
-\end{itemize}
-
-\textbf{Practical Example - English Text Compression}:
-\begin{itemize}
-    \item \textbf{Impossible}: Average $< 1.5$ bits/letter (entropy rate limit)
-    \item \textbf{Wasteful}: 8 bits/letter (ASCII - 533\% of optimal)
-    \item \textbf{Good}: 2.5 bits/letter (modern compressors - 167\% of optimal)
-    \item \textbf{Theoretical limit}: ~1.5 bits/letter (100\% efficiency)
-\end{itemize}
-
-\textbf{Why We Can't Reach The Limit Exactly}:
-\begin{itemize}
-    \item Finite block sizes in practical codes
-    \item Computational complexity of optimal coding
-    \item Need for integer-length codes (Huffman)
-    \item Model inaccuracy in estimating probabilities
-\end{itemize}
-\end{importantbox}
-
-\textbf{Takeaway Message}:
-\begin{itemize}
-    \item \textbf{Entropy IS both}: average information AND uncertainty
-    \item \textbf{First-order $H$} gives a baseline, but real sources have lower entropy rates
-    \item \textbf{The theorem} tells us what's possible and impossible
-    \item \textbf{Good compression} = modeling dependencies to approach $H_{\infty}$
-\end{itemize}
-
-\subsection{Application Domains: Specialized Requirements}
-\subsubsection{Text and Code Compression}
-\begin{itemize}
-    \item \textbf{Requirements}: Lossless, fast random access, incremental updates
-    \item \textbf{Challenges}: Small files, need for searching within compressed data
-    \item \textbf{Solutions}: gzip (DEFLATE), LZ4, Zstandard
-   \begin{examplebox}
-\textbf{Git Version Control}: Uses zlib (DEFLATE) and delta compression:
-\begin{itemize}
-    \item Stores file versions as compressed objects
-    \item Applies delta compression for similar versions (packfiles)
-    \item Exploits low \emph{conditional entropy} between revisions
-    \item Example: Linux kernel repository: $\sim$4\,GB raw, $\sim$1\,GB stored
-\end{itemize}
-\end{examplebox}
-
-\end{itemize}
-
-\subsubsection{Multimedia Compression}
-\begin{itemize}
-    \item \textbf{Requirements}: High compression, perceptual quality, real-time
-    \item \textbf{Challenges}: Massive data volumes, human perception constraints
-    \item \textbf{Solutions}: JPEG, MP3, H.264/HEVC, AV1
-    \begin{examplebox}
-    \textbf{Streaming Service Economics (Netflix/YouTube)}:
-    \begin{itemize}
-        \item 1 hour of 4K video: Uncompressed ~500 GB
-        \item H.265 compressed: ~4 GB (125:1 compression)
-        \item Bandwidth cost: \$0.05/GB (typical CDN pricing)
-        \item Uncompressed stream: \$25/hour
-        \item Compressed stream: \$0.20/hour
-        \item For 100 million hours/day: \$20M/day vs \$2.5B/day!
-    \end{itemize}
-    \end{examplebox}
-\end{itemize}
-
-\subsubsection{Scientific and Medical Data}
-\begin{itemize}
-    \item \textbf{Requirements}: Lossless or controlled loss, reproducibility, standards
-    \item \textbf{Challenges}: Huge datasets, precision requirements, regulatory compliance
-    \item \textbf{Solutions}: Specialized compressors (SZ, ZFP), format standards (DICOM)
-    \begin{examplebox}
-    \textbf{Large Hadron Collider (LHC) Data}:
-    \begin{itemize}
-        \item Generates 1 PB/second (yes, per second!)
-        \item Stores 50 PB/year after filtering
-        \item Uses specialized compression algorithms
-        \item Compression saves ~\$50M/year in storage costs
-        \item Enables global collaboration (data distributed worldwide)
-    \end{itemize}
-    \end{examplebox}
-\end{itemize}
-
-\subsection{The Compression Pipeline: How Compressors Actually Work}
-Most compressors follow this two-stage process:
-
-% Simple text-based diagram
-\begin{center}
-\textbf{Compression Pipeline:}
-
-\medskip
-\begin{tabular}{cccc}
-\textbf{Input Data} & $\longrightarrow$ & \textbf{Modeling Stage} & $\longrightarrow$ \\
-& \scriptsize{Analyzes patterns} & & \scriptsize{Builds probability model} \\
-\end{tabular}
-
-\medskip
-\begin{tabular}{cccc}
-& $\longrightarrow$ & \textbf{Coding Stage} & $\longrightarrow$ \\
-& & \scriptsize{Converts to bits} & \scriptsize{Using entropy coding} \\
-\end{tabular}
-
-\medskip
-\begin{tabular}{cccc}
-& $\longrightarrow$ & \textbf{Compressed Data} \\
-\end{tabular}
-\end{center}
-
-
-\textbf{Two-Stage Compression Pipeline}:
-\begin{itemize}
-    \item \textbf{Modeling Stage}: Analyzes data patterns and builds probability model
-    \item \textbf{Coding Stage}: Converts symbols to bits using entropy coding (Huffman, Arithmetic, ANS)
-\end{itemize}
-
-\subsubsection{Modeling Strategies in Practice}
-\begin{examplebox}
-\textbf{Huffman Coding Example - Complete Process}:
 \begin{enumerate}
     \item \textbf{Modeling}: Count symbol frequencies in "ABRACADABRA"
     \begin{center}
@@ -917,237 +502,8 @@ Most compressors follow this two-stage process:
         \item Efficiency: 22.5/23 = 97.8\% efficient!
     \end{itemize}
 \end{enumerate}
-\end{examplebox}
 
-\subsection{Important Terminology and Concepts}
-\subsubsection{Key Definitions with Examples}
-\begin{itemize}
-    \item \textbf{Symbol}: The basic unit being compressed
-    \begin{examplebox}
-    Different domains use different symbols:
-    \begin{itemize}
-        \item Text: Characters (bytes)
-        \item Images: Pixels (RGB triples)
-        \item Audio: Samples (16-bit integers)
-        \item Video: Macroblocks (16$\times$16 pixel regions)
-    \end{itemize}
-    \end{examplebox}
 
-    \item \textbf{Alphabet}: Set of all possible symbols
-    \begin{examplebox}
-    \begin{itemize}
-        \item English text: 256 possible bytes (ASCII/UTF-8)
-        \item Binary data: 256 possible byte values
-        \item DNA sequences: 4 symbols \{A, C, G, T\}
-        \item Black-white image: 2 symbols \{0=black, 1=white\}
-    \end{itemize}
-    \end{examplebox}
 
-    \item \textbf{Prefix Code}: Crucial for instant decoding
-    \begin{examplebox}
-    \textbf{Why prefix codes matter}:
-    \begin{itemize}
-        \item Good: A=0, B=10, C=110, D=111
-        \item "010110" decodes unambiguously: A(0) B(10) C(110)
-        \item Bad: A=0, B=1, C=01 (not prefix-free)
-        \item "01" could be AB or C - ambiguous!
-    \end{itemize}
-    \end{examplebox}
-\end{itemize}
-
-\subsubsection{The Fundamental Insight}
-\begin{importantbox}
-\textbf{The Core Principle of Compression}:
-\begin{itemize}
-    \item \textbf{Random data cannot be compressed}: Maximum entropy = no redundancy
-    \item \textbf{Real-world data is not random}: Contains patterns, structure, predictability
-    \item \textbf{Compression finds and exploits these patterns}
-
-    \textbf{Example - Encryption vs Compression}:
-    \begin{itemize}
-        \item Encrypted data looks random (high entropy)
-        \item Compressing encrypted data gives little or no savings
-        \item Always compress \textbf{before} encrypting, not after!
-        \item Rule: Encrypt $\rightarrow$ High entropy $\rightarrow$ No compression
-        \item Rule: Compress $\rightarrow$ Lower entropy $\rightarrow$ Then encrypt
-    \end{itemize}
-\end{itemize}
-\end{importantbox}
-
-\section*{Homework Assignment 1: Fundamentals of Data Compression}
-
-\subsection*{Assignment Details}
-\begin{tabular}{p{0.15\textwidth}p{0.8\textwidth}}
-\textbf{Due:} & One week after the class \\
-\textbf{Total Points:} & 100 points \\
-\textbf{Objective:} & This assignment reinforces the fundamental concepts introduced in Lecture 1: compression ratios, entropy, redundancy, and the practical trade-offs in data compression. \\
-\end{tabular}
-
-\vspace{1em}
-
-\subsection*{Part 1: Compression Metrics and Real-World Calculations (30 points)}
-
-\begin{enumerate}[leftmargin=*]
-    \item \textbf{Video Storage Calculations (15 points)}
-    
-    A streaming service stores 4K video with the following specifications:
-    \begin{itemize}
-        \item Resolution: 3840 × 2160 pixels
-        \item Color depth: 24 bits per pixel
-        \item Frame rate: 24 frames per second
-        \item Average video duration: 2 hours
-    \end{itemize}
-    
-    Calculate:
-    \begin{enumerate}[label=(\alph*)]
-        \item The uncompressed size of one frame in megabytes (MB)
-        \item The uncompressed size of the entire 2-hour video in terabytes (TB)
-        \item The compressed size if using a lossy codec with a 50:1 compression ratio
-        \item The bandwidth required to stream the compressed video in real-time (in Mbps)
-    \end{enumerate}
-    
-    \emph{Show all calculations step by step.}
-
-    \item \textbf{Economic Impact Analysis (15 points)}
-    
-    A cloud storage company charges \$0.023 per GB per month. A client needs to store:
-    \begin{itemize}
-        \item 50 TB of medical images (lossless compression, average ratio 3:1)
-        \item 200 TB of surveillance video (lossy compression, average ratio 20:1)
-        \item 10 TB of legal documents (lossless compression, average ratio 2.5:1)
-    \end{itemize}
-    
-    Calculate:
-    \begin{enumerate}[label=(\alph*)]
-        \item The monthly and annual storage costs WITHOUT compression
-        \item The monthly and annual storage costs WITH compression
-        \item The annual savings due to compression
-        \item Assuming bandwidth costs of \$0.05 per GB transferred, how much would compression save if 10\% of this data is downloaded each month?
-    \end{enumerate}
-\end{enumerate}
-
-\subsection*{Part 2: Entropy and Information Theory (30 points)}
-
-\begin{enumerate}[leftmargin=*, start=3]
-    \item \textbf{Basic Entropy Calculations (10 points)}
-    
-    Calculate the Shannon entropy (in bits) for the following sources:
-    \begin{enumerate}[label=(\alph*)]
-        \item A fair six-sided die
-        \item Weather in a desert: Sunny (probability 0.85), Cloudy (0.10), Rainy (0.05)
-        \item A binary source where 0 appears with probability 0.99 and 1 with probability 0.01
-    \end{enumerate}
-    
-    \emph{Show the entropy formula with values substituted for each case.}
-
-    \item \textbf{Interpretation and Analysis (10 points)}
-    
-    Based on your calculations from question 3:
-    \begin{enumerate}[label=(\alph*)]
-        \item Which source has the highest entropy? Why?
-        \item Which source is most compressible? Explain using the concept of redundancy.
-        \item If you observed "Rainy" in the desert weather example, how many bits of information would this convey? Show your calculation.
-        \item What does an entropy of 0 bits mean practically?
-    \end{enumerate}
-
-    \item \textbf{English Text Entropy Analysis (10 points)}
-    
-    Consider the first-order letter frequencies in English:
-    \begin{itemize}
-        \item E: 12.7\%, T: 9.1\%, A: 8.2\%, O: 7.5\%, I: 7.0\%, N: 6.7\%, S: 6.3\%, H: 6.1\%
-        \item The remaining 18 letters share the remaining 42.4\% (you may assume equal distribution for simplicity)
-    \end{itemize}
-    
-    \begin{enumerate}[label=(\alph*)]
-        \item Calculate the first-order entropy of English text using these frequencies
-        \item Compare this to the 5 bits needed for a naive fixed-length encoding of 26 letters
-        \item Explain why actual compression algorithms can achieve better than 4.18 bits/letter in practice
-    \end{enumerate}
-\end{enumerate}
-
-\subsection*{Part 3: Lossless vs. Lossy Compression Analysis (25 points)}
-
-\begin{enumerate}[leftmargin=*, start=6]
-    \item \textbf{Scenario-Based Decision Making (15 points)}
-    
-    For each scenario below, recommend either lossless or lossy compression and justify your answer with at least two reasons from the lecture:
-    \begin{enumerate}[label=(\alph*)]
-        \item Archiving a software source code repository
-        \item Streaming music to mobile devices over cellular data
-        \item Storing MRI scans in a hospital database
-        \item Video conferencing with limited bandwidth
-        \item Backing up a financial transactions database
-    \end{enumerate}
-
-    \item \textbf{Compression Ratio Comparison (10 points)}
-    
-    The following compression ratios are achieved on different file types:
-    \begin{itemize}
-        \item Text document (.txt): 3.5:1
-        \item CD Audio (.wav to .flac): 2.2:1
-        \item Same audio (.wav to .mp3 at 128 kbps): 6.8:1
-        \item 4K Video (uncompressed to H.265): 55:1
-        \item Digital photo (RAW to JPEG): 8:1
-    \end{itemize}
-    
-    \begin{enumerate}[label=(\alph*)]
-        \item Calculate the percentage savings for each case
-        \item Explain why video achieves much higher compression ratios than audio
-        \item Why does lossless audio compression achieve relatively low ratios compared to lossy?
-    \end{enumerate}
-\end{enumerate}
-
-\subsection*{Part 4: Practical Investigation and Critical Thinking (15 points)}
-
-\begin{enumerate}[leftmargin=*, start=8]
-    \item \textbf{File Compression Experiment (10 points)}
-    
-    Find three files on your computer: a plain text file (.txt), a Microsoft Word document (.docx), and a JPEG image (.jpg). For each:
-    \begin{enumerate}[label=(\alph*)]
-        \item Record the original file size
-        \item Compress it using ZIP compression (standard settings)
-        \item Record the compressed size
-        \item Calculate the compression ratio
-        \item Explain the results based on the concepts of redundancy and entropy discussed in class
-    \end{enumerate}
-    
-    \emph{Note: You can use built-in compression tools on your operating system.}
-
-    \item \textbf{Future Trends Analysis (5 points)}
-    
-    Based on the lecture's discussion of application domains:
-    \begin{enumerate}[label=(\alph*)]
-        \item Identify one emerging application that will create new compression challenges
-        \item What type of compression (lossless/lossy) would it likely use and why?
-        \item What specific requirements might it have (e.g., real-time, ultra-high compression, etc.)?
-    \end{enumerate}
-\end{enumerate}
-
-\subsection*{Submission Guidelines}
-\begin{itemize}
-    \item Submit a PDF document with all calculations, answers, and explanations
-    \item Show all work for mathematical calculations
-    \item Write explanations in complete sentences
-    \item For Part 4, include screenshots or clear documentation of your file compression experiment
-\end{itemize}
-
-\subsection*{Grading Rubric}
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{|l|X|X|}
-\hline
-\textbf{Section} & \textbf{Points} & \textbf{Criteria} \\
-\hline
-Part 1 & 30 & Correct calculations, proper units, clear steps \\
-\hline
-Part 2 & 30 & Accurate entropy calculations, correct interpretations \\
-\hline
-Part 3 & 25 & Reasoned justifications, application of lecture concepts \\
-\hline
-Part 4 & 15 & Thoughtful analysis, clear documentation \\
-\hline
-\textbf{Total} & \textbf{100} & \\
-\hline
-\end{tabularx}
-\end{table}
+\section*{Homework Assignment}
 
