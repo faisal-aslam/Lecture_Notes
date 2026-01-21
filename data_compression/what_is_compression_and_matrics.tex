@@ -462,22 +462,32 @@ Approximate performance on typical text data (higher is better)
 
 \subsection{Information and Redundancy: The Core Concepts}
 
-\subsubsection{Information: Quantifying Surprise}
-In everyday language, information is often confused with the mere presence of data.
-In information theory, however, information measures how much an observation
-\emph{reduces uncertainty}. If an outcome is fully predictable, observing it provides
-little or no new information.
 
-Claude Shannon’s key insight was that information is inversely related to probability:
-unlikely events are more informative because they are more surprising, while highly
-likely events convey little new knowledge.
+\subsubsection{Information: A Formal Measure of Uncertainty Reduction}
 
-\begin{definitionbox}
-\textbf{Information Content} of an event with probability $p$ is defined as:
-\[
-I(p) = -\log_2 p \quad \text{bits}
-\]
-\end{definitionbox}
+In common usage, ``information'' is often conflated with data, messages, or symbols. In \textbf{information theory}, information is defined rigorously as a \textbf{quantitative measure of the reduction in uncertainty} that results from observing the outcome of a random event.
+
+The fundamental principle, established by Claude Shannon (1948), is:
+
+\begin{quote}
+    The information gained from an event is inversely related to its probability of occurrence. Highly probable events are unsurprising and convey little information; improbable events are surprising and convey substantial information.
+\end{quote}
+
+\begin{definition}
+    Let $X$ be a random event that occurs with probability $p = \Pr(X)$. The \textbf{information content} (or \emph{self-information}) $I(X)$ provided by the occurrence of $X$ is defined as:
+    \[
+    I(X) = \log_b\left(\frac{1}{p}\right) = -\log_b(p)
+    \]
+    where:
+    \begin{itemize}[noitemsep, topsep=2pt]
+        \item The base $b$ of the logarithm determines the unit of information.
+        \item $b=2$ yields \textbf{bits} (binary digits).
+        \item $b=e$ yields \textbf{nats} (natural units).
+        \item $b=10$ yields \textbf{hartleys} or \textbf{dits}.
+    \end{itemize}
+    The choice of base is a convention; the underlying concept is scale-invariant.
+\end{definition}
+
 
 This definition captures an important intuition: as an event becomes more predictable
 ($p \rightarrow 1$), its information content approaches zero.
