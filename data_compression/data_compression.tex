@@ -16,52 +16,87 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usepackage{float}  % Added for better float control
+\usetikzlibrary{positioning}
+\usepackage{float}
 \usepackage{tabularx}
 \usepackage{amsthm}
 \usepackage{amsmath, amssymb}
 \usepackage{framed}
-\usepackage{amsmath, amssymb, amsthm}
-\usepackage{amsmath, amssymb}
-\usepackage{color, framed}
-\usepackage{enumitem}
+\usepackage{color}
+\usepackage{mathtools}
+\usepackage{forest}
+\usepackage{pgfplots}
 
-% Define the shade color
-\definecolor{shadecolor}{rgb}{0.95,0.95,1}
+% Define colors
 \definecolor{shadecolor}{RGB}{240,240,255}
+\definecolor{codegreen}{RGB}{0,128,0}
+\definecolor{codeblue}{RGB}{0,0,255}
+\definecolor{codered}{RGB}{220,20,60}
+\definecolor{lectureblue}{RGB}{30, 60, 114}
+\definecolor{lightblue}{RGB}{230, 240, 255}
 
-% Simple definition environment
-\newenvironment{definition}
-  {\begin{shaded*}
-     \noindent\textbf{Definition.}\
-  }
-  {\end{shaded*}}
+% CRITICAL: Load tcolorbox libraries BEFORE defining boxes
+\tcbuselibrary{breakable, skins}
 
-\newtheorem{theorem}{Theorem}
-\newtheorem{lemma}{Lemma}
-
-\newcounter{exercise}[section]
-\renewcommand{\theexercise}{\thesection.\arabic{exercise}}
-
-\newtcolorbox{exercisebox}{
-    colback=orange!5!white,
-    colframe=orange!75!black,
+% BREAKABLE Box environments - all can split across pages
+\newtcolorbox{definitionbox}{
+    colback=blue!5!white,
+    colframe=blue!75!black,
     fonttitle=\bfseries,
-    title={Exercise \theexercise},
+    title=Definition,
     sharp corners,
-    before upper={\refstepcounter{exercise}}
+    breakable, % ENABLES page breaking
+    enhanced, % Better visual appearance when broken
+    before upper={\parindent0pt},
+    parbox=false, % Important for proper breaking
 }
 
-\tcbuselibrary{breakable}
+\newtcolorbox{examplebox}{
+    colback=green!5!white,
+    colframe=green!75!black,
+    fonttitle=\bfseries,
+    title=Example,
+    sharp corners,
+    breakable, % ENABLES page breaking
+    enhanced, % Better visual appearance when broken
+    before upper={\parindent0pt},
+    parbox=false, % Important for proper breaking
+}
 
-\usepackage{mathtools} % Bonus
-\DeclarePairedDelimiter\norm\lVert\rVert
+\newtcolorbox{importantbox}{
+    colback=red!5!white,
+    colframe=red!75!black,
+    fonttitle=\bfseries,
+    title=Important,
+    sharp corners,
+    breakable, % ENABLES page breaking
+    enhanced, % Better visual appearance when broken
+    before upper={\parindent0pt},
+    parbox=false, % Important for proper breaking
+}
+
+% Theorem environments (using amsthm, not tcolorbox)
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{proposition}[theorem]{Proposition}
+
+% Tree node style for Huffman trees
+\tikzset{
+    huffman node/.style = {circle, draw=black, thick, fill=lightblue, minimum size=0.8cm},
+    leaf node/.style = {rectangle, draw=black, thick, fill=green!20, minimum width=1.2cm, minimum height=0.8cm},
+    edge label/.style = {midway, fill=white, inner sep=1pt}
+}
+
+% PGFPlots settings
+\pgfplotsset{compat=1.18}
 
 \lstset{
     basicstyle=\ttfamily\footnotesize,
-    keywordstyle=\color{blue},
-    commentstyle=\color{green!60!black},
-    stringstyle=\color{red},
+    keywordstyle=\color{codeblue},
+    commentstyle=\color{codegreen},
+    stringstyle=\color{codered},
     numbers=left,
     numberstyle=\tiny\color{gray},
     stepnumber=1,
@@ -77,36 +112,24 @@
     showstringspaces=false
 }
 
+\newcounter{exercise}[section]
+\renewcommand{\theexercise}{\thesection.\arabic{exercise}}
+
+\newtcolorbox{exercisebox}{
+    colback=orange!5!white,
+    colframe=orange!75!black,
+    fonttitle=\bfseries,
+    title={Exercise \theexercise},
+    sharp corners,
+    breakable, % ENABLES page breaking
+    enhanced, % Better visual appearance when broken
+    before upper={\refstepcounter{exercise}\parindent0pt},
+    parbox=false, % Important for proper breaking
+}
+
 \setstretch{1.2}
 \renewcommand{\thesection}{Lecture \arabic{section}}
 \renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
-\renewcommand{\thesubsubsection}{\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
-
-
-\newtcolorbox{definitionbox}{
-    colback=blue!5!white,
-    colframe=blue!75!black,
-    fonttitle=\bfseries,
-    title=Definition,
-    sharp corners
-}
-
-\newtcolorbox{examplebox}{
-    colback=green!5!white,
-    colframe=green!75!black,
-    fonttitle=\bfseries,
-    title=Example,
-    sharp corners,
-    breakable
-}
-
-\newtcolorbox{importantbox}{
-    colback=red!5!white,
-    colframe=red!75!black,
-    fonttitle=\bfseries,
-    title=Important,
-    sharp corners
-}
 
 \begin{document}
 
@@ -116,14 +139,14 @@
     \textbf{Dr. Faisal Aslam}\\[1em]
 \end{center}
 
-\input{what_is_compression_and_matrics}
 
+\input{what_is_compression_and_matrics}
+\newpage
 \input{theory_part_1}
 
 
 
 
-
-
-
 \end{document}
+
+
