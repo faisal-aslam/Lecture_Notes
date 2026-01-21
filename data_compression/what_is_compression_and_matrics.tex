@@ -1,14 +1,34 @@
 \section{Introduction to Data Compression}
+
 \subsection{Learning Objectives}
+By the end of this lecture, students will be able to:
+\begin{itemize}
+    \item Understand the motivation and benefits of data compression
+    \item Differentiate between lossless and lossy compression techniques
+    \item Compute and interpret common compression performance metrics
+    \item Apply the Huffman coding algorithm step by step
+    \item Analyze real-world compression trade-offs
+\end{itemize}
 
 \subsection{Introduction and Motivation: Why Compress Data?}
-Data compression is the process of encoding information using fewer bits than the original representation. Every day, we encounter compression without realizing it: from streaming videos to sending emails, from saving photos to downloading software updates.
+
+Data compression is the process of representing information using fewer bits than its original form.
+It is a fundamental component of modern computing systems, enabling efficient storage, faster communication,
+and reduced operational costs.
+
+Everyday applications of compression include:
+\begin{itemize}
+    \item Streaming audio and video
+    \item Image storage and sharing
+    \item File archiving and backups
+    \item Network communication and cloud services
+\end{itemize}
 
 \begin{definitionbox}
-\textbf{Data Compression}: The process of reducing the number of bits needed to represent information, while either:
+\textbf{Data Compression} is the process of reducing the number of bits required to represent information, either:
 \begin{itemize}
-    \item \textbf{Lossless}: Preserving all original information exactly
-    \item \textbf{Lossy}: Accepting some controlled loss of information for higher compression
+    \item \textbf{Losslessly}: allowing exact reconstruction of the original data
+    \item \textbf{Lossily}: allowing controlled loss of information to achieve higher compression
 \end{itemize}
 \end{definitionbox}
 
@@ -38,472 +58,341 @@ Data compression provides three key benefits that are critical in modern computi
         \item Decreases capital expenditure on storage hardware
         \item Reduces energy consumption for data centers and network infrastructure
     \end{itemize}
+
 \end{enumerate}
 
 
+\subsection{Lossless vs.\ Lossy Compression}
 
-\subsection{Lossless vs. Lossy Compression: A Detailed Comparison}
-\subsubsection{Lossless Compression: Perfect Reconstruction}
-\textbf{How it works}: Exploits statistical redundancy and patterns without losing information.
+\subsubsection{Lossless Compression}
+Lossless compression guarantees perfect reconstruction of the original data.
+It is essential when accuracy and data integrity are critical.
 
-\textbf{Key techniques}:
-\begin{enumerate}
-    \item \textbf{Entropy coding}: Assign shorter codes to frequent symbols (Huffman, Arithmetic)
-    \item \textbf{Dictionary methods}: Replace repeated patterns with references (LZ77, LZ78)
-    \item \textbf{Predictive coding}: Encode differences from predictions rather than raw values
-\end{enumerate}
-
-\begin{examplebox}
-\textbf{Text Compression Example}: The word "compression" appears 100 times in a document.
+\textbf{Typical applications:}
 \begin{itemize}
-    \item Uncompressed: "compression" = 11 characters $\times$ 8 bits = 88 bits $\times$ 100 = 8,800 bits
-    \item Compressed: Assign code "01" (2 bits) for "compression" $\rightarrow$ 2 bits $\times$ 100 = 200 bits
-    \item Plus dictionary entry: "compression" = 88 bits (stored once)
-    \item Total: 200 + 88 = 288 bits vs 8,800 bits $\rightarrow$ 30:1 compression!
-\end{itemize}
-This is essentially how LZW (used in GIF, ZIP) works.
-\end{examplebox}
-
-\subsubsection{Lossy Compression: Intelligent Approximation}
-\textbf{How it works}: Removes information that is:
-\begin{itemize}
-    \item Imperceptible to humans (psychovisual/psychoacoustic models)
-    \item Less important for the intended use
-    \item Redundant beyond a certain quality threshold
+    \item Text files and source code
+    \item Executables and databases
+    \item Medical, scientific, and legal data
 \end{itemize}
 
-\begin{examplebox}
-\textbf{JPEG Image Compression - Step by Step}:
-\begin{enumerate}
-    \item \textbf{Color Space Conversion}: RGB to YCbCr (separates luminance from color)
-    \item \textbf{Chrominance Downsampling}: Reduce color resolution (4:2:0) - humans are less sensitive to color details
-    \item \textbf{Discrete Cosine Transform (DCT)}: Convert 8×8 pixel blocks to frequency domain
-    \item \textbf{Quantization}: Divide frequency coefficients by quantization matrix - small high-frequency coefficients become zero
-    \item \textbf{Entropy Coding}: Huffman code the results
+\subsubsection{Lossy Compression}
+Lossy compression achieves higher compression ratios by discarding information that is less perceptible or less important.
 
-    \textbf{Result}: Typical 10:1 to 20:1 compression with minimal visible artifacts
-\end{enumerate}
-\end{examplebox}
+\textbf{Typical applications:}
+\begin{itemize}
+    \item Audio (MP3, AAC)
+    \item Images (JPEG)
+    \item Video (H.264, H.265)
+\end{itemize}
 
-\subsubsection{When to Use Which? Decision Factors}
+\subsubsection{Choosing Between Lossless and Lossy}
 
-The choice between lossless and lossy compression depends on the acceptable level of
-information loss, the nature of the data, and system constraints such as speed and storage.
-Lossless compression is required whenever exact reconstruction is mandatory, whereas
-lossy compression is preferred when human perception can tolerate approximations in
-exchange for significantly higher compression ratios. The following table summarizes
-the key decision factors commonly encountered in practice.
-
-% Using tabularx for better table control
 \begin{table}[htbp]
 \centering
 \begin{tabularx}{\textwidth}{|p{3.5cm}|X|X|}
 \hline
-\textbf{Factor} & \textbf{Choose Lossless When} & \textbf{Choose Lossy When} \\
+\textbf{Factor} & \textbf{Lossless Compression} & \textbf{Lossy Compression} \\
 \hline
-\textbf{Fidelity Requirement} & Exact reconstruction is critical (code, financial data, legal documents) & Some quality loss is acceptable (media streaming, web images) \\
+Reconstruction & Exact & Approximate \\
 \hline
-\textbf{Data Type} & Discrete data with exact values (text, databases, executables) & Continuous data with perceptual limits (images, audio, video) \\
+Data sensitivity & High & Moderate to low \\
 \hline
-\textbf{Compression Ratio Needed} & Moderate ratios suffice (2:1 to 10:1) & High ratios needed (10:1 to 200:1+) \\
+Typical ratios & Low to moderate & High \\
 \hline
-\textbf{Processing Requirements} & Fast decompression needed, encode speed less critical & Real-time encoding/decoding needed (streaming, videoconferencing) \\
-\hline
-\textbf{Regulatory Constraints} & Legal/medical requirements mandate exact copies & No regulatory constraints on quality \\
+Quality impact & None & Controlled degradation \\
 \hline
 \end{tabularx}
-\caption{Decision Factors for Lossless vs. Lossy Compression}
+\caption{Lossless vs.\ Lossy Compression}
 \end{table}
 
+\subsection{Compression Performance Metrics}
 
-\subsection{Performance Metrics: Beyond Simple Ratios}
-\subsubsection{Compression Ratio and Savings}
+\subsubsection{Size-Based Metrics}
 
 \begin{align*}
-\text{Compression Ratio} &= \frac{\text{Original Size}}{\text{Compressed Size}} \\
-\text{Savings} &= \left(1 - \frac{\text{Compressed Size}}{\text{Original Size}}\right) \times 100\%
+\text{Compression Ratio (CR)} &= \frac{\text{Original Size}}{\text{Compressed Size}} \\
+\text{Compression Factor} &= \frac{\text{Compressed Size}}{\text{Original Size}} \\
+\text{Space Savings (\%)} &= \left(1 - \frac{\text{Compressed Size}}{\text{Original Size}}\right) \times 100\%
 \end{align*}
 
+\textbf{Interpretation:}
+\begin{itemize}
+    \item Larger compression ratios indicate better compression
+    \item Smaller compression factors indicate better compression
+\end{itemize}
 
+\subsubsection{Rate-Based Metrics}
 
+\begin{align*}
+\text{Bits per Sample (bps)} &= \frac{\text{Compressed Size (bits)}}{\text{Number of samples}} \\
+\text{Bit-rate (bps)} &= \frac{\text{Compressed Size (bits)}}{\text{Time (seconds)}}
+\end{align*}
+
+These metrics are particularly important in audio and video compression systems.
+
+\subsection{Worked Example: Audio Compression Metrics}
 
 \begin{examplebox}
-\textbf{Comparing Different Compression Scenarios}:
+\textbf{Uncompressed Audio Properties}
+\begin{itemize}
+    \item Duration: 180 seconds
+    \item Sampling rate: 44.1 kHz
+    \item Bit depth: 16 bits
+    \item Channels: 2 (stereo)
+\end{itemize}
+
+\textbf{Original Size Calculation}
+\[
+\begin{aligned}
+\text{Total samples} &= 180 \times 44{,}100 \times 2 = 15{,}876{,}000 \\
+\text{Size (bits)} &= 15{,}876{,}000 \times 16 = 254{,}016{,}000 \\
+\text{Size (MB)} &= \frac{254{,}016{,}000}{8 \times 1{,}048{,}576} \approx 30.27
+\end{aligned}
+\]
+
+\textbf{Compression Results}
 \begin{center}
 \begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{Scenario} & \textbf{Original} & \textbf{Compressed} & \textbf{Ratio} & \textbf{Savings} \\
+\textbf{Method} & \textbf{Size (MB)} & \textbf{CR} & \textbf{Savings} & \textbf{Bit-rate} \\
 \hline
-Text document (ZIP) & 1.5 MB & 450 KB & 3.33:1 & 70\% \\
-\hline
-CD Audio (FLAC lossless) & 700 MB & 350 MB & 2:1 & 50\% \\
-\hline
-Same Audio (MP3 128kbps) & 700 MB & 112 MB & 6.25:1 & 84\% \\
-\hline
-4K Video (H.265) & 100 GB & 2 GB & 50:1 & 98\% \\
-\hline
-DNA sequence (specialized) & 3 GB & 300 MB & 10:1 & 90\% \\
+FLAC (lossless) & 18.16 & 1.67:1 & 40\% & 807 kbps \\
+MP3 @ 320 kbps & 6.75 & 4.49:1 & 77.7\% & 320 kbps \\
+AAC @ 256 kbps & 5.40 & 5.61:1 & 82.2\% & 256 kbps \\
 \hline
 \end{tabular}
 \end{center}
 \end{examplebox}
 
-\subsubsection{Bit-rate: The Quality Control Knob}
+\subsection{Huffman Coding}
 
-In \textbf{lossy compression}, bit-rate is the \textbf{primary control over quality}.
+Huffman coding is a widely used \textbf{lossless compression algorithm} that assigns variable-length binary codes to symbols based on their frequencies.
+More frequent symbols receive shorter codes.
 
-\medskip
+\subsubsection{Step-by-Step Huffman Coding Example}
 
-\textbf{Definition.}
-Bit-rate specifies \emph{how many bits the encoder is allowed to use to represent the signal}.
+\begin{examplebox}
+\textbf{Message:} \texttt{MISSISSIPPI RIVER} (17 characters including space)
 
-\[
-\boxed{
-\text{Bit-rate}
-=
-\frac{\text{Total compressed bits}}{\text{time (seconds)}}
-\quad
-\text{or}
-\quad
-\frac{\text{Total compressed bits}}{\text{number of samples}}
-}
-\]
-
-In simple terms:
-\begin{quote}
-\emph{Bit-rate is the number of bits spent to describe one second (or one sample) of audio or video.}
-\end{quote}
-
-\medskip
-
-\textbf{What bit-rate really means}
-
-\begin{itemize}
-    \item \textbf{Higher bit-rate}
-    $\rightarrow$ more bits available
-    $\rightarrow$ less information discarded
-    $\rightarrow$ higher quality, larger file
-
-    \item \textbf{Lower bit-rate}
-    $\rightarrow$ fewer bits available
-    $\rightarrow$ more information discarded
-    $\rightarrow$ lower quality, smaller file
-\end{itemize}
-
-Thus, bit-rate acts like a \textbf{quality dial}:
+\textbf{Symbol Frequencies}
 
 \begin{center}
-Low bit-rate $\;\longrightarrow\;$ more compression $\;\longrightarrow\;$ lower quality \\
-High bit-rate $\;\longrightarrow\;$ less compression $\;\longrightarrow\;$ higher quality
-\end{center}
-
-\medskip
-
-\textbf{Why bit-rate matters mainly for lossy compression}
-
-\begin{itemize}
-    \item In \textbf{lossless compression}, the bit-rate is determined by the data itself and cannot be freely chosen.
-    \item In \textbf{lossy compression}, the encoder deliberately discards information to meet a \textbf{target bit-rate}.
-\end{itemize}
-
-Therefore, in lossy systems, bit-rate is a \textbf{design parameter}, not a fixed property of the source.
-
-\begin{examplebox}
-\textbf{Audio quality at different bit-rates}
-
-For compressed music (e.g., MP3, AAC):
-
-\begin{itemize}
-    \item \textbf{32 kbps}: Very low quality, suitable mainly for speech
-    \item \textbf{96 kbps}: Acceptable quality (FM-radio–like)
-    \item \textbf{128 kbps}: Good quality for most listeners
-    \item \textbf{192 kbps}: Near-CD quality for most people
-    \item \textbf{320 kbps}: Essentially transparent for almost all listeners
-\end{itemize}
-
-\medskip
-
-\textbf{Storage impact for a 60-minute album}
-
-\begin{itemize}
-    \item 128 kbps $\rightarrow$ $\approx 60$ MB
-    \item 320 kbps $\rightarrow$ $\approx 144$ MB
-    \item FLAC (lossless) $\rightarrow$ $\approx 400$ MB
-    \item Uncompressed CD audio $\rightarrow$ $\approx 700$ MB
-\end{itemize}
-\end{examplebox}
-
-\medskip
-
-\textbf{Key intuition}
-
-\begin{quote}
-\emph{Bit-rate does not measure how much information the original signal contains; it measures how much information we choose to keep.}
-\end{quote}
-
-\medskip
-
-\textbf{One-sentence takeaway}
-
-\begin{quote}
-\emph{Bit-rate specifies how many bits per second the encoder may use, directly trading file size for perceptual quality in lossy compression.}
-\end{quote}
-
-
-\begin{examplebox}
-\textbf{Audio Quality at Different Bit-rates}:
-\begin{itemize}
-    \item \textbf{32 kbps}: Telephone quality, speech only
-    \item \textbf{96 kbps}: FM radio quality
-    \item \textbf{128 kbps}: "Good enough" for most listeners
-    \item \textbf{192 kbps}: Near CD quality for most people
-    \item \textbf{320 kbps}: Essentially transparent (FLAC: ~900 kbps)
-
-    \textbf{Storage impact}: A 60-minute album:
-    \begin{itemize}
-        \item At 128 kbps: 60 MB
-        \item At 320 kbps: 144 MB
-        \item FLAC lossless: ~400 MB
-        \item Uncompressed CD: 700 MB
-    \end{itemize}
-\end{itemize}
-\end{examplebox}
-
-\subsubsection{Time and Space Trade-offs}
-Compression involves multiple competing objectives:
-\[
-\text{Space--Time Trade-off} =
-\frac{\text{Compression Ratio}}{\text{Encoding Time} \times \text{Decoding Time}}
-\]
-
-While higher compression ratios reduce storage and bandwidth, they often come at the cost
-of increased computational complexity and latency. In real-time and large-scale streaming
-systems (e.g., Netflix, YouTube, Facebook), \textbf{encoding and especially decoding speed
-are often more critical than optimal compression ratios}. Streaming workloads require
-fast, low-latency decoding on a wide range of devices, from mobile phones to smart TVs,
-where CPU, memory, and power budgets are limited.
-
-As a result, practical streaming systems favor compressors that achieve a \emph{good enough}
-compression ratio while providing high throughput, low memory usage, and predictable
-latency, even if better compression is theoretically possible.
-
-\subsubsection{Real-World Motivation: A Concrete Example}
-
-Consider a typical smartphone photo with the following properties:
-\begin{itemize}
-    \item Resolution: 12 megapixels $= 12{,}000{,}000$ pixels
-    \item Color depth: 24-bit color (8 bits per RGB channel)
-\end{itemize}
-
-\paragraph{Uncompressed Image Size}
-
-\[
-\begin{aligned}
-\text{Total bits} 
-&= 12{,}000{,}000 \text{ pixels} \times 24 \text{ bits/pixel} \\
-&= 288{,}000{,}000 \text{ bits}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Total bytes}
-&= \frac{288{,}000{,}000}{8} \\
-&= 36{,}000{,}000 \text{ bytes}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Size in MiB}
-&= \frac{36{,}000{,}000}{1{,}048{,}576} \\
-&\approx 34.33 \text{ MiB}
-\end{aligned}
-\]
-
-Thus, an uncompressed photo occupies approximately $\mathbf{34.3}$~MiB.
-
-\paragraph{Compressed Size and Compression Ratio}
-
-In practice, the same photo is stored as a JPEG file of approximately $2.5$--$3.5$~MiB.  
-Taking $3$~MiB as a representative size:
-
-\[
-\text{Compression ratio}
-= \frac{34.3}{3}
-\approx 11.4{:}1
-\]
-
-This lies within the typical range of $10{:}1$ to $14{:}1$ for JPEG compression.
-
-\paragraph{Impact on Storage}
-
-Assume a smartphone with $128$~GiB of storage:
-\[
-128 \text{ GiB} = 128 \times 1{,}024^3 = 137{,}438{,}953{,}472 \text{ bytes}
-\]
-
-\textbf{Uncompressed photos:}
-\[
-\begin{aligned}
-\text{Number of photos}
-&= \frac{128 \times 1{,}024^3}{34.3 \times 1{,}024^2} \\
-&= \frac{128 \times 1{,}024}{34.3} \\
-&\approx 3{,}817 \text{ photos}
-\end{aligned}
-\]
-
-\textbf{Compressed photos (3 MiB each):}
-\[
-\begin{aligned}
-\text{Number of photos}
-&= \frac{128 \times 1{,}024^3}{3 \times 1{,}024^2} \\
-&= \frac{128 \times 1{,}024}{3} \\
-&\approx 43{,}691 \text{ photos}
-\end{aligned}
-\]
-
-\paragraph{Impact on Communication}
-
-Assume an upload speed of $10$~Mbps (megabits per second).
-
-\textbf{Uncompressed photo:}
-\[
-\begin{aligned}
-\text{Upload time}
-&= \frac{34.3 \text{ MiB} \times 8}{10} \\
-&= \frac{274.4}{10} \\
-&\approx 27.4 \text{ seconds}
-\end{aligned}
-\]
-
-\textbf{Compressed photo (3 MiB):}
-\[
-\begin{aligned}
-\text{Upload time}
-&= \frac{3 \times 8}{10} \\
-&= 2.4 \text{ seconds}
-\end{aligned}
-\]
-
-\paragraph{Impact on Cloud Storage Cost}
-
-Assume cloud storage pricing of \$0.023 per GB per month.
-
-\textbf{Uncompressed photo:}
-\[
-\begin{aligned}
-34.3 \text{ MiB}
-&= \frac{34.3}{1{,}024} \text{ GiB}
-\approx 0.0335 \text{ GiB}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Monthly cost}
-&= 0.0335 \times 0.023 \\
-&\approx \$0.00077 \text{ per photo}
-\end{aligned}
-\]
-
-\textbf{Compressed photo (3 MiB):}
-\[
-\begin{aligned}
-3 \text{ MiB}
-&= \frac{3}{1{,}024} \text{ GiB}
-\approx 0.00293 \text{ GiB}
-\end{aligned}
-\]
-
-\[
-\begin{aligned}
-\text{Monthly cost}
-&= 0.00293 \times 0.023 \\
-&\approx \$0.000067 \text{ per photo}
-\end{aligned}
-\]
-
-\paragraph{Conclusion}
-
-This example demonstrates that compression reduces storage requirements, transmission time, and monetary cost by more than an order of magnitude, making large-scale multimedia systems practical.
-
-
-\begin{examplebox}
-\textbf{Real-world Compressor Comparison}:
-\begin{center}
-\begin{tabular}{|l|c|c|c|c|}
+\begin{tabular}{|c|c|}
 \hline
-\textbf{Algorithm} & \textbf{Ratio (text)} & \textbf{Encode Speed} & \textbf{Decode Speed} & \textbf{Memory} \\
+\textbf{Symbol} & \textbf{Frequency} \\
 \hline
-gzip (-6) & 3.2:1 & 100 MB/s & 400 MB/s & 10 MB \\
-\hline
-bzip2 (-6) & 3.8:1 & 20 MB/s & 50 MB/s & 50 MB \\
-\hline
-LZ4 & 2.5:1 & 500 MB/s & 2000 MB/s & 1 MB \\
-\hline
-Zstd (-3) & 3.0:1 & 300 MB/s & 800 MB/s & 5 MB \\
-\hline
-xz (-6) & 4.2:1 & 10 MB/s & 80 MB/s & 100 MB \\
+I & 5 \\
+S & 4 \\
+P & 2 \\
+R & 2 \\
+M & 1 \\
+V & 1 \\
+E & 1 \\
+(space) & 1 \\
 \hline
 \end{tabular}
 \end{center}
-Approximate performance on typical text data (higher is better)
-\end{examplebox}
 
-\subsection{Huffman Coding - Complete Process}
-
+\textbf{Tree Construction}
 \begin{enumerate}
-    \item \textbf{Modeling}: Count symbol frequencies in "ABRACADABRA"
-    \begin{center}
-    \begin{tabular}{|c|c|c|}
-    \hline
-    Symbol & Frequency & Probability \\
-    \hline
-    A & 5 & 5/11 $\approx$ 0.455 \\
-    B & 2 & 2/11 $\approx$ 0.182 \\
-    R & 2 & 2/11 $\approx$ 0.182 \\
-    C & 1 & 1/11 $\approx$ 0.091 \\
-    D & 1 & 1/11 $\approx$ 0.091 \\
-    \hline
-    \end{tabular}
-    \end{center}
-
-    \item \textbf{Coding}: Build Huffman tree (simplified):
-    \begin{itemize}
-        \item Combine lowest frequencies: C(1) + D(1) = CD(2)
-        \item Continue combining: CD(2) + B(2) = CDB(4)
-        \item Combine: CDB(4) + R(2) = CDBR(6)
-        \item Final: CDBR(6) + A(5) = Root(11)
-    \end{itemize}
-
-    \item \textbf{Code assignment}:
-    \begin{center}
-    \begin{tabular}{|c|c|c|}
-    \hline
-    Symbol & Code & Length \\
-    \hline
-    A & 0 & 1 bit \\
-    R & 10 & 2 bits \\
-    B & 110 & 3 bits \\
-    C & 1110 & 4 bits \\
-    D & 1111 & 4 bits \\
-    \hline
-    \end{tabular}
-    \end{center}
-
-    \item \textbf{Compress "ABRACADABRA"}:
-    \begin{itemize}
-        \item A(0) B(110) R(10) A(0) C(1110) A(0) D(1111) A(0) B(110) R(10) A(0)
-        \item Total bits: 1+3+2+1+4+1+4+1+3+2+1 = 23 bits
-        \item Original: 11 characters $\times$ 8 bits = 88 bits
-        \item Compression: 88 $\rightarrow$ 23 bits (3.8:1 ratio)
-        \item Entropy limit: $H \approx 2.04$ bits/char $\times$ 11 = 22.5 bits
-        \item Efficiency: 22.5/23 = 97.8\% efficient!
-    \end{itemize}
+    \item Combine M(1) + V(1) $\rightarrow$ 2
+    \item Combine E(1) + (space)(1) $\rightarrow$ 2
+    \item Combine P(2) + R(2) $\rightarrow$ 4
+    \item Combine 2 + 2 $\rightarrow$ 4
+    \item Combine 4 + 4 $\rightarrow$ 8
+    \item Combine I(5) + S(4) $\rightarrow$ 9
+    \item Combine 8 + 9 $\rightarrow$ 17
 \end{enumerate}
 
+\textbf{One Possible Code Assignment}
+
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline
+\textbf{Symbol} & \textbf{Code} & \textbf{Length} \\
+\hline
+I & 00 & 2 \\
+S & 01 & 2 \\
+P & 100 & 3 \\
+R & 101 & 3 \\
+M & 1100 & 4 \\
+V & 1101 & 4 \\
+E & 1110 & 4 \\
+(space) & 1111 & 4 \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Compressed Size}
+\[
+5(2) + 4(2) + 2(3) + 2(3) + 4(1) = 52 \text{ bits}
+\]
+
+\textbf{Original Size (ASCII)} = $17 \times 8 = 136$ bits
+
+\textbf{Compression Ratio} = $136 / 52 \approx 2.62:1$
+\end{examplebox}
+
+\subsubsection{Key Properties of Huffman Coding}
+\begin{itemize}
+    \item Produces prefix-free codes
+    \item Enables instantaneous decoding
+    \item Guarantees minimum average code length among prefix codes
+    \item Widely used in practical compression systems
+\end{itemize}
 
 
-\section*{Homework Assignment}
+\subsection{End of Chapter Questions}
+
+\begin{exercisebox}
+\textbf{Problem 1: Basic Compression Metrics}
+
+An uncompressed grayscale image has the following properties:
+\begin{itemize}
+    \item Resolution: $1024 \times 1024$ pixels
+    \item Bit depth: 8 bits per pixel
+\end{itemize}
+
+After compression, the image size is 320 KB.
+
+Calculate:
+\begin{enumerate}[label=(\alph*)]
+    \item Original image size in KB
+    \item Compression ratio
+    \item Compression factor
+    \item Space savings percentage
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Problem 2: Audio Bit-rate and Storage}
+
+A mono audio recording has the following parameters:
+\begin{itemize}
+    \item Duration: 5 minutes
+    \item Sampling rate: 48 kHz
+    \item Bit depth: 16 bits
+\end{itemize}
+
+The file is compressed using a lossy codec to a constant bit-rate of 192 kbps.
+
+Calculate:
+\begin{enumerate}[label=(\alph*)]
+    \item Size of the uncompressed audio file in MB
+    \item Size of the compressed file in MB
+    \item Compression ratio
+    \item Bits per sample after compression
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Problem 3: Comparing Compression Options}
+
+A video clip has an uncompressed data rate of 120 Mbps.
+Three compression options are available:
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{Option} & \textbf{Compressed Bit-rate} \\
+\hline
+A & 6 Mbps \\
+B & 3 Mbps \\
+C & 1.5 Mbps \\
+\hline
+\end{tabular}
+\end{center}
+
+For each option, calculate:
+\begin{enumerate}[label=(\alph*)]
+    \item Compression ratio
+    \item Data consumed for a 10-minute video (in MB)
+\end{enumerate}
+
+Which option would you choose for:
+\begin{enumerate}[label=(\roman*)]
+    \item Live video streaming?
+    \item Archival storage?
+\end{enumerate}
+Briefly justify your answers.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Problem 4: Huffman Coding Construction}
+
+Given the following symbol frequencies:
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{Symbol} & \textbf{Frequency} \\
+\hline
+A & 10 \\
+B & 8 \\
+C & 6 \\
+D & 5 \\
+E & 4 \\
+F & 3 \\
+G & 2 \\
+H & 2 \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{enumerate}[label=(\alph*)]
+    \item Construct the Huffman tree step by step
+    \item Assign a binary code to each symbol
+    \item Compute the total number of bits required to encode the message
+    \item Calculate the average number of bits per symbol
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Problem 5: Fixed-Length vs.\ Huffman Coding}
+
+Using the symbol set from Problem~4:
+
+\begin{enumerate}[label=(\alph*)]
+    \item Determine the minimum fixed-length code required
+    \item Compute the total number of bits using fixed-length coding
+    \item Compare the result with Huffman coding
+    \item Calculate the percentage reduction in total bits achieved by Huffman coding
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Problem 6: Text Compression Scenario}
+
+A text file contains 50,000 characters and is stored using 8-bit ASCII encoding.
+
+After compression using a lossless algorithm, the file size becomes 18 KB.
+
+Calculate:
+\begin{enumerate}[label=(\alph*)]
+    \item Original file size in KB
+    \item Compression ratio
+    \item Compression factor
+    \item Space savings percentage
+\end{enumerate}
+
+Explain why compression ratios for text files vary significantly depending on content.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Problem 7: Practical Design Question}
+
+You are designing a compression system for a wearable health-monitoring device that:
+\begin{itemize}
+    \item Records sensor data continuously
+    \item Has limited storage capacity
+    \item Requires exact data reconstruction
+    \item Operates on a low-power processor
+\end{itemize}
+
+\begin{enumerate}[label=(\alph*)]
+    \item Should the system use lossless or lossy compression? Explain.
+    \item Which performance metrics are most important in this scenario?
+    \item Would a variable-length coding scheme be appropriate? Why or why not?
+\end{enumerate}
+\end{exercisebox}
 

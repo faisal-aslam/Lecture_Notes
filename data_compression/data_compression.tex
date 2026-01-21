@@ -40,6 +40,19 @@
 \newtheorem{theorem}{Theorem}
 \newtheorem{lemma}{Lemma}
 
+\newcounter{exercise}[section]
+\renewcommand{\theexercise}{\thesection.\arabic{exercise}}
+
+\newtcolorbox{exercisebox}{
+    colback=orange!5!white,
+    colframe=orange!75!black,
+    fonttitle=\bfseries,
+    title={Exercise \theexercise},
+    sharp corners,
+    before upper={\refstepcounter{exercise}}
+}
+
+\tcbuselibrary{breakable}
 
 \usepackage{mathtools} % Bonus
 \DeclarePairedDelimiter\norm\lVert\rVert
@@ -83,7 +96,8 @@
     colframe=green!75!black,
     fonttitle=\bfseries,
     title=Example,
-    sharp corners
+    sharp corners,
+    breakable
 }
 
 \newtcolorbox{importantbox}{
