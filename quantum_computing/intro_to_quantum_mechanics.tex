@@ -1,455 +1,497 @@
 \documentclass[12pt]{article}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{physics}
 \usepackage{tikz}
-\usepackage{booktabs}
-\usetikzlibrary{quantikz}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{float}
+\usepackage[margin=1in]{geometry}
 
-\title{Quantum Mechanics Fundamentals for Quantum Computing}
-\author{Quantum Computing Course}
-\date{Lecture Notes}
+\title{Quantum Mechanics Foundations for Quantum Computing}
+\author{Quantum Computing Course \\ Computer Science Department}
+\date{Lecture 2: Physical Principles}
 
 \begin{document}
 
 \maketitle
 
-\section*{Lecture Overview}
-\textbf{Duration:} 1.5 hours \\
-\textbf{Objective:} Provide intuitive understanding of quantum mechanical concepts essential for quantum computing, emphasizing connections to computation rather than mathematical formalism.
-
-\section{Introduction: Why Quantum Mechanics for Computer Scientists?}
-
-\subsection{The Classical vs Quantum World}
-\begin{itemize}
-    \item Classical computers: Bits as definite states (0 or 1)
-    \item Quantum computers: Qubits as probabilistic, superposition states
-    \item Analogy: Classical probability vs Quantum probability amplitudes
-    \item Key insight: Quantum mechanics provides new computational primitives
-\end{itemize}
+\section*{Introduction}
+This lecture introduces the fundamental quantum mechanical principles that form the physical basis for quantum computing. We will focus on concepts rather than mathematical formalism, with emphasis on how these principles enable the creation and manipulation of qubits.
 
 \section{Wave-Particle Duality}
 
 \subsection{The Double-Slit Experiment}
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
-    \begin{tikzpicture}
-        % Double slit diagram
-        \draw[thick] (0,0) rectangle (0.2,3);
-        \draw[thick] (0,1.3) -- (0.2,1.3);
-        \draw[thick] (0,1.7) -- (0.2,1.7);
-        \draw[dashed,->] (-2,1.5) -- (0,1.5);
-        \draw[->] (0.2,1.3) .. controls (1,1) and (2,0.5) .. (3,0.2);
-        \draw[->] (0.2,1.7) .. controls (1,2) and (2,2.5) .. (3,2.8);
-        \draw[thick] (3,0) -- (3,3);
-        \foreach \y in {0.2,0.5,0.8,1.1,1.4,1.7,2.0,2.3,2.6,2.9} {
-            \fill (3,\y) circle (1pt);
-        }
-        \node at (-1,1.8) {Particles};
-        \node at (1.5,0.5) {Interference};
-        \node at (3.5,1.5) {Pattern};
-    \end{tikzpicture}
-    \caption{Double-slit experiment showing wave-like interference patterns}
-\end{figure}
-
-\subsubsection{Experimental Setup}
-\begin{itemize}
-    \item Particles (electrons/photons) sent through two slits
-    \item Classical expectation: Two bands on detection screen
-    \item Quantum reality: Interference pattern emerges
-\end{itemize}
-
-\subsubsection{Key Observations}
-\begin{enumerate}
-    \item \textbf{With both slits open:} Interference pattern (wave-like behavior)
-    \item \textbf{With measurement:} Which-path information destroys interference
-    \item \textbf{Single particles:} Even single particles show interference over time
-\end{enumerate}
-
-\subsubsection{Connection to Quantum Computing}
-\begin{itemize}
-    \item Quantum states can exist in multiple paths simultaneously
-    \item Measurement collapses possibilities to definite outcomes
-    \item Basis for quantum parallelism
-\end{itemize}
-
-\section{Quantum Superposition: Physical Meaning}
-
-\subsection{Conceptual Idea}
-
-In classical computing, a bit is always in one of two definite states:
-\[
-0 \quad \text{or} \quad 1.
-\]
-
-In quantum mechanics, physical systems can be prepared in states that are not associated with a single definite outcome.
-Instead, the system is described by a \emph{quantum state} that encodes multiple possible outcomes simultaneously.
-
-\textbf{Important:}
-Superposition does \emph{not} mean that a system secretly has multiple values at once.
-It means the system is in a single physical state whose measurement outcomes are not predetermined.
-
-\begin{figure}[h]
-    \centering
-    \begin{tikzpicture}
-        % Classical vs Quantum comparison
-        \draw[thick] (0,1.5) circle (0.5) node {0};
-        \draw[thick] (2,1.5) circle (0.5) node {1};
-        \draw[->, thick] (0.7,1.5) -- (1.3,1.5);
-        \node at (1,2) {Classical: Either/Or};
+    \begin{tikzpicture}[scale=0.9]
+        % Barrier
+        \draw[thick, fill=gray!20] (-0.2,0) rectangle (0,4);
+        \draw[thick] (0,1.5) -- (0.2,1.5);
+        \draw[thick] (0,2.5) -- (0.2,2.5);
+        \draw[fill=gray!30] (0,0) rectangle (0.2,4);
+        \node at (0.1,1) {Slit 1};
+        \node at (0.1,3) {Slit 2};
         
-        \draw[thick] (4,1.5) circle (0.8);
-        \draw (4,1.5) node {$|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$};
-        \node at (4,2.5) {Quantum: Superposition};
+        % Particle source
+        \draw[->, thick, blue] (-2,2) -- (-1,2);
+        \node[align=left] at (-3,2) {Particle\\source};
+        
+        % Paths through slits
+        \draw[dashed, ->, red] (0.2,1.5) .. controls (1,1.2) and (2,0.8) .. (4,0.3);
+        \draw[dashed, ->, red] (0.2,2.5) .. controls (1,2.8) and (2,3.2) .. (4,3.7);
+        
+        % Detection screen
+        \draw[very thick] (4,0) -- (4,4);
+        
+        % Interference pattern dots
+        \foreach \y in {0.2,0.5,0.9,1.4,1.7,2.1,2.5,2.9,3.3,3.7} {
+            \fill[blue] (4,\y) circle (2pt);
+        }
+        
+        % Labels
+        \node[align=left] at (2,4.5) {\textbf{Interference Pattern}\\Wave-like behavior};
+        \draw[<->, thick] (4.2,0.2) -- (4.2,3.7);
     \end{tikzpicture}
-    \caption{Classical vs Quantum state representation}
+    \caption{Double-slit experiment showing wave-like interference pattern. Individual particles build up an interference pattern over time.}
+    \label{fig:double-slit}
 \end{figure}
 
-\subsection{Mathematical Representation (Preview)}
+\subsubsection{Experimental Observations}
 
-A qubit state is represented by a vector:
-\[
-|\psi\rangle = \alpha |0\rangle + \beta |1\rangle,
-\]
-where $\alpha, \beta \in \mathbb{C}$ are probability amplitudes satisfying
-\[
-|\alpha|^2 + |\beta|^2 = 1.
-\]
+The double-slit experiment reveals the fundamental wave-particle duality of quantum systems:
 
-Probabilities arise only upon measurement:
-\[
-P(0) = |\alpha|^2, \quad P(1) = |\beta|^2.
-\]
+\begin{enumerate}
+    \item \textbf{Particles sent one at a time:} Even when individual particles (electrons or photons) are sent through the apparatus, an interference pattern gradually builds up on the detection screen.
+    
+    \item \textbf{Which-path information:} If we place detectors at the slits to determine which path each particle takes, the interference pattern disappears and we see two distinct bands.
+    
+    \item \textbf{Wave-like behavior:} The interference pattern indicates that each particle behaves as if it passes through \textit{both slits simultaneously} and interferes with itself.
+\end{enumerate}
 
-The complex nature of $\alpha$ and $\beta$ allows for \emph{interference} effects, which are crucial for quantum computation.
+\subsubsection{Key Implications for Quantum Computing}
 
-\subsection{Creating Superposition in Physical Systems}
-
-\subsubsection{Coherent Excitation of Atomic Systems}
-
-Electrons in atoms do not follow classical orbits. Instead, they occupy quantum energy eigenstates. The energy levels are quantized, meaning electrons can only exist in specific discrete energy states.
-
-Carefully controlled interactions (e.g., laser pulses) can prepare coherent superpositions such as:
-\[
-|\psi\rangle = \frac{1}{\sqrt{2}} (|g\rangle + |e\rangle).
-\]
-
-The laser pulse duration and frequency must be precisely tuned to create equal superpositions (known as $\pi/2$ pulses). The phase relationship between $|g\rangle$ and $|e\rangle$ is preserved during this process.
-
-\textbf{Key Challenge:} Uncontrolled interactions with the environment destroy such superpositions, a process known as \emph{decoherence}. This is one of the main obstacles in building quantum computers.
-
-\subsubsection{Photonic Superposition}
-
-Photons are particularly useful because they interact weakly with their environment, making them less susceptible to decoherence.
-
-Examples include:
 \begin{itemize}
-    \item \textbf{Polarization superpositions:}
-    \[
-    |\psi\rangle = \frac{1}{\sqrt{2}}(|H\rangle + |V\rangle),
-    \]
-    created using waveplates that rotate polarization states.
-    
-    \item \textbf{Path superpositions:} Created by beam splitters that partially transmit and partially reflect photons. A single photon incident on a 50/50 beam splitter becomes:
-    \[
-    |\psi\rangle = \frac{1}{\sqrt{2}}(|\text{transmitted}\rangle + |\text{reflected}\rangle).
-    \]
-    
-    \item \textbf{Phase superpositions:} Using interferometers to create superpositions with different phase relationships.
+    \item \textbf{Superposition:} Quantum systems can exist in multiple states/paths simultaneously.
+    \item \textbf{Interference:} Different possibilities can interfere constructively or destructively.
+    \item \textbf{Measurement effect:} The act of measurement fundamentally changes the system's behavior.
+    \item \textbf{Quantum parallelism:} A quantum system can explore multiple computational paths simultaneously.
 \end{itemize}
 
-In all cases, the photon is never split into pieces—only its \emph{state} is delocalized. This is a crucial distinction: we're creating superposition of possible measurement outcomes, not dividing the particle itself.
+\section{Creating Qubits: Physical Implementations}
 
-\subsection{Visualizing Superposition: Bloch Sphere}
-\begin{figure}[h]
+\subsection{Electron-Based Qubits (USA/Europe Approach)}
+
+\begin{figure}[H]
     \centering
-    \begin{tikzpicture}[scale=1.5]
-        % Bloch Sphere
-        \draw (0,0) circle (2cm);
-        \draw[->] (0,-2.5) -- (0,2.5) node[above] {$z$};
-        \draw[->] (-2.5,0) -- (2.5,0) node[right] {$x$};
-        \draw[->] (0,0) -- (1.414,1.414) node[above right] {$y$};
-        \draw[dashed] (0,0) -- (1.5,1.5);
-        \node at (0,2.2) {$|0\rangle$};
-        \node at (0,-2.2) {$|1\rangle$};
-        \node at (2.2,0) {$|+\rangle = \frac{|0\rangle+|1\rangle}{\sqrt{2}}$};
-        \node at (-2.2,0) {$|-\rangle = \frac{|0\rangle-|1\rangle}{\sqrt{2}}$};
-        \fill (1.5,1.5) circle (2pt) node[right] {$|\psi\rangle$};
-        \draw[->] (0,0) -- (1.5,1.5);
-        \draw (0.5,0) arc (0:45:0.5);
-        \node at (0.7,0.3) {$\theta$};
+    \begin{tikzpicture}[scale=1.0]
+        % Energy levels
+        \draw[very thick] (-2,0) -- (2,0);
+        \node[right] at (2,0) {\textbf{Ground State:} $|0\rangle$};
+        
+        \draw[very thick] (-2,2) -- (2,2);
+        \node[right] at (2,2) {\textbf{Excited State:} $|1\rangle$};
+        
+        % Energy gap
+        \draw[<->, thick, red] (1.5,0) -- (1.5,2);
+        \node[right, red] at (1.5,1) {$\Delta E = \hbar \omega$};
+        
+        % Laser excitation
+        \draw[->, thick, blue, dashed] (-3,0.5) -- (-2,0.5);
+        \node[left, blue] at (-3,0.5) {Laser pulse};
+        
+        % Superposition state
+        \draw[dashed, thick, purple] (-2,1) -- (2,1);
+        \node[right, purple] at (4,1) {\textbf{Superposition:} $\alpha|0\rangle + \beta|1\rangle$};
+        
+        % System representation
+        %\draw[fill=orange!20] (0,-1) ellipse (1.5 and 0.5);
+        %\node at (0,-1) {Atom/Quantum Dot/Superconducting Circuit};
     \end{tikzpicture}
-    \caption{Bloch sphere representation of a qubit. Any point on the sphere represents a valid qubit state. The poles represent classical states, while points on the equator represent equal superpositions with different phases.}
+    \caption{Creating qubits by exciting electrons between discrete energy levels. Precise laser or microwave pulses create superposition states.}
+    \label{fig:electron-qubits}
 \end{figure}
 
+\subsubsection{Physical Principle}
+
+Electrons in quantum systems occupy discrete energy levels. By applying precisely controlled energy pulses, we can create superposition states:
+
 \begin{itemize}
-    \item North pole: $|0\rangle$ (classical 0)
-    \item South pole: $|1\rangle$ (classical 1)
-    \item Equator: Equal superpositions $\frac{1}{\sqrt{2}}(|0\rangle + e^{i\phi}|1\rangle)$
-    \item Any point on sphere: Valid qubit state with specific superposition weights and relative phase
+    \item \textbf{Ground state:} $|0\rangle$ - lowest energy configuration
+    \item \textbf{Excited state:} $|1\rangle$ - higher energy configuration
+    \item \textbf{Superposition:} $\alpha|0\rangle + \beta|1\rangle$ - coherent combination
 \end{itemize}
 
-\section{Measurement and Quantum Probability}
+\subsubsection{Implementation Methods}
 
-Measurement is an active physical process that extracts classical information from a quantum system. Unlike classical measurement which reveals a pre-existing property, quantum measurement fundamentally changes the system.
-
-The measurement postulate states that when we measure a quantum state $|\psi\rangle$ in a basis $\{|i\rangle\}$, the probability of outcome $i$ is:
-\[
-P(i) = |\langle i | \psi \rangle|^2.
-\]
-
-After measurement, the system \emph{collapses} to the corresponding basis state:
-\[
-|\psi\rangle \xrightarrow{\text{measure } i} |i\rangle.
-\]
-
-\textbf{Crucial properties:}
 \begin{enumerate}
-    \item \textbf{Irreversibility:} Measurement destroys coherence with respect to the measurement basis
-    \item \textbf{Probabilistic:} Outcomes are fundamentally random (not due to ignorance)
-    \item \textbf{Basis-dependent:} Different measurement bases yield different probability distributions
-    \item \textbf{Repeatability:} Immediate re-measurement gives the same result
+    \item \textbf{Superconducting qubits:} Tiny circuits where electrons flow without resistance, with energy levels quantized.
+    \item \textbf{Trapped ions:} Individual atoms suspended in electromagnetic fields, using electron energy levels.
+    \item \textbf{Quantum dots:} Nanoscale semiconductor structures that confine electrons in discrete energy levels.
 \end{enumerate}
 
-\subsection{Multiple Measurement Bases}
+\subsubsection{Key Requirements}
+
 \begin{itemize}
-    \item \textbf{Computational basis:} $\{|0\rangle, |1\rangle\}$ - measures "classical" value
-    \item \textbf{Hadamard basis:} $\{|+\rangle, |-\rangle\}$ where $|\pm\rangle = \frac{1}{\sqrt{2}}(|0\rangle \pm |1\rangle)$
-    \item \textbf{General basis:} Any orthonormal set of vectors
+    \item \textbf{Isolation:} System must be isolated from environmental noise.
+    \item \textbf{Precise control:} Laser/microwave pulses must have exact frequency and duration.
+    \item \textbf{Low temperature:} Often requires cryogenic cooling to reduce thermal noise.
 \end{itemize}
 
-The choice of measurement basis is equivalent to asking different questions about the quantum system.
+\subsection{Photon-Based Qubits (Chinese Approach)}
 
-\section{The Uncertainty Principle (Conceptual)}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1]
 
-The uncertainty principle states that certain pairs of observables cannot be simultaneously well-defined. The most famous is the position-momentum uncertainty relation:
-\[
-\Delta x \cdot \Delta p \geq \frac{\hbar}{2}.
-\]
+% =========================
+% LEFT: Polarization space
+% =========================
+\begin{scope}[shift={(-4,0)}]
 
-This is not due to experimental limitations, but arises from the mathematical structure of quantum states. It reflects the wave-like nature of quantum particles.
+    % Axes
+    \draw[<->, thick] (-2.5,0) -- (2.5,0);
+    \draw[<->, thick] (0,-2.5) -- (0,2.5);
 
-\subsection{Physical Interpretation}
+    % Axis labels
+    \node[right] at (2.6,0) {$|H\rangle$};
+    \node[above] at (0,2.6) {$|V\rangle$};
+
+    % Basis vectors
+    \draw[->, very thick, blue] (0,0) -- (2,0);
+    \draw[->, very thick, red] (0,0) -- (0,2);
+
+    % Diagonal state
+    \draw[->, very thick, purple] (0,0) -- (1.4,1.4);
+
+    % State labels
+    \node[blue, below] at (2,0) {$|H\rangle$};
+    \node[red, left] at (0,2) {$|V\rangle$};
+    \node[purple, above right] at (1.4,1.4)
+        {$|D\rangle=\frac{|H\rangle+|V\rangle}{\sqrt{2}}$};
+
+    % Title
+    \node at (0,-3) {\textbf{Polarization state space}};
+\end{scope}
+
+% =========================
+% RIGHT: Optical process
+% =========================
+\begin{scope}[shift={(3,0)}]
+
+    % Input photon
+    \draw[->, thick] (-2,0) -- (-0.8,0);
+    \node[above] at (-1.8,0.2) {Photon};
+
+    % Waveplate
+    \draw[fill=yellow!30, rounded corners=4pt]
+        (-0.8,-1) rectangle (0.8,1);
+    \node at (0,1.3) {Waveplate};
+
+    % Output
+    \draw[->, thick] (0.8,0) -- (2,0);
+    \node[above] at (2.3,0.2) {Superposition};
+
+    % Title
+    \node at (0,-3) {\textbf{Optical transformation}};
+\end{scope}
+
+\end{tikzpicture}
+
+\caption{Photon polarization qubit. Left: abstract polarization state space. Right: a waveplate converts an input polarization into a superposition state.}
+\label{fig:photon-qubits}
+\end{figure}
+
+
+\subsubsection{Physical Principle}
+
+Photons can be polarized in different directions. The polarization state serves as the qubit:
+
 \begin{itemize}
-    \item A quantum state sharply localized in position ($\Delta x$ small) must necessarily involve a wide range of momenta ($\Delta p$ large)
-    \item Conversely, a state with definite momentum ($\Delta p$ small) must be spread out in position ($\Delta x$ large)
-    \item This explains why classical trajectories don't exist at the quantum scale
+    \item \textbf{Basis states:} $|H\rangle$ (horizontal), $|V\rangle$ (vertical)
+    \item \textbf{Superposition:} $|D\rangle = \frac{1}{\sqrt{2}}(|H\rangle + |V\rangle)$ (diagonal)
+    \item \textbf{Phase superposition:} $|R\rangle = \frac{1}{\sqrt{2}}(|H\rangle + i|V\rangle)$ (right circular)
 \end{itemize}
 
-\subsection{Computational Analogy}
-In quantum computing, we have uncertainty relations between non-commuting observables like:
-\begin{itemize}
-    \item $X$ (bit-flip) and $Z$ (phase-flip) measurements
-    \item The uncertainty principle explains why we cannot simultaneously know both the computational value and phase of a qubit
-    \item This has practical implications for quantum error correction and cryptography
-\end{itemize}
+\subsubsection{Implementation Methods}
 
-\subsection{Relevance to Quantum Computing}
-\begin{itemize}
-    \item \textbf{No-cloning theorem:} You cannot copy an unknown quantum state, a direct consequence of the linearity of quantum mechanics and related to uncertainty principles
-    \item \textbf{Quantum cryptography:} Security of protocols like BB84 relies on the fact that measuring one observable disturbs complementary observables
-    \item \textbf{Quantum error correction:} Must work around the fact that we cannot measure quantum information without disturbing it
-\end{itemize}
-
-\section{Quantum Evolution and Computation}
-
-Between measurements, quantum states evolve deterministically according to the Schrödinger equation:
-\[
-i\hbar \frac{\partial}{\partial t} |\psi(t)\rangle = \hat{H} |\psi(t)\rangle.
-\]
-
-This evolution has several important properties:
-
-\subsection{Properties of Quantum Evolution}
 \begin{enumerate}
-    \item \textbf{Unitary:} Evolution preserves the norm (total probability = 1)
-    \item \textbf{Reversible:} Every transformation has an inverse
-    \item \textbf{Linear:} Superpositions evolve independently
-    \item \textbf{Deterministic:} Given initial state and Hamiltonian, future state is completely determined
+    \item \textbf{Polarization encoding:} Using waveplates to rotate photon polarization.
+    \item \textbf{Path encoding:} Photon taking multiple paths through an interferometer.
+    \item \textbf{Time-bin encoding:} Photon arriving at different times.
 \end{enumerate}
 
-The solution can be written using the time evolution operator:
-\[
-|\psi(t)\rangle = U(t)|\psi(0)\rangle, \quad \text{where } U(t) = e^{-i\hat{H}t/\hbar}.
-\]
+\subsubsection{Advantages of Photonic Qubits}
 
-\subsection{Connection to Quantum Computing}
-In quantum computing:
 \begin{itemize}
-    \item \textbf{Unitary evolutions} correspond to quantum gates
-    \item \textbf{Computation occurs} through controlled interference of probability amplitudes
-    \item \textbf{Measurement extracts} classical information at the end
-    \item \textbf{The Hamiltonian $\hat{H}$} is engineered to implement desired quantum operations
+    \item \textbf{Low decoherence:} Photons interact weakly with environment.
+    \item \textbf{Room temperature operation:} No cryogenic cooling needed.
+    \item \textbf{High-speed transmission:} Can be sent through optical fibers.
+    \item \textbf{Easy manipulation:} Standard optical components (waveplates, beam splitters).
 \end{itemize}
 
-\subsubsection{Example: Quantum Gates as Unitary Operations}
-\begin{itemize}
-    \item Hadamard gate: Creates superposition
-    \[
-    H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}
-    \]
-    \item Pauli-X gate (quantum NOT):
-    \[
-    X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}
-    \]
-    \item All quantum gates must be unitary: $U^\dagger U = I$
-\end{itemize}
-
-\subsubsection{Key Difference from Classical Computing}
-\begin{table}[h]
+\begin{table}[H]
     \centering
-    \begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+    \begin{tabular}{|p{0.22\textwidth}|p{0.36\textwidth}|p{0.36\textwidth}|}
     \hline
-    \textbf{Classical Computing} & \textbf{Quantum Computing} \\
+    \textbf{Feature} & \textbf{Electron-based (USA/EU)} & \textbf{Photon-based (China)} \\
     \hline
-    Irreversible operations (AND, OR) & All operations reversible (except measurement) \\
-    Definite states & Superposition states \\
-    No interference & Constructive/destructive interference \\
-    Independent bits & Entangled qubits \\
+    Physical system & Atoms, superconducting circuits & Photon polarization/path \\
+    Operating temperature & Cryogenic (near 0K) & Room temperature \\
+    Gate speed & Nanoseconds & Picoseconds \\
+    Decoherence time & Microseconds to milliseconds & Long (weak interaction) \\
+    Measurement efficiency & High & Moderate (photon loss) \\
+    Scalability challenge & Qubit connectivity & Photon sources/detectors \\
     \hline
     \end{tabular}
-    \caption{Fundamental differences between classical and quantum computing}
+    \caption{Comparison of qubit implementation approaches}
+    \label{tab:qubit-comparison}
 \end{table}
 
-\section{Entanglement: "Spooky Action at a Distance"}
+\section{Measurement Collapse to Pure States}
 
-\subsection{EPR Paradox and Bell States}
-Einstein, Podolsky, and Rosen (1935) pointed out that quantum mechanics predicts correlations between distant particles that seem to violate locality. These are now called \emph{entangled states}.
+\subsection{The Measurement Postulate}
 
-Bell states are maximally entangled two-qubit states:
+When a quantum system in superposition is measured, it "collapses" to one of the basis states:
+
+\[
+|\psi\rangle = \alpha|0\rangle + \beta|1\rangle \xrightarrow{\text{measure}} 
+\begin{cases}
+|0\rangle & \text{with probability } |\alpha|^2 \\
+|1\rangle & \text{with probability } |\beta|^2
+\end{cases}
+\]
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1]
+
+% Bloch sphere
+\draw[thick] (0,0) circle (2);
+
+% Axes
+\draw[->, thick] (0,-2.4) -- (0,2.6);
+\node[above] at (0,2.6) {$z$};
+
+\draw[->, thick] (-2.4,0) -- (2.6,0);
+\node[right] at (2.6,0) {$x$};
+
+% Reference radius
+\draw[dashed] (0,0) -- (30:2);
+
+% Basis states
+\fill[red] (0,2) circle (3pt);
+\fill[red] (0,-2) circle (3pt);
+
+\node[above] at (0,2.15) {$|0\rangle$};
+\node[below] at (0,-2.2) {$|1\rangle$};
+
+% Superposition state
+\fill[blue] (30:2) circle (3pt);
+\draw[->, thick, blue] (0,0) -- (30:2);
+
+\node[right] at (30:2.25) {$|\psi\rangle$};
+
+% Measurement collapse arrows
+\draw[->, dashed, thick, green!70!black] (30:2) -- (0,2);
+\draw[->, dashed, thick, green!70!black] (30:2) -- (0,-2);
+
+% Explanatory labels (moved OUTSIDE sphere)
+\node[align=center] at (4.4,1.2)
+{\textbf{Measurement}\\collapses to\\basis states};
+
+\node[align=center, green!70!black] at (4.4,-0.6)
+{Probabilistic\\collapse};
+
+\end{tikzpicture}
+\caption{Measurement on the Bloch sphere. A superposition state $|\psi\rangle$ collapses probabilistically to one of the computational basis states.}
+\label{fig:measurement-collapse}
+\end{figure}
+
+\subsection{Physical Explanation}
+
+The measurement process involves interaction between the quantum system and a macroscopic measuring device:
+
+\begin{enumerate}
+    \item \textbf{System-apparatus interaction:} The quantum system becomes entangled with the measuring device.
+    \item \textbf{Decoherence:} Environmental interactions destroy phase coherence between superposition components.
+    \item \textbf{Classical outcome:} The measuring device settles into a definite macroscopic state corresponding to one of the quantum basis states.
+\end{enumerate}
+
+\subsection{Key Quantum Principles Involved}
+
+\subsubsection{1. Born Rule}
+The probability of obtaining a particular measurement outcome is given by the square of the amplitude:
+\[
+P(i) = |\langle \phi_i | \psi \rangle|^2
+\]
+where $\{|\phi_i\rangle\}$ is the measurement basis.
+
+\subsubsection{2. Projection Postulate}
+After measurement, the state is projected onto the corresponding basis vector:
+\[
+|\psi\rangle \rightarrow \frac{P_i |\psi\rangle}{\sqrt{\langle \psi|P_i|\psi\rangle}}
+\]
+where $P_i = |\phi_i\rangle\langle\phi_i|$ is the projection operator.
+
+\subsubsection{3. Repeatability}
+Immediate re-measurement yields the same result:
+\[
+\text{If } |\psi\rangle \xrightarrow{\text{measure}} |\phi_i\rangle, \text{ then } |\phi_i\rangle \xrightarrow{\text{measure}} |\phi_i\rangle
+\]
+
+\subsection{Implications for Quantum Computing}
+
+\begin{itemize}
+    \item \textbf{Output extraction:} Measurement is how we read computational results.
+    \item \textbf{Probabilistic outcomes:} Quantum algorithms often require multiple runs.
+    \item \textbf{Basis choice:} Different measurements extract different information.
+    \item \textbf{Irreversibility:} Measurement destroys quantum coherence for the measured observable.
+\end{itemize}
+
+\section{Quantum Entanglement: Basic Principles}
+
+\subsection{Definition and Creation}
+
+Two or more quantum systems become entangled when their quantum states cannot be described independently:
+
+\[
+|\psi\rangle_{AB} \neq |\phi\rangle_A \otimes |\chi\rangle_B
+\]
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1]
+
+% ======================
+% Systems
+% ======================
+\draw[fill=blue!20, thick] (0,0) circle (1);
+\draw[fill=red!20, thick] (6,0) circle (1);
+
+\node[below] at (0,-1.3) {\textbf{System A}};
+\node[below] at (6,-1.3) {\textbf{System B}};
+
+% ======================
+% Entanglement link
+% ======================
+\draw[thick, purple, dashed] (1,0) -- (5,0);
+\node[purple, above] at (3,0.4) {\textbf{Entangled pair}};
+
+% ======================
+% Correlations
+% ======================
+\draw[->, thick, blue] (1,1.2) -- (5,1.2);
+\node[blue, above] at (3,1.4) {Anti-correlated outcomes};
+
+\draw[->, thick, blue] (1,-1.2) -- (5,-1.2);
+\node[blue, below] at (3,-1.4) {Perfect correlations};
+
+% ======================
+% Bell state (separate block)
+% ======================
+\node[draw, rounded corners, align=center, fill=white]
+at (3,-3)
+{\textbf{Bell state}\\[4pt]
+$|\Psi^-\rangle = \dfrac{1}{\sqrt{2}}\bigl(|01\rangle - |10\rangle\bigr)$};
+
+% ======================
+% Spatial separation (subtle)
+% ======================
+\draw[<->, thick, gray!60] (0,-2.1) -- (6,-2.1);
+\node[gray!60, below] at (3,-2.3)
+{Systems may be spatially separated};
+
+\end{tikzpicture}
+\caption{Quantum entanglement between two systems. Despite spatial separation, measurements on the two subsystems exhibit strong quantum correlations described by a Bell state.}
+\label{fig:entanglement}
+\end{figure}
+
+
+\subsubsection{Simple Example: Two-Qubit Entangled State}
+
 \begin{align*}
 |\Phi^+\rangle &= \frac{1}{\sqrt{2}}(|00\rangle + |11\rangle) \\
-|\Phi^-\rangle &= \frac{1}{\sqrt{2}}(|00\rangle - |11\rangle) \\
-|\Psi^+\rangle &= \frac{1}{\sqrt{2}}(|01\rangle + |10\rangle) \\
 |\Psi^-\rangle &= \frac{1}{\sqrt{2}}(|01\rangle - |10\rangle)
 \end{align*}
 
-In these states, the individual qubits don't have definite states, but the pair has definite correlations.
+In these states, neither qubit has a definite state individually, but the pair has definite correlation properties.
 
-\subsection{Importance for Quantum Computing}
-\begin{itemize}
-    \item \textbf{Resource for quantum speedup:} Many quantum algorithms rely on entanglement
-    \item \textbf{Enables quantum teleportation:} Transfer of quantum states using entanglement and classical communication
-    \item \textbf{Essential for quantum error correction:} Encodes logical qubits across multiple physical qubits
-    \item \textbf{Basis for quantum cryptography:} Provides security through quantum correlations
-\end{itemize}
+\subsection{Physical Origin of Entanglement}
 
-\section{From Quantum Physics to Quantum Computation}
+Entanglement arises from physical interactions that create quantum correlations:
 
-\subsection{Key Transitions}
-\begin{table}[h]
-    \centering
-    \begin{tabular}{|l|l|}
-    \hline
-    \textbf{Quantum Mechanics} & \textbf{Quantum Computing} \\
-    \hline
-    State vector $|\psi\rangle$ & Qubit state \\
-    Superposition & Quantum parallelism \\
-    Measurement & Readout of computation \\
-    Unitary evolution & Quantum gates/circuits \\
-    Entanglement & Quantum correlation resource \\
-    Uncertainty principle & Limits on information extraction \\
-    \hline
-    \end{tabular}
-    \caption{Bridge between physics and computation}
-\end{table}
-
-\subsection{Physical Implementations Overview}
-\begin{itemize}
-    \item \textbf{Superconducting qubits:} Artificial atoms in circuits (used by IBM, Google)
-    \item \textbf{Trapped ions:} Atomic energy levels (used by IonQ, Honeywell)
-    \item \textbf{Photonics:} Polarization or path encoding (used by Xanadu, PsiQuantum)
-    \item \textbf{Topological qubits:} Anyons (future technology, Microsoft's approach)
-\end{itemize}
-
-Each implementation faces different challenges in creating, maintaining, and measuring superpositions.
-
-\section{Practical Examples}
-
-\subsection{Example 1: Quantum Random Number Generator}
-\begin{itemize}
-    \item Create superposition: $|\psi\rangle = \frac{1}{\sqrt{2}}(|0\rangle + |1\rangle)$ using a Hadamard gate
-    \item Measure in computational basis
-    \item Outcome is truly random (not pseudorandom) due to fundamental quantum randomness
-    \item Commercial implementations already exist
-\end{itemize}
-
-\subsection{Example 2: Quantum Key Distribution (BB84)}
-\begin{itemize}
-    \item Alice sends qubits in randomly chosen bases (computational or Hadamard)
-    \item Bob measures in randomly chosen bases
-    \item They keep only results where bases match
-    \item Security guaranteed by: (1) No-cloning theorem, (2) Measurement disturbance, (3) Uncertainty principle
-    \item Any eavesdropping is detectable through increased error rate
-\end{itemize}
-
-\section{Common Misconceptions}
-
-\subsection{Myths to Avoid}
-\begin{itemize}
-    \item \textbf{Myth:} Quantum computers solve all problems exponentially faster
-    \item \textbf{Reality:} Speedup only for specific problems with quantum algorithms (factoring, simulation, optimization)
-    
-    \item \textbf{Myth:} Qubits can store infinite information
-    \item \textbf{Reality:} Measurement extracts only 1 classical bit per qubit (Holevo's theorem)
-    
-    \item \textbf{Myth:} Superposition means being in both states at once
-    \item \textbf{Reality:} Better description: State with properties of both until measured
-    
-    \item \textbf{Myth:} Entanglement allows faster-than-light communication
-    \item \textbf{Reality:} No information can be transmitted faster than light using entanglement alone
-\end{itemize}
-
-\section{Summary and Forward Look}
-
-\subsection{Key Takeaways}
 \begin{enumerate}
-    \item Quantum states are vectors in complex Hilbert space
-    \item Superposition enables parallelism through interference
-    \item Measurement is probabilistic, disruptive, and basis-dependent
-    \item Entanglement enables non-classical correlations as computational resource
-    \item Evolution between measurements is unitary, reversible, and deterministic
-    \item Uncertainty principle limits simultaneous knowledge of non-commuting observables
+    \item \textbf{Direct interaction:} Two quantum systems interact physically (e.g., photons in a nonlinear crystal).
+    \item \textbf{Common origin:} Particles created together in certain processes (e.g., electron-positron pairs).
+    \item \textbf{Measurement-induced:} Measuring part of an entangled system projects the remainder.
 \end{enumerate}
 
-\subsection{Next Steps in Quantum Computing}
+\subsection{Key Properties}
+
+\subsubsection{1. Non-Locality}
+Measurement outcomes on entangled particles show correlations that cannot be explained by local hidden variables (Bell's theorem).
+
+\subsubsection{2. Monogamy}
+If two systems are maximally entangled, neither can be entangled with a third system.
+
+\subsubsection{3. Persistence}
+Entanglement can survive even when the entangled systems are separated by large distances.
+
+\subsubsection{4. Conservation}
+Entanglement cannot be increased by local operations and classical communication (LOCC) alone.
+
+\subsection{Physical Interpretation}
+
 \begin{itemize}
-    \item \textbf{Quantum gates and circuits:} Building blocks of quantum algorithms
-    \item \textbf{Simple algorithms:} Deutsch-Jozsa, Bernstein-Vazirani to demonstrate quantum advantage
-    \item \textbf{Quantum error correction:} Protecting fragile quantum information
-    \item \textbf{Physical implementation challenges:} Decoherence, gate fidelity, scalability
+    \item \textbf{Not "spooky action":} Entanglement doesn't allow faster-than-light communication.
+    \item \textbf{Correlation without causation:} Measurements reveal pre-existing correlations.
+    \item \textbf{Shared quantum information:} Entangled systems share information non-locally.
 \end{itemize}
 
-\section*{Recommended Resources}
+\subsection{Importance for Quantum Computing}
+
+\begin{enumerate}
+    \item \textbf{Quantum parallelism:} Entangled states can represent exponentially many combinations simultaneously.
+    \item \textbf{Quantum teleportation:} Enables transfer of quantum states using entanglement and classical communication.
+    \item \textbf{Error correction:} Quantum error-correcting codes rely heavily on entanglement.
+    \item \textbf{Algorithm speedup:} Many quantum algorithms (Shor's, Grover's) use entanglement as a computational resource.
+\end{enumerate}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{0.25\textwidth}|p{0.4\textwidth}|p{0.3\textwidth}|}
+    \hline
+    \textbf{System} & \textbf{How entanglement is created} & \textbf{Coherence time} \\
+    \hline
+    Photons & Spontaneous parametric down-conversion & Long (distance limited) \\
+    Superconducting qubits & Capacitive coupling & Microseconds \\
+    Trapped ions & Collective motional modes & Seconds \\
+    Quantum dots & Exchange interaction & Nanoseconds \\
+    \hline
+    \end{tabular}
+    \caption{Methods for creating entanglement in different physical systems}
+    \label{tab:entanglement-methods}
+\end{table}
+
+\section*{Summary}
+
 \begin{itemize}
-    \item \textbf{Textbook:} Nielsen \& Chuang, "Quantum Computation and Quantum Information" (Chapters 1-2)
-    \item \textbf{Hands-on:} IBM Quantum Experience (free online quantum computer access)
-    \item \textbf{Visualizations:} 3Blue1Brown's quantum computing series (YouTube)
-    \item \textbf{Tutorial:} "Quantum Country" online tutorial (interactive)
-    \item \textbf{Research:} arXiv.org for latest research papers (quant-ph category)
+    \item \textbf{Wave-particle duality} shows quantum systems can explore multiple paths simultaneously, enabling quantum parallelism.
+    
+    \item \textbf{Qubits can be created} by exciting electrons between energy levels (USA/Europe approach) or manipulating photon polarization (Chinese approach).
+    
+    \item \textbf{Measurement collapses} quantum superpositions to definite classical outcomes following probabilistic rules.
+    
+    \item \textbf{Quantum entanglement} creates non-classical correlations between separated systems, serving as a key resource for quantum computation.
 \end{itemize}
 
-\section*{Appendix: Mathematical Preliminaries (Optional)}
+\section*{Further Reading}
 
-\subsection{Complex Numbers Review}
-\[
-z = a + bi, \quad i^2 = -1, \quad |z|^2 = z^*z = a^2 + b^2
-\]
-Complex numbers are essential because they encode both amplitude and phase information.
-
-\subsection{Linear Algebra Essentials}
-\begin{itemize}
-    \item \textbf{Vectors:} Represent quantum states
-    \item \textbf{Inner products:} $\langle \phi|\psi\rangle$ gives overlap/probability amplitude
-    \item \textbf{Orthonormal bases:} Complete sets of mutually orthogonal unit vectors
-    \item \textbf{Unitary matrices:} $U^\dagger U = I$ (preserve norm)
-    \item \textbf{Tensor products:} $\otimes$ for multi-qubit systems
-\end{itemize}
-
-\vspace{1cm}
-\textbf{Remember:} Quantum mechanics is not just "spooky" but provides a new computational framework with rigorously defined rules. The "weirdness" becomes computational power when properly harnessed.
+\begin{enumerate}
+    \item Feynman, R. P., Leighton, R. B., \& Sands, M. (1965). \textit{The Feynman Lectures on Physics, Vol. III: Quantum Mechanics}.
+    \item Nielsen, M. A., \& Chuang, I. L. (2010). \textit{Quantum Computation and Quantum Information} (Chapters 1-2).
+    \item Aspect, A. (2015). \textit{Closing the Door on Einstein and Bohr's Quantum Debate}. Physics Today.
+\end{enumerate}
 
 \end{document}
