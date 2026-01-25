@@ -1,0 +1,444 @@
+% File: lecture_4.tex
+\section{Source Modeling and Statistical Dependence}
+
+\begin{center}
+\textbf{Lecture 4: Beyond Coding -- The Power of Source Modeling}
+\end{center}
+
+\subsection{Introduction: Beyond Coding}
+
+\begin{importantbox}
+\textbf{Key Insight:} In the first three lectures, we've focused on \textbf{coding} - efficient ways to represent symbols given their probabilities. Now we address the other half: \textbf{modeling} - how to get good probability estimates in the first place.
+\end{importantbox}
+
+\textbf{The Big Picture:}
+
+\begin{center}
+\begin{tikzpicture}[node distance=2cm]
+\node (compress) [rectangle, draw=black, thick, minimum width=6cm, minimum height=1.5cm] {\textbf{Data Compression System}};
+\node (model) [below left=of compress, rectangle, draw=blue, thick, fill=blue!5, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Modeling}\\Probability Estimation\\90\% of compression gain}};
+\node (code) [below right=of compress, rectangle, draw=green, thick, fill=green!5, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Coding}\\Bit Assignment\\10\% of compression gain}};
+\node (modeltech) [below=of model, rectangle, draw=blue!50, fill=blue!2, text width=2.8cm, align=center] {Markov Models\\Context Modeling\\Adaptive Methods};
+\node (codetech) [below=of code, rectangle, draw=green!50, fill=green!2, text width=2.8cm, align=center] {Huffman\\Arithmetic\\Canonical};
+
+\draw[->, thick, blue] (compress.south) -- (model);
+\draw[->, thick, green] (compress.south) -- (code);
+\draw[->, blue!50] (model) -- (modeltech);
+\draw[->, green!50] (code) -- (codetech);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Why Real Data Defies IID Assumptions:}
+\begin{itemize}
+    \item \textbf{IID (Independent Identically Distributed)}: Assumption behind simple Huffman
+    \item \textbf{Reality}: Data has \textbf{memory} and \textbf{dependencies}
+    \item Example: In English text, 'Q' is almost always followed by 'U'
+    \item Example: In images, neighboring pixels are highly correlated
+\end{itemize}
+
+\textbf{Today's Roadmap:}
+\begin{enumerate}
+    \item Understand statistical dependence in data
+    \item Learn Markov models for capturing memory
+    \item Explore context modeling techniques
+    \item See practical examples with real data
+    \item Connect modeling to coding (Lecture 3)
+\end{enumerate}
+
+\subsection{Memoryless vs. Sources with Memory}
+
+\begin{definitionbox}
+\textbf{Memoryless Source (IID):} Each symbol is generated independently of all previous symbols. Probability distribution: $P(X_n = x) = p(x)$ for all $n$.
+\end{definitionbox}
+
+\begin{definitionbox}
+\textbf{Source with Memory:} The probability of a symbol depends on previous symbols. Example: $P(X_n = x | X_{n-1} = y, X_{n-2} = z, \dots)$.
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Examples of Dependence in Real Data:}
+\begin{itemize}
+    \item \textbf{Text}: 'TH' is common, 'TQ' is rare
+    \item \textbf{Images}: Neighboring pixels have similar colors
+    \item \textbf{Audio}: Sound waves have temporal continuity
+    \item \textbf{Video}: Consecutive frames are nearly identical
+    \item \textbf{Source code}: Keywords, variable names repeat
+\end{itemize}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Measuring Dependence: Autocorrelation}
+\[
+\rho(k) = \frac{\mathbb{E}[(X_t - \mu)(X_{t+k} - \mu)]}{\sigma^2}
+\]
+where $k$ is the lag. High $\rho(k)$ means strong dependence at distance $k$.
+\end{importantbox}
+
+\subsection{Conditional Entropy and Mutual Information}
+
+\begin{definitionbox}
+\textbf{Conditional Entropy:} The average uncertainty about $X$ given knowledge of $Y$:
+\[
+H(X|Y) = -\sum_{x \in \mathcal{X}} \sum_{y \in \mathcal{Y}} p(x,y) \log_2 p(x|y)
+\]
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Intuition: "Knowing the Past Helps Predict the Future"}\\
+Consider English letters:
+\begin{itemize}
+    \item Unconditional: $H(\text{letter}) \approx 4.07$ bits
+    \item Given previous letter: $H(\text{letter}|\text{previous}) \approx 3.36$ bits
+    \item Given previous 2 letters: $H(\text{letter}|\text{previous 2}) \approx 2.77$ bits
+\end{itemize}
+Each additional letter of context reduces uncertainty!
+\end{examplebox}
+
+\begin{definitionbox}
+\textbf{Mutual Information:} Measures how much knowing $Y$ reduces uncertainty about $X$:
+\[
+I(X;Y) = H(X) - H(X|Y) = H(Y) - H(Y|X)
+\]
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Worked Example: English Letter Dependence}\\
+Let $X$ = current letter, $Y$ = previous letter.
+\begin{align*}
+H(X) &= 4.07 \text{ bits} \\
+H(X|Y) &= 3.36 \text{ bits} \\
+I(X;Y) &= 4.07 - 3.36 = 0.71 \text{ bits}
+\end{align*}
+This means knowing the previous letter gives us 0.71 bits of information about the current letter.
+\end{examplebox}
+
+\subsection{Markov Sources}
+
+\begin{definitionbox}
+\textbf{Markov Property (Memory-$m$):} The future depends only on the last $m$ symbols:
+\[
+P(X_n = x | X_{n-1}, X_{n-2}, \dots, X_1) = P(X_n = x | X_{n-1}, \dots, X_{n-m})
+\]
+\end{definitionbox}
+
+\textbf{First-Order Markov Model ($m=1$):}
+\begin{itemize}
+    \item Only the immediately previous symbol matters
+    \item Represented by transition probabilities $p_{ij} = P(X_n = j | X_{n-1} = i)$
+    \item Can be shown as a state diagram or transition matrix
+\end{itemize}
+
+\begin{examplebox}
+\textbf{Example: Weather Prediction Markov Chain}\\
+States: $\{\text{Sunny (S)}, \text{Rainy (R)}\}$\\
+Transition probabilities:
+\begin{center}
+\begin{tabular}{c|cc}
+ & S & R \\
+\hline
+S & 0.8 & 0.2 \\
+R & 0.3 & 0.7 \\
+\end{tabular}
+\end{center}
+Interpretation: If today is sunny, 80\% chance tomorrow is sunny, 20\% chance rainy.
+\end{examplebox}
+
+\textbf{Higher-Order Markov Models:}
+\begin{itemize}
+    \item Order-$k$: Depends on last $k$ symbols
+    \item More accurate but exponentially more parameters
+    \item Number of parameters grows as $|\mathcal{A}|^{k+1}$ where $\mathcal{A}$ is alphabet size
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Memory-Complexity Trade-off:}
+\begin{itemize}
+    \item \textbf{Order 0}: 26 parameters for English (simple but weak)
+    \item \textbf{Order 1}: $26 \times 26 = 676$ parameters
+    \item \textbf{Order 2}: $26 \times 26 \times 26 = 17,576$ parameters
+    \item \textbf{Order 5}: $26^6 \approx 308$ million parameters!
+\end{itemize}
+This is the \textbf{context explosion problem}.
+\end{importantbox}
+
+\subsection{Entropy Rate Revisited}
+
+\begin{definitionbox}
+\textbf{Entropy Rate of a Stationary Source:}
+\[
+H(\mathcal{X}) = \lim_{n \to \infty} \frac{1}{n} H(X_1, X_2, \dots, X_n)
+\]
+For a stationary Markov chain of order $m$:
+\[
+H(\mathcal{X}) = H(X_{m+1} | X_1, \dots, X_m)
+\]
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Calculating Entropy Rate for First-Order Markov Chain:}\\
+For weather example with stationary distribution $\pi = [\pi_S, \pi_R]$:
+\[
+H(\mathcal{X}) = \pi_S H(X|S) + \pi_R H(X|R)
+\]
+where:
+\begin{align*}
+H(X|S) &= -0.8\log_2 0.8 - 0.2\log_2 0.2 \approx 0.7219 \\
+H(X|R) &= -0.3\log_2 0.3 - 0.7\log_2 0.7 \approx 0.8813 \\
+\pi_S &= 0.6, \quad \pi_R = 0.4 \quad (\text{solve } \pi P = \pi) \\
+H(\mathcal{X}) &= 0.6 \times 0.7219 + 0.4 \times 0.8813 \approx 0.788 \text{ bits}
+\end{align*}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{What This Means for Compression:}
+\begin{itemize}
+    \item \textbf{IID assumption}: Limit = $H(X)$ (e.g., 4.07 bits/letter for English)
+    \item \textbf{With modeling}: Limit = $H(\mathcal{X})$ (e.g., ~2.3 bits/letter for English)
+    \item \textbf{Potential gain}: Up to 45\% better compression!
+\end{itemize}
+\end{importantbox}
+
+\subsection{Context Modeling in Practice}
+
+\begin{definitionbox}
+\textbf{Context Modeling:} Maintain separate probability distributions for each possible context (history).
+\end{definitionbox}
+
+\textbf{Fixed-Length vs. Variable-Length Contexts:}
+\begin{itemize}
+    \item \textbf{Fixed-length}: Always use last $k$ symbols as context
+    \item \textbf{Variable-length}: Use longest matching context in database
+    \item Example: PPM (Prediction by Partial Matching) uses variable-length
+\end{itemize}
+
+\begin{examplebox}
+\textbf{The Context Explosion Problem:}\\
+For English text (26 letters + space):
+\begin{center}
+\begin{tabular}{l|l|l}
+Order & Contexts & Parameters \\
+\hline
+0 & 1 & 27 \\
+1 & 27 & 729 \\
+2 & 729 & 19,683 \\
+3 & 19,683 & 531,441 \\
+4 & 531,441 & 14,348,907 \\
+5 & 14,348,907 & 387,420,489 \\
+\end{tabular}
+\end{center}
+By order 5: 387 million parameters need estimation!
+\end{examplebox}
+
+\textbf{Solutions to Context Explosion:}
+\begin{enumerate}
+    \item \textbf{Escaping}: Fall back to lower-order model when context unseen
+    \item \textbf{Blending}: Combine predictions from different order models
+    \item \textbf{Pruning}: Remove low-frequency contexts
+    \item \textbf{Adaptive methods}: Update probabilities as data arrives
+\end{enumerate}
+
+\subsection{Case Study: Text Compression Modeling}
+
+\begin{examplebox}
+\textbf{English Text Compression with Different Models:}
+\begin{center}
+\begin{tabular}{l|l|l}
+Model Type & Bits/Letter & Compression vs. ASCII \\
+\hline
+\textbf{ASCII (baseline)} & 8.00 & 0\% \\
+\textbf{Order-0 (Huffman)} & ~4.07 & ~49\% \\
+\textbf{Order-1 (Bigram)} & ~3.36 & ~58\% \\
+\textbf{Order-2 (Trigram)} & ~2.77 & ~65\% \\
+\textbf{Order-3} & ~2.43 & ~70\% \\
+\textbf{Order-5 (PPM)} & ~2.23 & ~72\% \\
+\textbf{Optimal (Shannon 1951)} & ~1.3 & ~84\% \\
+\end{tabular}
+\end{center}
+Note: Each step improves compression by better modeling!
+\end{examplebox}
+
+\textbf{PPM (Prediction by Partial Matching):}
+\begin{itemize}
+    \item Uses \textbf{variable-length} contexts
+    \item Tries highest-order model first
+    \item Escapes to lower order if context unseen
+    \item Blends probabilities from different orders
+    \item State-of-the-art for text compression in 1990s
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Practical Entropy Reduction:}
+\begin{align*}
+\text{IID model (Huffman)} &: 4.07 \text{ bits/letter} \\
+\text{With context modeling} &: 2.23 \text{ bits/letter} \\
+\text{Improvement} &: 45\% \text{ better compression!}
+\end{align*}
+\end{importantbox}
+
+\subsection{The Modeling–Coding Separation Principle}
+
+\begin{definitionbox}
+\textbf{Modeling–Coding Separation:} Modern compressors separate probability estimation (modeling) from bit assignment (coding).
+\end{definitionbox}
+
+\textbf{Historical Evolution:}
+\begin{itemize}
+    \item \textbf{Early}: Integrated (Huffman builds tree from frequencies)
+    \item \textbf{Modern}: Separated (Model → Probabilities → Arithmetic Coder)
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[node distance=1.5cm]
+\node (data) [rectangle, draw=black, minimum width=2cm] {Input Data};
+\node (model) [right=of data, rectangle, draw=blue, fill=blue!5, minimum width=3cm] {\parbox{2.8cm}{\centering Context Model}};
+\node (probs) [right=of model, rectangle, draw=purple, fill=purple!5, minimum width=2.5cm] {\parbox{2.3cm}{\centering Probability\\Estimates}};
+\node (coder) [right=of probs, rectangle, draw=green, fill=green!5, minimum width=3cm] {\parbox{2.8cm}{\centering Arithmetic\\Coder}};
+\node (output) [right=of coder, rectangle, draw=black, minimum width=2cm] {\parbox{2cm}{\centering Compressed\\Output}};
+
+\draw[->, thick] (data) -- (model);
+\draw[->, thick] (model) -- node[above] {$p(x|\text{context})$} (probs);
+\draw[->, thick] (probs) -- (coder);
+\draw[->, thick] (coder) -- (output);
+\end{tikzpicture}
+\end{center}
+
+\begin{examplebox}
+\textbf{How PPM + Arithmetic Beats Huffman:}
+\begin{enumerate}
+    \item \textbf{PPM}: Sees context "TH" → predicts E with 80\% probability
+    \item \textbf{Arithmetic}: Encodes E using $p=0.8$ → ~0.32 bits
+    \item \textbf{Huffman}: Would need at least 1 bit for any symbol
+    \item \textbf{Gain}: 0.32 bits vs 1+ bits = 3× better for this symbol!
+\end{enumerate}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Why Arithmetic Coding is the Perfect Backend:}
+\begin{itemize}
+    \item Can handle \textbf{fractional bits} per symbol
+    \item Accepts \textbf{changing probabilities} symbol by symbol
+    \item Works with \textbf{adaptive models} naturally
+    \item Achieves entropy bound for good models
+\end{itemize}
+\end{importantbox}
+
+\subsection{Adaptive vs. Static Modeling}
+
+\begin{definitionbox}
+\textbf{Static Models:} Train once on representative data, use fixed model for all files.
+\begin{itemize}
+    \item \textbf{Pros}: Fast encoding/decoding
+    \item \textbf{Cons}: Model may not match specific file
+    \item \textbf{Example}: Early text compressors using English statistics
+\end{itemize}
+\end{definitionbox}
+
+\begin{definitionbox}
+\textbf{Semi-Adaptive (Two-Pass):} First pass: collect statistics; Second pass: encode.
+\begin{itemize}
+    \item \textbf{Pros}: Tailored to specific file
+    \item \textbf{Cons}: Need to transmit model (overhead)
+    \item \textbf{Example}: Standard Huffman with tree transmission
+\end{itemize}
+\end{definitionbox}
+
+\begin{definitionbox}
+\textbf{Fully Adaptive (One-Pass):} Update model while encoding/decoding.
+\begin{itemize}
+    \item \textbf{Pros}: No model transmission, adapts to local changes
+    \item \textbf{Cons}: Slower, initial poor compression
+    \item \textbf{Example}: Adaptive Huffman, PPM with update
+\end{itemize}
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Comparison in Practice:}
+\begin{center}
+\begin{tabular}{l|l|l|l}
+Type & Compression & Speed & Memory \\
+\hline
+Static & Medium & Fast & Low \\
+Semi-Adaptive & Good & Medium & Medium \\
+Fully Adaptive & Best & Slow & High \\
+\end{tabular}
+\end{center}
+Choice depends on application constraints!
+\end{examplebox}
+
+\subsection{Summary and Forward Look}
+
+\begin{importantbox}
+\textbf{Key Takeaways:}
+\begin{enumerate}
+    \item \textbf{The real compression is in modeling}, not just coding
+    \item \textbf{Context matters}: Using past symbols reduces uncertainty
+    \item \textbf{Markov models} capture memory in data
+    \item \textbf{Context explosion} limits practical model order
+    \item \textbf{Arithmetic coding} enables efficient use of good models
+    \item \textbf{Adaptive methods} avoid model transmission overhead
+\end{enumerate}
+\end{importantbox}
+
+\textbf{The Two Pillars Revisited:}
+
+\begin{center}
+\begin{tikzpicture}[node distance=2cm]
+\node (compress) [rectangle, draw=black, thick, minimum width=8cm, minimum height=2cm] {\textbf{Data Compression}};
+\node (statistical) [below left=1cm of compress.south, rectangle, draw=blue, thick, fill=blue!5, minimum width=3.5cm, minimum height=1.2cm] {\parbox{3.2cm}{\centering \textbf{Statistical Methods}\\Model + Code\\\textit{(This lecture)}}};
+\node (dictionary) [below right=1cm of compress.south, rectangle, draw=red, thick, fill=red!5, minimum width=3.5cm, minimum height=1.2cm] {\parbox{3.2cm}{\centering \textbf{Dictionary Methods}\\Find repetitions\\\textit{(Next lecture)}}};
+\draw[->, thick, blue] (compress.south) -- (statistical);
+\draw[->, thick, red] (compress.south) -- (dictionary);
+
+\node (statsub) [below=0.5cm of statistical] {\parbox{3.2cm}{\centering Markov models\\PPM\\Arithmetic coding}};
+\node (dictsub) [below=0.5cm of dictionary] {\parbox{3.2cm}{\centering LZ77, LZ78\\LZW\\DEFLATE}};
+
+\draw[blue!50] (statistical) -- (statsub);
+\draw[red!50] (dictionary) -- (dictsub);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Preview: Next Lecture on LZ Family (Dictionary Methods):}
+\begin{itemize}
+    \item A completely different approach: find repeating patterns
+    \item No probability estimation needed
+    \item Works well for files with exact repetitions
+    \item Used in ZIP, GIF, PDF, and many modern formats
+    \item Often combined with statistical methods in practice
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{Exercise 4.1:} Given the first-order Markov chain for weather:
+\begin{center}
+\begin{tabular}{c|cc}
+ & S & R \\
+\hline
+S & 0.7 & 0.3 \\
+R & 0.4 & 0.6 \\
+\end{tabular}
+\end{center}
+a) Find the stationary distribution $\pi = [\pi_S, \pi_R]$
+b) Calculate the entropy rate $H(\mathcal{X})$
+c) How does this compare to an IID source with $P(S)=0.55, P(R)=0.45$?
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 4.2:} Consider the text fragment: "THE CAT SAT ON THE MAT"
+a) Build an order-1 (bigram) model for this text
+b) Calculate $H(X)$ (order-0 entropy)
+c) Calculate $H(X|Y)$ where $Y$ is previous letter (order-1 conditional entropy)
+d) How much mutual information exists between consecutive letters?
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 4.3:} Explain why arithmetic coding is better than Huffman coding when used with:
+a) A high-order Markov model
+b) An adaptive context model
+c) A model that gives very skewed probabilities (e.g., $p=0.99$ for one symbol)
+\end{exercisebox}
+
+\vspace{1cm}
+\begin{center}
+\rule{0.8\textwidth}{0.5pt}\\
+\textbf{End of Lecture 4 -- Source Modeling and Statistical Dependence}\\
+Next: Dictionary-based Compression (LZ Family)
+\end{center}

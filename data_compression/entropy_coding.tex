@@ -386,26 +386,66 @@ Arithmetic Coding & \textbf{Near-opt} & \textbf{Yes} & \textbf{High} & \textbf{Y
     \item \textbf{Huffman vs. Arithmetic}: Huffman is simpler but has an "integer penalty"; Arithmetic approaches entropy bound
     \item \textbf{Modern standards}: Arithmetic coding (CABAC) used in video compression for 10-20\% better compression
     \item \textbf{Practical choice}: For general compression, Canonical Huffman (DEFLATE); for media, Arithmetic coding
+    \item \textbf{The missing piece}: All these methods assume we have good probability estimates. Where do those come from?
 \end{itemize}
 \end{importantbox}
 
 \subsection{Forward Look}
 
-\textbf{Next Lectures:}
-\begin{enumerate}
-    \item \textbf{Dictionary Methods}: LZ77, LZ78, LZW - the other pillar of compression
-    \item \textbf{Transform Coding}: DCT, wavelets for lossy compression
-    \item \textbf{Modern Standards}: Brotli, Zstandard, JPEG XL
-\end{enumerate}
+\textbf{The Complete Picture: What Comes Next?}
 
-\textbf{The Two Pillars of Compression:}
+\begin{center}
+\begin{tikzpicture}[node distance=1.8cm]
+\node (lecture1) [rectangle, draw=black, thick, fill=blue!10, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Lecture 1}\\Huffman Coding}};
+\node (lecture2) [below=of lecture1, rectangle, draw=black, thick, fill=green!10, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Lecture 2}\\Theory\\Entropy, Kraft-McMillan}};
+\node (lecture3) [below=of lecture2, rectangle, draw=black, thick, fill=orange!10, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Lecture 3}\\Advanced Coding\\Arithmetic, Canonical}};
+\node (lecture4) [below=of lecture3, rectangle, draw=black, thick, fill=red!10, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Lecture 4}\\Source Modeling\\Markov, Context}};
+\node (lecture5) [below=of lecture4, rectangle, draw=black, thick, fill=purple!10, minimum width=3cm, minimum height=1cm] {\parbox{2.8cm}{\centering \textbf{Lecture 5}\\Dictionary Methods\\LZ Family}};
+
+\draw[->, thick] (lecture1) -- (lecture2);
+\draw[->, thick] (lecture2) -- (lecture3);
+\draw[->, thick] (lecture3) -- (lecture4);
+\draw[->, thick] (lecture4) -- (lecture5);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Next Lecture: Source Modeling and Statistical Dependence}
+\begin{itemize}
+    \item \textbf{The missing half}: We now know how to code efficiently, but where do the probabilities come from?
+    \item \textbf{Real data has memory}: 'Q' is usually followed by 'U' in English text
+    \item \textbf{Markov models}: Capturing dependencies between symbols
+    \item \textbf{Context modeling}: Using past symbols to predict future ones
+    \item \textbf{The modeling-coding separation}: Modern compressors separate these two tasks
+\end{itemize}
+
+\textbf{The Big Question for Next Time:}
+\begin{center}
+\fbox{\parbox{0.8\textwidth}{\centering
+\textbf{If Arithmetic coding can get within 0.01 bits of entropy,\\ 
+what's the real limit to compression?\\ 
+The answer: It's not the coding, it's the \textit{modeling}!}}
+}
+\end{center}
+
+\textbf{The Two Pillars of Compression (Revised View):}
 \begin{center}
 \begin{tikzpicture}[node distance=2cm]
-\node (comp) [rectangle, draw=black, thick, minimum width=6cm, minimum height=2cm] {\textbf{Data Compression}};
-\node (entropy) [below left=1cm of comp.south, rectangle, draw=blue, thick, fill=blue!5, minimum width=2.5cm] {\parbox{2.5cm}{\centering \textbf{Entropy Coding}\\Statistical\\Huffman, Arithmetic}};
-\node (dictionary) [below right=1cm of comp.south, rectangle, draw=red, thick, fill=red!5, minimum width=2.5cm] {\parbox{2.5cm}{\centering \textbf{Dictionary Coding}\\Repetition-based\\LZ family}};
-\draw[->, thick, blue] (comp.south) -- (entropy);
-\draw[->, thick, red] (comp.south) -- (dictionary);
+\node (comp) [rectangle, draw=black, thick, minimum width=8cm, minimum height=2cm] {\textbf{Data Compression}};
+\node (modeling) [below left=1cm of comp.south, rectangle, draw=red, thick, fill=red!5, minimum width=3.5cm, minimum height=1.2cm] {\parbox{3.2cm}{\centering \textbf{Modeling}\\Probability Estimation\\90\% of compression gain}};
+\node (coding) [below=of comp, rectangle, draw=blue, thick, fill=blue!5, minimum width=3.5cm, minimum height=1.2cm] {\parbox{3.2cm}{\centering \textbf{Coding}\\Bit Assignment\\10\% of compression gain}};
+\node (dictionary) [below right=1cm of comp.south, rectangle, draw=green, thick, fill=green!5, minimum width=3.5cm, minimum height=1.2cm] {\parbox{3.2cm}{\centering \textbf{Dictionary}\\Repetition-based\\Different approach}};
+
+\draw[->, thick, red] (comp.south) -- (modeling);
+\draw[->, thick, blue] (comp.south) -- (coding);
+\draw[->, thick, green] (comp.south) -- (dictionary);
+
+\node (modeltech) [below=0.5cm of modeling] {\parbox{3.2cm}{\centering Markov Models\\Context Modeling\\PPM}};
+\node (codetech) [below=0.5cm of coding] {\parbox{3.2cm}{\centering Huffman\\Arithmetic\\Canonical}};
+\node (dicttech) [below=0.5cm of dictionary] {\parbox{3.2cm}{\centering LZ77, LZ78\\LZW\\DEFLATE}};
+
+\draw[red!50] (modeling) -- (modeltech);
+\draw[blue!50] (coding) -- (codetech);
+\draw[green!50] (dictionary) -- (dicttech);
 \end{tikzpicture}
 \end{center}
 
@@ -438,9 +478,19 @@ F & 1111 \\
 \textbf{Exercise 3.3:} Encode the message "ABAC" using arithmetic coding with probabilities: A(0.6), B(0.3), C(0.1). Show each step.
 \end{exercisebox}
 
+\begin{exercisebox}
+\textbf{Exercise 3.4: Thinking Ahead:} Consider the English phrase "THE QUICK BROWN FOX"
+\begin{enumerate}[label=(\alph*)]
+    \item If we use Huffman coding with letter frequencies, what's wrong with this approach?
+    \item How might knowing that 'Q' is usually followed by 'U' help compression?
+    \item Why would arithmetic coding be better than Huffman for this kind of data?
+\end{enumerate}
+\end{exercisebox}
+
 \vspace{1cm}
 \begin{center}
 \rule{0.8\textwidth}{0.5pt}\\
 \textbf{End of Lecture 3 -- Advanced Entropy Coding Methods}\\
-Next: Dictionary-based Compression (LZ family)
+\textbf{Next: Lecture 4 -- Source Modeling and Statistical Dependence}\\
+\textit{We now have efficient coding methods. Next: Where do the probabilities come from?}
 \end{center}
