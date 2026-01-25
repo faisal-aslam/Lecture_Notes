@@ -1,0 +1,1029 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{physics}
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{circuitikz}  % Alternative for simpler circuits
+\geometry{margin=1in}
+
+\newtheorem{definition}{Definition}
+\newtheorem{principle}{Principle}
+\newtheorem{example}{Example}
+
+% Simple circuit drawing commands as fallback
+\newcommand{\qwire}[1]{\ensuremath{|#1\rangle\longrightarrow}}
+\newcommand{\qgate}[2]{\ensuremath{\boxed{#1}_{#2}}}
+\newcommand{\qmeas}{\ensuremath{\bigcirc\!\!\!\!\!M}}
+
+\title{Quantum Circuits: From Classical to Quantum Computation}
+\author{Quantum Computing Course}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\textbf{Lecture Duration: 90 minutes}
+\end{center}
+
+\tableofcontents
+
+\newpage
+
+\section{From Physical Operations to Computation}
+
+\subsection{Positioning Quantum Circuits in the Course}
+
+Welcome to our lecture on quantum circuits. In previous lectures, we have systematically built the foundation:
+
+\begin{itemize}
+    \item \textbf{Dirac's notation} provided the language for quantum states
+    \item \textbf{Quantum mechanics basics} established superposition and measurement
+    \item \textbf{Qubits} defined our fundamental unit of quantum information
+    \item \textbf{Quantum gates} gave us the operations: X, Y, Z, H, CNOT, etc.
+    \item \textbf{Unitary and Hermitian matrices} provided the mathematical framework
+\end{itemize}
+
+Today, we reach a crucial synthesis: \textbf{the quantum circuit model}. This is where isolated concepts become a coherent computational framework. The circuit model serves as the "programming language" of quantum computing—the standard way to describe quantum algorithms, analyze their complexity, and understand their behavior.
+
+\begin{tcolorbox}[title=Key Insight]
+A quantum circuit is more than just a collection of gates; it's a structured representation of quantum information flow through time, subject to the fundamental constraints of quantum mechanics.
+\end{tcolorbox}
+
+\subsection{Why a Circuit Model is Needed: Abstraction and Universality}
+
+Why do we need this particular abstraction? Several reasons:
+
+\begin{enumerate}
+    \item \textbf{Standardization:} Just as classical algorithms are described using flowcharts or pseudocode, quantum algorithms need a standard representation.
+    
+    \item \textbf{Universality:} The circuit model is universal for quantum computation. Any quantum computation can be expressed as a quantum circuit (with reasonable assumptions about resources).
+    
+    \item \textbf{Visualization:} Circuit diagrams provide an intuitive visual representation of complex quantum operations.
+    
+    \item \textbf{Analysis:} Circuits allow us to analyze computational resources: qubit count (width), time steps (depth), and gate count.
+    
+    \item \textbf{Implementation Planning:} Real quantum computers are programmed using circuit descriptions.
+\end{enumerate}
+
+The quantum circuit model is to quantum computing what Boolean circuits are to classical computing: a fundamental model of computation that abstracts away physical details while preserving computational essence.
+
+\subsection{Scope, Assumptions, and Learning Outcomes}
+
+\subsubsection{Scope of This Lecture}
+We will focus on:
+\begin{itemize}
+    \item The \textbf{syntax and semantics} of quantum circuit diagrams
+    \item How to \textbf{read, interpret, and construct} simple quantum circuits
+    \item \textbf{Fundamental differences} from classical Boolean circuits
+    \item \textbf{Practical conventions} used in quantum computing literature
+\end{itemize}
+
+We will \textbf{not} cover:
+\begin{itemize}
+    \item Specific quantum algorithms in detail (these come later)
+    \item Physical implementations of circuits
+    \item Error correction and fault tolerance
+\end{itemize}
+
+\subsubsection{Key Assumptions}
+\begin{enumerate}
+    \item We work with \textbf{idealized} qubits and gates (no decoherence, perfect operations)
+    \item All gates are \textbf{unitary} (except measurement, which is special)
+    \item We have access to a \textbf{universal gate set} (we'll define this more precisely in future lectures)
+\end{enumerate}
+
+\subsubsection{Learning Outcomes}
+By the end of this lecture, you should be able to:
+\begin{enumerate}
+    \item Read and interpret quantum circuit diagrams
+    \item Construct simple quantum circuits for basic tasks
+    \item Analyze the state evolution through a circuit
+    \item Understand and explain the fundamental differences between quantum and classical circuits
+    \item Apply standard conventions when drawing quantum circuits
+\end{enumerate}
+
+\newpage
+
+\section{Classical Circuits as a Computational Model}
+
+\subsection{Circuit-Based Computation: An Overview}
+
+Before diving into quantum circuits, let's establish our classical baseline. Classical Boolean circuits are a standard model of computation where:
+
+\begin{definition}[Classical Boolean Circuit]
+A classical Boolean circuit is a directed acyclic graph where:
+\begin{itemize}
+    \item \textbf{Nodes} are logic gates (AND, OR, NOT, etc.)
+    \item \textbf{Edges} (wires) carry bits (0 or 1)
+    \item Computation flows from inputs (left) to outputs (right)
+    \item Each gate computes a Boolean function (typically $\{0,1\}^k \rightarrow \{0,1\}$)
+\end{itemize}
+\end{definition}
+
+\textbf{Representation:}
+\[
+\begin{array}{c}
+x \longrightarrow \boxed{\text{Circuit}} \longrightarrow f_1(x,y,z) \\
+y \longrightarrow \boxed{\phantom{Circuit}} \longrightarrow f_2(x,y,z) \\
+z \longrightarrow \boxed{\phantom{Circuit}} \longrightarrow f_3(x,y,z)
+\end{array}
+\]
+
+\textbf{Key Properties:}
+\begin{itemize}
+    \item \textbf{Deterministic:} Same input always produces same output
+    \item \textbf{Compositional:} Complex circuits built from simple gates
+    \item \textbf{Finite:} Fixed number of gates and wires
+\end{itemize}
+
+\subsection{Irreversibility and Information Loss}
+
+Most classical gates are \textbf{irreversible}: you cannot determine the inputs from the outputs.
+
+\begin{example}[AND Gate Irreversibility]
+Consider an AND gate: $f(x,y) = x \land y$
+\begin{itemize}
+    \item Output 0: Could be $(0,0)$, $(0,1)$, or $(1,0)$
+    \item Output 1: Must be $(1,1)$
+\end{itemize}
+Given output 0, we cannot uniquely determine the inputs. Information is lost.
+\end{example}
+
+\begin{tcolorbox}[title=Information-Theoretic Perspective]
+Irreversible gates dissipate energy (Landauer's principle) and lose information. For an $n$-input, $m$-output gate with $n > m$, the mapping $\{0,1\}^n \rightarrow \{0,1\}^m$ is many-to-one, so information about the input is irrevocably lost.
+\end{tcolorbox}
+
+\subsection{Reversible Classical Circuits}
+
+Interestingly, not all classical computation needs to be irreversible. \textbf{Reversible classical circuits} use only reversible gates.
+
+\subsubsection{Classical Controlled-NOT and Toffoli Gates}
+
+\begin{definition}[Classical CNOT Gate]
+The classical Controlled-NOT (CNOT) gate has 2 inputs $(c, t)$ and 2 outputs $(c, t \oplus c)$:
+\begin{itemize}
+    \item If control $c = 0$: target $t$ passes through unchanged
+    \item If control $c = 1$: target $t$ is flipped (NOT applied)
+\end{itemize}
+\end{definition}
+
+\begin{center}
+\begin{tabular}{cc|cc}
+\toprule
+$c$ (control) & $t$ (target) & $c'$ & $t'$ \\
+\midrule
+0 & 0 & 0 & 0 \\
+0 & 1 & 0 & 1 \\
+1 & 0 & 1 & 1 \\
+1 & 1 & 1 & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{definition}[Toffoli Gate (CCNOT)]
+The Toffoli gate has 3 inputs $(c_1, c_2, t)$ and outputs $(c_1, c_2, t \oplus (c_1 \land c_2))$. It flips the target only if both controls are 1.
+\end{definition}
+
+\begin{tcolorbox}[title=Key Fact]
+The Toffoli gate is \textbf{universal} for reversible classical computation: any reversible Boolean function can be implemented using only Toffoli gates.
+\end{tcolorbox}
+
+\subsubsection{Fan-out and Information Copying}
+
+A crucial feature of classical circuits is \textbf{fan-out}: the ability to copy a bit onto multiple wires.
+
+\[
+\begin{array}{c}
+x \longrightarrow \boxed{\text{COPY}} \longrightarrow x \\
+0 \longrightarrow \boxed{\phantom{COPY}} \longrightarrow x
+\end{array}
+\]
+
+This classical CNOT with target initialized to 0 performs copying: $(x, 0) \rightarrow (x, x)$. This is fundamental to classical computation and taken for granted.
+
+\subsection{Limitations of the Classical Circuit Paradigm}
+
+\subsubsection{Circuit Universality (Brief Mention)}
+
+In classical computing, we have the concept of \textbf{universal gate sets}: collections of gates that can compute any Boolean function. For example:
+\begin{itemize}
+    \item $\{\text{NAND}\}$ is universal for classical computation
+    \item $\{\text{Toffoli}\}$ is universal for reversible classical computation
+\end{itemize}
+
+We'll see that quantum computing has its own universality concepts, but they're more constrained due to unitarity.
+
+\begin{tcolorbox}[title=Transition to Quantum]
+Classical circuits give us a familiar foundation, but quantum circuits operate under fundamentally different rules. The constraints are stricter (unitarity), but the capabilities are vastly expanded (superposition, entanglement).
+\end{tcolorbox}
+
+\newpage
+
+\section{The Quantum Circuit Model}
+
+\subsection{Quantum Circuits as Structured Unitary Evolution}
+
+\begin{definition}[Quantum Circuit]
+A quantum circuit is a sequence of quantum gates and measurements applied to a collection of qubits, represented as a diagram where:
+\begin{itemize}
+    \item \textbf{Horizontal lines} (wires) represent qubits over time
+    \item \textbf{Boxes} represent quantum gates (unitary operations)
+    \item \textbf{Time flows left to right}
+    \item Quantum gates (excluding measurements) implement unitary transformations: $U = U_k \cdots U_2 U_1$
+\end{itemize}
+\end{definition}
+
+\textbf{Example Circuit Representation:}
+\[
+\begin{array}{c}
+|\psi_0\rangle \longrightarrow \boxed{U_1} \longrightarrow \boxed{U_2} \longrightarrow \boxed{U_3} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{Bit} \\
+|0\rangle \longrightarrow \boxed{V_1} \longrightarrow \boxed{V_2} \longrightarrow \phantom{\boxed{U_3}} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{Bit} \\
+|0\rangle \longrightarrow \phantom{\boxed{U_1}} \longrightarrow \phantom{\boxed{V_2}} \longrightarrow \boxed{W_1} \longrightarrow \boxed{W_2} \longrightarrow |\phi\rangle
+\end{array}
+\]
+
+This circuit shows:
+\begin{itemize}
+    \item Three qubits with different initial states
+    \item Single-qubit gates ($U_1, U_2, V_1, W_1, W_2$)
+    \item Two-qubit gates ($U_3, V_2$)
+    \item Measurements on the first two qubits (producing classical bits)
+    \item One qubit remaining in quantum state at the end
+\end{itemize}
+
+\subsection{Why Must Quantum Gates Be Unitary?}
+
+This is a fundamental question with answers at multiple levels:
+
+\subsubsection{Physical Reason: Closed System Evolution}
+
+Quantum mechanics tells us that the evolution of a \textbf{closed quantum system} is described by the Schrödinger equation:
+\[
+i\hbar \frac{d}{dt}\ket{\psi(t)} = H(t)\ket{\psi(t)}
+\]
+where $H(t)$ is the Hamiltonian (Hermitian operator). The solution is:
+\[
+\ket{\psi(t)} = U(t)\ket{\psi(0)}
+\]
+where $U(t)$ is a \textbf{unitary operator}: $U^\dagger U = U U^\dagger = I$.
+
+\begin{tcolorbox}[title=Physical Interpretation]
+Unitary evolution preserves the total probability (norm = 1) because closed quantum systems don't lose or gain probability—they just redistribute it. Unitary evolution describes isolated systems or subsystems treated as closed.
+\end{tcolorbox}
+
+\subsubsection{Mathematical Reason: Preservation of Norm and Inner Products}
+
+Unitarity ensures two crucial mathematical properties:
+
+\begin{enumerate}
+    \item \textbf{Norm preservation:} $\|U\ket{\psi}\| = \|\ket{\psi}\|$
+    \begin{itemize}
+        \item This means probabilities sum to 1: $\sum_i |\alpha_i|^2 = 1$
+        \item Essential for probability interpretation of quantum mechanics
+    \end{itemize}
+    
+    \item \textbf{Inner product preservation:} $\langle U\phi | U\psi \rangle = \langle \phi | \psi \rangle$
+    \begin{itemize}
+        \item Relative phases and overlaps between states are preserved
+        \item This enables quantum interference, a key computational resource
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Computational Reason: Reversibility and Information Preservation}
+
+Unitarity implies \textbf{reversibility}: for every unitary gate $U$, there exists an inverse gate $U^\dagger$ such that:
+\[
+U^\dagger U = U U^\dagger = I
+\]
+This means (up to measurement) quantum computations are reversible—you can theoretically "run the circuit backward."
+
+\begin{tcolorbox}[title=Computational Implication]
+Unlike classical gates that can erase information (like AND), quantum gates must preserve all information about the input state (except what's deliberately discarded through measurement). This is both a constraint and a feature.
+\end{tcolorbox}
+
+\begin{example}[Non-unitary Operations Are Not Allowed]
+Consider an operation that "resets" a qubit to $\ket{0}$:
+\[
+E: \alpha\ket{0} + \beta\ket{1} \rightarrow \ket{0}
+\]
+This is \textbf{not unitary} because:
+\begin{itemize}
+    \item Different inputs ($\ket{0}$ and $\ket{1}$) map to the same output
+    \item The operation is not invertible (cannot recover $\alpha, \beta$ from $\ket{0}$)
+    \item Norm is not preserved unless $|\alpha|^2 = 1$
+\end{itemize}
+Such operations require interaction with an environment (open system) or measurement.
+\end{example}
+
+\subsection{Circuit Diagrams: Syntax and Meaning}
+
+Let's formalize the syntax of quantum circuit diagrams.
+
+\subsubsection{Quantum Wires and Time Flow}
+
+\[
+|\psi\rangle \longrightarrow \text{(time flow)} \longrightarrow |\psi'\rangle
+\]
+
+\begin{itemize}
+    \item Each horizontal line represents \textbf{one qubit}
+    \item The line traces the qubit's existence from preparation to measurement/discard
+    \item \textbf{Time increases from left to right}
+    \item Wires are not physical wires but worldlines of quantum systems
+\end{itemize}
+
+\subsubsection{Gate Notation and Placement}
+
+\[
+\begin{array}{c}
+|q_0\rangle \longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \boxed{R_z(\theta)} \longrightarrow \\
+|q_1\rangle \longrightarrow \phantom{\boxed{H}} \longrightarrow \oplus \longrightarrow \phantom{\boxed{R_z(\theta)}} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{Bit}
+\end{array}
+\]
+
+Gate placement rules:
+\begin{enumerate}
+    \item \textbf{Single-qubit gates} sit on a single wire
+    \item \textbf{Multi-qubit gates} span multiple wires
+    \item Gates on the same wire are applied sequentially
+    \item Gates on different wires at the same horizontal position are applied in parallel
+\end{enumerate}
+
+\begin{center}
+\textbf{Circuit Diagram Legend:} \\
+\vspace{2mm}
+$\bullet$ = Control qubit \quad $\oplus$ = Target qubit \\
+Box spanning multiple wires = Multi-qubit gate \\
+$\bigcirc\!\!\!\!\!M$ = Measurement in computational basis
+\end{center}
+
+\subsubsection{Measurement Symbols and Classical Outputs}
+
+\[
+|\psi\rangle \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{(classical bit)}
+\]
+
+\begin{itemize}
+    \item The meter symbol $\bigcirc\!\!\!\!\!M$ represents measurement in computational basis
+    \item Measurement produces a classical bit (0 or 1)
+    \item Double lines represent classical bits/wires
+    \item Measurement is \textbf{not unitary}—it's probabilistic and irreversible
+\end{itemize}
+
+\subsection{Time Ordering and Information Flow}
+
+Quantum circuits have precise time ordering:
+
+\begin{principle}[Time Ordering in Quantum Circuits]
+Operations are applied in the order: left → right, with all gates at the same horizontal position applied simultaneously (in parallel).
+\end{principle}
+
+Mathematically, if gates $U_1, U_2, \ldots, U_n$ are applied sequentially, the overall unitary is:
+\[
+U = U_n \cdots U_2 U_1
+\]
+Note the reverse order: the rightmost gate in the formula is the leftmost in the circuit!
+
+\begin{example}[Time Ordering Example]
+\[
+|\psi\rangle \longrightarrow \boxed{A} \longrightarrow \boxed{B} \longrightarrow \boxed{C} \longrightarrow CBA|\psi\rangle
+\]
+The circuit applies $A$, then $B$, then $C$, so the final state is $C B A \ket{\psi}$.
+\end{example}
+
+\begin{tcolorbox}[title=Parallel Operations]
+When gates are on different qubits at the same horizontal position, they represent tensor products:
+\[
+\begin{array}{c}
+\longrightarrow \boxed{U} \longrightarrow \\
+\longrightarrow \boxed{V} \longrightarrow
+\end{array}
+\quad \text{represents} \quad U \otimes V
+\]
+\end{tcolorbox}
+
+\subsection{Measurement as the Computational Interface}
+
+Measurement plays a special role: it's the interface between quantum and classical information.
+
+\begin{itemize}
+    \item \textbf{Before measurement:} Pure quantum evolution (unitary)
+    \item \textbf{During measurement:} Probabilistic collapse (or state update) to computational basis
+    \item \textbf{After measurement:} The quantum state is projected and treated as classical information that we can read, copy, and process classically
+\end{itemize}
+
+\begin{tcolorbox}[title=Measurement Convention]
+Unless otherwise stated, all measurements are assumed to be in the \textbf{computational basis} $\{\ket{0}, \ket{1}\}$.
+\end{tcolorbox}
+
+\newpage
+
+\section{Interpreting Quantum Circuits}
+
+\subsection{State Evolution Through a Circuit}
+
+\subsubsection{Algebraic Interpretation}
+
+To interpret a circuit algebraically:
+\begin{enumerate}
+    \item Start with initial state: $\ket{\psi_0} = \ket{\psi_1} \otimes \ket{\psi_2} \otimes \cdots \otimes \ket{\psi_n}$
+    \item Apply gates sequentially from left to right
+    \item For parallel gates, take tensor products
+    \item For gates spanning multiple qubits, apply the appropriate multi-qubit unitary
+\end{enumerate}
+
+\begin{example}[Algebraic Interpretation]
+Consider:
+\[
+\begin{array}{c}
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \\
+|0\rangle \longrightarrow \phantom{\boxed{H}} \longrightarrow \oplus \longrightarrow
+\end{array}
+\]
+
+Step-by-step:
+\begin{align*}
+\text{Initial:} & \quad \ket{00} \\
+\text{After H:} & \quad H \otimes I \ket{00} = \frac{1}{\sqrt{2}}(\ket{0} + \ket{1}) \otimes \ket{0} = \frac{1}{\sqrt{2}}(\ket{00} + \ket{10}) \\
+\text{After CNOT:} & \quad \text{CNOT} \left[\frac{1}{\sqrt{2}}(\ket{00} + \ket{10})\right] = \frac{1}{\sqrt{2}}(\text{CNOT}\ket{00} + \text{CNOT}\ket{10}) \\
+& = \frac{1}{\sqrt{2}}(\ket{00} + \ket{11})
+\end{align*}
+\end{example}
+
+\subsubsection{Diagrammatic Interpretation}
+
+Circuit diagrams also allow "intuitive" reading without full algebra:
+
+\[
+\begin{array}{c}
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow m_1 \\
+|0\rangle \longrightarrow \phantom{\boxed{H}} \longrightarrow \oplus \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow m_2
+\end{array}
+\]
+
+We can read this as:
+\begin{itemize}
+    \item "Put first qubit in superposition"
+    \item "Entangle the two qubits"
+    \item "Measure both qubits"
+    \item "The measurements will be correlated"
+\end{itemize}
+
+\subsection{Implicit Tensor Products and Identity Operations}
+
+An important convention: when a gate is applied to some qubits, the identity operation $I$ is implicitly applied to all other qubits.
+
+\begin{example}[Implicit Identities]
+\[
+\begin{array}{c}
+|\psi_1\rangle \longrightarrow \boxed{U} \longrightarrow \\
+|\psi_2\rangle \longrightarrow \phantom{\boxed{U}} \longrightarrow \\
+|\psi_3\rangle \longrightarrow \phantom{\boxed{U}} \longrightarrow
+\end{array}
+\quad = \quad U \otimes I \otimes I
+\]
+The $U$ gate acts only on the first qubit; qubits 2 and 3 experience identity operations.
+\end{example}
+
+\subsection{Parallelism and Circuit Layers}
+
+We can organize circuits into \textbf{layers}—sets of gates that can be applied in parallel.
+
+\begin{definition}[Circuit Layer]
+A layer is a set of gates at the same horizontal position in a circuit diagram. All gates in a layer:
+\begin{itemize}
+    \item Are applied simultaneously
+    \item Act on disjoint sets of qubits
+    \item Can be implemented in parallel in ideal hardware
+\end{itemize}
+\end{definition}
+
+\[
+\begin{array}{c}
+\longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \boxed{X} \longrightarrow \bullet \longrightarrow \\
+\longrightarrow \boxed{H} \longrightarrow \oplus \longrightarrow \boxed{Y} \longrightarrow \oplus \longrightarrow \\
+\longrightarrow \boxed{Z} \longrightarrow \phantom{\oplus} \longrightarrow \bullet \longrightarrow \boxed{H} \longrightarrow
+\end{array}
+\]
+
+This circuit has 5 layers. Layer 2 (CNOT) and Layer 4 (CNOT) are two-qubit gates; other layers have single-qubit gates that can be parallelized.
+
+\subsection{Measurement Outcomes and Classical Data}
+
+When we measure, we get classical data that can:
+
+\begin{enumerate}
+    \item Be read out as the computation result
+    \item Control subsequent classical processing
+    \item Sometimes control subsequent quantum operations (classically controlled gates)
+\end{enumerate}
+
+\[
+\begin{array}{c}
+|\psi\rangle \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{(controls)} \\
+|0\rangle \longrightarrow \phantom{\bigcirc\!\!\!\!\!M} \longrightarrow \boxed{X_{\text{conditional}}}
+\end{array}
+\]
+
+Here, the measurement outcome controls whether an X gate is applied to another qubit. This is a \textbf{classically controlled quantum gate}.
+
+\begin{tcolorbox}[title=Important Distinction]
+\textbf{Quantum control} (like CNOT): Control is quantum superposition \\
+\textbf{Classical control} (like shown above): Control is a definite classical bit
+\end{tcolorbox}
+
+\newpage
+
+\section{Representative Circuit Constructions}
+
+\subsection{Example 1: Entangling Circuit Patterns}
+
+\subsubsection{Two-Qubit Entanglement Generation}
+
+The canonical two-qubit entangling operation uses Hadamard followed by CNOT:
+
+\[
+\begin{array}{c}
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \\
+|0\rangle \longrightarrow \phantom{\boxed{H}} \longrightarrow \oplus \longrightarrow
+\end{array}
+\]
+
+Let's trace the evolution:
+\begin{align*}
+\ket{00} &\xrightarrow{H \otimes I} \frac{1}{\sqrt{2}}(\ket{0} + \ket{1}) \otimes \ket{0} = \frac{1}{\sqrt{2}}(\ket{00} + \ket{10}) \\
+&\xrightarrow{\text{CNOT}} \frac{1}{\sqrt{2}}(\ket{00} + \ket{11})
+\end{align*}
+
+This creates a \textbf{maximally entangled state}: measuring one qubit immediately determines the other, regardless of distance (in principle).
+
+\subsubsection{Multi-Qubit Correlation Circuits}
+
+We can extend this pattern to create complex correlations:
+
+\[
+\begin{array}{c}
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \phantom{\bullet} \longrightarrow \bullet \longrightarrow \\
+|0\rangle \longrightarrow \phantom{\boxed{H}} \longrightarrow \oplus \longrightarrow \bullet \longrightarrow \phantom{\oplus} \longrightarrow \\
+|0\rangle \longrightarrow \phantom{\boxed{H}} \longrightarrow \phantom{\oplus} \longrightarrow \oplus \longrightarrow \oplus \longrightarrow
+\end{array}
+\]
+
+This circuit creates a three-qubit correlated state. Notice the pattern:
+\begin{itemize}
+    \item Start with all qubits in $\ket{0}$
+    \item Apply H to first qubit to create superposition
+    \item Use CNOTs to "spread" the superposition, creating correlations
+    \item The specific pattern of CNOTs determines the correlation structure
+\end{itemize}
+
+\subsection{Example 2: State Permutation Circuits}
+
+\subsubsection{Quantum SWAP Circuit}
+
+\textbf{Notation:} $\text{CNOT}_{ij}$ denotes control on qubit $i$, target on qubit $j$.
+
+A fundamental operation is swapping the states of two qubits. The quantum SWAP can be implemented with three CNOTs:
+
+\[
+\begin{array}{c}
+|\psi\rangle \longrightarrow \bullet \longrightarrow \oplus \longrightarrow \bullet \longrightarrow |\phi\rangle \\
+|\phi\rangle \longrightarrow \oplus \longrightarrow \bullet \longrightarrow \oplus \longrightarrow |\psi\rangle
+\end{array}
+\]
+
+Let's verify this works for computational basis states:
+\begin{itemize}
+    \item Input $\ket{00}$: All CNOTs do nothing → output $\ket{00}$
+    \item Input $\ket{01}$: 
+    \begin{align*}
+    \ket{01} &\xrightarrow{\text{CNOT}_{12}} \ket{01} \quad (\text{control}=0, \text{target unchanged}) \\
+    &\xrightarrow{\text{CNOT}_{21}} \ket{11} \\
+    &\xrightarrow{\text{CNOT}_{12}} \ket{10}
+    \end{align*}
+    Swapped!
+    \item Similarly for $\ket{10}$ and $\ket{11}$
+\end{itemize}
+
+By linearity, it works for any superposition state.
+
+\subsubsection{Controlled Swap and Exchange Operations}
+
+We can also make controlled versions of swaps:
+
+\[
+\begin{array}{c}
+|c\rangle \longrightarrow \bullet \longrightarrow \bullet \longrightarrow \bullet \longrightarrow |c\rangle \\
+|\psi\rangle \longrightarrow \oplus \longrightarrow \bullet \longrightarrow \oplus \longrightarrow |\psi\rangle \text{ or } |\phi\rangle \\
+|\phi\rangle \longrightarrow \phantom{\oplus} \longrightarrow \oplus \longrightarrow \phantom{\oplus} \longrightarrow |\phi\rangle \text{ or } |\psi\rangle
+\end{array}
+\]
+
+This is a \textbf{controlled-SWAP} (Fredkin gate): swaps the bottom two qubits only if the top (control) qubit is $\ket{1}$.
+
+\subsection{Example 3: Multi-Stage Processing Networks}
+
+\subsubsection{Sequential Gate Applications}
+
+Circuits often involve sequences of different operations:
+
+\[
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \boxed{S} \longrightarrow \boxed{T} \longrightarrow \boxed{H} \longrightarrow \boxed{X} \longrightarrow \boxed{Z} \longrightarrow
+\]
+
+This shows a single qubit undergoing multiple rotations and flips. The overall operation is:
+\[
+Z \cdot X \cdot H \cdot T \cdot S \cdot H
+\]
+(remember: right-to-left in formula = left-to-right in circuit)
+
+\subsubsection{Parallel Gate Operations}
+
+Modern quantum algorithms exploit parallelism:
+
+\[
+\begin{array}{c}
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \boxed{\text{U (4-qubit)}} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow m_1 \\
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \phantom{\boxed{\text{U (4-qubit)}}} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow m_2 \\
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \phantom{\boxed{\text{U (4-qubit)}}} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow m_3 \\
+|0\rangle \longrightarrow \boxed{H} \longrightarrow \phantom{\boxed{\text{U (4-qubit)}}} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow m_4
+\end{array}
+\]
+
+Here:
+\begin{itemize}
+    \item All four qubits are put in superposition in parallel (Layer 1)
+    \item A large 4-qubit unitary $U$ is applied (Layer 2)
+    \item All qubits are measured in parallel (Layer 3)
+\end{itemize}
+
+This pattern appears in many quantum algorithms: parallel preparation → joint processing → parallel measurement.
+
+\newpage
+
+\section{Quantum vs. Classical Circuits: A Conceptual Comparison}
+
+\subsection{Correlation, Interference, and Information Encoding}
+
+\subsubsection{Superposition vs. Definite States}
+
+\begin{center}
+\begin{tabular}{p{0.45\textwidth}p{0.45\textwidth}}
+\toprule
+\textbf{Classical Wires} & \textbf{Quantum Wires} \\
+\midrule
+Carry definite values: 0 or 1 & Carry superpositions: $\alpha\ket{0} + \beta\ket{1}$ \\
+State is always a basis state & State can be any unit vector in Hilbert space \\
+No phase information & Phase ($\arg(\alpha/\beta)$) matters critically \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The superposition principle means a single quantum wire encodes a continuum of states, while a classical wire encodes just 1 bit.
+
+\subsubsection{Entanglement vs. Classical Correlation}
+
+\begin{center}
+\begin{tabular}{p{0.45\textwidth}p{0.45\textwidth}}
+\toprule
+\textbf{Classical Correlation} & \textbf{Quantum Entanglement} \\
+\midrule
+Described by joint probability distributions & Described by non-separable state vectors \\
+Can always be explained by shared randomness & Exhibits non-local correlations (Bell inequalities) \\
+Correlations obey classical bounds & Can violate classical correlation bounds \\
+All states are separable: $p(x,y)$ & Can be non-separable: $\ket{\psi} \neq \ket{\psi_1} \otimes \ket{\psi_2}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Entanglement enables quantum circuits to process information in ways impossible classically, like in quantum teleportation and superdense coding.
+
+\subsection{Reversibility as a Fundamental Constraint}
+
+\subsubsection{Unitarity and Information Preservation}
+
+\begin{center}
+\begin{tabular}{p{0.45\textwidth}p{0.45\textwidth}}
+\toprule
+\textbf{Classical Gates} & \textbf{Quantum Gates} \\
+\midrule
+Most are irreversible (AND, OR, NAND) & All (except measurement) are unitary (reversible) \\
+Information can be erased & Information preserved (up to measurement) \\
+Many-to-one mappings allowed & Must be one-to-one (bijective) \\
+Thermodynamically dissipative & Logically reversible (no fundamental Landauer cost) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The reversibility of quantum gates means quantum circuits (before measurement) are invertible. Given the output quantum state, you could apply the inverse circuit to recover the input.
+
+\begin{tcolorbox}[title=Computational Consequence]
+Classical computers need "garbage collection" to manage information erasure. Quantum computers, in principle, don't—but they need to manage reversibility, which introduces its own complexities (like needing ancilla qubits).
+\end{tcolorbox}
+
+\subsection{Determinism vs. Probabilistic Outcomes}
+
+\subsubsection{Measurement Disturbance}
+
+\begin{center}
+\begin{tabular}{p{0.45\textwidth}p{0.45\textwidth}}
+\toprule
+\textbf{Classical Measurement} & \textbf{Quantum Measurement} \\
+\midrule
+Non-invasive: reading a bit doesn't change it & Disturbing: measurement collapses (updates) the state \\
+Deterministic: same value every time & Probabilistic: outcomes follow Born rule \\
+Can copy before/after measurement & Cannot copy arbitrary states (No-Cloning) \\
+Can measure partially (some bits) & Measurement updates the global state of an entangled system \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Most quantum algorithms need to be run multiple times to gather statistics (though some deterministic algorithms exist).
+
+\subsection{Restrictions Unique to Quantum Circuits}
+
+\subsubsection{No-Cloning Theorem (Statement and Implications)}
+
+\begin{principle}[No-Cloning Theorem]
+There is no unitary operation $U$ and fixed state $\ket{s}$ such that for all $\ket{\psi}$:
+\[
+U(\ket{\psi} \otimes \ket{s}) = \ket{\psi} \otimes \ket{\psi}
+\]
+\end{principle}
+
+Implications for circuit design:
+\begin{itemize}
+    \item \textbf{No fan-out:} Cannot copy a quantum state onto multiple wires
+    \item \textbf{No backup:} Cannot make copies for error checking (need quantum error correction instead)
+    \item \textbf{Measurement limitation:} Cannot measure without disturbing
+    \item \textbf{Algorithm design:} Quantum algorithms must work without copying intermediate states
+\end{itemize}
+
+\subsubsection{No-Deleting and No-Broadcasting}
+
+Related restrictions:
+\begin{itemize}
+    \item \textbf{No-Deleting:} Cannot take two copies and delete one to get back one
+    \item \textbf{No-Broadcasting:} Cannot copy correlations (weaker than no-cloning but still restrictive)
+\end{itemize}
+
+\begin{tcolorbox}[title=Fundamental Quantum Constraints]
+Both cloning and deleting quantum information are impossible \textbf{unitarily}. 
+Classical circuits: Can copy but cannot delete reversibly \\
+Quantum circuits: Cannot copy or delete information unitarily; irreversible operations require measurement or environment.
+\end{tcolorbox}
+
+\newpage
+
+\section{Complexity-Oriented Circuit Properties}
+
+\subsection{Circuit Width and Auxiliary Resources}
+
+\subsubsection{Qubit Count and Ancilla Qubits}
+
+\begin{definition}[Circuit Width]
+The number of qubits required to implement a circuit. This includes:
+\begin{itemize}
+    \item \textbf{Input qubits:} Carrying the problem input
+    \item \textbf{Output qubits:} Holding the final answer (often same as input)
+    \item \textbf{Ancilla qubits:} Auxiliary qubits needed for computation
+\end{itemize}
+\end{definition}
+
+Ancilla qubits are often initialized to $\ket{0}$ and returned to $\ket{0}$ at the end (to avoid leaving garbage that would prevent reversibility).
+
+\[
+\begin{array}{c}
+|x\rangle \longrightarrow \boxed{U} \longrightarrow |f(x)\rangle \\
+|0\rangle \longrightarrow \phantom{\boxed{U}} \longrightarrow |0\rangle \\
+|0\rangle \longrightarrow \phantom{\boxed{U}} \longrightarrow |0\rangle
+\end{array}
+\]
+
+Here, two ancilla qubits are used during computation but returned to $\ket{0}$.
+
+\subsubsection{Circuit Depth and Time Complexity}
+
+\begin{definition}[Circuit Depth]
+The number of layers in a circuit—the length of the critical path. This represents the minimum number of time steps needed (with perfect parallelism).
+\end{definition}
+
+\[
+\begin{array}{c}
+\longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \boxed{X} \longrightarrow \bullet \longrightarrow \\
+\longrightarrow \boxed{H} \longrightarrow \oplus \longrightarrow \boxed{Y} \longrightarrow \oplus \longrightarrow \\
+\longrightarrow \boxed{Z} \longrightarrow \phantom{\oplus} \longrightarrow \bullet \longrightarrow \boxed{H} \longrightarrow
+\end{array}
+\]
+
+Depth analysis:
+\begin{itemize}
+    \item Layer 1: H, H, Z (all in parallel) → 1 time step
+    \item Layer 2: CNOT (between qubits 1-2) → 1 time step
+    \item Layer 3: X, Y, CNOT-control (q3 controls q2) → 1 time step
+    \item Layer 4: CNOT (between qubits 1-2) → 1 time step
+    \item Layer 5: H → 1 time step
+\end{itemize}
+Total depth = 5 time steps.
+
+\subsection{Resource Counting: Gates and Qubits}
+
+When analyzing quantum algorithms, we count:
+\begin{enumerate}
+    \item \textbf{Qubits:} Width of the circuit
+    \item \textbf{Gate count:} Total number of gates
+    \item \textbf{Depth:} Parallel time steps
+    \item \textbf{Specific gates:} Especially expensive gates (like T gates in fault-tolerant computing)
+\end{enumerate}
+
+\begin{example}[Resource Counting]
+A circuit with:
+\begin{itemize}
+    \item 10 qubits (width)
+    \item 50 single-qubit gates + 20 two-qubit gates (gate count)
+    \item Depth 15 (time steps)
+\end{itemize}
+Might be considered efficient or inefficient depending on the problem solved.
+\end{example}
+
+\subsection{Idealized Circuits vs. Physical Implementations}
+
+\begin{center}
+\begin{tabular}{p{0.45\textwidth}p{0.45\textwidth}}
+\toprule
+\textbf{Idealized Circuit Model} & \textbf{Physical Reality} \\
+\midrule
+Perfect qubits (no decoherence) & Qubits decohere over time \\
+Perfect gates (exact unitaries) & Gates have finite error rates \\
+Arbitrary connectivity & Limited qubit connectivity (nearest neighbor) \\
+Unlimited parallelism & Limited parallel gate execution \\
+Instantaneous gates & Gates take finite time \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+In practice, circuit design must consider:
+\begin{itemize}
+    \item \textbf{Decoherence time:} Circuit depth must fit within coherence time
+    \item \textbf{Gate fidelity:} Number of gates limited by error accumulation
+    \item \textbf{Connectivity:} Need SWAP networks to move information
+    \item \textbf{Gate set:} Actual hardware has native gates; others must be compiled
+\end{itemize}
+
+\newpage
+
+\section{Conventions, Abstractions, and Practical Remarks}
+
+\subsection{Register Structure and Qubit Ordering}
+
+\subsubsection{Most Significant vs. Least Significant Convention}
+
+There are two common conventions for multi-qubit states:
+
+\begin{enumerate}
+    \item \textbf{Most significant qubit first (top wire):}
+    \[
+    \ket{q_0 q_1 \cdots q_{n-1}} \quad \text{where } q_0 \text{ is most significant}
+    \]
+    Used in many textbooks and Qiskit.
+    
+    \item \textbf{Least significant qubit first (top wire):}
+    \[
+    \ket{q_{n-1} \cdots q_1 q_0} \quad \text{where } q_0 \text{ is least significant}
+    \]
+    Used in some quantum algorithm papers.
+\end{enumerate}
+
+\begin{tcolorbox}[title=Important!]
+Always check which convention is being used! Inconsistency causes errors in interpreting measurement outcomes and binary representations.
+\end{tcolorbox}
+
+\subsection{Classical Control and Hybrid Circuits}
+
+\subsubsection{Conditional Quantum Operations}
+
+Circuits can mix quantum and classical control:
+
+\[
+\begin{array}{c}
+|\psi\rangle \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{(controls V)} \\
+|\phi\rangle \longrightarrow \boxed{U} \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{(controls W)} \\
+|0\rangle \longrightarrow \phantom{\boxed{U}} \longrightarrow \boxed{V_{\text{conditional}}} \longrightarrow \boxed{W_{\text{conditional}}}
+\end{array}
+\]
+
+Here:
+\begin{itemize}
+    \item Measurement on first qubit controls $V$ gate
+    \item Measurement on second qubit controls $W$ gate
+    \item Classical control allows adaptive circuits (measurement-based quantum computing)
+\end{itemize}
+
+\subsection{Circuit Diagrams as a Programming Abstraction}
+
+Quantum circuit diagrams are the "assembly language" of quantum computing:
+
+\begin{itemize}
+    \item \textbf{Hardware-independent:} Same circuit can (in principle) run on different quantum hardware
+    \item \textbf{Compilation needed:} High-level algorithms compile to circuits
+    \item \textbf{Optimization:} Circuits can be optimized (gate merging, cancellation)
+    \item \textbf{Verification:} Can formally verify circuit correctness
+\end{itemize}
+
+\begin{tcolorbox}[title=The Circuit Model's Role]
+The quantum circuit model sits between:
+\begin{itemize}
+    \item \textbf{Above:} Quantum algorithms (abstract descriptions)
+    \item \textbf{Below:} Physical implementations (hardware constraints)
+\end{itemize}
+It's the level where we can reason about computational complexity without hardware details.
+\end{tcolorbox}
+
+\newpage
+
+\section{Summary and Outlook}
+
+\subsection{Key Conceptual Takeaways}
+
+\begin{enumerate}
+    \item \textbf{Quantum circuits} are the standard model for describing quantum computations, analogous to Boolean circuits for classical computation.
+    
+    \item \textbf{Syntax:} Wires = qubits, boxes = gates, left-to-right = time, measurement produces classical bits.
+    
+    \item \textbf{Semantics:} Quantum gates (excluding measurements) implement unitary evolution, applied sequentially and in parallel.
+    
+    \item \textbf{Fundamental differences from classical:}
+    \begin{itemize}
+        \item Superposition on wires (not just 0/1)
+        \item Entanglement between wires (non-classical correlations)
+        \item Unitarity (reversibility, no information erasure)
+        \item No-Cloning Theorem (cannot copy quantum states)
+        \item Probabilistic measurement (Born rule)
+    \end{itemize}
+    
+    \item \textbf{Complexity measures:} Width (qubits), depth (time steps), gate count.
+\end{enumerate}
+
+\subsection{The Role of Circuits in Quantum Algorithms}
+
+In upcoming lectures, we'll see how:
+\begin{itemize}
+    \item Algorithms like Deutsch-Jozsa, Grover, Shor are expressed as quantum circuits
+    \item Circuit analysis reveals algorithm complexity
+    \item Circuit optimization improves practical implementation
+    \item Error correction adds structure to circuits
+\end{itemize}
+
+\subsection{Preparation for Algorithmic Case Studies}
+
+To prepare for algorithm studies:
+\begin{enumerate}
+    \item Practice reading and interpreting circuit diagrams
+    \item Work through state evolution for small circuits
+    \item Understand how measurement extracts classical information
+    \item Recognize common circuit patterns (entanglement, interference)
+\end{enumerate}
+
+\subsection{Suggested Reading and Exercises}
+
+\subsubsection{Recommended Reading}
+\begin{itemize}
+    \item Nielsen \& Chuang: "Quantum Computation and Quantum Information" - Chapter 4
+    \item Kaye, Laflamme, Mosca: "An Introduction to Quantum Computing" - Chapter 4
+    \item Preskill's Quantum Computing Notes: Chapter 3
+\end{itemize}
+
+\subsubsection{Exercises for Practice}
+\begin{enumerate}
+    \item Draw a circuit that creates the state $\frac{1}{2}(\ket{00} + \ket{01} + \ket{10} + \ket{11})$.
+    
+    \item For the SWAP circuit (three CNOTs), verify it works for input $\ket{10}$.
+    
+    \item What is the depth of this circuit?
+    \[
+    \begin{array}{c}
+    \longrightarrow \boxed{H} \longrightarrow \bullet \longrightarrow \boxed{X} \longrightarrow \\
+    \longrightarrow \boxed{H} \longrightarrow \oplus \longrightarrow \boxed{Y} \longrightarrow
+    \end{array}
+    \]
+    
+    \item Explain why the following cannot be a valid quantum gate:
+    \[
+    G: \alpha\ket{0} + \beta\ket{1} \rightarrow \alpha\ket{0}
+    \]
+    
+    \item Design a circuit that takes $\ket{00}$ to $\frac{1}{\sqrt{2}}(\ket{01} + \ket{10})$.
+\end{enumerate}
+
+\begin{tcolorbox}[title=Final Thought]
+The quantum circuit model gives us a powerful language for quantum computation. While constrained by quantum mechanics (unitarity, no-cloning), it enables computational capabilities beyond classical circuits through superposition, entanglement, and interference. Mastery of this model is essential for understanding and designing quantum algorithms.
+\end{tcolorbox}
+
+\end{document}

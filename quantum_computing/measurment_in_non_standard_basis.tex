@@ -1,0 +1,214 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{physics}
+\usepackage{hyperref}
+
+\title{Measurement in Non-Standard Bases \\ Change of Basis and Quantum Measurements}
+\author{Quantum Computing Course}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Motivation}
+
+In previous lectures, we studied quantum measurement in the \emph{computational basis}
+\[
+\{ \ket{0}, \ket{1} \}.
+\]
+However, quantum mechanics allows measurement in \emph{any orthonormal basis}.
+In this lecture, we extend the notion of measurement to non-standard bases and show how such measurements are implemented using change of basis.
+
+Throughout this lecture, we restrict ourselves to:
+\begin{itemize}
+    \item Projective measurements
+    \item Finite-dimensional Hilbert spaces
+    \item Standard basis measurement as the physical primitive
+\end{itemize}
+
+\bigskip
+
+\section{Measurement in an Arbitrary Orthonormal Basis}
+
+Let $\{ \ket{\phi_0}, \ket{\phi_1} \}$ be an orthonormal basis of a single-qubit Hilbert space.
+
+A measurement in this basis is described by the projectors:
+\[
+P_0 = \ket{\phi_0}\bra{\phi_0}, \qquad
+P_1 = \ket{\phi_1}\bra{\phi_1}.
+\]
+
+For a quantum state $\ket{\psi}$, the probability of outcome $i$ is
+\[
+p(i) = \bra{\psi} P_i \ket{\psi} = |\braket{\phi_i | \psi}|^2,
+\]
+and the post-measurement state is
+\[
+\ket{\psi_i} = \frac{P_i \ket{\psi}}{\sqrt{p(i)}}.
+\]
+
+\bigskip
+
+\section{The $\ket{+}, \ket{-}$ Basis}
+
+The most important non-standard basis for a qubit is the \emph{Hadamard basis}:
+\[
+\ket{+} = \frac{1}{\sqrt{2}}(\ket{0} + \ket{1}), \qquad
+\ket{-} = \frac{1}{\sqrt{2}}(\ket{0} - \ket{1}).
+\]
+
+These states satisfy:
+\[
+\braket{+|+} = 1, \quad
+\braket{-|-} = 1, \quad
+\braket{+|-} = 0.
+\]
+
+\bigskip
+
+\section{Measurement in the $\ket{+}, \ket{-}$ Basis}
+
+Let
+\[
+\ket{\psi} = \alpha \ket{0} + \beta \ket{1},
+\quad |\alpha|^2 + |\beta|^2 = 1.
+\]
+
+Then:
+\[
+\braket{+|\psi} = \frac{\alpha + \beta}{\sqrt{2}}, \qquad
+\braket{-|\psi} = \frac{\alpha - \beta}{\sqrt{2}}.
+\]
+
+Thus, the measurement probabilities are:
+\[
+p(+) = \frac{|\alpha + \beta|^2}{2}, \qquad
+p(-) = \frac{|\alpha - \beta|^2}{2}.
+\]
+
+\bigskip
+
+\section{Change of Basis as a Unitary Transformation}
+
+Let $U$ be a unitary operator such that:
+\[
+U \ket{0} = \ket{\phi_0}, \qquad
+U \ket{1} = \ket{\phi_1}.
+\]
+
+Then measurement in the basis $\{ \ket{\phi_0}, \ket{\phi_1} \}$ can be implemented as:
+\begin{enumerate}
+    \item Apply $U^\dagger$
+    \item Measure in the computational basis
+\end{enumerate}
+
+\subsection*{Justification}
+
+\[
+\braket{\phi_i | \psi}
+=
+\braket{i | U^\dagger | \psi},
+\]
+so the measurement probabilities are preserved.
+
+\bigskip
+
+\section{Hadamard Gate as a Basis-Change Operator}
+
+The Hadamard gate is defined as:
+\[
+H = \frac{1}{\sqrt{2}}
+\begin{pmatrix}
+1 & 1 \\
+1 & -1
+\end{pmatrix}.
+\]
+
+It satisfies:
+\[
+H \ket{0} = \ket{+}, \qquad
+H \ket{1} = \ket{-},
+\]
+and
+\[
+H^\dagger = H.
+\]
+
+Thus, measuring in the $\ket{+}, \ket{-}$ basis is equivalent to:
+\begin{enumerate}
+    \item Apply $H$
+    \item Measure in the computational basis
+\end{enumerate}
+
+\bigskip
+
+\section{Circuit Representation of Basis-Change Measurement}
+
+\[
+\ket{\psi}
+\xrightarrow{\;H\;}
+H\ket{\psi}
+\xrightarrow{\;\text{measurement}\;}
+\text{classical outcome}
+\]
+
+\begin{quote}
+\emph{Quantum hardware measures only in the computational basis; all other measurements are implemented via unitary change of basis.}
+\end{quote}
+
+\bigskip
+
+\section{Partial Measurement in a Non-Standard Basis}
+
+Consider a two-qubit state $\ket{\Psi}_{AB}$.
+
+To measure qubit $A$ in the $\ket{+}, \ket{-}$ basis:
+\begin{enumerate}
+    \item Apply $H$ to qubit $A$
+    \item Measure qubit $A$ in the computational basis
+\end{enumerate}
+
+The post-measurement state of qubit $B$ depends on the measurement outcome.
+
+\bigskip
+
+\section{Comparison: Standard vs Non-Standard Basis Measurement}
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline
+Standard Basis & Non-Standard Basis \\
+\hline
+Measure $\ket{0}, \ket{1}$ & Measure $\ket{\phi_0}, \ket{\phi_1}$ \\
+No preprocessing & Apply unitary $U^\dagger$ first \\
+Direct probabilities & Probabilities via overlaps \\
+\hline
+\end{tabular}
+\end{center}
+
+\bigskip
+
+\section{Key Takeaways}
+
+\begin{itemize}
+    \item Measurement can be performed in any orthonormal basis
+    \item Measurement probabilities depend on state overlaps
+    \item All non-standard measurements reduce to standard-basis measurement
+    \item Change of basis is implemented using unitary operators
+    \item The Hadamard gate enables $\ket{+}, \ket{-}$ basis measurement
+\end{itemize}
+
+\bigskip
+
+\section{Looking Ahead}
+
+Non-standard basis measurements are essential for:
+\begin{itemize}
+    \item Quantum algorithms (Deutsch--Jozsa, Simon, Grover)
+    \item Quantum teleportation
+    \item Bell inequality tests
+    \item Quantum error correction
+\end{itemize}
+
+\end{document}
