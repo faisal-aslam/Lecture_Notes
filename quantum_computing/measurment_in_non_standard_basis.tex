@@ -1,7 +1,13 @@
 \documentclass[12pt]{article}
 \usepackage{amsmath, amssymb}
 \usepackage{physics}
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{array}
+\usepackage{booktabs}
 \usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=1in}
 
 \title{Measurement in Non-Standard Bases \\ Change of Basis and Quantum Measurements}
 \author{Quantum Computing Course}
@@ -11,204 +17,433 @@
 
 \maketitle
 
-\section{Motivation}
+\tableofcontents
 
-In previous lectures, we studied quantum measurement in the \emph{computational basis}
+\newpage
+
+\section{Motivation: Beyond the Computational Basis}
+
+\subsection{Limitations of Computational Basis Measurements}
+
+In previous lectures, we studied quantum measurement exclusively in the \textbf{computational basis}:
 \[
 \{ \ket{0}, \ket{1} \}.
 \]
-However, quantum mechanics allows measurement in \emph{any orthonormal basis}.
-In this lecture, we extend the notion of measurement to non-standard bases and show how such measurements are implemented using change of basis.
+While this basis is natural for digital computation and hardware implementation, it represents only one possible way to extract information from a quantum system.
 
-Throughout this lecture, we restrict ourselves to:
+\begin{tcolorbox}[title=Key Question]
+If quantum states can exist in superpositions like $\alpha\ket{0} + \beta\ket{1}$, why should we only measure whether they're "0" or "1"? What about measuring whether they're "+" or "-"?
+\end{tcolorbox}
+
+Quantum mechanics permits measurement in \textbf{any orthonormal basis}. This freedom is not just mathematical—it's essential for:
 \begin{itemize}
-    \item Projective measurements
-    \item Finite-dimensional Hilbert spaces
-    \item Standard basis measurement as the physical primitive
+    \item Quantum algorithms that exploit interference patterns
+    \item Testing quantum correlations (Bell inequalities)
+    \item Quantum error correction syndromes
+    \item Quantum state tomography
 \end{itemize}
 
-\bigskip
+\subsection{Physical Implementation Reality}
 
-\section{Measurement in an Arbitrary Orthonormal Basis}
+All physical quantum hardware has a \textbf{native measurement basis}, typically the energy eigenbasis (which corresponds to $\{\ket{0}, \ket{1}\}$ for qubits). This is because:
+\begin{itemize}
+    \item Measurement apparatus couples to specific physical observables (e.g., energy, charge, flux)
+    \item The computational basis is often the easiest to distinguish physically
+    \item Decoherence typically occurs toward this basis
+\end{itemize}
 
-Let $\{ \ket{\phi_0}, \ket{\phi_1} \}$ be an orthonormal basis of a single-qubit Hilbert space.
+\begin{tcolorbox}[title=Hardware Constraint]
+\textbf{Quantum computers measure only in their native computational basis.} All other measurements must be implemented via change of basis operations before measurement.
+\end{tcolorbox}
 
-A measurement in this basis is described by the projectors:
+\subsection{Applications Requiring Non-Standard Measurements}
+
+\begin{itemize}
+    \item \textbf{Deutsch-Jozsa algorithm:} Requires final measurement in $\{\ket{+}, \ket{-}\}$ basis
+    \item \textbf{Bell inequality tests:} Measurement in rotated bases reveals quantum correlations
+    \item \textbf{Quantum teleportation:} Bell basis measurements are crucial
+    \item \textbf{Quantum key distribution:} Security relies on measurements in complementary bases
+\end{itemize}
+
+\section{Mathematical Formalism of Measurement in Arbitrary Bases}
+
+\subsection{Projective Measurements in Orthonormal Bases}
+
+Let $\{ \ket{\phi_0}, \ket{\phi_1} \}$ be an orthonormal basis for a single-qubit Hilbert space:
+\[
+\braket{\phi_i | \phi_j} = \delta_{ij}, \quad \sum_{i=0}^1 \ket{\phi_i}\bra{\phi_i} = I.
+\]
+
+A \textbf{projective measurement} in this basis is described by the projectors:
 \[
 P_0 = \ket{\phi_0}\bra{\phi_0}, \qquad
 P_1 = \ket{\phi_1}\bra{\phi_1}.
 \]
 
-For a quantum state $\ket{\psi}$, the probability of outcome $i$ is
+These satisfy the completeness relation: $P_0 + P_1 = I$.
+
+\subsection{The Born Rule Generalized}
+
+For a quantum state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$ with $|\alpha|^2 + |\beta|^2 = 1$:
+
+The probability of obtaining outcome $i$ (corresponding to $\ket{\phi_i}$) is:
 \[
-p(i) = \bra{\psi} P_i \ket{\psi} = |\braket{\phi_i | \psi}|^2,
+p(i) = \bra{\psi} P_i \ket{\psi} = |\braket{\phi_i | \psi}|^2.
 \]
-and the post-measurement state is
+
+\subsection{Post-Measurement State Update}
+
+If outcome $i$ is obtained, the state \textbf{collapses} (or updates) to:
 \[
-\ket{\psi_i} = \frac{P_i \ket{\psi}}{\sqrt{p(i)}}.
+\ket{\psi_i} = \frac{P_i \ket{\psi}}{\sqrt{p(i)}} = \ket{\phi_i}.
 \]
+Note that after measurement in basis $\{\ket{\phi_0}, \ket{\phi_1}\}$, the state is exactly $\ket{\phi_i}$ regardless of the initial state (up to a global phase).
 
-\bigskip
+\begin{tcolorbox}[title=Important Distinction]
+\textbf{Computational basis measurement:} Projects onto $\ket{0}$ or $\ket{1}$ \\
+\textbf{Arbitrary basis measurement:} Projects onto $\ket{\phi_0}$ or $\ket{\phi_1}$
+\end{tcolorbox}
 
-\section{The $\ket{+}, \ket{-}$ Basis}
+\section{The Hadamard Basis: $\{\ket{+}, \ket{-}\}$}
 
-The most important non-standard basis for a qubit is the \emph{Hadamard basis}:
+\subsection{Definition and Orthonormality}
+
+The most important non-standard basis for qubits is the \textbf{Hadamard basis} (also called $X$-basis or diagonal basis):
 \[
 \ket{+} = \frac{1}{\sqrt{2}}(\ket{0} + \ket{1}), \qquad
 \ket{-} = \frac{1}{\sqrt{2}}(\ket{0} - \ket{1}).
 \]
 
-These states satisfy:
+These states form an orthonormal basis:
 \[
-\braket{+|+} = 1, \quad
-\braket{-|-} = 1, \quad
-\braket{+|-} = 0.
+\braket{+|+} = 1, \quad \braket{-|-} = 1, \quad \braket{+|-} = 0.
 \]
 
-\bigskip
+\subsection{Geometric Interpretation on the Bloch Sphere}
 
-\section{Measurement in the $\ket{+}, \ket{-}$ Basis}
+On the Bloch sphere representation:
+\begin{itemize}
+    \item $\ket{0}$ points to the \textbf{north pole} (+Z direction)
+    \item $\ket{1}$ points to the \textbf{south pole} (-Z direction)
+    \item $\ket{+}$ points to the \textbf{positive X-axis} (equator, $\phi=0$)
+    \item $\ket{-}$ points to the \textbf{negative X-axis} (equator, $\phi=\pi$)
+\end{itemize}
 
-Let
+Thus, measuring in $\{\ket{+}, \ket{-}\}$ corresponds to measuring the \textbf{Pauli $X$ observable}:
 \[
-\ket{\psi} = \alpha \ket{0} + \beta \ket{1},
-\quad |\alpha|^2 + |\beta|^2 = 1.
+X = \ket{+}\bra{+} - \ket{-}\bra{-}.
 \]
 
-Then:
+\subsection{Measurement Probabilities in the Hadamard Basis}
+
+For a general state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$:
 \[
 \braket{+|\psi} = \frac{\alpha + \beta}{\sqrt{2}}, \qquad
 \braket{-|\psi} = \frac{\alpha - \beta}{\sqrt{2}}.
 \]
 
-Thus, the measurement probabilities are:
+The measurement probabilities are:
 \[
 p(+) = \frac{|\alpha + \beta|^2}{2}, \qquad
 p(-) = \frac{|\alpha - \beta|^2}{2}.
 \]
 
-\bigskip
-
-\section{Change of Basis as a Unitary Transformation}
-
-Let $U$ be a unitary operator such that:
+\subsubsection*{Example 1: Equal Superposition}
+For $\ket{\psi} = \frac{1}{\sqrt{2}}(\ket{0} + \ket{1}) = \ket{+}$:
 \[
-U \ket{0} = \ket{\phi_0}, \qquad
-U \ket{1} = \ket{\phi_1}.
+p(+) = 1, \quad p(-) = 0.
 \]
+Measuring $\ket{+}$ in $\{\ket{+}, \ket{-}\}$ basis always yields "+".
 
-Then measurement in the basis $\{ \ket{\phi_0}, \ket{\phi_1} \}$ can be implemented as:
+\subsubsection*{Example 2: Computational Basis State}
+For $\ket{\psi} = \ket{0}$:
+\[
+p(+) = \frac{|1 + 0|^2}{2} = \frac{1}{2}, \quad
+p(-) = \frac{|1 - 0|^2}{2} = \frac{1}{2}.
+\]
+Equal probabilities—this makes sense since $\ket{0}$ is halfway between $\ket{+}$ and $\ket{-}$ on the Bloch sphere.
+
+\section{Change of Basis as a Unitary Operation}
+
+\subsection{The Basis-Change Theorem}
+
+Let $\{\ket{\phi_0}, \ket{\phi_1}\}$ be an orthonormal basis. There exists a unitary operator $U$ such that:
+\[
+U\ket{0} = \ket{\phi_0}, \qquad U\ket{1} = \ket{\phi_1}.
+\]
+Equivalently, $U$ maps the computational basis to the new basis.
+
+\begin{tcolorbox}[title=Construction of $U$]
+Given $\ket{\phi_0} = a\ket{0} + b\ket{1}$ and $\ket{\phi_1} = c\ket{0} + d\ket{1}$ with $\braket{\phi_0|\phi_1}=0$:
+\[
+U = \begin{pmatrix} a & c \\ b & d \end{pmatrix}
+\]
+More abstractly: $U = \ket{\phi_0}\bra{0} + \ket{\phi_1}\bra{1}$.
+\end{tcolorbox}
+
+\subsection{Equivalence of Measurements: Formal Proof}
+
+\textbf{Theorem:} Measurement in basis $\{\ket{\phi_0}, \ket{\phi_1}\}$ is equivalent to:
 \begin{enumerate}
-    \item Apply $U^\dagger$
-    \item Measure in the computational basis
+    \item Apply $U^\dagger$ to the state
+    \item Measure in computational basis $\{\ket{0}, \ket{1}\}$
 \end{enumerate}
 
-\subsection*{Justification}
-
+\textbf{Proof:}
+The probability of outcome $\ket{\phi_i}$ in the original measurement is:
 \[
-\braket{\phi_i | \psi}
-=
-\braket{i | U^\dagger | \psi},
+p(i) = |\braket{\phi_i | \psi}|^2.
 \]
-so the measurement probabilities are preserved.
-
-\bigskip
-
-\section{Hadamard Gate as a Basis-Change Operator}
-
-The Hadamard gate is defined as:
+After applying $U^\dagger$, the state becomes $U^\dagger\ket{\psi}$. The probability of measuring $\ket{i}$ in computational basis is:
 \[
-H = \frac{1}{\sqrt{2}}
-\begin{pmatrix}
-1 & 1 \\
-1 & -1
-\end{pmatrix}.
+|\braket{i | U^\dagger | \psi}|^2 = |\braket{\phi_i | \psi}|^2 = p(i).
 \]
+Thus, the probabilities are identical. The post-measurement states are also equivalent (up to the basis change).
 
-It satisfies:
-\[
-H \ket{0} = \ket{+}, \qquad
-H \ket{1} = \ket{-},
-\]
-and
-\[
-H^\dagger = H.
-\]
+\subsection{General Recipe for Arbitrary Basis Measurement}
 
-Thus, measuring in the $\ket{+}, \ket{-}$ basis is equivalent to:
+To measure state $\ket{\psi}$ in basis $\{\ket{\phi_0}, \ket{\phi_1}\}$:
 \begin{enumerate}
-    \item Apply $H$
-    \item Measure in the computational basis
+    \item \textbf{Construct} $U$ such that $U\ket{0} = \ket{\phi_0}$, $U\ket{1} = \ket{\phi_1}$
+    \item \textbf{Apply} $U^\dagger$ to $\ket{\psi}$
+    \item \textbf{Measure} in computational basis $\{\ket{0}, \ket{1}\}$
+    \item \textbf{Interpret:} Outcome 0 corresponds to $\ket{\phi_0}$, outcome 1 to $\ket{\phi_1}$
 \end{enumerate}
 
-\bigskip
+\section{The Hadamard Gate as a Basis-Change Operator}
 
-\section{Circuit Representation of Basis-Change Measurement}
+\subsection{Properties of $H$: Self-Inverse and Real}
 
+The Hadamard gate:
 \[
-\ket{\psi}
-\xrightarrow{\;H\;}
-H\ket{\psi}
-\xrightarrow{\;\text{measurement}\;}
-\text{classical outcome}
+H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}
+\]
+has key properties:
+\begin{itemize}
+    \item \textbf{Self-inverse:} $H^\dagger = H$, $H^2 = I$
+    \item \textbf{Basis change:} $H\ket{0} = \ket{+}$, $H\ket{1} = \ket{-}$
+    \item \textbf{Real and symmetric:} $H = H^\top = H^\dagger$
+\end{itemize}
+
+\subsection{Circuit Implementation for $\{\ket{+}, \ket{-}\}$ Measurement}
+
+To measure in $\{\ket{+}, \ket{-}\}$ basis:
+\[
+\boxed{\ket{\psi} \longrightarrow H \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{classical bit}}
 \]
 
-\begin{quote}
-\emph{Quantum hardware measures only in the computational basis; all other measurements are implemented via unitary change of basis.}
-\end{quote}
+\begin{itemize}
+    \item \textbf{Hardware executes:} Apply $H$, then measure in $\{\ket{0}, \ket{1}\}$
+    \item \textbf{Interpretation:} Outcome 0 means $\ket{+}$, outcome 1 means $\ket{-}$
+\end{itemize}
 
-\bigskip
+\subsection{Interpretation: $X$-basis Measurement via $HZH$}
 
-\section{Partial Measurement in a Non-Standard Basis}
+An alternative perspective: Measuring $X$ (Pauli operator) on state $\ket{\psi}$:
+\[
+\bra{\psi} X \ket{\psi} = \bra{\psi} H Z H \ket{\psi}.
+\]
+This shows that measuring the expectation value of $X$ is equivalent to measuring $Z$ on $H\ket{\psi}$.
 
-Consider a two-qubit state $\ket{\Psi}_{AB}$.
+\section{General Basis Change: Constructing $U$ for Arbitrary Bases}
 
-To measure qubit $A$ in the $\ket{+}, \ket{-}$ basis:
+\subsection{Single-Qubit Case: Relation to Rotation Operators}
+
+Any single-qubit basis $\{\ket{\phi_0}, \ket{\phi_1}\}$ can be obtained from $\{\ket{0}, \ket{1}\}$ by a rotation on the Bloch sphere. The unitary $U$ can be expressed as:
+\[
+U = e^{-i\theta/2} R_{\hat{n}}(\phi)
+\]
+for some axis $\hat{n}$ and angles $\theta, \phi$.
+
+\subsubsection*{Example: Y-basis}
+The $Y$-basis is $\{\ket{+i}, \ket{-i}\}$ where:
+\[
+\ket{+i} = \frac{1}{\sqrt{2}}(\ket{0} + i\ket{1}), \quad
+\ket{-i} = \frac{1}{\sqrt{2}}(\ket{0} - i\ket{1}).
+\]
+The basis change unitary is $U = HS^\dagger$ where $S = \begin{pmatrix}1&0\\0&i\end{pmatrix}$.
+
+\subsection{Multi-Qubit Bases and Tensor Product Structures}
+
+For multi-qubit systems, we can measure each qubit in a different basis. The overall unitary is a tensor product:
+\[
+U_{\text{total}} = U_1 \otimes U_2 \otimes \cdots \otimes U_n.
+\]
+
+\subsubsection*{Example: Bell Basis Measurement}
+The Bell basis for two qubits is:
+\begin{align*}
+\ket{\Phi^+} &= \frac{1}{\sqrt{2}}(\ket{00} + \ket{11}) \\
+\ket{\Phi^-} &= \frac{1}{\sqrt{2}}(\ket{00} - \ket{11}) \\
+\ket{\Psi^+} &= \frac{1}{\sqrt{2}}(\ket{01} + \ket{10}) \\
+\ket{\Psi^-} &= \frac{1}{\sqrt{2}}(\ket{01} - \ket{10})
+\end{align*}
+Measurement in this basis requires $H$ on first qubit followed by CNOT.
+
+\subsection{Non-Standard Bases in Higher Dimensions}
+
+For a $d$-dimensional system, measurement in basis $\{\ket{\phi_i}\}_{i=0}^{d-1}$ uses unitary $U$ with columns $\ket{\phi_i}$:
+\[
+U = \sum_{i=0}^{d-1} \ket{\phi_i}\bra{i}.
+\]
+
+\section{Partial Measurement in Non-Standard Bases}
+
+\subsection{Procedure for Single-Qubit Basis Change in Multi-Qubit Systems}
+
+Consider a two-qubit state $\ket{\Psi}_{AB}$. To measure qubit $A$ in basis $\{\ket{\phi_0}, \ket{\phi_1}\}$:
 \begin{enumerate}
-    \item Apply $H$ to qubit $A$
-    \item Measure qubit $A$ in the computational basis
+    \item Apply $U_A^\dagger$ to qubit $A$ only (where $U_A\ket{0} = \ket{\phi_0}$, $U_A\ket{1} = \ket{\phi_1}$)
+    \item Measure qubit $A$ in computational basis
+    \item The post-measurement state of qubit $B$ depends on the outcome
 \end{enumerate}
 
-The post-measurement state of qubit $B$ depends on the measurement outcome.
+\subsection{Conditional States and Correlations}
 
-\bigskip
+\subsubsection*{Example: Bell State with $X$-basis Measurement}
+Start with Bell state: $\ket{\Phi^+} = \frac{1}{\sqrt{2}}(\ket{00} + \ket{11})$.
 
-\section{Comparison: Standard vs Non-Standard Basis Measurement}
+Measure qubit 1 in $\{\ket{+}, \ket{-}\}$ basis:
+\begin{enumerate}
+    \item Apply $H$ to qubit 1: $H_1\ket{\Phi^+} = \frac{1}{2}(\ket{0+} + \ket{1-})$
+    \item Measure qubit 1 in computational basis:
+    \begin{itemize}
+        \item Outcome 0: $\ket{0}_1$, remaining state: $\ket{+}_2$
+        \item Outcome 1: $\ket{1}_1$, remaining state: $\ket{-}_2$
+    \end{itemize}
+\end{enumerate}
+Thus, measuring one qubit of a Bell state in $X$-basis leaves the other in an $X$-basis eigenstate.
+
+\subsection{Circuit Representation with Controlled Basis Changes}
+
+For adaptive measurements where basis choice depends on previous outcomes:
+
+\[
+\boxed{\ket{\psi}_A \longrightarrow \bigcirc\!\!\!\!\!M \longrightarrow \text{classical control} \longrightarrow \boxed{U(\text{outcome})}_B \longrightarrow \bigcirc\!\!\!\!\!M}
+\]
+
+\section{Practical Considerations and Common Pitfalls}
+
+\subsection{Hardware Limitations: Only Computational Basis is Physical}
+
+\begin{itemize}
+    \item \textbf{Gate errors:} $U^\dagger$ is imperfect (finite gate fidelity)
+    \item \textbf{Timing:} Basis change adds circuit depth and decoherence time
+    \item \textbf{Calibration:} Different bases may have different measurement fidelities
+\end{itemize}
+
+\subsection{Error Propagation through Basis Changes}
+
+If $U$ has error $\epsilon$, the measurement probabilities acquire error:
+\[
+p_{\text{actual}}(i) = |\bra{i} (U^\dagger + \delta U) \ket{\psi}|^2 \approx p_{\text{ideal}}(i) + 2\Re[\braket{\psi|U|i}\bra{i|\delta U|\psi}].
+\]
+
+\subsection{Classical Post-Processing Interpretation}
+
+An alternative viewpoint: Instead of physically changing basis, measure in computational basis and classically compute:
+\[
+p(i) = |\braket{\phi_i|\psi}|^2 = |\sum_j U_{ij}^* \braket{j|\psi}|^2.
+\]
+This requires knowing the full quantum state, which defeats the purpose of quantum computation.
+
+\begin{tcolorbox}[title=Key Insight]
+The power of quantum measurement comes from \textbf{physically} changing basis before measurement, not classical post-processing.
+\end{tcolorbox}
+
+\section{Comparison and Summary}
+
+\subsection{Side-by-Side: Standard vs. Non-Standard Measurements}
 
 \begin{center}
-\begin{tabular}{|c|c|}
+\begin{tabular}{|l|l|l|}
 \hline
-Standard Basis & Non-Standard Basis \\
+\textbf{Aspect} & \textbf{Standard Basis} & \textbf{Arbitrary Basis} \\
 \hline
-Measure $\ket{0}, \ket{1}$ & Measure $\ket{\phi_0}, \ket{\phi_1}$ \\
-No preprocessing & Apply unitary $U^\dagger$ first \\
-Direct probabilities & Probabilities via overlaps \\
+Basis vectors & $\ket{0}, \ket{1}$ & $\ket{\phi_0}, \ket{\phi_1}$ \\
+\hline
+Projectors & $\ket{0}\bra{0}, \ket{1}\bra{1}$ & $\ket{\phi_0}\bra{\phi_0}, \ket{\phi_1}\bra{\phi_1}$ \\
+\hline
+Implementation & Direct measurement & Apply $U^\dagger$, then measure \\
+\hline
+Hardware & Native operation & Requires gates \\
+\hline
+Information & Z-component & Arbitrary observable \\
 \hline
 \end{tabular}
 \end{center}
 
-\bigskip
+\subsection{Key Conceptual Takeaways}
 
-\section{Key Takeaways}
+\begin{enumerate}
+    \item \textbf{Generalized Born Rule:} $p(i) = |\braket{\phi_i|\psi}|^2$ for any orthonormal basis $\{\ket{\phi_i}\}$
+    
+    \item \textbf{Basis-Change Equivalence:} Measurement in $\{\ket{\phi_i}\}$ = $U^\dagger$ + measurement in $\{\ket{i}\}$
+    
+    \item \textbf{Hardware Reality:} All quantum hardware measures only in computational basis
+    
+    \item \textbf{Hadamard Basis:} $\{\ket{+}, \ket{-}\}$ with $H$ as basis-change unitary
+    
+    \item \textbf{Partial Measurements:} Can measure subsystems in different bases
+\end{enumerate}
+
+\subsection{Applications in Upcoming Topics}
 
 \begin{itemize}
-    \item Measurement can be performed in any orthonormal basis
-    \item Measurement probabilities depend on state overlaps
-    \item All non-standard measurements reduce to standard-basis measurement
-    \item Change of basis is implemented using unitary operators
-    \item The Hadamard gate enables $\ket{+}, \ket{-}$ basis measurement
+    \item \textbf{Next lecture:} Deutsch-Jozsa algorithm uses $H$ before final measurement
+    
+    \item \textbf{Quantum algorithms:} Grover's algorithm, quantum Fourier transform
+    
+    \item \textbf{Quantum information:} Bell tests, quantum key distribution
+    
+    \item \textbf{Quantum error correction:} Syndrome measurements in different bases
 \end{itemize}
 
-\bigskip
+\section{Exercises and Further Exploration}
 
-\section{Looking Ahead}
+\subsection{Problem Set: Basis Change Calculations}
 
-Non-standard basis measurements are essential for:
+\begin{enumerate}
+    \item For state $\ket{\psi} = \frac{1}{\sqrt{3}}\ket{0} + \sqrt{\frac{2}{3}}\ket{1}$, calculate probabilities for measurement in:
+    \begin{enumerate}
+        \item Computational basis
+        \item $\{\ket{+}, \ket{-}\}$ basis
+        \item $\{\ket{+i}, \ket{-i}\}$ basis
+    \end{enumerate}
+    
+    \item Construct the unitary $U$ that maps $\{\ket{0}, \ket{1}\}$ to basis $\{\frac{1}{2}\ket{0} + \frac{\sqrt{3}}{2}\ket{1}, \frac{\sqrt{3}}{2}\ket{0} - \frac{1}{2}\ket{1}\}$.
+    
+    \item Show that measuring $\ket{+}$ in $\{\ket{+}, \ket{-}\}$ basis always gives "+", while measuring $\ket{0}$ gives 50/50 outcomes.
+    
+    \item For the Bell state $\ket{\Phi^+}$, calculate the post-measurement state of qubit 2 when qubit 1 is measured in $\{\ket{+}, \ket{-}\}$ basis and outcome is "-".
+    
+    \item Prove that for any unitary $U$, measurement in basis $\{U\ket{0}, U\ket{1}\}$ is equivalent to applying $U^\dagger$ then measuring in computational basis.
+\end{enumerate}
+
+\subsection{Exploration: Other Important Bases}
+
 \begin{itemize}
-    \item Quantum algorithms (Deutsch--Jozsa, Simon, Grover)
-    \item Quantum teleportation
-    \item Bell inequality tests
-    \item Quantum error correction
+    \item \textbf{Y-basis:} $\{\ket{+i}, \ket{-i}\}$ with $U = HS^\dagger$
+    
+    \item \textbf{Breidbart basis:} $\{\cos(\pi/8)\ket{0} + \sin(\pi/8)\ket{1}, \sin(\pi/8)\ket{0} - \cos(\pi/8)\ket{1}\}$
+    Used in optimal quantum cloning and cryptography.
+    
+    \item \textbf{Mutually unbiased bases (MUBs):} Bases where $|\braket{\phi_i|\psi_j}|^2 = 1/d$ for all $i,j$.
+    For qubits: X, Y, Z bases are mutually unbiased.
 \end{itemize}
+
+\subsection{Looking Ahead: POVMs and Generalized Measurements}
+
+\begin{tcolorbox}[title=Advanced Preview]
+Beyond projective measurements lie \textbf{POVMs (Positive Operator-Valued Measures)}:
+\[
+E_i \geq 0, \quad \sum_i E_i = I, \quad p(i) = \bra{\psi}E_i\ket{\psi}.
+\]
+POVMs can distinguish non-orthogonal states and are more general than projective measurements. We'll cover these in advanced topics.
+\end{tcolorbox}
+
+\begin{tcolorbox}[title=Final Thought]
+The ability to measure in arbitrary bases is not just a mathematical curiosity—it's what enables quantum algorithms to outperform classical ones. By changing basis before measurement, we extract different types of information from quantum states, information that would be exponentially hard to compute classically.
+\end{tcolorbox}
 
 \end{document}
