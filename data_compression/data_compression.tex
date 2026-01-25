@@ -4,7 +4,7 @@
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{setspace}
-\usepackage{titlesec}
+\usepackage{titlesec} % Keep this ONE loading here
 \usepackage{amsfonts}
 \usepackage{graphicx}
 \usepackage{algorithm}
@@ -26,6 +26,15 @@
 \usepackage{mathtools}
 \usepackage{forest}
 \usepackage{pgfplots}
+
+% ============ SECTION FORMATTING ============
+% Format section headings with "Lecture X:"
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\thesection:}{1em}{}
+  
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+% ===========================================
 
 % Define colors
 \definecolor{shadecolor}{RGB}{240,240,255}
@@ -128,10 +137,33 @@
 }
 
 \setstretch{1.2}
-\renewcommand{\thesection}{Lecture \arabic{section}}
+
+% ============ CRITICAL: CHANGE THESE LINES ============
+% For TOC: Just show numbers
+\renewcommand{\thesection}{\arabic{section}}
 \renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
 
+% For document body headings: Show "Lecture X"
+% Add this custom command to show "Lecture X" in headings
+\makeatletter
+\let\oldsection\section
+\renewcommand{\section}{%
+  \@ifstar{\@StarredSection}{\@NonStarredSection}%
+}
+\newcommand{\@StarredSection}[1]{%
+  \oldsection*{#1}%
+}
+\newcommand{\@NonStarredSection}[1]{%
+  \oldsection[#1]{Lecture \thesection: #1}%
+}
+\makeatother
+% =====================================================
+
 \begin{document}
+
+\tableofcontents
+\thispagestyle{empty} % Remove page number from TOC
+\clearpage
 
 \begin{center}
     {\LARGE \textbf{Data Compression}}\\[0.3em]
@@ -139,16 +171,10 @@
     \textbf{Dr. Faisal Aslam}\\[1em]
 \end{center}
 
-
 \input{what_is_compression_and_matrics}
 \newpage
 \input{theory_part_1}
 \newpage
 \input{entropy_coding}
 
-
-
-
 \end{document}
-
-
