@@ -1,6 +1,5 @@
 \documentclass[12pt]{article}
 \usepackage{amsmath, amssymb}
-\usepackage{physics}
 \usepackage{graphicx}
 \usepackage{tcolorbox}
 \usepackage{array}
@@ -13,6 +12,12 @@
 \author{Quantum Computing Course}
 \date{}
 
+% Manual definitions to replace physics package issues
+\newcommand{\ket}[1]{\left|#1\right\rangle}
+\newcommand{\bra}[1]{\left\langle#1\right|}
+\newcommand{\braket}[2]{\left\langle #1 \middle| #2 \right\rangle}
+\newcommand{\braopket}[3]{\left\langle #1 \left| #2 \right| #3 \right\rangle}
+
 \begin{document}
 
 \maketitle
@@ -20,6 +25,55 @@
 \tableofcontents
 
 \newpage
+
+\section{Mathematical Prerequisites: Hilbert Space}
+
+\subsection{What is Hilbert Space? (Layman's Explanation)}
+
+\begin{tcolorbox}[title=Hilbert Space Simplified]
+A \textbf{Hilbert space} is the mathematical arena where quantum mechanics happens. Think of it as:
+\begin{itemize}
+    \item A \textbf{generalized vector space} (like 3D space, but potentially infinite-dimensional)
+    \item With \textbf{inner products} that give us "angles" and "lengths" between states
+    \item Complete (no "holes" - every convergent sequence has a limit)
+\end{itemize}
+\end{tcolorbox}
+
+\textbf{Why Hilbert space for quantum mechanics?}
+\begin{itemize}
+    \item Quantum states are \textbf{vectors} in Hilbert space
+    \item Superpositions are just \textbf{vector sums} in this space
+    \item Measurements correspond to \textbf{projections} onto basis vectors
+    \item Time evolution is described by \textbf{rotations} (unitary operations) in this space
+\end{itemize}
+
+\textbf{Single-qubit Hilbert space:}
+- 2-dimensional complex vector space
+- Basis: $\{\ket{0}, \ket{1}\}$
+- Any state: $\alpha\ket{0} + \beta\ket{1}$ with $|\alpha|^2 + |\beta|^2 = 1$
+
+\subsection{Observables: What We Actually Measure}
+
+\begin{tcolorbox}[title=Observable Definition]
+An \textbf{observable} in quantum mechanics is any physical quantity that can be measured. Mathematically:
+\begin{itemize}
+    \item Represented by a \textbf{Hermitian operator} $A$ (equal to its conjugate transpose: $A = A^\dagger$)
+    \item Has \textbf{real eigenvalues} (the possible measurement outcomes)
+    \item Has \textbf{orthogonal eigenvectors} (the states that give definite outcomes)
+\end{itemize}
+\end{tcolorbox}
+
+\textbf{Key examples:}
+- Pauli $X$ operator: $X = \begin{pmatrix}0&1\\1&0\end{pmatrix}$ with eigenvalues $\pm1$, eigenvectors $\ket{+}, \ket{-}$
+- Pauli $Z$ operator: $Z = \begin{pmatrix}1&0\\0&-1\end{pmatrix}$ with eigenvalues $\pm1$, eigenvectors $\ket{0}, \ket{1}$
+- Energy operator (Hamiltonian): $H$ with energy levels as eigenvalues
+
+\textbf{Why Hermitian?}
+\begin{enumerate}
+    \item Real eigenvalues $\Rightarrow$ measurement results are real numbers
+    \item Orthogonal eigenvectors $\Rightarrow$ distinguishable measurement outcomes
+    \item Completeness $\Rightarrow$ any state can be expressed in the eigenbasis
+\end{enumerate}
 
 \section{Motivation: Beyond the Computational Basis}
 
@@ -35,7 +89,7 @@ While this basis is natural for digital computation and hardware implementation,
 If quantum states can exist in superpositions like $\alpha\ket{0} + \beta\ket{1}$, why should we only measure whether they're "0" or "1"? What about measuring whether they're "+" or "-"?
 \end{tcolorbox}
 
-Quantum mechanics permits measurement in \textbf{any orthonormal basis}. This freedom is not just mathematical—it's essential for:
+Quantum mechanics permits measurement in \textbf{any orthonormal basis}. This freedom is not just mathematical---it's essential for:
 \begin{itemize}
     \item Quantum algorithms that exploit interference patterns
     \item Testing quantum correlations (Bell inequalities)
@@ -65,13 +119,58 @@ All physical quantum hardware has a \textbf{native measurement basis}, typically
     \item \textbf{Quantum key distribution:} Security relies on measurements in complementary bases
 \end{itemize}
 
+\section{The Born Rule: Why it Works}
+
+\subsection{The Fundamental Postulate of Quantum Measurement}
+
+\begin{tcolorbox}[title=The Born Rule (Modern Statement)]
+For a quantum system in state $\ket{\psi}$ and an observable $A$ with eigenvectors $\{\ket{\phi_i}\}$ (eigenvalues $\lambda_i$), the probability of obtaining measurement outcome $\lambda_i$ is:
+\[
+p(\lambda_i) = \left| \braket{\phi_i}{\psi} \right|^2
+\]
+\end{tcolorbox}
+
+\subsection{Why $|\langle \phi_i | \psi \rangle|^2$? The Logic Behind}
+
+\begin{enumerate}
+    \item \textbf{Projection Interpretation:}
+    $\braket{\phi_i}{\psi}$ is the "overlap" or "projection" of $\ket{\psi}$ onto $\ket{\phi_i}$.
+    If $\ket{\psi} = \ket{\phi_i}$ (perfectly aligned), then $\braket{\phi_i}{\psi} = 1$, so probability = 1.
+
+    \item \textbf{Consistency Requirement:}
+    Probabilities must be non-negative real numbers between 0 and 1.
+    - $\braket{\phi_i}{\psi}$ is complex in general
+    - $|\braket{\phi_i}{\psi}|^2$ is always real and non-negative
+
+    \item \textbf{Probability Conservation:}
+    Since $\sum_i |\braket{\phi_i}{\psi}|^2 = \braket{\psi}{\psi} = 1$, total probability = 1.
+
+    \item \textbf{Connection to Classical Probability:}
+    In classical probability: $p(i) = \frac{\text{"size" of event }i}{\text{total "size"}}$
+    In quantum: The "size" is replaced by squared projection magnitudes.
+\end{enumerate}
+
+\subsection{Historical Context and Experimental Verification}
+
+Max Born (1926) proposed this rule to interpret Schrödinger's wavefunction. It was controversial initially but has been verified in countless experiments:
+
+\begin{itemize}
+    \item \textbf{Double-slit experiment:} Probability of particle hitting screen = $|\psi(x)|^2$
+    \item \textbf{Stern-Gerlach experiment:} Spin measurement probabilities follow Born rule
+    \item \textbf{Quantum optics:} Photon detection statistics confirm Born rule
+\end{itemize}
+
+\begin{tcolorbox}[title=Deep Insight]
+The Born rule bridges the deterministic Schrödinger equation (continuous evolution) with probabilistic measurement outcomes (discrete events). It's the \textbf{collapse postulate} that converts quantum possibilities into classical actualities.
+\end{tcolorbox}
+
 \section{Mathematical Formalism of Measurement in Arbitrary Bases}
 
 \subsection{Projective Measurements in Orthonormal Bases}
 
 Let $\{ \ket{\phi_0}, \ket{\phi_1} \}$ be an orthonormal basis for a single-qubit Hilbert space. Orthonormality and completeness are expressed as
 \[
-\langle \phi_i | \phi_j \rangle = \delta_{ij},
+\braket{\phi_i}{\phi_j} = \delta_{ij},
 \qquad
 \sum_{i=0}^1 \ket{\phi_i}\bra{\phi_i} = I.
 \]
@@ -90,11 +189,11 @@ P_i^2 = P_i, \qquad P_i P_j = 0 \ (i \neq j), \qquad P_0 + P_1 = I.
 
 \subsection{The Born Rule in an Arbitrary Basis}
 
-Let the quantum state of the qubit be $\ket{\psi}$, with $\langle \psi | \psi \rangle = 1$.
+Let the quantum state of the qubit be $\ket{\psi}$, with $\braket{\psi}{\psi} = 1$.
 The probability of obtaining outcome $i$, corresponding to the basis state $\ket{\phi_i}$, is given by the Born rule:
 \[
-p(i) = \bra{\psi} P_i \ket{\psi}
-     = \left| \langle \phi_i | \psi \rangle \right|^2.
+p(i) = \braopket{\psi}{P_i}{\psi}
+     = \left| \braket{\phi_i}{\psi} \right|^2.
 \]
 
 This expression holds for measurements in \emph{any} orthonormal basis.
@@ -127,7 +226,9 @@ The most important non-standard basis for qubits is the \textbf{Hadamard basis} 
 
 These states form an orthonormal basis:
 \[
-\braket{+|+} = 1, \quad \braket{-|-} = 1, \quad \braket{+|-} = 0.
+\braket{+}{+} = 1, \quad
+\braket{-}{-} = 1, \quad
+\braket{+}{-} = 0.
 \]
 
 \subsection{Geometric Interpretation on the Bloch Sphere}
@@ -149,8 +250,8 @@ X = \ket{+}\bra{+} - \ket{-}\bra{-}.
 
 For a general state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$:
 \[
-\braket{+|\psi} = \frac{\alpha + \beta}{\sqrt{2}}, \qquad
-\braket{-|\psi} = \frac{\alpha - \beta}{\sqrt{2}}.
+\braket{+}{\psi} = \frac{\alpha + \beta}{\sqrt{2}}, \qquad
+\braket{-}{\psi} = \frac{\alpha - \beta}{\sqrt{2}}.
 \]
 
 The measurement probabilities are:
@@ -172,7 +273,7 @@ For $\ket{\psi} = \ket{0}$:
 p(+) = \frac{|1 + 0|^2}{2} = \frac{1}{2}, \quad
 p(-) = \frac{|1 - 0|^2}{2} = \frac{1}{2}.
 \]
-Equal probabilities—this makes sense since $\ket{0}$ is halfway between $\ket{+}$ and $\ket{-}$ on the Bloch sphere.
+Equal probabilities---this makes sense since $\ket{0}$ is halfway between $\ket{+}$ and $\ket{-}$ on the Bloch sphere.
 
 \section{Change of Basis as a Unitary Operation}
 
@@ -185,7 +286,7 @@ U\ket{0} = \ket{\phi_0}, \qquad U\ket{1} = \ket{\phi_1}.
 Equivalently, $U$ maps the computational basis to the new basis.
 
 \begin{tcolorbox}[title=Construction of $U$]
-Given $\ket{\phi_0} = a\ket{0} + b\ket{1}$ and $\ket{\phi_1} = c\ket{0} + d\ket{1}$ with $\braket{\phi_0|\phi_1}=0$:
+Given $\ket{\phi_0} = a\ket{0} + b\ket{1}$ and $\ket{\phi_1} = c\ket{0} + d\ket{1}$ with $\braket{\phi_0}{\phi_1}=0$:
 \[
 U = \begin{pmatrix} a & c \\ b & d \end{pmatrix}
 \]
@@ -203,11 +304,11 @@ More abstractly: $U = \ket{\phi_0}\bra{0} + \ket{\phi_1}\bra{1}$.
 \textbf{Proof:}
 The probability of outcome $\ket{\phi_i}$ in the original measurement is:
 \[
-p(i) = |\braket{\phi_i | \psi}|^2.
+p(i) = |\braket{\phi_i}{\psi}|^2.
 \]
 After applying $U^\dagger$, the state becomes $U^\dagger\ket{\psi}$. The probability of measuring $\ket{i}$ in computational basis is:
 \[
-|\braket{i | U^\dagger | \psi}|^2 = |\braket{\phi_i | \psi}|^2 = p(i).
+|\braket{i}{U^\dagger}{\psi}|^2 = |\braket{\phi_i}{\psi}|^2 = p(i).
 \]
 Thus, the probabilities are identical. The post-measurement states are also equivalent (up to the basis change).
 
@@ -252,7 +353,7 @@ To measure in $\{\ket{+}, \ket{-}\}$ basis:
 
 An alternative perspective: Measuring $X$ (Pauli operator) on state $\ket{\psi}$:
 \[
-\bra{\psi} X \ket{\psi} = \bra{\psi} H Z H \ket{\psi}.
+\braopket{\psi}{X}{\psi} = \braopket{\psi}{H Z H}{\psi}.
 \]
 This shows that measuring the expectation value of $X$ is equivalent to measuring $Z$ on $H\ket{\psi}$.
 
@@ -347,14 +448,14 @@ For adaptive measurements where basis choice depends on previous outcomes:
 
 If $U$ has error $\epsilon$, the measurement probabilities acquire error:
 \[
-p_{\text{actual}}(i) = |\bra{i} (U^\dagger + \delta U) \ket{\psi}|^2 \approx p_{\text{ideal}}(i) + 2\Re[\braket{\psi|U|i}\bra{i|\delta U|\psi}].
+p_{\text{actual}}(i) = \left|\braket{i}{(U^\dagger + \delta U)}{\psi}\right|^2 \approx p_{\text{ideal}}(i) + 2\Re[\braopket{\psi}{U}{i}\braket{i}{\delta U}{\psi}].
 \]
 
 \subsection{Classical Post-Processing Interpretation}
 
 An alternative viewpoint: Instead of physically changing basis, measure in computational basis and classically compute:
 \[
-p(i) = |\braket{\phi_i|\psi}|^2 = |\sum_j U_{ij}^* \braket{j|\psi}|^2.
+p(i) = \left|\braket{\phi_i}{\psi}\right|^2 = \left|\sum_j U_{ij}^* \braket{j}{\psi}\right|^2.
 \]
 This requires knowing the full quantum state, which defeats the purpose of quantum computation.
 
@@ -373,6 +474,8 @@ The power of quantum measurement comes from \textbf{physically} changing basis b
 \hline
 Basis vectors & $\ket{0}, \ket{1}$ & $\ket{\phi_0}, \ket{\phi_1}$ \\
 \hline
+Observable & Pauli $Z$ operator & Arbitrary Hermitian operator \\
+\hline
 Projectors & $\ket{0}\bra{0}, \ket{1}\bra{1}$ & $\ket{\phi_0}\bra{\phi_0}, \ket{\phi_1}\bra{\phi_1}$ \\
 \hline
 Implementation & Direct measurement & Apply $U^\dagger$, then measure \\
@@ -387,14 +490,18 @@ Information & Z-component & Arbitrary observable \\
 \subsection{Key Conceptual Takeaways}
 
 \begin{enumerate}
-    \item \textbf{Generalized Born Rule:} $p(i) = |\braket{\phi_i|\psi}|^2$ for any orthonormal basis $\{\ket{\phi_i}\}$
-    
+    \item \textbf{Hilbert Space:} Quantum playground where states live as vectors
+
+    \item \textbf{Observables:} Hermitian operators representing measurable quantities
+
+    \item \textbf{Born Rule:} $p(i) = \left|\braket{\phi_i}{\psi}\right|^2$ — the bridge between quantum amplitudes and classical probabilities
+
     \item \textbf{Basis-Change Equivalence:} Measurement in $\{\ket{\phi_i}\}$ = $U^\dagger$ + measurement in $\{\ket{i}\}$
-    
+
     \item \textbf{Hardware Reality:} All quantum hardware measures only in computational basis
-    
+
     \item \textbf{Hadamard Basis:} $\{\ket{+}, \ket{-}\}$ with $H$ as basis-change unitary
-    
+
     \item \textbf{Partial Measurements:} Can measure subsystems in different bases
 \end{enumerate}
 
@@ -402,11 +509,11 @@ Information & Z-component & Arbitrary observable \\
 
 \begin{itemize}
     \item \textbf{Next lecture:} Deutsch-Jozsa algorithm uses $H$ before final measurement
-    
+
     \item \textbf{Quantum algorithms:} Grover's algorithm, quantum Fourier transform
-    
+
     \item \textbf{Quantum information:} Bell tests, quantum key distribution
-    
+
     \item \textbf{Quantum error correction:} Syndrome measurements in different bases
 \end{itemize}
 
@@ -421,13 +528,13 @@ Information & Z-component & Arbitrary observable \\
         \item $\{\ket{+}, \ket{-}\}$ basis
         \item $\{\ket{+i}, \ket{-i}\}$ basis
     \end{enumerate}
-    
+
     \item Construct the unitary $U$ that maps $\{\ket{0}, \ket{1}\}$ to basis $\{\frac{1}{2}\ket{0} + \frac{\sqrt{3}}{2}\ket{1}, \frac{\sqrt{3}}{2}\ket{0} - \frac{1}{2}\ket{1}\}$.
-    
+
     \item Show that measuring $\ket{+}$ in $\{\ket{+}, \ket{-}\}$ basis always gives "+", while measuring $\ket{0}$ gives 50/50 outcomes.
-    
+
     \item For the Bell state $\ket{\Phi^+}$, calculate the post-measurement state of qubit 2 when qubit 1 is measured in $\{\ket{+}, \ket{-}\}$ basis and outcome is "-".
-    
+
     \item Prove that for any unitary $U$, measurement in basis $\{U\ket{0}, U\ket{1}\}$ is equivalent to applying $U^\dagger$ then measuring in computational basis.
 \end{enumerate}
 
@@ -435,11 +542,11 @@ Information & Z-component & Arbitrary observable \\
 
 \begin{itemize}
     \item \textbf{Y-basis:} $\{\ket{+i}, \ket{-i}\}$ with $U = HS^\dagger$
-    
+
     \item \textbf{Breidbart basis:} $\{\cos(\pi/8)\ket{0} + \sin(\pi/8)\ket{1}, \sin(\pi/8)\ket{0} - \cos(\pi/8)\ket{1}\}$
     Used in optimal quantum cloning and cryptography.
-    
-    \item \textbf{Mutually unbiased bases (MUBs):} Bases where $|\braket{\phi_i|\psi_j}|^2 = 1/d$ for all $i,j$.
+
+    \item \textbf{Mutually unbiased bases (MUBs):} Bases where $|\braket{\phi_i}{\psi_j}|^2 = 1/d$ for all $i,j$.
     For qubits: X, Y, Z bases are mutually unbiased.
 \end{itemize}
 
@@ -448,13 +555,13 @@ Information & Z-component & Arbitrary observable \\
 \begin{tcolorbox}[title=Advanced Preview]
 Beyond projective measurements lie \textbf{POVMs (Positive Operator-Valued Measures)}:
 \[
-E_i \geq 0, \quad \sum_i E_i = I, \quad p(i) = \bra{\psi}E_i\ket{\psi}.
+E_i \geq 0, \quad \sum_i E_i = I, \quad p(i) = \braopket{\psi}{E_i}{\psi}.
 \]
 POVMs can distinguish non-orthogonal states and are more general than projective measurements. We'll cover these in advanced topics.
 \end{tcolorbox}
 
-\begin{tcolorbox}[title=Final Thought]
-The ability to measure in arbitrary bases is not just a mathematical curiosity—it's what enables quantum algorithms to outperform classical ones. By changing basis before measurement, we extract different types of information from quantum states, information that would be exponentially hard to compute classically.
+\begin{tcolorbox}[title=Final Thought: Why the Born Rule Matters]
+The Born rule is not just a formula---it's the \textbf{interface between quantum and classical}. When we measure in different bases, we're asking different questions of nature. Each basis reveals different aspects of the quantum state, much like rotating a 3D object reveals different 2D shadows. This ability to "ask questions in different ways" is what gives quantum computing its power over classical computing.
 \end{tcolorbox}
 
 \end{document}
