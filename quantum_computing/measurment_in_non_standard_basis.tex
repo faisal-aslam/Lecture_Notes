@@ -69,39 +69,50 @@ All physical quantum hardware has a \textbf{native measurement basis}, typically
 
 \subsection{Projective Measurements in Orthonormal Bases}
 
-Let $\{ \ket{\phi_0}, \ket{\phi_1} \}$ be an orthonormal basis for a single-qubit Hilbert space:
+Let $\{ \ket{\phi_0}, \ket{\phi_1} \}$ be an orthonormal basis for a single-qubit Hilbert space. Orthonormality and completeness are expressed as
 \[
-\braket{\phi_i | \phi_j} = \delta_{ij}, \quad \sum_{i=0}^1 \ket{\phi_i}\bra{\phi_i} = I.
+\langle \phi_i | \phi_j \rangle = \delta_{ij},
+\qquad
+\sum_{i=0}^1 \ket{\phi_i}\bra{\phi_i} = I.
 \]
 
-A \textbf{projective measurement} in this basis is described by the projectors:
+A \textbf{projective measurement} in this basis is described by the projection operators
 \[
-P_0 = \ket{\phi_0}\bra{\phi_0}, \qquad
+P_0 = \ket{\phi_0}\bra{\phi_0},
+\qquad
 P_1 = \ket{\phi_1}\bra{\phi_1}.
 \]
 
-These satisfy the completeness relation: $P_0 + P_1 = I$.
-
-\subsection{The Born Rule Generalized}
-
-For a quantum state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$ with $|\alpha|^2 + |\beta|^2 = 1$:
-
-The probability of obtaining outcome $i$ (corresponding to $\ket{\phi_i}$) is:
+These projectors satisfy
 \[
-p(i) = \bra{\psi} P_i \ket{\psi} = |\braket{\phi_i | \psi}|^2.
+P_i^2 = P_i, \qquad P_i P_j = 0 \ (i \neq j), \qquad P_0 + P_1 = I.
 \]
+
+\subsection{The Born Rule in an Arbitrary Basis}
+
+Let the quantum state of the qubit be $\ket{\psi}$, with $\langle \psi | \psi \rangle = 1$.
+The probability of obtaining outcome $i$, corresponding to the basis state $\ket{\phi_i}$, is given by the Born rule:
+\[
+p(i) = \bra{\psi} P_i \ket{\psi}
+     = \left| \langle \phi_i | \psi \rangle \right|^2.
+\]
+
+This expression holds for measurements in \emph{any} orthonormal basis.
 
 \subsection{Post-Measurement State Update}
 
-If outcome $i$ is obtained, the state \textbf{collapses} (or updates) to:
+If outcome $i$ is obtained, the post-measurement state is
 \[
-\ket{\psi_i} = \frac{P_i \ket{\psi}}{\sqrt{p(i)}} = \ket{\phi_i}.
+\ket{\psi_i} = \frac{P_i \ket{\psi}}{\sqrt{p(i)}} = \ket{\phi_i},
 \]
-Note that after measurement in basis $\{\ket{\phi_0}, \ket{\phi_1}\}$, the state is exactly $\ket{\phi_i}$ regardless of the initial state (up to a global phase).
+up to an unobservable global phase.
+
+Thus, a projective measurement in the basis
+$\{ \ket{\phi_0}, \ket{\phi_1} \}$ prepares the system in the corresponding basis state, independent of the initial state.
 
 \begin{tcolorbox}[title=Important Distinction]
-\textbf{Computational basis measurement:} Projects onto $\ket{0}$ or $\ket{1}$ \\
-\textbf{Arbitrary basis measurement:} Projects onto $\ket{\phi_0}$ or $\ket{\phi_1}$
+\textbf{Computational-basis measurement:} Projects onto $\ket{0}$ or $\ket{1}$. \\[4pt]
+\textbf{Arbitrary-basis measurement:} Projects onto $\ket{\phi_0}$ or $\ket{\phi_1}$.
 \end{tcolorbox}
 
 \section{The Hadamard Basis: $\{\ket{+}, \ket{-}\}$}
