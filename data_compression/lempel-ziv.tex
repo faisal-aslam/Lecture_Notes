@@ -1,0 +1,377 @@
+\section{Dictionary-Based Compression: The Lempel--Ziv Revolution}
+
+\subsection{Motivation: Hitting the Limits of Statistical Coding}
+
+Statistical coding methods such as Huffman and arithmetic coding achieve near-optimal compression \emph{when the source statistics are known or can be accurately estimated}. However, these methods fundamentally rely on estimating probabilities over symbols or blocks of symbols.
+
+As discussed earlier, block-based statistical coding faces a fundamental dilemma.
+
+\subsubsection{Recap: The Block Coding Dilemma}
+
+Increasing block length allows a coder to better capture dependencies between symbols and approach the entropy rate of the source. However, this comes at a steep cost:
+\begin{itemize}
+    \item The number of possible blocks grows exponentially with block length.
+    \item Estimating probabilities reliably requires exponentially more data.
+    \item Memory and computational complexity quickly become impractical.
+\end{itemize}
+
+As a result, practical statistical coders are constrained to small contexts and local dependencies.
+
+\subsubsection{The Promise of Exploiting Long-Range Repetition}
+
+Real-world data---text, executable files, logs, DNA sequences---often contains \emph{long-range repetition}. Patterns may repeat far apart, well beyond the reach of fixed-size statistical contexts.
+
+\begin{importantbox}
+Statistical coding models \emph{how often} symbols occur, but does not directly model \emph{where long repeated patterns occur}.
+\end{importantbox}
+
+This observation motivates a radically different approach to compression.
+
+\subsection{Paradigm Shift: From Statistics to Dictionaries}
+
+Instead of estimating probabilities, dictionary-based compression learns the source \emph{by example}.
+
+\subsubsection{Core Philosophy of Dictionary Coding}
+
+Dictionary-based coders operate on a simple idea:
+\begin{quote}
+    \emph{Replace repeated substrings by references to earlier occurrences.}
+\end{quote}
+
+As the input is processed sequentially, a dictionary of previously seen substrings is constructed. Future occurrences are encoded by references into this dictionary.
+
+\begin{importantbox}
+You can think of Lempel--Ziv methods as \emph{learning the source structure rather than estimating probabilities}.
+\end{importantbox}
+
+Crucially, the encoder and decoder process the input in exactly the same order and therefore build identical dictionaries \emph{without transmitting the dictionary explicitly}.
+
+\subsubsection{Explicit vs.\ Implicit (Adaptive) Dictionaries}
+
+Dictionary-based methods fall into two categories:
+\begin{itemize}
+    \item \textbf{Explicit dictionaries}: The dictionary is stored and indexed explicitly (e.g., LZ78, LZW).
+    \item \textbf{Implicit dictionaries}: The dictionary is defined implicitly by previously decoded output (e.g., LZ77).
+\end{itemize}
+
+We now study the three foundational Lempel--Ziv algorithms.
+
+\subsection{LZ77: The Sliding Window Algorithm}
+
+LZ77 uses a sliding window over the input stream, consisting of:
+\begin{itemize}
+    \item A \textbf{search buffer} (past symbols).
+    \item A \textbf{look-ahead buffer} (future symbols).
+\end{itemize}
+
+\subsubsection{The Search Buffer and Look-Ahead Buffer}
+
+At each position, the encoder searches for the longest prefix of the look-ahead buffer that matches a substring in the search buffer.
+
+\subsubsection{Encoding Tuples: (Offset, Length, Next Symbol)}
+
+Each match is encoded as a triple:
+\[
+(\text{offset}, \text{length}, \text{next symbol})
+\]
+where:
+\begin{itemize}
+    \item \textbf{Offset}: distance \emph{backward from the current position} into the search buffer (1-based).
+    \item \textbf{Length}: number of matched symbols.
+    \item \textbf{Next symbol}: the symbol following the matched substring.
+\end{itemize}
+
+If no match is found, the encoder outputs $(0,0,c)$ where $c$ is the literal symbol.
+
+\subsubsection{Step-by-Step Encoding Example}
+
+Consider the string:
+\[
+\texttt{abracadabra}
+\]
+
+Assume a sufficiently large search buffer.
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+Step & Search Buffer & Look-Ahead & Output \\
+\midrule
+1 & -- & \texttt{abracadabra} & $(0,0,\texttt{a})$ \\
+2 & \texttt{a} & \texttt{bracadabra} & $(0,0,\texttt{b})$ \\
+3 & \texttt{ab} & \texttt{racadabra} & $(0,0,\texttt{r})$ \\
+4 & \texttt{abr} & \texttt{acadabra} & $(3,1,\texttt{c})$ \\
+5 & \texttt{abrac} & \texttt{adabra} & $(5,1,\texttt{d})$ \\
+6 & \texttt{abraca} & \texttt{abra} & $(6,3,\$)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Where $\$$ denotes end-of-file.
+
+\subsubsection{Decoding Process: Simple Reconstruction}
+
+Decoding proceeds sequentially:
+\begin{itemize}
+    \item Copy \texttt{length} symbols from \texttt{offset} positions back.
+    \item Append the \texttt{next symbol} (unless it's EOF).
+\end{itemize}
+
+\begin{importantbox}
+Decoding works because every referenced symbol has already been reconstructed in the output buffer.
+\end{importantbox}
+
+Intermediate decoding states:
+\begin{align*}
+(0,0,\texttt{a}) &\rightarrow \texttt{a} \\
+(0,0,\texttt{b}) &\rightarrow \texttt{ab} \\
+(0,0,\texttt{r}) &\rightarrow \texttt{abr} \\
+(3,1,\texttt{c}) &\rightarrow \texttt{abrac} \\
+(5,1,\texttt{d}) &\rightarrow \texttt{abracad} \\
+(6,3,\$) &\rightarrow \texttt{abracadabra}
+\end{align*}
+
+\subsubsection{Design Parameters: Window Size and Match Limits}
+
+Key parameters include:
+\begin{itemize}
+    \item Search buffer size (limits maximum offset).
+    \item Maximum match length.
+\end{itemize}
+
+These parameters trade compression efficiency against memory and speed. Typical implementations use hash tables or suffix arrays to find matches efficiently.
+
+\subsection{LZ78: The Dictionary Growth Algorithm}
+
+LZ78 builds an explicit dictionary of phrases incrementally.
+
+\subsubsection{Building an Explicit Dictionary from Scratch}
+
+The dictionary starts with a single empty entry (index 0). At each step, the longest dictionary phrase matching the input is extended by one symbol.
+
+\subsubsection{Encoding Pairs: (Dictionary Index, New Symbol)}
+
+Each output consists of:
+\[
+(\text{index}, \text{symbol})
+\]
+
+A new dictionary entry is formed by concatenating the indexed phrase and the new symbol.
+
+\subsubsection{Worked Example: From String to Codes}
+
+Encoding \texttt{abracadabra}:
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+Step & Phrase & Output & New Dictionary Entry \\
+\midrule
+1 & \texttt{a} & $(0,\texttt{a})$ & \texttt{a} (index 1) \\
+2 & \texttt{b} & $(0,\texttt{b})$ & \texttt{b} (index 2) \\
+3 & \texttt{r} & $(0,\texttt{r})$ & \texttt{r} (index 3) \\
+4 & \texttt{ac} & $(1,\texttt{c})$ & \texttt{ac} (index 4) \\
+5 & \texttt{ad} & $(1,\texttt{d})$ & \texttt{ad} (index 5) \\
+6 & \texttt{abr} & $(1,\texttt{b})$ & \texttt{ab} (index 6) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The final dictionary contains: 0:$\epsilon$, 1:\texttt{a}, 2:\texttt{b}, 3:\texttt{r}, 4:\texttt{ac}, 5:\texttt{ad}, 6:\texttt{ab}.
+
+\subsection{LZW: A Practical Refinement of LZ78}
+
+LZW improves LZ78 by eliminating the explicit transmission of the next symbol.
+
+\subsubsection{Motivation: Eliminating the ``Next Symbol''}
+
+Instead of outputting $(\text{index}, \text{symbol})$, LZW outputs only dictionary indices. The decoder infers the next symbol from context.
+
+\subsubsection{Algorithm Walkthrough}
+
+\begin{itemize}
+    \item Initialize the dictionary with all single symbols (typically 256 entries for ASCII).
+    \item Find the longest string $P$ in the dictionary that matches the input.
+    \item Output the index of $P$.
+    \item Let $c$ be the next input symbol after $P$.
+    \item Add $P + c$ to the dictionary.
+\end{itemize}
+
+\subsubsection{The Decoding Subtlety}
+
+A special case occurs when a code references a dictionary entry not yet fully constructed.
+
+\begin{importantbox}
+This ``KwKwK'' case arises because encoder and decoder build entries in lockstep. Specifically, it happens when the encoder encounters a string $w$ followed by the first character of $w$.
+\end{importantbox}
+
+The decoder resolves this by appending the first symbol of the previous phrase to itself.
+
+\subsubsection{Iconic Application: The GIF Image Format}
+
+LZW was popularized by the GIF image format and became one of the most influential compression algorithms in practice, despite later patent controversies.
+
+\subsection{Comparative Analysis: LZ77, LZ78, LZW}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Property & LZ77 & LZ78 & LZW \\
+\midrule
+Dictionary Type & Implicit & Explicit & Explicit \\
+Adaptivity & High & Medium & Medium \\
+Memory Usage & Window-based & Grows & Grows \\
+Compression Start & Fast & Slow & Slow \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Early in the stream, LZ78 and LZW behave similarly to raw symbol transmission until longer phrases are learned.
+
+\subsection{Bridging the Paradigms: Dictionary Coding in Theory}
+
+\subsubsection{The Universality Principle}
+
+Lempel--Ziv algorithms are \emph{universal}: they do not require prior knowledge of source statistics.
+
+\begin{definitionbox}
+    \textbf{Universality}: A compression algorithm is universal if, for any stationary ergodic source with entropy rate $H$, the compression ratio approaches $H$ as the input length increases, without requiring knowledge of the source statistics.
+\end{definitionbox}
+
+\subsubsection{Asymptotic Optimality for Stationary Sources}
+
+\begin{theorem}
+For stationary ergodic sources, Lempel--Ziv coding achieves the entropy rate asymptotically. Formally, if $L_n$ is the length of the encoded sequence for $n$ source symbols, then:
+\[
+\lim_{n \to \infty} \frac{\mathbb{E}[L_n]}{n} = H
+\]
+where $H$ is the entropy rate of the source.
+\end{theorem}
+
+\begin{importantbox}
+Convergence is asymptotic; for short sequences, hybrid schemes are preferred.
+\end{importantbox}
+
+\subsubsection{Dictionary Coding vs.\ Entropy Coding}
+
+Modern compressors combine:
+\begin{itemize}
+    \item Dictionary coding to remove structure (exploit repetitions).
+    \item Entropy coding to remove residual redundancy (exploit skewed symbol frequencies).
+\end{itemize}
+
+The DEFLATE algorithm (used in ZIP, PNG, and gzip) exemplifies this hybrid approach: LZ77 finds repeated strings, then Huffman coding compresses the resulting symbols.
+
+\subsection{Summary and Forward Look}
+
+\subsubsection{Key Takeaways}
+
+\begin{itemize}
+    \item Dictionary coding exploits repetition rather than probabilities.
+    \item LZ77 uses a sliding window (implicit dictionary), while LZ78/LZW build explicit dictionaries.
+    \item LZW eliminates the need to transmit the next symbol explicitly.
+    \item Universality makes LZ methods robust and widely applicable.
+    \item Modern compressors hybridize dictionary and entropy coding for optimal performance.
+\end{itemize}
+
+\subsubsection{The Road Ahead: Modern Hybrid Coders}
+
+Practical compressors such as \texttt{DEFLATE} combine LZ77 with Huffman coding, achieving both adaptivity and near-optimal compression. We'll explore these hybrid systems in detail in the next lecture.
+
+% ================= END OF CHAPTER EXERCISES =================
+
+\subsection*{End of Chapter Exercises}
+
+\begin{exercisebox}
+\textbf{Exercise 5.1 (LZ77 Encoding)}\\
+Encode the string \texttt{TOBEORNOTTOBEORTOBEORNOT} using LZ77 with a search buffer of size 12 and look-ahead buffer of size 8. Show your work step by step, including the search buffer, look-ahead buffer, and output tuples at each step.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.2 (LZ77 Decoding)}\\
+Decode the following LZ77 encoded sequence:\\
+$(0,0,T)$, $(0,0,H)$, $(0,0,E)$, $(3,2,\_)$, $(5,3,C)$, $(9,4,A)$, $(6,3,\$)$\\
+Assume the underscore (\_) represents a space character and $\$$ is EOF. What is the original string?
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.3 (LZ78 Encoding)}\\
+Encode the string \texttt{ABABABABA} using LZ78. Show the dictionary after each step and the complete output sequence.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.4 (LZ78 Decoding)}\\
+Decode the following LZ78 encoded sequence:\\
+$(0,A)$, $(0,B)$, $(1,B)$, $(2,A)$, $(4,\$)$\\
+What is the original string? Show the dictionary construction during decoding.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.5 (LZW Encoding)}\\
+Encode the string \texttt{ABRACADABRABRABRA} using LZW. Assume the dictionary is initialized with: A=1, B=2, R=3, C=4, D=5. Show the output codes and the dictionary entries added at each step.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.6 (LZW Decoding with Special Case)}\\
+Decode the following LZW encoded sequence:\\
+$1$, $2$, $3$, $1$, $4$, $1$, $5$, $6$, $3$, $9$, $7$, $12$\\
+Assume the initial dictionary: 1=A, 2=B, 3=C, 4=D, 5=E. This sequence includes the special "KwKwK" case. Show your decoding process step by step, including how you handle the special case.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.7 (Algorithm Comparison)}\\
+Compare LZ77, LZ78, and LZW for compressing the following strings. Which algorithm would perform best for each and why?
+\begin{enumerate}[label=(\alph*)]
+    \item \texttt{AAAAAAAAAAAAAAAAAAAA} (20 A's)
+    \item \texttt{ABCDEFGHIJKLMNOPQRSTUVWXYZ}
+    \item \texttt{ABABABABABABABABABAB}
+    \item \texttt{TOBEORNOTTOBEORTOBEORNOT}
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.8 (Parameter Analysis)}\\
+Consider LZ77 with search buffer size $S$ and maximum match length $L$.
+\begin{enumerate}[label=(\alph*)]
+    \item How many bits are needed to encode an offset value?
+    \item How many bits are needed to encode a length value?
+    \item For a match of length $l$, what is the compression gain (in bits) compared to storing the symbols literally?
+    \item Under what conditions does LZ77 actually increase file size instead of decreasing it?
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.9 (Dictionary Management)}\\
+LZW dictionaries typically have a maximum size (e.g., 4096 entries for 12-bit codes). Describe three strategies for handling dictionary overflow and discuss the trade-offs of each approach.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.10 (Theoretical Analysis)}\\
+Prove or provide intuition for the following statements:
+\begin{enumerate}[label=(\alph*)]
+    \item LZ77 is asymptotically optimal for stationary ergodic sources.
+    \item LZ78 may perform poorly on very short inputs.
+    \item The "KwKwK" case in LZW decoding occurs exactly when the encoder encounters a string of the form $w + \text{first}(w)$.
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.11 (Hybrid Coding)}\\
+Consider the DEFLATE algorithm which combines LZ77 with Huffman coding.
+\begin{enumerate}[label=(\alph*)]
+    \item Why is Huffman coding applied after LZ77 rather than before?
+    \item What are the three alphabets that need to be Huffman-coded in DEFLATE?
+    \item Explain why the Huffman coding in DEFLATE uses canonical Huffman codes.
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 5.12 (Implementation Challenge)}\\
+Design a simple LZ77 encoder in pseudocode that uses a hash table to find matches efficiently. Your algorithm should:
+\begin{itemize}
+    \item Use a rolling hash to update quickly as the window slides
+    \item Handle hash collisions properly
+    \item Have average-case $O(n)$ time complexity for input of length $n$
+\end{itemize}
+Include comments explaining key design decisions.
+\end{exercisebox}
