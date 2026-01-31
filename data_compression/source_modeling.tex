@@ -165,37 +165,147 @@ This is the \textbf{context explosion problem}.
 
 \begin{definitionbox}
 \textbf{Entropy Rate of a Stationary Source:}
+
+For a stationary stochastic process $\mathcal{X} = (X_1, X_2, \dots)$, the entropy rate is:
 \[
 H(\mathcal{X}) = \lim_{n \to \infty} \frac{1}{n} H(X_1, X_2, \dots, X_n)
 \]
-For a stationary Markov chain of order $m$:
+Equivalently (and equal for stationary processes):
 \[
-H(\mathcal{X}) = H(X_{m+1} | X_1, \dots, X_m)
+H(\mathcal{X}) = \lim_{n \to \infty} H(X_n \mid X_1, \dots, X_{n-1})
 \]
+
+\medskip
+\textbf{Special case: Stationary Markov chain of order $m$}
+
+If $\mathcal{X}$ is a stationary $m$-th order Markov chain, then for all $t > m$:
+\[
+H(X_t \mid X_1, \dots, X_{t-1}) = H(X_t \mid X_{t-m}, \dots, X_{t-1})
+\]
+and this conditional entropy is constant over time. Therefore:
+\[
+H(\mathcal{X}) = H(X_{m+1} \mid X_1, \dots, X_m)
+\]
+No limit needed — the conditional entropy stabilizes immediately.
 \end{definitionbox}
 
 \begin{examplebox}
-\textbf{Calculating Entropy Rate for First-Order Markov Chain:}\\
-For weather example with stationary distribution $\pi = [\pi_S, \pi_R]$:
+\textbf{Example: First-Order Markov Chain ($m=1$)}
+
+\textbf{Step 1: Define the model}
+Two weather states: $S$ (sunny) and $R$ (rainy). \\
+\textbf{Transition probabilities} (tomorrow's weather depends only on today's):
+
+Let $X_t$ be the weather on day $t$. Then:
+
 \[
-H(\mathcal{X}) = \pi_S H(X|S) + \pi_R H(X|R)
+\begin{aligned}
+P(X_{t+1} = S \mid X_t = S) &= 0.8, &\quad P(X_{t+1} = R \mid X_t = S) &= 0.2 \\
+P(X_{t+1} = S \mid X_t = R) &= 0.3, &\quad P(X_{t+1} = R \mid X_t = R) &= 0.7
+\end{aligned}
 \]
-where:
-\begin{align*}
-H(X|S) &= -0.8\log_2 0.8 - 0.2\log_2 0.2 \approx 0.7219 \\
-H(X|R) &= -0.3\log_2 0.3 - 0.7\log_2 0.7 \approx 0.8813 \\
-\pi_S &= 0.6, \quad \pi_R = 0.4 \quad (\text{solve } \pi P = \pi) \\
-H(\mathcal{X}) &= 0.6 \times 0.7219 + 0.4 \times 0.8813 \approx 0.788 \text{ bits}
-\end{align*}
+
+In matrix form (rows = current state, columns = next state):
+\[
+P = \begin{bmatrix}
+0.8 & 0.2 \\
+0.3 & 0.7
+\end{bmatrix}
+\quad
+\begin{array}{l}
+\text{Row 1: } X_t = S \\
+\text{Row 2: } X_t = R
+\end{array}
+\]
+
+\textbf{Step 2: Find stationary distribution $\pi$}
+Stationary distribution $\pi = [\pi_S, \pi_R]$ satisfies $\pi P = \pi$, where $\pi_S = P(X_t = S)$ and $\pi_R = P(X_t = R)$ in the long run.
+
+\[
+\begin{cases}
+\pi_S = 0.8\pi_S + 0.3\pi_R \\
+\pi_R = 0.2\pi_S + 0.7\pi_R \\
+\pi_S + \pi_R = 1
+\end{cases}
+\]
+
+Solving (from first equation): 
+\[
+\pi_S - 0.8\pi_S = 0.3\pi_R \Rightarrow 0.2\pi_S = 0.3\pi_R \Rightarrow \pi_S = 1.5\pi_R
+\]
+\[
+1.5\pi_R + \pi_R = 1 \Rightarrow 2.5\pi_R = 1 \Rightarrow \pi_R = 0.4
+\]
+\[
+\pi_S = 1.5 \times 0.4 = 0.6
+\]
+
+\[
+\pi = [\pi_S, \pi_R] = [0.6, 0.4]
+\]
+
+\textbf{Step 3: Compute conditional entropies}
+\textit{Uncertainty about tomorrow given today's weather:}
+
+Given $X_t = S$: Tomorrow's distribution is $[0.8, 0.2]$
+\[
+H(X_{t+1} \mid X_t = S) = -0.8\log_2 0.8 - 0.2\log_2 0.2 \approx 0.7219 \text{ bits}
+\]
+
+Given $X_t = R$: Tomorrow's distribution is $[0.3, 0.7]$
+\[
+H(X_{t+1} \mid X_t = R) = -0.3\log_2 0.3 - 0.7\log_2 0.7 \approx 0.8813 \text{ bits}
+\]
+
+\textbf{Step 4: Compute entropy rate}
+For a stationary first-order Markov chain:
+\[
+H(\mathcal{X}) = H(X_{t+1} \mid X_t) 
+= \sum_{s \in \{S,R\}} P(X_t = s) \cdot H(X_{t+1} \mid X_t = s)
+\]
+
+With $P(X_t = s) = \pi_s$ (stationarity):
+\[
+H(\mathcal{X}) = \pi_S \cdot H(X_{t+1} \mid X_t = S) + \pi_R \cdot H(X_{t+1} \mid X_t = R)
+\]
+\[
+= 0.6 \times 0.7219 + 0.4 \times 0.8813 = 0.43314 + 0.35252 = 0.78566 \text{ bits}
+\]
+\[
+\approx 0.786 \text{ bits per day}
+\]
+
 \end{examplebox}
 
 \begin{importantbox}
-\textbf{What This Means for Compression:}
-\begin{itemize}
-    \item \textbf{IID assumption}: Limit = $H(X)$ (e.g., 4.07 bits/letter for English)
-    \item \textbf{With modeling}: Limit = $H(\mathcal{X})$ (e.g., ~2.3 bits/letter for English)
-    \item \textbf{Potential gain}: Up to 45\% better compression!
-\end{itemize}
+\textbf{What This Means for Data Compression:}
+
+\textbf{Two approaches to compression:}
+
+\begin{enumerate}
+    \item \textbf{IID (Independent Identically Distributed) assumption:}
+    \begin{itemize}
+        \item Treat each symbol as independent of previous ones
+        \item Best achievable rate: $H(X)$ (marginal entropy)
+        \item Example: English letters $\approx 4.07$ bits/letter
+    \end{itemize}
+    
+    \item \textbf{With modeling (using context):}
+    \begin{itemize}
+        \item Account for dependencies between symbols (Markov structure)
+        \item Use conditional probabilities based on previous symbols
+        \item Best achievable rate: $H(\mathcal{X})$ (entropy rate)
+        \item Example: English text $\approx 2.3$ bits/letter
+    \end{itemize}
+\end{enumerate}
+
+\medskip
+\textbf{Compression gain:}
+\[
+\frac{H(X) - H(\mathcal{X})}{H(X)} \approx \frac{4.07 - 2.3}{4.07} \approx 43\%
+\]
+Up to $\sim 45\%$ better compression by exploiting dependencies!
+
 \end{importantbox}
 
 \subsection{Context Modeling in Practice}
@@ -240,21 +350,36 @@ By order 5: 387 million parameters need estimation!
 \subsection{Case Study: Text Compression Modeling}
 
 \begin{examplebox}
-\textbf{English Text Compression with Different Models:}
+\textbf{1. Entropy Estimates for English Text (Theoretical Limits)}
+
 \begin{center}
 \begin{tabular}{l|l|l}
-Model Type & Bits/Letter & Compression vs. ASCII \\
+\textbf{Model/Estimation Method} & \textbf{Bits/Letter} & \textbf{Year/Source} \\
 \hline
-\textbf{ASCII (baseline)} & 8.00 & 0\% \\
-\textbf{Order-0 (Huffman)} & ~4.07 & ~49\% \\
-\textbf{Order-1 (Bigram)} & ~3.36 & ~58\% \\
-\textbf{Order-2 (Trigram)} & ~2.77 & ~65\% \\
-\textbf{Order-3} & ~2.43 & ~70\% \\
-\textbf{Order-5 (PPM)} & ~2.23 & ~72\% \\
-\textbf{Optimal (Shannon 1951)} & ~1.3 & ~84\% \\
+Letter frequencies only (Order-0) & 4.07 & Shannon 1948 \\
++ 1st order Markov (bigrams) & 3.36 &  \\
++ 2nd order (trigrams) & 2.77 &  \\
++ 3rd order & 2.43 &  \\
+Human prediction experiment & 1.3 & Shannon 1951 \\
+Modern best estimates & 1.0–1.5 & Various studies \\
 \end{tabular}
 \end{center}
-Note: Each step improves compression by better modeling!
+
+\textbf{2. Practical Compression Performance}
+
+\begin{center}
+\begin{tabular}{l|l|l}
+\textbf{Compressor/Method} & \textbf{Bits/Letter} & \textbf{Notes} \\
+\hline
+gzip (LZ77 + Huffman) & 2.5–3.0 & Fast, widely used \\
+bzip2 (BWT + MTF + Huffman) & 2.3–2.8 & Better but slower \\
+PPMd & 2.1–2.4 & Context modeling \\
+PAQ variants & 1.5–1.8 & State of the art, very slow \\
+\end{tabular}
+\end{center}
+
+\textbf{Key insight:} Better models (using more context) → lower entropy → better compression. \\
+But practical compressors face tradeoffs: memory, speed, and model complexity.
 \end{examplebox}
 
 \textbf{PPM (Prediction by Partial Matching):}
