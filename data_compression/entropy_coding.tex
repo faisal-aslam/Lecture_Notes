@@ -131,35 +131,78 @@
 \[
 l_i = \lceil -\log_2 p_i \rceil \quad \text{and} \quad \text{code}_i = \text{First } l_i \text{ bits of } F_i
 \]
-where \( p_i \) is the probability of symbol \( i \), and \( F_i = \sum_{j=1}^{i-1} p_j \) is the cumulative probability.
+where \( p_i \) is the probability of symbol \( i \), and \( F_i = \sum_{j=1}^{i-1} p_j \) is the cumulative probability of symbols ordered by decreasing probability.
 \end{definitionbox}
+
+% Create a custom algorithm box without using tcolorbox's title feature
+\noindent
+\begin{tcolorbox}[
+    colback=green!5!white,
+    colframe=green!75!black,
+    fonttitle=\bfseries,
+    title=\textbf{Shannon Coding Algorithm},
+    sharp corners,
+    breakable,
+    enhanced,
+    before upper={\parindent0pt},
+    parbox=false
+]
+\textbf{Input:} Symbols \( S = \{s_1, s_2, \dots, s_n\} \) with corresponding probabilities \( P = \{p_1, p_2, \dots, p_n\} \)
+
+\textbf{Output:} Prefix-free binary code for each symbol
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Sort} symbols in non-increasing order of probability: \( p_1 \geq p_2 \geq \cdots \geq p_n \)
+    \item \textbf{Calculate codeword lengths:} For each symbol \( i \), compute \( l_i = \lceil -\log_2 p_i \rceil \)
+    \item \textbf{Compute cumulative probabilities:}
+    \[
+    F_1 = 0, \quad F_i = \sum_{j=1}^{i-1} p_j \quad \text{for } i = 2, \dots, n
+    \]
+    \item \textbf{Generate codewords:} For each symbol \( i \):
+    \begin{enumerate}[label=\alph*)]
+        \item Convert \( F_i \) to binary fractional representation (0.xxxx...)
+        \item Take the first \( l_i \) bits after the binary point as the codeword
+    \end{enumerate}
+\end{enumerate}
+\end{tcolorbox}
 
 \begin{examplebox}
 \textbf{Example:} Given symbols with probabilities:
+
 \begin{center}
-\begin{tabular}{c|c|c|c}
-Symbol & Probability & $-\log_2 p_i$ & Cumulative $F_i$ \\
+\begin{tabular}{c|c}
+Symbol & Probability \\
 \hline
-A & 0.5 & 1.0 & 0.0 \\
-B & 0.25 & 2.0 & 0.5 \\
-C & 0.125 & 3.0 & 0.75 \\
-D & 0.125 & 3.0 & 0.875 \\
+A & 0.5 \\
+B & 0.25 \\
+C & 0.125 \\
+D & 0.125 \\
 \end{tabular}
 \end{center}
 
 \textbf{Step-by-step construction:}
-\begin{enumerate}
-    \item \textbf{Calculate lengths:} $l_A = \lceil 1.0 \rceil = 1$, $l_B = 2$, $l_C = 3$, $l_D = 3$
-    \item \textbf{Sort by probability} (already done above)
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Sort by probability:} Already in non-increasing order (0.5 $\geq$ 0.25 $\geq$ 0.125 $\geq$ 0.125)
+    
+    \item \textbf{Calculate lengths:} 
+    \begin{itemize}[leftmargin=*]
+        \item $l_A = \lceil -\log_2 0.5 \rceil = \lceil 1.0 \rceil = 1$
+        \item $l_B = \lceil -\log_2 0.25 \rceil = \lceil 2.0 \rceil = 2$
+        \item $l_C = \lceil -\log_2 0.125 \rceil = \lceil 3.0 \rceil = 3$
+        \item $l_D = \lceil -\log_2 0.125 \rceil = \lceil 3.0 \rceil = 3$
+    \end{itemize}
+    
     \item \textbf{Compute cumulative probabilities:}
-    \begin{itemize}
+    \begin{itemize}[leftmargin=*]
         \item $F_A = 0$ (first symbol)
         \item $F_B = 0.5$ (just A's probability)
         \item $F_C = 0.5 + 0.25 = 0.75$ (A + B)
         \item $F_D = 0.5 + 0.25 + 0.125 = 0.875$ (A + B + C)
     \end{itemize}
+    
     \item \textbf{Convert $F_i$ to binary and take first $l_i$ bits:}
-    \begin{itemize}
+    \begin{itemize}[leftmargin=*]
         \item \textbf{A:} $F_A = 0.0_{10}$ in binary is $0.0000\dots_2$
           \begin{itemize}
             \item Take first $l_A=1$ bit: $\mathbf{0}$
@@ -180,14 +223,15 @@ D & 0.125 & 3.0 & 0.875 \\
 \end{enumerate}
 
 \textbf{Resulting code:}
+
 \begin{center}
-\begin{tabular}{c|c|c}
-Symbol & Probability & Shannon Code \\
+\begin{tabular}{c|c|c|c|c}
+Symbol & Probability & $l_i$ & $F_i$ & Shannon Code \\
 \hline
-A & 0.5 & 0 \\
-B & 0.25 & 10 \\
-C & 0.125 & 110 \\
-D & 0.125 & 111 \\
+A & 0.5 & 1 & 0.0 & 0 \\
+B & 0.25 & 2 & 0.5 & 10 \\
+C & 0.125 & 3 & 0.75 & 110 \\
+D & 0.125 & 3 & 0.875 & 111 \\
 \end{tabular}
 \end{center}
 
@@ -195,10 +239,33 @@ D & 0.125 & 111 \\
 \end{examplebox}
 
 \begin{importantbox}
-\textbf{Understanding the Binary Expansion Process:}
+\textbf{Critical Note on Sorting:}
 
+The sorting step is \textbf{essential} in Shannon coding because:
+\begin{itemize}[leftmargin=*]
+    \item Cumulative probabilities $F_i$ depend on the order of symbols
+    \item Sorting ensures intervals in [0,1) are assigned in decreasing size order
+    \item Without sorting, the resulting code may not be prefix-free
+    \item Sorting guarantees the length condition $\frac{1}{2^{l_i}} \leq p_i < \frac{1}{2^{l_i-1}}$ leads to non-overlapping intervals
+\end{itemize}
+
+\textbf{Why it works:} When probabilities are sorted, each symbol's interval of size $p_i$ starts at $F_i$ and ends at $F_i + p_i$. The codeword length ensures the binary expansion of $F_i$ to $l_i$ bits uniquely identifies the starting point without overlapping with neighboring intervals.
+\end{importantbox}
+
+\noindent
+\begin{tcolorbox}[
+    colback=yellow!5!white,
+    colframe=orange!75!black,
+    fonttitle=\bfseries,
+    title=\textbf{Understanding the Binary Expansion Process},
+    sharp corners,
+    breakable,
+    enhanced,
+    before upper={\parindent0pt},
+    parbox=false
+]
 When we write $F_i$ in binary (e.g., $0.5 = 0.1_2$, $0.75 = 0.11_2$), we're essentially:
-\begin{itemize}
+\begin{itemize}[leftmargin=*]
     \item Dividing the interval [0,1) into subintervals based on probabilities
     \item Each symbol gets an interval of size $p_i$
     \item The codeword is the \textbf{binary fraction} representing the \textbf{start} of that interval
@@ -208,19 +275,38 @@ When we write $F_i$ in binary (e.g., $0.5 = 0.1_2$, $0.75 = 0.11_2$), we're esse
     \]
     \item This guarantees unique prefixes because intervals don't overlap!
 \end{itemize}
-\end{importantbox}
+\end{tcolorbox}
 
 \begin{importantbox}
 \textbf{Properties of Shannon Coding:}
-\begin{itemize}
+\begin{itemize}[leftmargin=*]
     \item \textbf{Constructive proof}: Demonstrates that prefix codes exist for any lengths satisfying Kraft inequality
     \item \textbf{Simple to compute}: Direct from probabilities, no tree needed
+    \item \textbf{Requires sorting}: Symbols must be ordered by decreasing probability first
     \item \textbf{Not optimal}: Unlike Huffman, doesn't minimize expected length (compare: Huffman would give A=0, B=10, C=110, D=111 \textbf{same in this case!})
     \item \textbf{Theoretical importance}: Foundation for Shannon's source coding theorem
     \item \textbf{Efficiency bound}: $H(X) \leq L < H(X) + 1$ (like Shannon's theorem says)
 \end{itemize}
 \end{importantbox}
 
+% Add a simple example to show what happens without sorting
+\begin{examplebox}
+\textbf{Counterexample: What happens if we don't sort?}
+
+Consider the same symbols but in different order: C (0.125), A (0.5), D (0.125), B (0.25)
+
+\textbf{Without sorting:}
+\begin{itemize}[leftmargin=*]
+    \item $F_C = 0$, $l_C = 3$ \textrightarrow{} codeword: 000
+    \item $F_A = 0.125$, $l_A = 1$ \textrightarrow{} codeword: 0 (binary: 0.001... \textrightarrow{} first bit is 0)
+    \item $F_D = 0.625$, $l_D = 3$ \textrightarrow{} codeword: 101
+    \item $F_B = 0.75$, $l_B = 2$ \textrightarrow{} codeword: 11
+\end{itemize}
+
+\textbf{Problem:} Codeword "0" (for A) is a prefix of "000" (for C) \textrightarrow{} \textbf{not prefix-free!}
+
+This demonstrates why sorting is essential in Shannon coding.
+\end{examplebox}
 
 % here ....
 
