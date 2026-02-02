@@ -487,6 +487,9 @@ H(X) \approx 2.25 \text{ bits/symbol}.
 \end{importantbox}
 
 
+
+%Canonical Huffman
+
 %-------------------------------------------------
 \subsection{Canonical Huffman Codes}
 %-------------------------------------------------
@@ -498,8 +501,8 @@ A standardized representation of a Huffman code in which:
     \item Codes are assigned in lexicographic (binary) order
     \item All codewords of the same length are consecutive binary numbers
     \item The first codeword of each length is the smallest possible binary value
+    \item Only the code lengths are required to reconstruct the entire code
 \end{itemize}
-Only the code lengths are required to reconstruct the entire code.
 This enables compact storage and fast table-based decoding.
 \end{definitionbox}
 
@@ -542,103 +545,90 @@ Canonical codes
 }
 \end{center}
 
-\subsubsection*{Canonical Code Construction Algorithm}
-
+\noindent
+\begin{tcolorbox}[
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    fonttitle=\bfseries,
+    title=\textbf{Canonical Huffman Construction Algorithm},
+    sharp corners,
+    breakable,
+    enhanced,
+    before upper={\parindent0pt},
+    parbox=false
+]
 \textbf{Input:} Code lengths $l_i$ obtained from a standard Huffman algorithm  
 \textbf{Output:} Canonical Huffman codes
 
-\begin{algorithm}[H]
-\caption{Canonical Huffman Construction}
-\begin{algorithmic}[1]
-\Require Code lengths $l_1, \dots, l_n$
-\Ensure Canonical codes $c_1, \dots, c_n$
-\State Sort symbols by $(l_i, \text{symbol index})$
-\State $l_{\min} \gets \min\{l_i\}$, $l_{\max} \gets \max\{l_i\}$
-\For{$l = l_{\min}$ to $l_{\max}$}
-    \State $count[l] \gets 0$ \Comment{Initialize count array}
-\EndFor
-\For{each symbol $i$}
-    \State $count[l_i] \gets count[l_i] + 1$ \Comment{Count symbols per length}
-\EndFor
-\State $next[l_{\min}] \gets 0$
-\For{$l = l_{\min}+1$ to $l_{\max}$}
-    \State $next[l] \gets (next[l-1] + count[l-1]) \times 2$
-\EndFor
-\For{each symbol $i$ (in sorted order) with length $l_i$}
-    \State $c_i \gets$ binary($next[l_i]$, $l_i$) \Comment{Convert to $l_i$-bit binary}
-    \State $next[l_i] \gets next[l_i] + 1$
-\EndFor
-\end{algorithmic}
-\end{algorithm}
-
-\textbf{Detailed step-by-step explanation:}
-
-\begin{enumerate}
-    \item \textbf{Sort symbols:}
-    \begin{enumerate}
-        \item Primary key: increasing code length $l_i$
-        \item Secondary key: symbol value (or symbol index)
-    \end{enumerate}
-
-    \item \textbf{Count symbols per length:}  
-    Let $L_{\min}$ and $L_{\max}$ be the minimum and maximum code lengths.
-    For each length $l$, compute:
-    \[
-    \text{count}[l] = \text{number of symbols with length } l
-    \]
-
-    \item \textbf{Compute starting codes:}  
-    Initialize the first starting code:
-    \[
-    \text{start\_code}[L_{\min}] = 0
-    \]
-    For each length $l = L_{\min}+1$ to $L_{\max}$:
-    \[
-    \text{start\_code}[l]
-    =
-    \bigl(\text{start\_code}[l-1] + \text{count}[l-1]\bigr)\times 2
-    \]
-
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Sort symbols} in ascending order of code length $l_i$ (primary key), and by symbol order or value (secondary key for tie-breaking)
+    
+    \item \textbf{Count symbols per length:}
+    \begin{itemize}[leftmargin=*]
+        \item Let $l_{\min}$ and $l_{\max}$ be the minimum and maximum code lengths
+        \item For each length $l$, compute $\text{count}[l] =$ number of symbols with length $l$
+    \end{itemize}
+    
+    \item \textbf{Compute starting codes:}
+    \begin{itemize}[leftmargin=*]
+        \item $\text{start\_code}[l_{\min}] = 0$
+        \item For $l = l_{\min}+1$ to $l_{\max}$:
+        \[
+        \text{start\_code}[l] = (\text{start\_code}[l-1] + \text{count}[l-1]) \times 2
+        \]
+    \end{itemize}
+    
     \item \textbf{Initialize assignment pointers:}
     \[
-    \text{next\_code}[l] = \text{start\_code}[l]
-    \quad \text{for all } l
+    \text{next\_code}[l] = \text{start\_code}[l] \quad \text{for all } l
     \]
-
-    \item \textbf{Assign codes to symbols:}
-    \begin{itemize}
-        \item Traverse the sorted symbol list
-        \item For each symbol of length $l$:
+    
+    \item \textbf{Assign codes to symbols} (in sorted order):
+    \begin{itemize}[leftmargin=*]
+        \item For each symbol $i$ with length $l_i$:
         \begin{itemize}
-            \item Assign the current value of $\text{next\_code}[l]$
-            \item Increment $\text{next\_code}[l]$ by one
+            \item Assign $\text{next\_code}[l_i]$ as its code (converted to $l_i$-bit binary)
+            \item Increment $\text{next\_code}[l_i]$ by 1
         \end{itemize}
     \end{itemize}
 \end{enumerate}
+\end{tcolorbox}
 
-\subsubsection*{Understanding the Shift Operation}
+\subsubsection*{Understanding the Shift Operation: Why Multiply by 2?}
 
-\textbf{Key idea:}  
-All codes of length $l+1$ must begin immediately after the last code of length $l$,
-and must be exactly one bit longer.
+The key step $\text{start\_code}[l] = (\text{start\_code}[l-1] + \text{count}[l-1]) \times 2$ ensures:
 
-If the last code of length $l$ has integer value $x$, then the first code of length
-$l+1$ is:
-\[
-\text{start\_code}[l+1] = (x + 1)\times 2
-\]
-
-In binary representation, this corresponds to:
-\[
-(x+1)_2 \text{ followed by a } 0
-\]
-
-This construction ensures:
-\begin{itemize}
-    \item Prefix-free property
-    \item Lexicographic ordering is preserved
-    \item No overlap between different length groups
+\begin{importantbox}
+\textbf{Visual Intuition:}
+Imagine all codes of length $l-1$ are written as binary numbers. When we multiply by 2 (left shift by 1 bit), we:
+\begin{itemize}[leftmargin=*]
+    \item Append a 0 to each existing code
+    \item Create room for new codes that are one bit longer
+    \item Ensure the new codes maintain prefix-free property
 \end{itemize}
+
+\textbf{Example:} If the last code of length 2 is "11" (binary 3), then:
+\[
+(\text{last code} + 1) \times 2 = (3 + 1) \times 2 = 8 = 1000_{\text{binary}}
+\]
+The first code of length 3 is "100" (3 bits of 1000), which follows "11" properly.
+\end{importantbox}
+
+\textbf{Mathematical Explanation:}
+\begin{itemize}
+    \item $\text{start\_code}[l-1] + \text{count}[l-1]$ gives the \textbf{first unused code value} after all codes of length $l-1$
+    \item Multiplying by 2 (left shift by 1 bit) makes room for an extra bit
+    \item This ensures all codes of length $l$ start with a 0 in their new bit position
+    \item The result is the smallest valid starting point for the next length group
+\end{itemize}
+
+\textbf{Bit Pattern Visualization:}
+\begin{verbatim}
+Length 2 codes: 00, 01, 10, 11
+Length 3 codes start at: (11 + 1) × 2 = 1000_binary
+So length 3 codes are: 100, 101, 110, 111
+Notice: 11 is NOT a prefix of 100!
+\end{verbatim}
 
 \subsubsection*{Complete Worked Example}
 
@@ -657,80 +647,143 @@ F & 4
 \end{tabular}
 \end{center}
 
-\textbf{Step 1: Sort symbols by length, then by symbol order}
-\begin{itemize}
-    \item Length 2: A
-    \item Length 3: B, C, D
-    \item Length 4: E, F
+\textbf{Key Point:} The code lengths $(l_i)$ are already determined by the Huffman tree construction. 
+These lengths tell us \emph{exactly} how many bits each symbol's code will use.
+
+\textbf{Step 1: Sort symbols by length (primary), then symbol order (secondary)}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Critical:} Sorting ensures consistent code assignment
+    \item Order: A (2), B (3), C (3), D (3), E (4), F (4)
+    \item Within same length group, maintain original symbol order
 \end{itemize}
 
 \textbf{Step 2: Count symbols per length}
 \[
-\text{count}[2]=1,\qquad
-\text{count}[3]=3,\qquad
-\text{count}[4]=2
+\text{count}[2] = 1,\quad
+\text{count}[3] = 3,\quad
+\text{count}[4] = 2
 \]
 
-\textbf{Step 3: Compute starting codes}
+\textbf{Step 3: Compute starting codes (with shift explanation)}
 \begin{align*}
-\text{start\_code}[2] &= 0 \quad (00_2) \\
-\text{start\_code}[3] &= (0 + 1)\times 2 = 2 \quad (010_2) \\
-\text{start\_code}[4] &= (2 + 3)\times 2 = 10 \quad (1010_2)
+\text{start\_code}[2] &= 0 \quad \text{(represented as 00 in binary, using \textbf{2 bits} because length=2)} \\
+\text{start\_code}[3] &= (\text{start\_code}[2] + \text{count}[2]) \times 2 \\
+&= (0 + 1) \times 2 = 2 \quad \text{(represented as 010 in binary, using \textbf{3 bits} because length=3)} \\
+&\text{\textit{Interpretation: After 1 code of length 2, shift left (add 0 bit) for length 3}} \\
+\text{start\_code}[4] &= (\text{start\_code}[3] + \text{count}[3]) \times 2 \\
+&= (2 + 3) \times 2 = 10 \quad \text{(represented as 1010 in binary, using \textbf{4 bits} because length=4)} \\
+&\text{\textit{Interpretation: After 3 codes of length 3, shift left (add 0 bit) for length 4}}
 \end{align*}
+
+\textbf{Important:} The multiplication by 2 is a \textbf{left shift} operation. It adds one more bit to the code while maintaining the prefix-free property.
 
 \textbf{Step 4: Initialize assignment pointers}
 \[
-\text{next\_code}[2]=0,\quad
-\text{next\_code}[3]=2,\quad
-\text{next\_code}[4]=10
+\text{next\_code}[2] = 0,\quad
+\text{next\_code}[3] = 2,\quad
+\text{next\_code}[4] = 10
 \]
 
-\textbf{Step 5: Assign codes}
+\textbf{Step 5: Assign codes (in sorted order)}
 \begin{center}
-\begin{tabular}{c|c|l|c|c}
-Symbol & Length & Action & Code & $\text{next\_code}[l]$ after \\ \hline
-A & 2 & Assign $\text{next\_code}[2]=0$ & 00 & 1 \\
-B & 3 & Assign $\text{next\_code}[3]=2$ & 010 & 3 \\
-C & 3 & Assign $\text{next\_code}[3]=3$ & 011 & 4 \\
-D & 3 & Assign $\text{next\_code}[3]=4$ & 100 & 5 \\
-E & 4 & Assign $\text{next\_code}[4]=10$ & 1010 & 11 \\
-F & 4 & Assign $\text{next\_code}[4]=11$ & 1011 & 12
+\begin{tabular}{c|c|c|c|c}
+Symbol & Length & Decimal & Binary Code & $\text{next\_code}$ after \\ \hline
+A & 2 & 0 & \texttt{00} & 1 \\
+B & 3 & 2 & \texttt{010} & 3 \\
+C & 3 & 3 & \texttt{011} & 4 \\
+D & 3 & 4 & \texttt{100} & 5 \\
+E & 4 & 10 & \texttt{1010} & 11 \\
+F & 4 & 11 & \texttt{1011} & 12
 \end{tabular}
 \end{center}
 
-\textbf{Final canonical codes:}
+\textbf{How binary conversion works:}
+\begin{itemize}
+    \item For symbol A (length=2, decimal=0): $\text{Binary: } 00$ (padded to 2 bits)
+    \item For symbol B (length=3, decimal=2): $\text{Binary: } 010$ (2 in binary is 10, padded to 3 bits: 010)
+    \item For symbol E (length=4, decimal=10): $\text{Binary: } 1010$ (10 in binary is 1010, already 4 bits)
+\end{itemize}
+
+\textbf{Algorithm Summary:}
+\begin{enumerate}
+    \item \textbf{Input}: Code lengths $l_i$ for each symbol (from Huffman tree)
+    \item \textbf{For each length $l$}:
+    \begin{itemize}
+        \item First code of length $l$: start\_code[$l$]
+        \item Subsequent codes: increment by 1
+        \item All codes use exactly $l$ bits
+    \end{itemize}
+    \item \textbf{Key formula}: start\_code[$l+1$] = (start\_code[$l$] + count[$l$]) $\times$ 2
+\end{enumerate}
+
+\textbf{Final canonical codes (verify properties):}
 \begin{center}
-\begin{tabular}{c|c|c}
-Symbol & Length & Canonical Code \\ \hline
-A & 2 & 00 \\
-B & 3 & 010 \\
-C & 3 & 011 \\
-D & 3 & 100 \\
-E & 4 & 1010 \\
-F & 4 & 1011
+\begin{tabular}{c|c|c|c}
+Symbol & Length & Canonical Code & Check \\ \hline
+A & 2 & 00 & $\checkmark$ First length 2 code \\
+B & 3 & 010 & $\checkmark$ First length 3 code \\
+C & 3 & 011 & $\checkmark$ Consecutive with B \\
+D & 3 & 100 & $\checkmark$ Consecutive with C \\
+E & 4 & 1010 & $\checkmark$ First length 4 code \\
+F & 4 & 1011 & $\checkmark$ Consecutive with E
 \end{tabular}
 \end{center}
+
+\textbf{Verification:}
+\begin{itemize}[leftmargin=*]
+    \item All codes of same length are consecutive binary numbers $\checkmark$
+    \item Codes are lexicographically ordered $\checkmark$
+    \item No code is a prefix of another $\checkmark$
+\end{itemize}
+\end{examplebox}
+
+\subsubsection*{What If We Don't Sort? A Counterexample}
+
+\begin{examplebox}
+\textbf{Problem without sorting:}
+Suppose we have the same code lengths but assign codes without proper sorting:
+
+\begin{center}
+\begin{tabular}{c|c}
+Symbol & Length \\ \hline
+D & 3 \\
+A & 2 \\
+E & 4 \\
+B & 3 \\
+F & 4 \\
+C & 3
+\end{tabular}
+\end{center}
+
+If we assign codes in this random order using the same algorithm:
+\begin{itemize}[leftmargin=*]
+    \item D (length 3) gets code 010
+    \item A (length 2) gets code 00
+    \item E (length 4) gets code 1000
+    \item \textbf{Problem:} Code "00" (A) is a prefix of "1000" (E)!
+\end{itemize}
+
+\textbf{Conclusion:} Sorting ensures that shorter codes are assigned first, preventing prefix conflicts between codes of different lengths.
 \end{examplebox}
 
 \subsubsection*{Transmission and Decoding}
 
-\textbf{Transmission format:}
+\textbf{Transmission format (very compact):}
 \begin{itemize}
-    \item Transmit only the sequence of code lengths:
+    \item Transmit only the sequence of code lengths in symbol order:
     \[
     \langle l_1, l_2, \dots, l_n \rangle
     \]
-    \item Example: $\langle 2, 3, 3, 3, 4, 4 \rangle$
-    \item Each length can be represented using
-    $\lceil \log_2 L_{\max} \rceil$ bits
+    \item Example for our symbols: $\langle 2, 3, 3, 3, 4, 4 \rangle$
+    \item Each length can be represented using $\lceil \log_2 l_{\max} \rceil$ bits
 \end{itemize}
 
-\textbf{Decoder operation:}
+\textbf{Decoder reconstruction:}
 \begin{enumerate}
-    \item Read code lengths for all symbols
+    \item Read code lengths for all symbols (in original symbol order)
+    \item Sort symbols by $(l_i, \text{index})$ to match encoder's order
     \item Reconstruct canonical codes using the same algorithm
-    \item Build a decoding table mapping $(\text{code}, \text{length})$ to symbols
-    \item Decode the bitstream using table lookup
+    \item Build decoding tables for fast lookup
 \end{enumerate}
 
 \subsubsection*{Comparison with Standard Huffman}
@@ -740,30 +793,35 @@ F & 4 & 1011
 \begin{tabular}{|p{6cm}|p{6cm}|}
 \hline
 \textbf{Standard Huffman (tree-based)} & \textbf{Canonical Huffman (length-based)} \\ \hline
-Output: Huffman tree & Output: Code lengths \\ \hline
-Must transmit tree structure & Transmit only lengths \\ \hline
-Decoding by tree traversal & Decoding by table lookup \\ \hline
-Multiple equivalent trees & Single deterministic assignment \\ \hline
+Output: Huffman tree structure & Output: Code lengths only \\ \hline
+Must transmit tree (complex) & Transmit only lengths (simple) \\ \hline
+Decoding by tree traversal (slower) & Decoding by table lookup (faster) \\ \hline
+Multiple equivalent trees possible & Single deterministic assignment \\ \hline
 Same optimal compression & Same optimal compression \\ \hline
 More complex implementation & Simple, robust implementation \\ \hline
+\textbf{No sorting required} & \textbf{Requires sorting by length} \\ \hline
 \end{tabular}
 \end{center}
 
-\subsubsection*{Key Properties}
+\subsubsection*{Key Properties and Applications}
 
 \begin{itemize}
     \item \textbf{Optimality:} Identical compression ratio to standard Huffman
-    \item \textbf{Compactness:} Only code lengths are stored or transmitted
+    \item \textbf{Compactness:} Only code lengths stored/transmitted
     \item \textbf{Speed:} Table-based decoding is significantly faster
     \item \textbf{Standardization:} Used in DEFLATE (gzip/ZIP), JPEG, PNG, MPEG
+    \item \textbf{Deterministic:} Same lengths always produce same codes
 \end{itemize}
 
 \begin{importantbox}
-\textbf{Critical Insight:}
-Canonical Huffman coding is \textbf{not} a different compression algorithm.
-The Huffman algorithm determines \emph{how long} each code should be,
-while the canonical transformation determines the \emph{exact bit patterns}
-in a consistent and reproducible manner.
+\textbf{Critical Insights:}
+\begin{enumerate}[leftmargin=*]
+    \item Canonical Huffman is \textbf{not} a different compression algorithm from Huffman
+    \item The Huffman algorithm determines \emph{how long} each code should be
+    \item The canonical transformation determines the \emph{exact bit patterns} consistently
+    \item \textbf{Sorting by length} is essential to ensure prefix-free property
+    \item The $\times 2$ operation (left shift) ensures proper separation between different length groups
+\end{enumerate}
 \end{importantbox}
 
 
@@ -1149,6 +1207,16 @@ F & 1111 \\
     \item If we use Huffman coding with letter frequencies, what's wrong with this approach?
     \item How might knowing that 'Q' is usually followed by 'U' help compression?
     \item Why would arithmetic coding be better than Huffman for this kind of data?
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise: 3.5} Given code lengths: A=2, B=2, C=3, D=3, E=3, F=4
+\begin{enumerate}[leftmargin=*]
+    \item Sort the symbols properly
+    \item Compute the canonical codes
+    \item Verify no code is a prefix of another
+    \item What happens if you don't sort by length?
 \end{enumerate}
 \end{exercisebox}
 
