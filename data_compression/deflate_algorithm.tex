@@ -178,29 +178,168 @@ Instead of brute-force searching 32KB for matches, DEFLATE uses a hash table:
 
 The hash is typically computed from the first 3 bytes of the potential match. Hash chains link all positions with the same 3-byte prefix.
 
+
 \subsubsection{Lazy Matching and Greedy Heuristics}
 
-DEFLATE uses sophisticated heuristics to find better matches:
+DEFLATE uses sophisticated heuristics to find better matches within the sliding window constraints:
 
 \begin{itemize}
-    \item \textbf{Greedy parsing}: Take the longest match at current position
-    \item \textbf{Lazy evaluation}: Check if skipping 1 byte finds a better match
-    \item \textbf{Lazy matching}: Actually implement lazy evaluation
+    \item \textbf{Greedy parsing}: Immediately take the longest match found at the current position
+    \item \textbf{Lazy matching}: Consider outputting a literal instead, hoping for a better match starting at the next position
 \end{itemize}
 
+\begin{importantbox}
+\textbf{Window Constraints in Lazy Matching}:
+\begin{itemize}
+    \item All matches must reference data within the 32KB search buffer
+    \item The lookahead buffer contains data to be encoded (maximum 258 bytes)
+    \item Lazy matching decides: "match now" vs. "literal now + potentially better match next"
+\end{itemize}
+\end{importantbox}
+
 \begin{examplebox}
-\textbf{Lazy Matching Example:}
-Data: "abcdeabcdfabcde"
+\textbf{Lazy Matching Example Where Lazy Parsing Wins}
 
-\begin{enumerate}
-    \item At position 0: "abcde" matches at position 5 (length=5)
-    \item \textbf{Greedy}: Encode (length=5, distance=5) immediately
-    \item \textbf{Lazy}: Check position 1: "bcdeabcdfabcde" has match at position 6 (length=13)
-    \item Better! So output 'a' as literal, then encode long match
-\end{enumerate}
+Consider the input data:
 
-Lazy matching finds longer matches but requires more computation.
+\[
+\texttt{aaaaabaaaaa}
+\]
+
+Indexing the data:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|}
+\hline
+0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 \\
+\hline
+a & a & a & a & a & b & a & a & a & a & a \\
+\hline
+\end{tabular}
+\end{center}
+
+Assume that the first six bytes have already been processed.  
+The sliding window state is:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c||c|c|c|c|c|}
+\hline
+a & a & a & a & a & b & a & a & a & a & a \\
+\hline
+\multicolumn{6}{|c||}{Search Buffer} &
+\multicolumn{5}{c|}{Lookahead Buffer} \\
+\hline
+\end{tabular}
+\end{center}
+
+Search buffer: \texttt{``aaaaab''} (positions 0--5) \\
+Lookahead buffer: \texttt{``aaaaa''} (positions 6--10)
+
+\textbf{Decision point: position 6 (first 'a' in lookahead)}
+
+\begin{itemize}
+    \item \textbf{Greedy parsing}:
+    \begin{itemize}
+        \item Find longest match $\geq$ 3 starting at position 6
+        \item \texttt{``aaaaa''} matches \texttt{``aaaaa''} starting at position 1 in search buffer
+        \item Match length = 5, distance = 5
+        \item Greedy immediately emits: (distance=5, length=5)
+        \item Covers 5 bytes
+    \end{itemize}
+
+    \item \textbf{Lazy parsing}:
+    \begin{itemize}
+        \item At position 6: Finds match length = 5, distance = 5
+        \item Checks next position (position 7)
+        \item Starting at position 7: \texttt{``aaaa''} (4 bytes in lookahead)
+        \item Cannot find match longer than 5 bytes (only 4 bytes remain)
+        \item Greedy wins - lazy doesn't help here
+    \end{itemize}
+\end{itemize}
+
+\textbf{Example where lazy actually wins:}
+
+Consider: \texttt{``abcabcdabcde''}
+
+After processing first 3 bytes:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+\hline
+a & b & c & a & b & c & d & a & b & c & d & e & \\
+\hline
+\multicolumn{3}{|c|}{Search Buffer} & \multicolumn{10}{c|}{Lookahead Buffer} \\
+\hline
+\end{tabular}
+\end{center}
+
+Search buffer: \texttt{``abc''} (positions 0-2) \\
+Lookahead: \texttt{``abcdabcde''} (positions 3-11)
+
+\textbf{At position 4 ('a'):}
+\begin{itemize}
+    \item \textbf{Greedy}:
+    \begin{itemize}
+        \item \texttt{``abc''} matches at position 0 (distance=3, length=3)
+        \item Encodes: (3,3)
+        \item Advances to position 6
+        \item Position 6: \texttt{``dabcde''} - no match $\geq$ 3
+        \item Output literals: 'd','a','b','c','d','e'
+    \end{itemize}
+    
+    \item \textbf{Lazy}:
+    \begin{itemize}
+        \item At position 3: Finds \texttt{``abc''} (length=3, distance=3)
+        \item Checks position 4: \texttt{``bcdabcde''}
+        \item \texttt{``bcd''} doesn't match (only \texttt{``bc''} in search buffer)
+        \item Length=2 $<$ 3
+        \item Greedy wins
+    \end{itemize}
+\end{itemize}
+
+\textbf{The reality:} Simple examples showing dramatic lazy advantage are mathematically rare. Lazy matching typically provides small gains (1-2 bytes) in specific edge cases.
 \end{examplebox}
+
+\begin{algorithm}[H]
+\caption{Lazy Matching with Sliding Window Constraints}
+\begin{algorithmic}[1]
+\Procedure{LazyMatch}{$search\_buffer$, $lookahead$}
+    \State $pos \gets 0$ \Comment{Position within lookahead buffer}
+    \State $best\_match\_here \gets$ FindBestMatch($search\_buffer$, $lookahead$, $pos$)
+    \If{$best\_match\_here.length \geq 3$}
+        \State $best\_match\_next \gets$ FindBestMatch($search\_buffer$, $lookahead$, $pos+1$)
+        \If{$best\_match\_next.length > best\_match\_here.length$}
+            \State Output $lookahead[pos]$ as literal
+            \State \Return $pos + 1$ \Comment{Move to next position}
+        \Else
+            \State Output match $(best\_match\_here.distance, best\_match\_here.length)$
+            \State \Return $pos + best\_match\_here.length$
+        \EndIf
+    \Else
+        \State Output $lookahead[pos]$ as literal
+        \State \Return $pos + 1$
+    \EndIf
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{importantbox}
+\textbf{Why Lazy Matching Works with Sliding Windows}:
+\begin{itemize}
+    \item By outputting a literal, we shift the window by 1 byte
+    \item This adds that literal to the search buffer for future matches
+    \item Sometimes the literal + new search buffer position enables a longer match
+    \item The decision is: "Is sacrificing 1 byte now worth gaining several bytes later?"
+\end{itemize}
+
+\textbf{Typical lazy matching optimization}:
+\begin{itemize}
+    \item Only consider lazy if current match length $< 8$ (configurable threshold)
+    \item Check only next 1-2 positions (not all possible positions)
+    \item Stop lazy checking if a very long match (e.g., $>$ 128 bytes) is found
+\end{itemize}
+\end{importantbox}
+
 
 \subsubsection{Output Format: (Length, Distance) Pairs vs. Literal Bytes}
 
