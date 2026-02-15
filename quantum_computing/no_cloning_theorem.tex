@@ -1,0 +1,294 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{physics}  % Already defines \ket, \bra, \braket
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+% Remove the conflicting definitions since physics package provides them
+% \newcommand{\ket}[1]{\left|#1\right\rangle}  % REMOVED - already defined
+% \newcommand{\bra}[1]{\left\langle#1\right|}  % REMOVED - already defined
+% \newcommand{\braket}[2]{\left\langle#1|#2\right\rangle}  % REMOVED - already defined
+
+% Only define commands that physics package doesn't provide
+\newcommand{\proj}[1]{\ket{#1}\bra{#1}}
+\newcommand{\tensor}{\otimes}
+
+\title{The No-Cloning Theorem in Quantum Computing}
+\author{Quantum Computing Course}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+In classical computing, information can be copied freely. If you have a classical bit with value 0 or 1, you may duplicate it perfectly and arbitrarily many times. This ability underlies classical error correction, memory backup, and communication protocols.
+
+Quantum information behaves fundamentally differently. In quantum mechanics, it is \emph{impossible} to perfectly copy an arbitrary unknown quantum state. This limitation is formalized in the \textbf{No-Cloning Theorem}, independently proved by Wootters and Zurek, and by Dieks, in 1982.
+
+\subsection{What would be possible if we could clone qubits?}
+
+If perfect cloning of unknown quantum states were possible, it would lead to dramatic (and unphysical) consequences:
+
+\begin{enumerate}
+    \item \textbf{Perfect quantum state estimation:} One could make many identical copies of an unknown state $\ket{\psi}$ and perform tomography to reconstruct it exactly.
+    
+    \item \textbf{Faster-than-light communication:} Combined with entanglement, cloning could be used to transmit information instantaneously, violating relativistic causality.
+    
+    \item \textbf{Trivial quantum error correction:} Errors could be corrected simply by restoring from a cloned backup.
+    
+    \item \textbf{Breaking quantum cryptography:} Security of protocols such as BB84 relies crucially on the impossibility of copying quantum states without disturbance.
+    
+    \item \textbf{Unlimited measurement precision:} Repeated measurements on cloned copies would eliminate fundamental quantum uncertainty.
+\end{enumerate}
+
+The impossibility of these consequences reveals a deep structural difference between classical and quantum information.
+
+\section{Statement of the Theorem}
+
+\begin{tcolorbox}[title=No-Cloning Theorem]
+There does not exist a unitary operator $U$ and a fixed quantum state $\ket{\Sigma}$ (the \emph{blank} state) such that for \emph{all} normalized states $\ket{\psi}$,
+\[
+U(\ket{\psi} \tensor \ket{\Sigma}) = \ket{\psi} \tensor \ket{\psi}.
+\]
+\end{tcolorbox}
+
+\textbf{Important clarification:}  
+The theorem concerns \emph{unknown or arbitrary} quantum states. If the classical description of $\ket{\psi}$ is known, one may always prepare as many copies as desired. The impossibility lies in constructing a \emph{single physical device} that clones \emph{every} possible input state.
+
+\section{First Proof: Linearity Argument}
+
+\subsection{Setup}
+
+Assume, for contradiction, that there exists a unitary operator $U$ and a fixed blank state $\ket{\Sigma}$ such that
+\begin{equation}
+U(\ket{\psi} \tensor \ket{\Sigma}) = \ket{\psi} \tensor \ket{\psi}
+\label{eq:clone}
+\end{equation}
+for all quantum states $\ket{\psi}$.
+
+\subsection{Proof}
+
+Let $\ket{\alpha}$ and $\ket{\beta}$ be two distinct normalized quantum states. By assumption,
+\begin{align}
+U(\ket{\alpha} \tensor \ket{\Sigma}) &= \ket{\alpha} \tensor \ket{\alpha}, \label{eq:clonealpha}\\
+U(\ket{\beta} \tensor \ket{\Sigma}) &= \ket{\beta} \tensor \ket{\beta}. \label{eq:clonebeta}
+\end{align}
+
+Consider their superposition
+\[
+\ket{\gamma} = a\ket{\alpha} + b\ket{\beta},
+\]
+with complex coefficients satisfying $\abs{a}^2 + \abs{b}^2 = 1$.
+
+If cloning is universal, it must also clone $\ket{\gamma}$:
+\begin{equation}
+U(\ket{\gamma} \tensor \ket{\Sigma}) = \ket{\gamma} \tensor \ket{\gamma}.
+\label{eq:clonepsi}
+\end{equation}
+
+By linearity of unitary operators,
+\begin{align}
+U(\ket{\gamma} \tensor \ket{\Sigma})
+&= U\big[(a\ket{\alpha} + b\ket{\beta}) \tensor \ket{\Sigma}\big] \\
+&= aU(\ket{\alpha} \tensor \ket{\Sigma}) + bU(\ket{\beta} \tensor \ket{\Sigma}) \\
+&= a(\ket{\alpha} \tensor \ket{\alpha}) + b(\ket{\beta} \tensor \ket{\beta}).
+\label{eq:linearresult}
+\end{align}
+
+On the other hand,
+\begin{align}
+\ket{\gamma} \tensor \ket{\gamma}
+&= (a\ket{\alpha} + b\ket{\beta}) \tensor (a\ket{\alpha} + b\ket{\beta}) \\
+&= a^2 \ket{\alpha\alpha}
++ ab \ket{\alpha\beta}
++ ba \ket{\beta\alpha}
++ b^2 \ket{\beta\beta}.
+\label{eq:gammatensor}
+\end{align}
+
+Comparing \eqref{eq:linearresult} and \eqref{eq:gammatensor}, we see that equality requires:
+\[
+a^2 = a, \quad b^2 = b, \quad \text{and} \quad ab = 0.
+\]
+
+The condition $ab = 0$ implies either $a = 0$ or $b = 0$.
+\begin{itemize}
+    \item If $a = 0$, then from $b^2 = b$ and normalization $\abs{b}^2 = 1$, we get $b = 1$ (up to a phase), so $\ket{\gamma} = \ket{\beta}$.
+    \item If $b = 0$, then from $a^2 = a$ and normalization $\abs{a}^2 = 1$, we get $a = 1$ (up to a phase), so $\ket{\gamma} = \ket{\alpha}$.
+\end{itemize}
+
+Thus, the only cases where cloning works are when $\ket{\gamma}$ is either $\ket{\alpha}$ or $\ket{\beta}$. The cloning machine fails for genuine superpositions.
+
+\subsection{Conclusion of First Proof}
+
+The linearity of quantum mechanics forbids a universal cloning transformation. A machine that clones even two distinct states cannot clone their superpositions.
+
+\section{Second Proof: Inner Product Preservation}
+
+\subsection{Setup}
+
+Assume again the existence of a unitary $U$ such that
+\[
+U(\ket{\psi} \tensor \ket{\Sigma}) = \ket{\psi} \tensor \ket{\psi}
+\]
+for all $\ket{\psi}$.
+
+\subsection{Proof}
+
+Let $\ket{\phi}$ and $\ket{\psi}$ be two arbitrary states. Before applying $U$, the inner product is
+\begin{equation}
+\braket{\phi}{\psi} \braket{\Sigma}{\Sigma} = \braket{\phi}{\psi},
+\label{eq:innerbefore}
+\end{equation}
+since $\ket{\Sigma}$ is normalized ($\braket{\Sigma}{\Sigma} = 1$).
+
+After applying $U$, using unitarity ($U^\dagger U = I$) and the cloning assumption:
+\begin{align}
+&\left(\bra{\phi} \tensor \bra{\Sigma}\right) U^\dagger U \left(\ket{\psi} \tensor \ket{\Sigma}\right) \notag \\
+&= \left(\bra{\phi} \tensor \bra{\phi}\right) \left(\ket{\psi} \tensor \ket{\psi}\right) \notag \\
+&= \braket{\phi}{\psi} \cdot \braket{\phi}{\psi} \notag \\
+&= \abs{\braket{\phi}{\psi}}^2.
+\label{eq:innerafter}
+\end{align}
+
+Since unitary transformations preserve inner products, \eqref{eq:innerbefore} and \eqref{eq:innerafter} must be equal:
+\[
+\braket{\phi}{\psi} = \abs{\braket{\phi}{\psi}}^2.
+\]
+
+Let $x = \braket{\phi}{\psi}$. Writing $x = re^{i\theta}$ in polar form:
+\[
+re^{i\theta} = r^2.
+\]
+
+This implies:
+\begin{enumerate}
+    \item $r = r^2$ $\Rightarrow$ $r(1 - r) = 0$ $\Rightarrow$ $r = 0$ or $r = 1$
+    \item If $r = 1$, then $e^{i\theta} = 1$ $\Rightarrow$ $\theta = 0$ (mod $2\pi$)
+\end{enumerate}
+
+Thus, $\braket{\phi}{\psi} = \abs{\braket{\phi}{\psi}}^2$ holds only if:
+\begin{itemize}
+    \item $\braket{\phi}{\psi} = 0$ (the states are orthogonal), or
+    \item $\braket{\phi}{\psi} = 1$ (the states are identical, up to a global phase)
+\end{itemize}
+
+\subsection{Interpretation}
+
+Perfect cloning is possible only for mutually orthogonal states or identical states. Since arbitrary quantum states are generally non-orthogonal, a universal cloner cannot exist.
+
+\section{Consequences and Implications}
+
+\subsection{What we \textit{can} do}
+
+\begin{enumerate}
+    \item \textbf{Cloning known orthogonal states:}  
+    If a quantum state is guaranteed to belong to a known orthogonal set, it can be cloned.
+    
+    \item \textbf{Approximate cloning:}  
+    Universal approximate cloners exist. The optimal qubit cloner (Bužek–Hillery, 1996) achieves fidelity $5/6$.
+    
+    \item \textbf{State-dependent cloning:}  
+    One may design cloners optimized for specific ensembles of states.
+\end{enumerate}
+
+\subsection{Important applications}
+
+\begin{enumerate}
+    \item \textbf{Quantum key distribution (BB84):} The security relies on the fact that an eavesdropper cannot copy qubits without disturbing them.
+    
+    \item \textbf{Quantum money (Wiesner, 1983):} Uses the no-cloning theorem to prevent counterfeiting of quantum banknotes.
+    
+    \item \textbf{Quantum error correction:} Unlike classical error correction which often uses repetition, quantum error correction requires more sophisticated codes like the Shor code or surface codes.
+    
+    \item \textbf{Foundations of quantum information theory:} Highlights fundamental differences between classical and quantum information.
+\end{enumerate}
+
+\section{Examples and Counterexamples}
+
+\subsection{Example 1: Cloning orthogonal states}
+
+The CNOT gate clones computational basis states:
+\[
+U(\ket{0}\tensor\ket{0}) = \ket{0}\tensor\ket{0}, \quad
+U(\ket{1}\tensor\ket{0}) = \ket{1}\tensor\ket{1}.
+\]
+
+But for $\ket{+} = (\ket{0} + \ket{1})/\sqrt{2}$,
+\[
+U(\ket{+}\tensor\ket{0}) = \frac{1}{\sqrt{2}}(\ket{00} + \ket{11}) \neq \ket{+}\tensor\ket{+}.
+\]
+
+\subsection{Example 2: Measurement and cloning}
+
+Measurement converts quantum information into classical information, which can be copied freely — but at the cost of destroying the original quantum state. This illustrates the trade-off: you can "clone" by measuring, but only by destroying the original quantum coherence.
+
+\section{Mathematical Perspective}
+
+\subsection{Algebraic perspective}
+
+Cloning would require a nonlinear map
+\[
+\ket{\psi} \mapsto \ket{\psi} \tensor \ket{\psi},
+\]
+which is incompatible with the linear structure of quantum mechanics. Unitary evolution (and more generally, completely positive maps) must be linear.
+
+\subsection{Geometric perspective}
+
+On the Bloch sphere, cloning would require mapping a single point (representing $\ket{\psi}$) to two identical points. Unitary transformations correspond to rotations of the entire Bloch sphere, which cannot map one point to two points.
+
+\section{Historical Context}
+
+The theorem was discovered relatively late in the development of quantum mechanics:
+\begin{itemize}
+    \item \textbf{Wootters and Zurek (1982):} "A single quantum cannot be cloned"
+    \item \textbf{Dieks (1982):} "Communication by EPR devices"
+\end{itemize}
+
+The independent discoveries in the same year highlight how this fundamental limitation was not immediately obvious despite quantum mechanics being over 50 years old at the time.
+
+\section{Summary}
+
+\begin{tcolorbox}[title=Key Takeaways]
+\begin{itemize}
+    \item Arbitrary unknown quantum states cannot be perfectly cloned.
+    
+    \item The theorem follows from two fundamental properties of quantum mechanics:
+    \begin{enumerate}
+        \item Linearity of quantum evolution
+        \item Preservation of inner products under unitary transformations
+    \end{enumerate}
+    
+    \item Two equivalent proofs:
+    \begin{enumerate}
+        \item \textbf{Linearity proof:} Shows that cloning a superposition leads to contradictions
+        \item \textbf{Inner product proof:} Uses the fact that unitaries preserve inner products
+    \end{enumerate}
+    
+    \item Orthogonal states can be cloned if the orthogonal set is known in advance.
+    
+    \item Approximate cloning is possible (optimal fidelity $5/6$ for qubits), but perfect cloning is not.
+    
+    \item The theorem has profound implications for quantum cryptography, error correction, and our understanding of quantum information.
+\end{itemize}
+\end{tcolorbox}
+
+\section*{Exercises}
+
+\begin{enumerate}
+    \item \textbf{No-deleting theorem:} Show that the no-cloning theorem implies a dual "no-deleting" theorem: there is no unitary operation that can delete an arbitrary unknown quantum state while preserving unitarity.
+    
+    \item \textbf{Optimal cloning fidelity:} For the Bužek–Hillery cloning machine, the optimal cloning fidelity for an arbitrary single qubit state is $F = \frac{5}{6}$. Verify that this satisfies $F > \frac{2}{3}$, which is the fidelity achieved by the simple "measure and prepare" strategy.
+    
+    \item \textbf{Cloning orthogonal sets:} Prove that if $\{\ket{\psi_i}\}$ is a set of mutually orthogonal quantum states, then there exists a unitary operator that clones all states in the set. Construct such a unitary explicitly for the set $\{\ket{0}, \ket{1}\}$.
+    
+    \item \textbf{Anti-linear "cloning":} Consider the transformation $\ket{\psi} \mapsto \ket{\psi} \tensor \ket{\psi^*}$, where $\ket{\psi^*}$ is the complex conjugate of $\ket{\psi}$. Show that this map is anti-linear and therefore not physically implementable as a unitary operation.
+    
+    \item \textbf{No-broadcasting theorem:} Research and explain how the no-cloning theorem generalizes to mixed states as the "no-broadcasting" theorem. What is the key difference between cloning pure states and broadcasting mixed states?
+\end{enumerate}
+
+\end{document}
