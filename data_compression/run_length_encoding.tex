@@ -1,0 +1,2589 @@
+% ============================================
+% FILE: run_length_encoding.tex
+% Detailed Lecture Notes for Chapter 7: Run-Length Encoding
+% ============================================
+
+\section{Run-Length Encoding: Exploiting Equality Redundancy}
+
+\begin{importantbox}
+\textbf{Learning Objectives:}
+\begin{itemize}
+    \item Understand the concept of equality redundancy and why it's the simplest form of compressible pattern
+    \item Master the basic RLE algorithm and its variants for different data types
+    \item Analyze compression ratios, best/worst cases, and theoretical limits of RLE
+    \item Learn practical RLE implementations used in real-world file formats
+    \item Understand why RLE fails on some data types and how to combine it with other techniques
+    \item Build the conceptual bridge to transform-based compression, especially BWT
+\end{itemize}
+\end{importantbox}
+
+\subsection{Introduction and Motivation}
+
+\subsubsection{The Simplest Form of Redundancy: Repetition}
+
+When we look at data through the lens of compression, we're constantly asking: "What patterns repeat?" Among all possible patterns, the absolute simplest is when the \textit{same symbol repeats consecutively}. We call this \textbf{equality redundancy}.
+
+\begin{definitionbox}
+\textbf{Equality Redundancy:} A form of data redundancy where the same symbol appears multiple times in consecutive positions within a sequence. Each such group of identical consecutive symbols is called a \textbf{run}.
+\end{definitionbox}
+
+Consider these examples:
+\begin{itemize}
+    \item Text: \texttt{AAAABBBCCCC} contains three runs: \texttt{AAAA}, \texttt{BBB}, and \texttt{CCCC}
+    \item Images: A blue sky photo has long runs of similar blue pixel values
+    \item Signals: Silence in audio contains runs of zero amplitude
+    \item Documents: White space in scanned text creates runs of white pixels
+\end{itemize}
+
+The key insight is elegant in its simplicity: instead of storing each symbol individually, we can store each symbol once along with a count of how many times it repeats. For \texttt{AAAA}, instead of storing 4 bytes, we store (\texttt{A},4).
+
+\begin{examplebox}
+\textbf{Intuition Building:}
+Raw data: \texttt{WWWWWWWWWWWWWBBWWWWWWWWWWWWWBBBWWWWWWWWW}
+\newline
+With runs identified: 
+\begin{itemize}
+    \item 13 W's
+    \item 2 B's
+    \item 13 W's
+    \item 3 B's
+    \item 9 W's
+\end{itemize}
+Storing as pairs: (W,13)(B,2)(W,13)(B,3)(W,9)
+
+Original: 40 characters
+Encoded: 10 values (5 symbols + 5 counts) $\rightarrow$ significant savings!
+\end{examplebox}
+
+\subsubsection{Where Runs Naturally Occur: Images, Documents, Signals}
+
+Understanding where runs occur naturally helps us appreciate RLE's practical value. Different data modalities exhibit different run characteristics.
+
+\textbf{1. Digital Images:}
+\begin{itemize}
+    \item \textbf{Computer-generated graphics:} Icons, logos, GUI elements often have large uniform areas. A button might be solid blue (run of identical pixels).
+    \item \textbf{Line art:} Technical drawings, diagrams, charts have long runs of white background interrupted by black lines.
+    \item \textbf{Simple natural images:} Blue sky, green grass, walls—these often contain large regions of similar or identical colors, especially after quantization.
+    \item \textbf{Medical images:} X-rays have large dark background areas (runs of black pixels).
+\end{itemize}
+
+\textbf{2. Document Images:}
+\begin{itemize}
+    \item \textbf{Fax documents:} Mostly white paper with black text. A typical page might be 95\% white pixels, creating extremely long runs of white between lines and in margins.
+    \item \textbf{Scanned text:} Similar to fax, with alternating runs of white (background) and black (text).
+    \item \textbf{Form documents:} Pre-printed forms have consistent layouts with large white areas.
+\end{itemize}
+
+\textbf{3. Signals and Time Series:}
+\begin{itemize}
+    \item \textbf{Silence in audio:} Periods of no sound create runs of zero samples.
+    \item \textbf{Sensor data:} Temperature readings might stay constant for periods.
+    \item \textbf{Stock prices:} May remain unchanged for multiple consecutive ticks.
+    \item \textbf{Video:} Static scenes have runs of identical pixels across frames (temporal redundancy).
+\end{itemize}
+
+\textbf{4. Specialized Data:}
+\begin{itemize}
+    \item \textbf{DNA sequences:} Can have long runs of the same nucleotide (e.g., poly-A tails in mRNA).
+    \item \textbf{Index files:} Sorted indices often have runs of identical prefixes.
+    \item \textbf{Difference files:} After computing differences between versions, runs of zeros appear where files are identical.
+    \item \textbf{Transform outputs:} After applying transforms like DCT (Discrete Cosine Transform) or wavelet transforms, we get long runs of zeros—a crucial application we'll explore later.
+\end{itemize}
+
+\subsubsection{Historical Background of RLE}
+
+Run-Length Encoding has a rich history that parallels the development of digital communication and storage.
+
+\textbf{1950s-1960s: Early Digital Imaging}
+\begin{itemize}
+    \item As computers began processing images, the need for efficient storage became apparent
+    \item Early facsimile (fax) machines used analog methods; digital fax required compression
+    \item RLE was a natural fit for binary document images
+\end{itemize}
+
+\textbf{1967: First Fax Standard}
+\begin{itemize}
+    \item CCITT (now ITU-T) began standardizing digital facsimile transmission
+    \item Group 3 fax standard (1980) incorporated RLE as a core component
+    \item Modified Huffman coding combined RLE with Huffman for run lengths
+    \item This became one of the most widely deployed compression systems in history
+\end{itemize}
+
+\textbf{1970s-1980s: Image File Formats}
+\begin{itemize}
+    \item \textbf{PCX (1982):} ZSoft's PC Paintbrush format used RLE extensively
+    \item \textbf{BMP (late 1980s):} Microsoft's Windows bitmap format included RLE compression options
+    \item \textbf{TIFF (1986):} Tagged Image File Format included RLE as one of its compression methods
+    \item These formats made RLE ubiquitous in early personal computing
+\end{itemize}
+
+\textbf{1980s: Integration with Other Techniques}
+\begin{itemize}
+    \item Researchers realized RLE alone was insufficient for complex data
+    \item Combined approaches emerged: RLE + Huffman (fax), RLE + LZ (some compressors)
+    \item The concept of RLE as a preprocessing step gained traction
+\end{itemize}
+
+\textbf{1990s-Present: Modern Applications}
+\begin{itemize}
+    \item \textbf{bzip2 (1996):} Julian Seward's bzip2 used RLE as part of the BWT pipeline
+    \item \textbf{Image/Video codecs:} JPEG, MPEG use run-length coding for zero quantized coefficients
+    \item \textbf{PDF:} Supports RLE compression for embedded images
+    \item \textbf{Game assets:} Many game engines use RLE for sprite and tile compression
+\end{itemize}
+
+\begin{importantbox}
+\textbf{Why Study RLE Today?}
+Despite its age and simplicity, RLE remains relevant because:
+\begin{enumerate}
+    \item It's optimal for certain data types (binary images, sparse data)
+    \item It's extremely fast—often the fastest compression method available
+    \item It's patent-free and simple to implement correctly
+    \item It's a building block for more complex algorithms (BWT, JPEG)
+    \item Understanding RLE teaches fundamental compression concepts applicable to all methods
+\end{enumerate}
+\end{importantbox}
+
+\subsection{Basic Run-Length Encoding}
+
+\subsubsection{Formal Definition of a Run}
+
+Before we can encode runs, we need a precise mathematical definition.
+
+\begin{definitionbox}
+\textbf{Run:} Given a sequence $S = s_1, s_2, s_3, \ldots, s_n$ over an alphabet $\Sigma$, a run is a maximal consecutive subsequence $s_i, s_{i+1}, \ldots, s_j$ such that $s_i = s_{i+1} = \ldots = s_j$, and either $i=1$ or $s_{i-1} \neq s_i$, and either $j=n$ or $s_{j+1} \neq s_j$.
+
+In simpler terms: a run is the longest possible sequence of identical symbols that appears consecutively.
+\end{definitionbox}
+
+\textbf{Properties of Runs:}
+\begin{enumerate}
+    \item \textbf{Maximality:} A run cannot be extended—the symbol before it (if any) is different, and the symbol after it (if any) is different.
+    \item \textbf{Disjointness:} Runs partition the sequence; every symbol belongs to exactly one run.
+    \item \textbf{Alternation:} Adjacent runs always contain different symbols.
+\end{enumerate}
+
+\begin{examplebox}
+\textbf{Run Decomposition Examples:}
+
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Sequence} & \textbf{Runs} & \textbf{Notes} \\
+\hline
+\texttt{AAAAA} & \{\texttt{AAAAA}\} & Single run of length 5 \\
+\texttt{ABABAB} & \{\texttt{A},\texttt{B},\texttt{A},\texttt{B},\texttt{A},\texttt{B}\} & Six runs of length 1 \\
+\texttt{AAABBBCCC} & \{\texttt{AAA}\},\{\texttt{BBB}\},\{\texttt{CCC}\} & Three runs \\
+\texttt{ABBBCCDD} & \{\texttt{A}\},\{\texttt{BBB}\},\{\texttt{CC}\},\{\texttt{DD}\} & Mixed lengths \\
+\texttt{AAAAAAABBBBBBB} & \{\texttt{AAAAAAA}\},\{\texttt{BBBBBBB}\} & Two runs, long \\
+\hline
+\end{tabular}
+
+\vspace{0.2cm}
+\textbf{Run Statistics:}
+\begin{itemize}
+    \item Minimum run length: 1
+    \item Maximum run length: n (the entire sequence)
+    \item Number of runs: Between 1 and n
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Encoding Algorithm (Symbol, Count)}
+
+The basic RLE encoding algorithm transforms an input sequence into a sequence of (symbol, count) pairs. The algorithm is elegantly simple.
+
+\begin{algorithm}[H]
+\caption{Basic RLE Encoding}
+\begin{algorithmic}[1]
+\Procedure{RLE-Encode}{$S[1..n]$}
+    \State $result \gets$ empty list
+    \If {$n = 0$}
+        \State \Return $result$
+    \EndIf
+    \State $current\_symbol \gets S[1]$
+    \State $run\_length \gets 1$
+    \For {$i \gets 2$ to $n$}
+        \If {$S[i] = current\_symbol$}
+            \State $run\_length \gets run\_length + 1$
+        \Else
+            \State append $(current\_symbol, run\_length)$ to $result$
+            \State $current\_symbol \gets S[i]$
+            \State $run\_length \gets 1$
+        \EndIf
+    \EndFor
+    \State append $(current\_symbol, run\_length)$ to $result$ \Comment{Don't forget the last run!}
+    \State \Return $result$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{importantbox}
+\textbf{Key Implementation Considerations:}
+\begin{itemize}
+    \item \textbf{First symbol initialization:} The algorithm must handle the first symbol specially
+    \item \textbf{Last run handling:} Always append the final run after the loop
+    \item \textbf{Empty input:} Edge case that must be handled gracefully
+    \item \textbf{Count representation:} How to store the count (fixed width, variable width, etc.)
+    \item \textbf{Symbol representation:} Whether symbols are bytes, bits, or larger units
+\end{itemize}
+\end{importantbox}
+
+\subsubsection{Decoding Algorithm}
+
+Decoding is equally straightforward: for each (symbol, count) pair, output the symbol count times.
+
+\begin{algorithm}[H]
+\caption{Basic RLE Decoding}
+\begin{algorithmic}[1]
+\Procedure{RLE-Decode}{$pairs[1..m]$}
+    \State $result \gets$ empty list
+    \For {each $(symbol, count)$ in $pairs$}
+        \For {$i \gets 1$ to $count$}
+            \State append $symbol$ to $result$
+        \EndFor
+    \EndFor
+    \State \Return $result$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Worked Examples (Text and Binary Data)}
+
+Let's work through several examples to build intuition.
+
+\begin{examplebox}
+\textbf{Example 1: Simple Text}
+\vspace{0.2cm}
+
+Input: \texttt{WWWWWWWWWWWWWBBWWWWWWWWWWWWWBBBWWWWWWWWW}
+
+Step-by-step encoding:
+\begin{enumerate}
+    \item Start at position 1: \texttt{W}, length = 13 (positions 1-13)
+    \item Position 14: \texttt{B} (different) → output (W,13), start new run
+    \item New run: \texttt{B}, length = 2 (positions 14-15)
+    \item Position 16: \texttt{W} (different) → output (B,2), start new run
+    \item New run: \texttt{W}, length = 13 (positions 16-28)
+    \item Position 29: \texttt{B} (different) → output (W,13), start new run
+    \item New run: \texttt{B}, length = 3 (positions 29-31)
+    \item Position 32: \texttt{W} (different) → output (B,3), start new run
+    \item Final run: \texttt{W}, length = 9 (positions 32-40) → output (W,9)
+\end{enumerate}
+
+Output: (W,13)(B,2)(W,13)(B,3)(W,9)
+
+\textbf{Compression Analysis:}
+\begin{itemize}
+    \item Original size: 40 bytes
+    \item Encoded size: 5 symbols + 5 counts = 10 values
+    \item If each value is 1 byte: 10 bytes vs 40 bytes → 75\% reduction!
+    \item Compression ratio: 4:1
+\end{itemize}
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Example 2: Binary Image Data}
+\vspace{0.2cm}
+
+Consider a scan line from a fax document (1 = black, 0 = white):
+Input: \texttt{0000000000111110000011111100000000000}
+
+Let's count runs:
+\begin{itemize}
+    \item Run 1: zeros, length = 10
+    \item Run 2: ones, length = 5
+    \item Run 3: zeros, length = 5
+    \item Run 4: ones, length = 6
+    \item Run 5: zeros, length = 11
+\end{itemize}
+
+Output: (0,10)(1,5)(0,5)(1,6)(0,11)
+
+\textbf{Comparison with original:}
+Original: 37 bits
+Encoded: 10 values (5 symbols + 5 counts)
+If counts fit in 4 bits each: 5×1 + 5×0.5 = 7.5 bytes → ~80\% reduction!
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Example 3: Worst Case - No Runs}
+\vspace{0.2cm}
+
+Input: \texttt{ABCDEFGHIJKLMNOPQRSTUVWXYZ}
+
+Run decomposition: 26 runs, each of length 1
+
+Output: (A,1)(B,1)(C,1)...(Z,1)
+
+\textbf{Compression Analysis:}
+\begin{itemize}
+    \item Original: 26 bytes
+    \item Encoded: 52 values (26 symbols + 26 counts)
+    \item At 1 byte per value: 52 bytes vs 26 bytes → 100\% expansion!
+    \item At 4 bits per count: 26 + 13 = 39 bytes → still 50\% expansion
+\end{itemize}
+
+This illustrates RLE's critical weakness: data without runs actually expands.
+\end{examplebox}
+
+\subsubsection{Time and Space Complexity}
+
+Understanding the computational efficiency of RLE helps in deciding when to use it.
+
+\begin{importantbox}
+\textbf{Time Complexity Analysis:}
+
+\begin{itemize}
+    \item \textbf{Encoding:} $O(n)$ where $n$ is input length
+    \begin{itemize}
+        \item Single pass through the data
+        \item Constant work per symbol (comparison and counter increment)
+        \item No backtracking or lookahead needed
+        \item Optimal for any one-pass algorithm
+    \end{itemize}
+    
+    \item \textbf{Decoding:} $O(m)$ where $m$ is output length
+    \begin{itemize}
+        \item Single pass through the encoded pairs
+        \item For each pair, output loop runs $count$ times
+        \item Total output size equals original input size
+        \item Also optimal (must produce all output symbols)
+    \end{itemize}
+    
+    \item \textbf{Overall:} Linear time in both input and output size
+    \begin{itemize}
+        \item Cannot be faster than linear (must examine each input symbol)
+        \item Cannot decode faster than output size (must produce each output)
+        \item RLE achieves the theoretical minimum time complexity
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\begin{importantbox}
+\textbf{Space Complexity Analysis:}
+
+\begin{itemize}
+    \item \textbf{Encoding (in-place):} $O(1)$ auxiliary space
+    \begin{itemize}
+        \item Only need current symbol and counter
+        \item Can output as runs are discovered (streaming)
+        \item No need to store entire input in memory
+    \end{itemize}
+    
+    \item \textbf{Encoding (with buffering):} $O(r)$ where $r$ is number of runs
+    \begin{itemize}
+        \item If storing all pairs before output
+        \item $r \leq n$ (at most n runs)
+        \item Typically much smaller than n for compressible data
+    \end{itemize}
+    
+    \item \textbf{Decoding:} $O(1)$ auxiliary space
+    \begin{itemize}
+        \item Process one pair at a time
+        \item Output as we go
+        \item Perfect for streaming applications
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\begin{tcolorbox}[colback=yellow!5!white,colframe=black!50!yellow, title=Complexity Summary Table]
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Metric} & \textbf{Encoding} & \textbf{Decoding} \\
+\hline
+Time Complexity & $O(n)$ & $O(n)$ \\
+Auxiliary Space (streaming) & $O(1)$ & $O(1)$ \\
+Auxiliary Space (buffered) & $O(r)$ & $O(1)$ \\
+Optimal? & Yes (linear lower bound) & Yes (output size lower bound) \\
+\hline
+\end{tabular}
+\end{tcolorbox}
+
+\subsection{Compression Analysis and Theoretical Properties}
+
+Understanding when RLE works well and when it fails requires careful analysis of its compression behavior.
+
+\subsubsection{Best-Case Compression Ratio}
+
+The best case for RLE occurs when the entire input consists of a single long run.
+
+\begin{definitionbox}
+\textbf{Compression Ratio:} 
+\[
+\text{Ratio} = \frac{\text{Original Size}}{\text{Compressed Size}}
+\]
+Higher ratio means better compression.
+\end{definitionbox}
+
+\begin{theorem}
+For a sequence of length $n$ consisting of a single symbol, the best-case compression ratio achievable with basic RLE is approximately $\frac{n}{c}$, where $c$ is the size (in bytes) of one (symbol, count) pair.
+\end{theorem}
+
+\begin{examplebox}
+\textbf{Best-Case Calculation:}
+
+Consider a 1 MB file (1,048,576 bytes) of all 'A's.
+
+\begin{itemize}
+    \item \textbf{Original:} 1,048,576 bytes
+    \item \textbf{Encoded:} (A, 1048576)
+    \item \textbf{With 4-byte counts (typical):}
+    \begin{itemize}
+        \item Symbol: 1 byte ('A')
+        \item Count: 4 bytes (32-bit integer)
+        \item Total: 5 bytes
+    \end{itemize}
+    \item \textbf{Compression ratio:} 1,048,576 / 5 $\approx$ 209,715 : 1
+    \item \textbf{Space savings:} 99.9995\%
+\end{itemize}
+
+\textbf{Impact of count field size:}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Count field size} & \textbf{Pair size} & \textbf{Compressed size} & \textbf{Ratio} \\
+\hline
+1 byte & 2 bytes & 2 bytes & 524,288:1 \\
+2 bytes & 3 bytes & 3 bytes & 349,525:1 \\
+4 bytes & 5 bytes & 5 bytes & 209,715:1 \\
+8 bytes & 9 bytes & 9 bytes & 116,508:1 \\
+\hline
+\end{tabular}
+
+\textbf{Key insight:} Smaller count fields give better ratios for long runs, but limit maximum run length.
+\end{examplebox}
+
+\subsubsection{Worst-Case Expansion}
+
+The worst case for basic RLE is when the data has no runs at all—every symbol differs from its predecessor.
+
+\begin{theorem}
+For a sequence of length $n$ with no repeated consecutive symbols (all runs of length 1), basic RLE achieves a compression ratio of $\frac{n}{2n} = 0.5$ when using fixed-size counts equal to symbol size, resulting in 100\% expansion.
+\end{theorem}
+
+\begin{proof}
+If every symbol is different from its predecessor:
+\begin{itemize}
+    \item Number of runs = $n$ (each symbol is its own run)
+    \item Encoded output = $n$ (symbol, count) pairs
+    \item If count field size equals symbol size (e.g., 1 byte each):
+    \begin{itemize}
+        \item Original size = $n$ bytes
+        \item Compressed size = $n$ symbols + $n$ counts = $2n$ bytes
+        \item Ratio = $n/(2n) = 0.5$
+        \item Expansion = $(2n - n)/n = 1 = 100\%$
+    \end{itemize}
+\end{itemize}
+\end{proof}
+
+\begin{examplebox}
+\textbf{Worst-Case Demonstration:}
+
+Input: \texttt{ABABABABAB} (10 bytes, alternating symbols)
+
+Run decomposition: (A,1)(B,1)(A,1)(B,1)(A,1)(B,1)(A,1)(B,1)(A,1)(B,1)
+
+\textbf{With 1-byte counts:}
+\begin{itemize}
+    \item Original: 10 bytes
+    \item Encoded: 20 bytes
+    \item Expansion: 100\%
+\end{itemize}
+
+\textbf{With 4-bit counts (0.5 bytes):}
+\begin{itemize}
+    \item Original: 10 bytes
+    \item Encoded: 10 symbols + 5 bytes of counts = 15 bytes
+    \item Expansion: 50\%
+\end{itemize}
+
+\textbf{With clever encoding (PackBits style):}
+\begin{itemize}
+    \item Can mark some runs as literals to avoid counts
+    \item But adds overhead for escape symbols
+    \item Trade-off: complexity vs. worst-case behavior
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Expected Performance on Random Data}
+
+Understanding how RLE performs on random data is crucial because:
+\begin{enumerate}
+    \item Many real data sources have random components
+    \item It establishes a baseline for "no compression possible"
+    \item It helps identify when data is truly compressible
+\end{enumerate}
+
+\begin{theorem}
+For an i.i.d. (independent and identically distributed) random sequence over an alphabet of size $k$, the expected run length is:
+\[
+E[\text{run length}] = \frac{1}{1-p} = \frac{k}{k-1}
+\]
+where $p = 1/k$ is the probability of a symbol repeating.
+\end{theorem}
+
+\begin{proof}
+For a random sequence with equiprobable symbols:
+\begin{itemize}
+    \item Probability that next symbol equals current = $1/k$
+    \item Run length follows geometric distribution: $P(\text{run length} = L) = (1/k)^{L-1} \cdot (1 - 1/k)$
+    \item Expected value: $\sum_{L=1}^{\infty} L \cdot (1/k)^{L-1} \cdot (1 - 1/k) = \frac{1}{1-1/k} = \frac{k}{k-1}$
+\end{itemize}
+\end{proof}
+
+\begin{examplebox}
+\textbf{Expected Run Lengths for Different Alphabets:}
+
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Alphabet} & \textbf{Size ($k$)} & \textbf{Expected run length} \\
+\hline
+Binary & 2 & $2/(2-1) = 2$ \\
+DNA bases & 4 & $4/3 \approx 1.333$ \\
+Lowercase letters & 26 & $26/25 = 1.04$ \\
+ASCII & 256 & $256/255 \approx 1.0039$ \\
+\hline
+\end{tabular}
+
+\textbf{Implications:}
+\begin{itemize}
+    \item Binary data has the longest expected runs (2)
+    \item ASCII text has runs barely longer than 1
+    \item For large alphabets, runs of length > 1 are rare events
+\end{itemize}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Expected Compression Ratio for Random Data:}
+
+For an alphabet of size $k$ with symbols and counts each stored in 1 byte:
+\begin{itemize}
+    \item Expected number of runs = $n / E[\text{run length}] = n \cdot (1 - 1/k)$
+    \item Compressed size = $2 \cdot \text{\#runs} = 2n(1 - 1/k)$ bytes
+    \item Original size = $n$ bytes
+    \item Expected ratio = $n / [2n(1 - 1/k)] = 1 / [2(1 - 1/k)]$
+\end{itemize}
+
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Alphabet} & \textbf{Expected runs} & \textbf{Compressed size} & \textbf{Ratio} \\
+\hline
+Binary & $0.5n$ & $n$ & $1:1$ \\
+4 symbols & $0.75n$ & $1.5n$ & $0.667:1$ \\
+ASCII & $0.996n$ & $1.992n$ & $0.502:1$ \\
+\hline
+\end{tabular}
+
+\textbf{Key observation:} For alphabets larger than binary, RLE on random data causes expansion! Binary random data breaks even (no compression, no expansion).
+\end{importantbox}
+
+\subsubsection{Relation to Entropy}
+
+Understanding the relationship between RLE and information theory helps place it in the broader compression landscape.
+
+\begin{definitionbox}
+\textbf{Shannon Entropy:} For a source with probability distribution $P$, the entropy $H(P) = -\sum p_i \log_2 p_i$ bits per symbol represents the theoretical minimum average code length.
+\end{definitionbox}
+
+\begin{theorem}
+For a memoryless source with symbol probabilities $p_i$, the entropy of run lengths is given by:
+\[
+H_{\text{run}} = H(P) + (1 - H(P)) \cdot \frac{\sum p_i^2}{1 - \sum p_i^2} \text{ bits per run}
+\]
+This is generally higher than the per-symbol entropy, explaining why RLE alone cannot achieve optimal compression.
+\end{theorem}
+
+\begin{importantbox}
+\textbf{Information-Theoretic Perspective:}
+
+\begin{enumerate}
+    \item \textbf{RLE as a transform:} RLE transforms a sequence into a sequence of (symbol, length) pairs. This is a reversible transformation that doesn't lose information.
+    
+    \item \textbf{Redundancy remaining:} After RLE, the symbol and length sequences still contain structure:
+    \begin{itemize}
+        \item Symbols alternate (never two same symbols in a row)
+        \item Run lengths have their own distribution
+        \item There may be correlation between symbol and run length
+    \end{itemize}
+    
+    \item \textbf{Optimal compression:} To achieve entropy limits, we must further compress the RLE output using statistical methods (Huffman, arithmetic coding).
+    
+    \item \textbf{Markov property:} RLE effectively models the source as a simple Markov chain where state = current symbol, and run length determines transition time.
+\end{enumerate}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Binary Source Example:}
+
+Consider a binary source with $p(0) = 0.9$, $p(1) = 0.1$.
+
+\begin{itemize}
+    \item \textbf{Source entropy:} $H = -0.9\log_2 0.9 - 0.1\log_2 0.1 \approx 0.469$ bits/symbol
+    \item \textbf{Theoretical minimum:} 0.469 bits per symbol on average
+    \item \textbf{Run length distribution:}
+    \begin{itemize}
+        \item Runs of 0: geometric with mean $1/0.1 = 10$
+        \item Runs of 1: geometric with mean $1/0.9 \approx 1.111$
+    \end{itemize}
+    \item \textbf{RLE output:} (symbol, length) pairs
+    \item \textbf{If we store lengths in 8 bits:}
+    \begin{itemize}
+        \item Each run: 1 bit for symbol + 8 bits for length = 9 bits
+        \item Average run length: $0.9\times10 + 0.1\times1.111 \approx 9.111$ symbols
+        \item Average bits per symbol = $9 / 9.111 \approx 0.988$ bits/symbol
+        \item Far from entropy limit (0.469)!
+    \end{itemize}
+    \item \textbf{If we entropy-code the lengths:}
+    \begin{itemize}
+        \item Symbol: still 1 bit (or entropy code symbols too)
+        \item Lengths: entropy $H_{\text{lengths}} \approx 3.4$ bits (for this distribution)
+        \item Average bits per symbol = $(1 + 3.4)/9.111 \approx 0.483$ bits/symbol
+        \item Much closer to entropy limit!
+    \end{itemize}
+\end{itemize}
+
+\textbf{Lesson:} RLE is most effective when combined with entropy coding of the run lengths.
+\end{examplebox}
+
+\subsection{Engineering Variants of RLE}
+
+Basic RLE works well in theory, but practical implementations require engineering choices to handle real-world constraints and improve performance.
+
+\subsubsection{Count-After-Symbol vs. Count-Before-Symbol}
+
+The ordering of symbol and count in the output stream affects decoding and has subtle implications.
+
+\begin{importantbox}
+\textbf{Two Common Conventions:}
+
+\textbf{1. Count-After-Symbol (Symbol then Count):}
+\begin{itemize}
+    \item Format: \texttt{[symbol][count][symbol][count]...}
+    \item Example: \texttt{A5B3C2} means "5 A's, 3 B's, 2 C's"
+    \item \textbf{Advantages:}
+    \begin{itemize}
+        \item Natural reading order: "Here's what to output, then how many"
+        \item Easier for streaming: see symbol first, can prepare output
+        \item Common in many implementations
+    \end{itemize}
+    \item \textbf{Disadvantages:}
+    \begin{itemize}
+        \item Decoder must read count before knowing how many to output
+        \item Slightly less intuitive for some applications
+    \end{itemize}
+\end{itemize}
+
+\textbf{2. Count-Before-Symbol (Count then Symbol):}
+\begin{itemize}
+    \item Format: \texttt{[count][symbol][count][symbol]...}
+    \item Example: \texttt{5A3B2C} means "5 A's, 3 B's, 2 C's"
+    \item \textbf{Advantages:}
+    \begin{itemize}
+        \item Decoder knows length before seeing symbol
+        \item Can allocate buffer space if needed
+        \item Used in some formats (e.g., PCX)
+    \end{itemize}
+    \item \textbf{Disadvantages:}
+    \begin{itemize}
+        \item Slightly less natural for human reading
+        \item Streaming requires looking ahead
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Implementation Comparison:}
+
+\begin{lstlisting}[caption=Count-After-Symbol Decoding (Python)]
+def decode_after(encoded):
+    result = []
+    i = 0
+    while i < len(encoded):
+        symbol = encoded[i]
+        count = encoded[i + 1]
+        result.extend([symbol] * count)
+        i += 2
+    return result
+\end{lstlisting}
+
+\begin{lstlisting}[caption=Count-Before-Symbol Decoding (Python)]
+def decode_before(encoded):
+    result = []
+    i = 0
+    while i < len(encoded):
+        count = encoded[i]
+        symbol = encoded[i + 1]
+        result.extend([symbol] * count)
+        i += 2
+    return result
+\end{lstlisting}
+
+The code is nearly identical—the difference is mainly conceptual and affects how we think about the data.
+\end{examplebox}
+
+\subsubsection{Escape-Symbol Schemes}
+
+One of the biggest problems with basic RLE is expansion on non-repetitive data. Escape-symbol schemes address this by treating runs and non-repetitive data differently.
+
+\begin{definitionbox}
+\textbf{Escape Symbol:} A special marker that indicates whether the following data represents a run or a sequence of literal (uncompressed) symbols.
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{Common Escape Scheme Design:}
+
+\begin{enumerate}
+    \item Choose an escape symbol (often a value not likely to appear in data, or one that can be escaped itself)
+    \item When encountering a run of length $\geq 3$:
+    \begin{itemize}
+        \item Output escape symbol
+        \item Output the repeated symbol
+        \item Output the run length
+    \end{itemize}
+    \item For non-repetitive data:
+    \begin{itemize}
+        \item Output symbols literally
+        \item If the literal data contains the escape symbol, need a way to represent it (e.g., double escape)
+    \end{itemize}
+\end{enumerate}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Escape Scheme Example:}
+
+Let's design a simple escape scheme with escape marker = \texttt{0xFF} (255 in byte values).
+
+\textbf{Encoding rules:}
+\begin{itemize}
+    \item For run of length $\geq 3$ of symbol S: output \texttt{[0xFF][S][length]}
+    \item For single symbols or pairs: output as-is
+    \item If data contains \texttt{0xFF}, output it twice: \texttt{[0xFF][0xFF]} means literal 0xFF
+\end{itemize}
+
+\textbf{Example:}
+Input: \texttt{AAAAABCDEFFFFGG}
+
+Step-by-step encoding:
+\begin{itemize}
+    \item \texttt{AAAAA} (5 A's): \texttt{FF A 05}
+    \item \texttt{B}: \texttt{B} (literal)
+    \item \texttt{C}: \texttt{C} (literal)
+    \item \texttt{D}: \texttt{D} (literal)
+    \item \texttt{E}: \texttt{E} (literal)
+    \item \texttt{FFFF} (4 F's): \texttt{FF F 04}
+    \item \texttt{GG} (2 G's): \texttt{GG} (pairs output as literals)
+\end{itemize}
+
+Encoded: \texttt{FF A 05 B C D E FF F 04 G G}
+
+\textbf{Analysis:}
+\begin{itemize}
+    \item Original: 15 bytes
+    \item Encoded: 11 bytes
+    \item Savings: 4 bytes (27\%)
+    \item Without escape scheme (basic RLE): would be 16 bytes (expansion!)
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Threshold-Based RLE (Minimum Run Length)}
+
+Threshold-based RLE only encodes runs that exceed a minimum length, leaving shorter sequences as literals.
+
+\begin{definitionbox}
+\textbf{Threshold $T$:} The minimum run length that will be encoded as a run. Runs of length $< T$ are treated as literals.
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{Design Trade-offs:}
+
+\begin{itemize}
+    \item \textbf{Low threshold (e.g., T=2):}
+    \begin{itemize}
+        \item Catches more runs
+        \item But overhead for many short runs
+        \item May still cause expansion on some data
+    \end{itemize}
+    
+    \item \textbf{High threshold (e.g., T=4):}
+    \begin{itemize}
+        \item Only encodes long, beneficial runs
+        \item Less overhead
+        \item Misses opportunities for moderate compression
+    \end{itemize}
+    
+    \item \textbf{Optimal threshold:} Depends on data characteristics and count field size
+    \begin{itemize}
+        \item With 1-byte counts, break-even is usually 3-4
+        \item With smaller counts (e.g., 4 bits), threshold can be lower
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Threshold Comparison:}
+
+Input: \texttt{AAABBBBCDDDDD} (A:3, B:4, C:1, D:5)
+
+\textbf{With T=2 (encode runs of length $\geq 2$):}
+\begin{itemize}
+    \item Run A(3): encode as run → (A,3)
+    \item Run B(4): encode as run → (B,4)
+    \item Run C(1): literal → C
+    \item Run D(5): encode as run → (D,5)
+    \item Total: 3 runs + 1 literal = 3×2 + 1 = 7 values
+\end{itemize}
+
+\textbf{With T=3 (encode runs of length $\geq 3$):}
+\begin{itemize}
+    \item Run A(3): encode → (A,3)
+    \item Run B(4): encode → (B,4)
+    \item Run C(1): literal → C
+    \item Run D(5): encode → (D,5)
+    \item Same as T=2 in this case (no runs of length 2)
+\end{itemize}
+
+\textbf{With T=4 (encode runs of length $\geq 4$):}
+\begin{itemize}
+    \item Run A(3): literal → A A A (3 literals)
+    \item Run B(4): encode → (B,4)
+    \item Run C(1): literal → C
+    \item Run D(5): encode → (D,5)
+    \item Total: 2 runs + 4 literals = 2×2 + 4 = 8 values
+\end{itemize}
+
+\textbf{With T=5 (encode runs of length $\geq 5$):}
+\begin{itemize}
+    \item Run A(3): literals (3)
+    \item Run B(4): literals (4)
+    \item Run C(1): literal (1)
+    \item Run D(5): encode → (D,5)
+    \item Total: 1 run + 8 literals = 1×2 + 8 = 10 values
+\end{itemize}
+
+\textbf{Comparison:}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Threshold} & \textbf{Encoded size} & \textbf{Notes} \\
+\hline
+T=2 & 7 values & Best for this data \\
+T=3 & 7 values & Same as T=2 \\
+T=4 & 8 values & Worse \\
+T=5 & 10 values & Much worse \\
+\hline
+\end{tabular}
+\end{examplebox}
+
+\subsubsection{PackBits-Style Mixed Literal/Run Encoding}
+
+PackBits is a classic RLE variant used in many file formats (TIFF, Macintosh resource forks). It elegantly handles both runs and literals in a single byte header.
+
+\begin{definitionbox}
+\textbf{PackBits Encoding:} Each chunk begins with a 1-byte header $h$:
+\begin{itemize}
+    \item If $0 \leq h \leq 127$: copy the next $h+1$ bytes literally
+    \item If $-127 \leq h \leq -1$: repeat the next byte $1-h$ times
+    \item $h = -128$: reserved (no operation, sometimes used for special purposes)
+\end{itemize}
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{PackBits Algorithm Details:}
+
+\textbf{Header byte interpretation as signed 8-bit integer:}
+\begin{itemize}
+    \item \textbf{Positive (0 to 127):} Literal run
+    \begin{itemize}
+        \item Value $n$ means "copy next $n+1$ bytes as-is"
+        \item Range: 1 to 128 bytes per literal chunk
+    \end{itemize}
+    
+    \item \textbf{Negative (-1 to -127):} Repeated run
+    \begin{itemize}
+        \item Value $n$ means "repeat next byte $1-n$ times"
+        \item Since $n$ is negative, $1-n$ is positive
+        \item Range: 2 to 128 repetitions
+        \item Example: $h = -3$ means repeat next byte $1-(-3) = 4$ times
+    \end{itemize}
+    
+    \item \textbf{-128:} Reserved (some implementations ignore, others use as EOF marker)
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{PackBits Encoding Examples:}
+
+\textbf{Example 1: Mixed data}
+Input: \texttt{AAAAABCDEFFFFGG}
+
+Scanning the data:
+\begin{itemize}
+    \item Run of 5 A's → header = -4 (repeat 1-(-4)=5 times), then byte 'A'
+    \item Literals B,C,D,E (4 bytes) → header = 3 (copy 3+1=4 bytes), then B C D E
+    \item Run of 4 F's → header = -3 (repeat 4 times), then byte 'F'
+    \item Literals G,G (2 bytes) → header = 1 (copy 2 bytes), then G G
+\end{itemize}
+
+Encoded stream (as bytes):
+\begin{verbatim}
+[-4, 'A', 3, 'B','C','D','E', -3, 'F', 1, 'G','G']
+\end{verbatim}
+
+\textbf{Example 2: Long literal run}
+Input: \texttt{ABCDEFGHIJKLMNOP} (16 distinct letters)
+
+Since PackBits literal chunks max at 128 bytes, we can encode as one chunk:
+Header = 15 (copy 16 bytes), then all 16 letters.
+
+\textbf{Example 3: Long repeated run}
+Input: 150 bytes of 'X'
+
+We need multiple chunks:
+\begin{itemize}
+    \item First chunk: header = -127 (repeat 128 times), byte 'X'
+    \item Second chunk: header = -21 (repeat 22 times), byte 'X'
+    \item Total: 4 bytes + 2 bytes overhead = 6 bytes for 150 bytes of data
+\end{itemize}
+\end{examplebox}
+
+\begin{algorithm}[H]
+\caption{PackBits Decoding}
+\begin{algorithmic}[1]
+\Procedure{PackBits-Decode}{$data[1..n]$}
+    \State $i \gets 1$
+    \State $result \gets$ empty list
+    \While {$i \leq n$}
+        \State $h \gets data[i]$ \Comment{header byte}
+        \State $i \gets i + 1$
+        \If {$h \ge 0$} \Comment{Literal run}
+            \State $len \gets h + 1$
+            \For {$j \gets 1$ to $len$}
+                \State append $data[i]$ to $result$
+                \State $i \gets i + 1$
+            \EndFor
+        \ElsIf {$h = -128$} \Comment{Reserved, usually skip}
+            \State \Comment{No operation, sometimes used as marker}
+        \Else \Comment{Repeated run}
+            \State $len \gets 1 - h$ \Comment{$h$ is negative}
+            \State $value \gets data[i]$
+            \State $i \gets i + 1$
+            \For {$j \gets 1$ to $len$}
+                \State append $value$ to $result$
+            \EndFor
+        \EndIf
+    \EndWhile
+    \State \Return $result$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{importantbox}
+\textbf{PackBits Advantages and Disadvantages:}
+
+\textbf{Advantages:}
+\begin{itemize}
+    \item Simple, elegant design
+    \item No expansion on non-repetitive data (literal chunks are efficient)
+    \item Handles both runs and literals seamlessly
+    \item Widely supported in file formats
+\end{itemize}
+
+\textbf{Disadvantages:}
+\begin{itemize}
+    \item Limited to 128-byte chunks (max run length 128)
+    \item 1-byte overhead per chunk (minimal, but adds up)
+    \item Not optimal for very long runs (requires splitting)
+    \item Signed byte arithmetic can be confusing
+\end{itemize}
+\end{importantbox}
+
+\subsubsection{Fixed-Width vs. Variable-Length Count Fields}
+
+The representation of run lengths significantly impacts compression efficiency.
+
+\begin{importantbox}
+\textbf{Fixed-Width Count Fields:}
+
+\textbf{Design:} Each run length stored in a fixed number of bits (e.g., 8 bits, 16 bits, 32 bits)
+
+\textbf{Advantages:}
+\begin{itemize}
+    \item Simple to implement
+    \item Fast encoding/decoding (no bit-level parsing)
+    \item Random access possible (know where each run ends)
+    \item Good for hardware implementation
+\end{itemize}
+
+\textbf{Disadvantages:}
+\begin{itemize}
+    \item Wasted space for short runs
+    \item Limited maximum run length (e.g., 255 for 8 bits)
+    \item Need to split longer runs into multiple chunks
+    \item Not adaptive to run length distribution
+\end{itemize}
+
+\textbf{Typical trade-offs:}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Count size} & \textbf{Max run} & \textbf{Overhead/run} & \textbf{Best for} \\
+\hline
+4 bits (nibble) & 15 & 0.5 bytes & Very short runs \\
+8 bits (byte) & 255 & 1 byte & General purpose \\
+16 bits & 65,535 & 2 bytes & Long runs \\
+24 bits & 16.7M & 3 bytes & Images \\
+32 bits & 4.3B & 4 bytes & Very large files \\
+\hline
+\end{tabular}
+\end{importantbox}
+
+\begin{importantbox}
+\textbf{Variable-Length Count Fields:}
+
+\textbf{Design:} Use a variable-length code (like Elias gamma coding, Fibonacci coding) to represent run lengths
+
+\textbf{Common approaches:}
+\begin{enumerate}
+    \item \textbf{Gamma/Elias codes:} Good for small numbers, inefficient for large
+    \item \textbf{Fibonacci codes:} Better balance, no need for separator
+    \item \textbf{Exponential-Golomb:} Used in H.264/AVC video coding
+    \item \textbf{Adaptive Huffman:} Best compression, but complex
+\end{enumerate}
+
+\textbf{Advantages:}
+\begin{itemize}
+    \item Optimal for the run length distribution
+    \item No arbitrary maximum run length
+    \item No wasted bits for short runs
+    \item Can achieve near-entropy compression of run lengths
+\end{itemize}
+
+\textbf{Disadvantages:}
+\begin{itemize}
+    \item Complex implementation (bit-level I/O)
+    \item Slower encoding/decoding
+    \item No random access without decoding entire stream
+    \item Error propagation if bit errors occur
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Count Field Comparison:}
+
+Consider a file with runs of lengths: 3, 5, 2, 100, 4, 200
+
+\textbf{Fixed 8-bit counts:}
+\begin{itemize}
+    \item Each run: 1 byte for count
+    \item Total count overhead: 6 bytes
+    \item Can represent all runs (max 200 < 255)
+\end{itemize}
+
+\textbf{Fixed 4-bit counts:}
+\begin{itemize}
+    \item Cannot represent runs >15
+    \item Would need to split run 100 into: 15,15,15,15,15,15,10 (7 runs!)
+    \item Run 200: even worse
+    \item Total overhead: many more runs
+\end{itemize}
+
+\textbf{Variable-length (Elias gamma):}
+\begin{itemize}
+    \item 3 → "11" (2 bits)
+    \item 5 → "101" (3 bits)
+    \item 2 → "01" (2 bits)
+    \item 100 → needs about 12 bits
+    \item 4 → "00100"? Actually gamma: 4 = "00100" (5 bits)
+    \item 200 → about 13 bits
+    \item Total: ~37 bits $\approx$ 4.6 bytes (savings vs fixed 8-bit!)
+\end{itemize}
+
+\textbf{Real-world hybrid:} Many formats use fixed-width but adapt based on context (e.g., JPEG uses different tables for DC and AC coefficients).
+\end{examplebox}
+
+\subsection{Bit-Level and Binary RLE}
+
+When working with binary data, RLE takes on special characteristics and applications.
+
+\subsubsection{Run-Length Encoding of Bits (0/1 Streams)}
+
+Binary RLE operates on bit streams rather than byte streams, which changes the dynamics significantly.
+
+\begin{definitionbox}
+\textbf{Binary RLE:} A variant of run-length encoding that operates on a stream of bits (0s and 1s), encoding each run of consecutive identical bits as a length.
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{Key Characteristics of Binary RLE:}
+
+\begin{enumerate}
+    \item \textbf{Alphabet size = 2:} Only two symbols, so runs alternate strictly
+    \item \textbf{No need to store symbol:} Since runs alternate, we only need to store the first symbol once, then just lengths
+    \item \textbf{Run lengths dominate:} With only two symbols, the entire encoding can be just a sequence of lengths
+    \item \textbf{Boundary handling:} Need to know where the stream ends
+\end{enumerate}
+\end{importantbox}
+
+\begin{algorithm}[H]
+\caption{Binary RLE Encoding}
+\begin{algorithmic}[1]
+\Procedure{BinaryRLE-Encode}{$bits[1..n]$}
+    \State $result \gets$ empty list
+    \If {$n = 0$}
+        \State \Return $result$
+    \EndIf
+    \State $current\_bit \gets bits[1]$
+    \State append $current\_bit$ to $result$ \Comment{Store first bit}
+    \State $run\_length \gets 1$
+    \For {$i \gets 2$ to $n$}
+        \If {$bits[i] = current\_bit$}
+            \State $run\_length \gets run\_length + 1$
+        \Else
+            \State append $run\_length$ to $result$
+            \State $current\_bit \gets bits[i]$
+            \State $run\_length \gets 1$
+        \EndIf
+    \EndFor
+    \State append $run\_length$ to $result$
+    \State \Return $result$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{examplebox}
+\textbf{Binary RLE Examples:}
+
+\textbf{Example 1: Simple alternating pattern}
+Input bits: \texttt{000111000111}
+\begin{itemize}
+    \item First bit: 0
+    \item Runs: 3 zeros, 3 ones, 3 zeros, 3 ones
+    \item Encoded: [0, 3, 3, 3, 3]
+    \item Original: 12 bits
+    \item Encoded: 1 bit + 4 runs × (length field)
+    \item If length fields are 4 bits: total = 1 + 16 = 17 bits (expansion!)
+\end{itemize}
+
+\textbf{Example 2: Long runs (fax-like)}
+Input bits: \texttt{000000000011111111110000000000}
+\begin{itemize}
+    \item First bit: 0
+    \item Runs: zeros(10), ones(10), zeros(8)
+    \item Encoded: [0, 10, 10, 8]
+    \item Original: 28 bits
+    \item With 4-bit lengths: 1 + 12 = 13 bits (53\% compression!)
+    \item With 8-bit lengths: 1 + 24 = 25 bits (still compression!)
+\end{itemize}
+
+\textbf{Note:} Binary RLE only makes sense when runs are long enough to offset length field overhead.
+\end{examplebox}
+
+\subsubsection{Applications in Fax and Document Compression}
+
+The most successful application of binary RLE has been in facsimile (fax) transmission and document compression.
+
+\begin{importantbox}
+\textbf{Fax Compression Overview:}
+
+\begin{itemize}
+    \item \textbf{CCITT Group 3 Fax Standard (1980):} The first widely adopted digital fax standard
+    \item \textbf{Modified Huffman (MH) coding:} Combines RLE with Huffman coding for run lengths
+    \item \textbf{Modified READ (MR) coding:} 2D variant that uses previous line for prediction
+    \item \textbf{Modified Modified READ (MMR) coding:} Used in Group 4 fax, no errors allowed
+\end{itemize}
+\end{importantbox}
+
+\textbf{How Group 3 Fax Works:}
+
+\begin{enumerate}
+    \item \textbf{Scan line resolution:} Typical fax: 1728 pixels per line (standard resolution)
+    \item \textbf{Binary representation:} White = 0, Black = 1 (or vice versa, depending on standard)
+    \item \textbf{Run-length extraction:} Each line becomes alternating runs of white and black
+    \item \textbf{Run-length coding:} Each run length is encoded using a Huffman code
+    \item \textbf{Special codes:} End-of-line (EOL) markers for synchronization
+\end{enumerate}
+
+\begin{examplebox}
+\textbf{Modified Huffman (MH) Coding Tables:}
+
+The Group 3 standard defines Huffman codes for run lengths:
+
+\textbf{Terminating codes (run lengths 0-63):}
+
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Run length} & \textbf{White code} & \textbf{Black code} \\
+\hline
+0 & 00110101 & 0000110111 \\
+1 & 000111 & 010 \\
+2 & 0111 & 11 \\
+3 & 1000 & 10 \\
+4 & 1011 & 011 \\
+... & ... & ... \\
+63 & 00110110 & 000001100110 \\
+\hline
+\end{tabular}
+
+\textbf{Make-up codes (run lengths multiples of 64):}
+\begin{itemize}
+    \item 64: White 11011, Black 0000001111
+    \item 128: White 10010, Black 000011001000
+    \item ... up to 2560
+\end{itemize}
+
+\textbf{Encoding process:}
+\begin{enumerate}
+    \item For run length $L$, if $L \leq 63$: use terminating code
+    \item If $L > 63$: output make-up code for $64 \times \lfloor L/64 \rfloor$, then terminating code for remainder
+\end{enumerate}
+\end{examplebox}
+
+\begin{examplebox}
+\textbf{Fax Encoding Example:}
+
+Scan line with runs: white(150), black(3), white(20), black(1500)
+
+\textbf{White run of 150:}
+\begin{itemize}
+    \item Make-up for 128: "10010"
+    \item Terminating for 22: white code for 22 = "0001100"
+    \item Combined: "100100001100"
+\end{itemize}
+
+\textbf{Black run of 3:}
+\begin{itemize}
+    \item Terminating code for 3 black: "10"
+\end{itemize}
+
+\textbf{White run of 20:}
+\begin{itemize}
+    \item Terminating code for 20 white: "0001000"
+\end{itemize}
+
+\textbf{Black run of 1500:}
+\begin{itemize}
+    \item 1500/64 = 23 remainder 28
+    \item Make-up for 23×64 = 1472: black make-up code
+    \item Terminating for 28: black terminating code
+\end{itemize}
+
+\textbf{Result:} A compact bitstream that can be transmitted over phone lines.
+\end{examplebox}
+
+\subsubsection{Two-Dimensional Run-Length Encoding}
+
+While 1D RLE works on scan lines independently, 2D RLE exploits correlation between adjacent lines.
+
+\begin{definitionbox}
+\textbf{2D Run-Length Encoding:} A technique that encodes runs of pixels by referencing the previous line, exploiting vertical redundancy in document images.
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{CCITT Group 3 2D (MR) and Group 4 (MMR):}
+
+\textbf{Key concepts:}
+\begin{itemize}
+    \item \textbf{Reference line:} Previously encoded line used as prediction
+    \item \textbf{Changing elements:} Pixels where color changes (black to white or vice versa)
+    \item \textbf{Modes of encoding:}
+    \begin{itemize}
+        \item \textbf{Pass mode:} A run on current line corresponds to a gap on reference line
+        \item \textbf{Vertical mode:} Run boundary aligns with reference line boundary (±3 pixels)
+        \item \textbf{Horizontal mode:} Encode current run directly when not correlated
+    \end{itemize}
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{2D RLE Encoding Modes:}
+
+Consider two scan lines (a0 = current position, a1 = next changing element):
+
+\textbf{Reference line:} \texttt{---XXXX------XXXXXX----}
+\textbf{Current line:}  \texttt{---XXXXXXX---XXXXXX----}
+
+\textbf{Pass mode:} When a run on current line "passes over" a run on reference line
+\begin{itemize}
+    \item Efficient for slanted lines or shifted content
+\end{itemize}
+
+\textbf{Vertical mode:} When a1 aligns with a changing element on reference line ±3
+\begin{itemize}
+    \item Encode as vertical(offset) where offset = difference in positions
+    \item Very efficient for aligned text
+\end{itemize}
+
+\textbf{Horizontal mode:} When no correlation, encode a0a1 and a1a2 lengths directly
+\begin{itemize}
+    \item Fallback when 2D prediction fails
+\end{itemize}
+
+\textbf{Compression gain:} 2D typically achieves 2-3× better compression than 1D alone.
+\end{examplebox}
+
+\subsection{Zero Run-Length Encoding in Transform Coding}
+
+One of the most important modern applications of RLE is in transform-based compression systems.
+
+\subsubsection{Sparse Data and Long Zero Sequences}
+
+After applying transforms like DCT (Discrete Cosine Transform) or wavelet transforms, coefficients often contain long runs of zeros.
+
+\begin{importantbox}
+\textbf{Why Zero Runs Occur in Transform Coding:}
+
+\begin{enumerate}
+    \item \textbf{Energy compaction:} Transforms concentrate signal energy into few coefficients
+    \item \textbf{Quantization:} Small coefficients become zero after quantization
+    \item \textbf{High-frequency coefficients:} Often near-zero in natural images
+    \item \textbf{Zigzag scanning:} Orders coefficients from low to high frequency, creating long zero runs at the end
+\end{enumerate}
+\end{importantbox}
+
+\begin{definitionbox}
+\textbf{Zero Run-Length Encoding:} A specialized form of RLE that focuses exclusively on runs of zero values, often combined with encoding the non-zero values that interrupt them.
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Zigzag Scan in JPEG:}
+
+After 8×8 DCT and quantization, coefficients are scanned in zigzag order:
+
+\begin{verbatim}
+Original 8×8 block (quantized coefficients):
+[150, -25, 0,   0,   0,   0,   12,  0
+ 0,   0,   0,   0,   0,   0,   0,   0
+ 0,   0,   0,   0,   0,   0,   0,   0
+ 0,   0,   0,   0,   0,   0,   0,   0
+ 0,   0,   0,   0,   0,   0,   0,   0
+ 0,   0,   0,   0,   0,   0,   0,   0
+ 0,   0,   0,   0,   0,   0,   0,   0
+ 0,   0,   0,   0,   0,   0,   0,   0]
+\end{verbatim}
+
+\textbf{Zigzag scan order (simplified):}
+Position 1: 150 (DC)
+Positions 2-10: -25, 0, 0, 0, 0, 12, 0, 0, 0
+Remaining 54 positions: all zeros
+
+\textbf{Zero-run encoding:} (0,4) meaning 4 zeros, then 12, then (0,54) for end-of-block
+
+\textbf{JPEG representation:} (0,4,12) followed by End-of-Block marker.
+\end{examplebox}
+
+\subsubsection{Zero-Run Encoding in Image Compression Pipelines}
+
+Modern image and video codecs integrate zero-run encoding as a standard component.
+
+\begin{importantbox}
+\textbf{Zero-Run Encoding Pipeline:}
+
+\begin{verbatim}
+Raw Image → Transform → Quantization → Zigzag Scan → 
+Zero-Run Encoding → Entropy Coding → Compressed Bitstream
+\end{verbatim}
+
+\textbf{Key components:}
+\begin{itemize}
+    \item \textbf{Transform:} DCT (JPEG, MPEG), DWT (JPEG 2000), or other
+    \item \textbf{Quantization:} Reduces precision, creates zeros
+    \item \textbf{Zigzag scan:} Reorders to maximize zero runs
+    \item \textbf{Zero-run encoding:} (run, level) pairs
+    \item \textbf{Entropy coding:} Huffman (JPEG) or arithmetic (JPEG 2000)
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{JPEG's Zero-Run Encoding:}
+
+JPEG encodes AC coefficients as pairs (RUNLENGTH, LEVEL):
+\begin{itemize}
+    \item \textbf{RUNLENGTH:} Number of consecutive zeros preceding this coefficient (0-15)
+    \item \textbf{LEVEL:} Non-zero coefficient value
+    \item Special case: (0,0) = End-of-Block (EOB)
+    \item Special case: (15,0) = ZRL (16 zeros, handled specially)
+\end{itemize}
+
+\textbf{Example coefficient sequence:}
+0, 0, 0, 5, 0, 0, -3, 0, 0, 0, 0, 2, [rest zeros]
+
+\textbf{Encoded as:}
+\begin{itemize}
+    \item (3,5)  → 3 zeros then 5
+    \item (2,-3) → 2 zeros then -3
+    \item (4,2)  → 4 zeros then 2
+    \item (0,0)  → EOB (rest all zeros)
+\end{itemize}
+
+\textbf{Huffman coding:} Each (RUNLENGTH, LEVEL) pair is Huffman coded using tables optimized for typical distributions.
+\end{examplebox}
+
+\subsubsection{Interaction with Entropy Coding}
+
+Zero-run encoding and entropy coding work together synergistically.
+
+\begin{importantbox}
+\textbf{Why Combine Zero-Run and Entropy Coding:}
+
+\begin{enumerate}
+    \item \textbf{Dimensionality reduction:} Zero-run encoding converts 2D position information into 1D run lengths
+    \item \textbf{Probability modeling:} Run lengths have predictable distributions (short runs common, long runs rare)
+    \item \textbf{Context modeling:} Can use different entropy codes for different coefficient types
+    \item \textbf{Efficiency:} Run-length encoding handles the zeros; entropy coding handles the values
+\end{enumerate}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{JPEG vs. JPEG 2000 Approach:}
+
+\textbf{JPEG (DCT-based):}
+\begin{itemize}
+    \item Fixed 8×8 blocks
+    \item Zigzag scan per block
+    \item (run, level) pairs
+    \item Huffman coding per pair
+    \item Separate DC prediction
+\end{itemize}
+
+\textbf{JPEG 2000 (Wavelet-based):}
+\begin{itemize}
+    \item Multi-resolution decomposition
+    \item Embedded block coding with optimized truncation (EBCOT)
+    \item Fractional bit-plane coding
+    \item Arithmetic coding with context modeling
+    \item Zero-run encoding implicit in bit-plane representation
+\end{itemize}
+
+\textbf{Compression comparison:}
+\begin{itemize}
+    \item JPEG: Good at medium-high bitrates
+    \item JPEG 2000: Better at low bitrates, no blocking artifacts
+    \item Both rely heavily on zero-run redundancy
+\end{itemize}
+\end{examplebox}
+
+\subsection{RLE in Real File Formats and Systems}
+
+Understanding how real systems implement RLE provides practical insight.
+
+\subsubsection{Bitmap Image Formats (BMP, PCX)}
+
+\begin{importantbox}
+\textbf{PCX Format (ZSoft PC Paintbrush):}
+
+\textbf{Key characteristics:}
+\begin{itemize}
+    \item Developed in 1982, one of the first PC image formats
+    \item Uses count-before-symbol RLE
+    \item Simple, fast, widely supported in legacy systems
+    \item Limited to 256 colors (8-bit) in most implementations
+\end{itemize}
+
+\textbf{PCX RLE encoding rules:}
+\begin{itemize}
+    \item If top two bits of a byte are 11 (0xC0 mask), it's a run
+    \item Lower 6 bits = run length (1-63)
+    \item Next byte = pixel value to repeat
+    \item Otherwise, byte is literal pixel value
+\end{itemize}
+
+\textbf{Encoding example:}
+\begin{itemize}
+    \item Run of 10 red pixels (red = 0x04):
+    \begin{itemize}
+        \item 0xC0 | 10 = 0xCA (run marker with length 10)
+        \item Followed by 0x04 (red pixel value)
+    \end{itemize}
+    \item Single green pixel (0x02): just output 0x02
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item Maximum run length: 63
+    \item Runs longer than 63 must be split
+    \item No compression for 16- or 24-bit color
+\end{itemize}
+\end{importantbox}
+
+\begin{importantbox}
+\textbf{BMP RLE Compression:}
+
+Windows Bitmap format offers two RLE compression types:
+\begin{itemize}
+    \item \textbf{BI\_RLE8:} For 8-bit paletted images
+    \item \textbf{BI\_RLE4:} For 4-bit paletted images
+\end{itemize}
+
+\textbf{BI\_RLE8 Encoding:}
+\begin{itemize}
+    \item \textbf{Absolute mode (literal run):} 0x00 followed by count N, then N literal bytes (padded to even length)
+    \item \textbf{Encoded mode (run):} [count] [pixel] where count > 0
+    \item \textbf{Special codes:}
+    \begin{itemize}
+        \item 0x00 0x00 = End of line
+        \item 0x00 0x01 = End of bitmap
+        \item 0x00 0x02 = Delta (move to next position) followed by dx, dy
+    \end{itemize}
+\end{itemize}
+
+\textbf{Example:}
+Run of 10 red pixels (index 4): \texttt{[10, 4]}
+Literal run of 3 pixels (5,6,7): \texttt{[0, 3, 5, 6, 7, 0]} (pad to even)
+\end{importantbox}
+
+\subsubsection{Tagged Image File Format (TIFF) Variants}
+
+TIFF supports multiple compression methods, including several RLE variants.
+
+\begin{importantbox}
+\textbf{TIFF RLE Options:}
+
+\textbf{1. CCITT Group 3 1D (T4):}
+\begin{itemize}
+    \item For bi-level images
+    \item Modified Huffman coding of runs
+    \item Each line encoded independently
+    \item Compression tag = 3
+\end{itemize}
+
+\textbf{2. CCITT Group 3 2D (T4 with 2D):}
+\begin{itemize}
+    \item Uses previous line for prediction
+    \item Better compression than 1D
+    \item Requires error-free transmission
+    \item Compression tag = 4
+\end{itemize}
+
+\textbf{3. CCITT Group 4 (T6):}
+\begin{itemize}
+    \item Pure 2D encoding (no 1D lines)
+    \item Best compression for bi-level images
+    \item No error recovery (assumes reliable channel)
+    \item Compression tag = 5
+\end{itemize}
+
+\textbf{4. PackBits Compression:}
+\begin{itemize}
+    \item Used for continuous-tone images
+    \item Same algorithm described earlier
+    \item Simple, fast, moderate compression
+    \item Compression tag = 32773 (Apple PackBits)
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{TIFF Compression Choice Guide:}
+
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Image Type} & \textbf{Recommended Compression} & \textbf{Reason} \\
+\hline
+Bi-level text/line art & CCITT Group 4 & Best compression, no errors expected \\
+Scanned documents & CCITT Group 3 2D & Good compression, error recovery \\
+Paletted images & LZW or ZIP & Better than RLE for 8-bit \\
+Continuous tone & JPEG or ZIP & RLE poor for photographic \\
+Medical images & JPEG 2000 or ZIP & Lossless needed, RLE not optimal \\
+Legacy compatibility & PackBits or LZW & Widely supported \\
+\hline
+\end{tabular}
+\end{examplebox}
+
+\subsubsection{Document and Fax Compression Standards}
+
+The evolution of fax standards shows how RLE technology matured.
+
+\begin{importantbox}
+\textbf{Fax Standard Evolution:}
+
+\textbf{Group 1 (Analog, 1960s):}
+\begin{itemize}
+    \item Analog transmission, no compression
+    \item 6 minutes per page
+\end{itemize}
+
+\textbf{Group 2 (Analog, 1970s):}
+\begin{itemize}
+    \item Improved analog, still no digital compression
+    \item 3 minutes per page
+\end{itemize}
+
+\textbf{Group 3 (Digital, 1980):}
+\begin{itemize}
+    \item First digital standard
+    \item Modified Huffman (1D RLE)
+    \item Optional 2D mode
+    \item ~1 minute per page
+\end{itemize}
+
+\textbf{Group 4 (Digital, 1984):}
+\begin{itemize}
+    \item Pure 2D encoding (MMR)
+    \item Assumes error-free ISDN
+    \item ~3-5 seconds per page
+    \item Used in modern document systems
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Modern Document Compression Pipeline:}
+
+Many document scanners/printers use:
+
+\begin{verbatim}
+Scan → Descreen → Binarize → 
+CCITT Group 4 (MMR) → PDF/TIFF
+\end{verbatim}
+
+\textbf{Performance numbers (typical A4 page at 300 DPI):}
+\begin{itemize}
+    \item Raw scan: 8.5M pixels $\approx$ 1 MB (bi-level)
+    \item Group 3 1D: ~50-100 KB (10-20:1)
+    \item Group 3 2D: ~30-60 KB (17-33:1)
+    \item Group 4 MMR: ~20-40 KB (25-50:1)
+    \item Text-heavy page: as low as 5-10 KB (100-200:1!)
+\end{itemize}
+\end{examplebox}
+
+\subsection{Limitations of Run-Length Encoding}
+
+Understanding RLE's limitations is as important as understanding its strengths.
+
+\subsubsection{Why RLE Fails on Natural Language Text}
+
+Natural language text represents RLE's worst nightmare.
+
+\begin{importantbox}
+\textbf{Characteristics of Natural Language Text:}
+
+\begin{enumerate}
+    \item \textbf{Large alphabet:} 26 letters + punctuation + case + spaces
+    \item \textbf{Rare repeats:} In English, repeated letters are uncommon
+    \begin{itemize}
+        \item Double letters: "book", "little", "success" — relatively rare
+        \item Triple letters: Almost nonexistent (except "beeeeep" in comics)
+    \end{itemize}
+    \item \textbf{Statistical distribution:} Letter frequencies follow Zipf's law
+    \item \textbf{Context structure:} Redundancy is in patterns, not runs
+\end{enumerate}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{RLE on Shakespeare:}
+
+Consider the opening of Hamlet's soliloquy:
+\texttt{To be, or not to be, that is the question:}
+
+\textbf{Run analysis:}
+\begin{itemize}
+    \item Total characters (including spaces): 41
+    \item Runs of length 1: 39 runs
+    \item Runs of length 2: 1 run (double space after colon? No, single space)
+    \item Actually let's count properly:
+    \begin{itemize}
+        \item "T" (1), "o" (1), " " (1), "b" (1), "e" (1), "," (1), " " (1), "o" (1), "r" (1), " " (1), "n" (1), "o" (1), "t" (1), " " (1), "b" (1), "e" (1), "," (1), " " (1), "t" (1), "h" (1), "a" (1), "t" (1), " " (1), "i" (1), "s" (1), " " (1), "t" (1), "h" (1), "e" (1), " " (1), "q" (1), "u" (1), "e" (1), "s" (1), "t" (1), "i" (1), "o" (1), "n" (1), ":" (1)
+    \end{itemize}
+    \item Every run is length 1!
+\end{itemize}
+
+\textbf{RLE encoding:} 41 runs × 2 values each = 82 values
+\textbf{At 1 byte per value:} 82 bytes vs 41 original → 100\% expansion
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Why Text Has No Runs:}
+
+From information theory perspective:
+\begin{itemize}
+    \item English entropy: ~1-1.5 bits per character (for ASCII text)
+    \item But this entropy comes from word structure, grammar, semantics
+    \item Equality redundancy is almost completely absent
+    \item The Markov property (next char depends on previous) rarely produces identical consecutive chars
+    \item In fact, English has constraints against long runs (e.g., "uu" is rare, "aaa" almost never occurs)
+\end{itemize}
+\end{importantbox}
+
+\subsubsection{Sensitivity to Symbol Ordering}
+
+RLE's effectiveness depends critically on how symbols are arranged.
+
+\begin{definitionbox}
+\textbf{Order Sensitivity:} The property that RLE compression ratio can change dramatically if the same data is reordered, even though the multiset of symbols remains identical.
+\end{definitionbox}
+
+\begin{examplebox}
+\textbf{Dramatic Effect of Ordering:}
+
+Consider the multiset: 100 A's, 100 B's, 100 C's
+
+\textbf{Ordering 1: Interleaved (AB C AB C...)} 
+\texttt{ABCABCABC...} (300 bytes)
+\begin{itemize}
+    \item Each run length = 1
+    \item Number of runs = 300
+    \item Encoded size: 600 values (assuming 1-byte counts)
+    \item Result: 100\% expansion!
+\end{itemize}
+
+\textbf{Ordering 2: Grouped (AAA...BBB...CCC...)}
+\texttt{AAA... (100) BBB... (100) CCC... (100)}
+\begin{itemize}
+    \item 3 runs, each length 100
+    \item Encoded size: 3×2 = 6 values
+    \item Result: 98\% compression!
+\end{itemize}
+
+\textbf{Ordering 3: Alternating pairs (AA BB CC AA BB CC...)}
+\texttt{AABBCCAABBCC...}
+\begin{itemize}
+    \item Each run length = 2
+    \item Number of runs = 150
+    \item Encoded size: 300 values (still expansion)
+\end{itemize}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Implications of Order Sensitivity:}
+
+\begin{enumerate}
+    \item \textbf{Preprocessing matters:} Sorting or grouping data before RLE can dramatically improve compression
+    \item \textbf{Transform coding:} This is exactly what BWT does — reorders data to create runs
+    \item \textbf{File format design:} Some formats store data in plane-separated order (e.g., all red values, then all green, then all blue) to improve RLE
+    \item \textbf{Database optimization:} Column-oriented databases group similar values, enabling better compression
+\end{enumerate}
+\end{importantbox}
+
+\subsubsection{The Run-Length Distribution Problem}
+
+Even when runs exist, their distribution affects compression efficiency.
+
+\begin{definitionbox}
+\textbf{Run-Length Distribution Problem:} The challenge of efficiently encoding run lengths when they vary widely in magnitude.
+\end{definitionbox}
+
+\begin{importantbox}
+\textbf{The Problem in Detail:}
+
+Consider an image with:
+\begin{itemize}
+    \item Many short runs (length 1-3) in detailed areas
+    \item Some medium runs (length 10-50) in smooth areas
+    \item Few very long runs (1000+) in background areas
+\end{itemize}
+
+\textbf{Challenges:}
+\begin{enumerate}
+    \item \textbf{Fixed-width counts:} Waste bits on short runs, limit long runs
+    \item \textbf{Variable-width codes:} Need to design for the distribution
+    \item \textbf{Distribution mismatch:} Different parts of data may have different distributions
+    \item \textbf{Adaptivity:} Should encoding adapt to local statistics?
+\end{enumerate}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Run-Length Distribution Examples:}
+
+\textbf{Example 1: Mixed document}
+\begin{verbatim}
+Background white: runs of 1000-5000 pixels
+Text areas: runs of 1-10 pixels (alternating black/white)
+Graphics: runs of 20-100 pixels
+\end{verbatim}
+
+\textbf{Example 2: Quantized image after DCT}
+\begin{verbatim}
+DC coefficients: all length 1 (different each block)
+AC coefficients: runs of zeros: 0,1,2,3,... (geometric distribution)
+End-of-block: always runs of zeros to end
+\end{verbatim}
+
+\textbf{Example 3: Binary fax image}
+\begin{verbatim}
+White runs: can be very long (up to full line width)
+Black runs: typically short (text strokes)
+Distribution highly skewed
+\end{verbatim}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Solutions to Distribution Problems:}
+
+\begin{enumerate}
+    \item \textbf{Separate codes per context:} Fax uses different tables for black and white runs
+    \item \textbf{Hierarchical encoding:} Make-up + terminating codes (fax again)
+    \item \textbf{Adaptive Huffman:} Adjust codes based on recent history
+    \item \textbf{Golomb-Rice codes:} Good for geometric distributions
+    \item \textbf{Spline-based:} Encode runs as parameters to piecewise functions
+\end{enumerate}
+\end{importantbox}
+
+\subsection{RLE as a Preprocessing Technique}
+
+RLE's true power emerges when combined with other compression methods.
+
+\subsubsection{Combining RLE with Huffman Coding}
+
+The RLE+Huffman combination is a classic and effective approach.
+
+\begin{importantbox}
+\textbf{Why Combine RLE and Huffman:}
+
+\begin{itemize}
+    \item \textbf{RLE handles runs:} Converts repeated symbols into (symbol, count) pairs
+    \item \textbf{Huffman handles frequencies:} Assigns shorter codes to frequent symbol/count combinations
+    \item \textbf{Synergy:} Each addresses a different type of redundancy
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{RLE+Huffman Pipeline:}
+
+\begin{verbatim}
+Original: AAAAABBBCCCCCDDDDD
+
+Step 1: RLE
+Output: (A,5)(B,3)(C,5)(D,5)
+
+Step 2: Treat each pair as a symbol
+Symbol set: A5, B3, C5, D5
+
+Step 3: Build Huffman codes based on frequencies
+If each appears once, all get same code length (2 bits each)
+
+Step 4: Encode
+A5(00) B3(01) C5(10) D5(11)
+
+Final compressed: 4 pairs × (1 byte symbol + 1 byte count) → 8 bytes
+But we encoded to 8 bits = 1 byte total? Wait, careful...
+
+Actually: We need to encode both symbol and count.
+Better approach: Have Huffman codes for (symbol, count) combinations.
+Or: Separate Huffman for symbols and for counts.
+\end{verbatim}
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{CCITT Group 3 Fax: The Classic Example}
+
+Group 3 fax does exactly this:
+\begin{itemize}
+    \item Step 1: Identify runs of white and black
+    \item Step 2: For each run length, use a Huffman code
+    \item Step 3: Special make-up codes for long runs
+    \item Step 4: Separate Huffman tables for white and black runs
+\end{itemize}
+
+\textbf{Result:} Achieves ~10-20:1 compression on typical documents.
+\end{importantbox}
+
+\subsubsection{RLE After Other Transformations}
+
+RLE is often applied after transforms that create runs.
+
+\begin{importantbox}
+\textbf{Common Transform+RLE Pipelines:}
+
+\textbf{1. Move-to-Front (MTF) + RLE:}
+\begin{itemize}
+    \item MTF converts local correlations into runs of small numbers
+    \item RLE then compresses these runs
+    \item Used in bzip2 after BWT
+\end{itemize}
+
+\textbf{2. Differential Coding + RLE:}
+\begin{itemize}
+    \item Encode differences between consecutive values
+    \item Constant regions become runs of zeros
+    \item RLE compresses the zero runs
+    \item Used in image compression, audio (DPCM)
+\end{itemize}
+
+\textbf{3. Discrete Cosine Transform + RLE:}
+\begin{itemize}
+    \item DCT concentrates energy
+    \item Quantization creates zeros
+    \item Zigzag scan creates long zero runs
+    \item RLE encodes zero runs
+    \item Used in JPEG, MPEG
+\end{itemize}
+
+\textbf{4. Wavelet Transform + RLE:}
+\begin{itemize}
+    \item Similar to DCT but multi-resolution
+    \item Zero-tree coding exploits zero runs across scales
+    \item Used in JPEG 2000
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{MTF+RLE Example:}
+
+After BWT (which we'll study later), we might get:
+\texttt{mississippi} → BWT → \texttt{ipssm\$pissii}
+
+Apply MTF with initial list [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,?,!,\$,...]
+
+MTF output (simplified): 9,0,0,0,5,0,0,3,0,0,0,...
+
+Now apply RLE to these MTF indices:
+\begin{itemize}
+    \item Run of three 0's: (0,3)
+    \item Then 5: literal 5
+    \item Then two 0's: (0,2)
+    \item Then 3: literal 3
+    \item Then three 0's: (0,3)
+\end{itemize}
+
+Result: (0,3),5,(0,2),3,(0,3)
+
+This is much more compressible than the original text!
+\end{examplebox}
+
+\subsubsection{The Crucial Role of RLE in the Burrows-Wheeler Transform (BWT) Pipeline}
+
+This is the key connection that motivates our chapter.
+
+\begin{importantbox}
+\textbf{The BWT Pipeline:}
+
+\begin{verbatim}
+Original Text → BWT → MTF → RLE → Huffman/Arithmetic
+\end{verbatim}
+
+\textbf{Why RLE is essential after BWT+MTF:}
+
+\begin{enumerate}
+    \item \textbf{BWT groups similar contexts:} Characters with similar contexts end up near each other
+    \item \textbf{MTF converts to small numbers:} Recently seen characters get small indices (often 0)
+    \item \textbf{Result:} Long runs of zeros and other small numbers appear
+    \item \textbf{RLE compresses these runs:} Exactly what RLE is good at!
+\end{enumerate}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{BWT+MTF+RLE in Action:}
+
+Consider text: \texttt{the\_cat\_sat\_on\_the\_mat}
+
+After BWT (simplified, actual BWT would be different):
+\texttt{thheee\_\_\_aaatt\_mnoosstt??}
+
+After MTF (with reasonable initial order):
+\texttt{2,0,0,1,0,0,0,0,3,0,0,0,0,4,0,0,0,0,0,5,6,0,0,0,0,0,7,0,0,...}
+
+After RLE on the MTF output:
+\begin{itemize}
+    \item Notice the long runs of zeros!
+    \item (0,3), (0,4), (0,4), (0,5), (0,5), ...
+    \item These runs are highly compressible
+\end{itemize}
+
+\textbf{Why bzip2 is effective:} This pipeline turns complex text patterns into simple runs that RLE can handle efficiently.
+\end{examplebox}
+
+\begin{importantbox}
+\textbf{Key Insight for Students:}
+
+The BWT doesn't directly create runs of identical characters.
+Instead, it creates a sequence where identical characters appear near each other.
+MTF then converts this "nearness" into actual runs (of zeros).
+RLE then compresses those runs.
+
+\textbf{Without RLE, BWT+MTF would be much less effective.}
+\textbf{Without understanding RLE, you cannot fully understand BWT.}
+
+This is why we study RLE in detail before BWT!
+\end{importantbox}
+
+\subsection{Implementation Considerations}
+
+Practical RLE implementation requires attention to engineering details.
+
+\subsubsection{Streaming vs. Block-Based Encoding}
+
+The choice between streaming and block-based approaches affects memory use and functionality.
+
+\begin{importantbox}
+\textbf{Streaming RLE:}
+
+\textbf{Characteristics:}
+\begin{itemize}
+    \item Process data as it arrives, produce output incrementally
+    \item Minimal memory (O(1) beyond current run)
+    \item Can handle arbitrarily large inputs
+    \item No seeking backward possible
+    \item Ideal for network transmission, real-time systems
+\end{itemize}
+
+\textbf{Implementation sketch:}
+\begin{lstlisting}
+def encode_streaming(input_stream, output_stream):
+    prev = None
+    count = 0
+    for symbol in input_stream:
+        if symbol == prev:
+            count += 1
+        else:
+            if prev is not None:
+                output_stream.write((prev, count))
+            prev = symbol
+            count = 1
+    if prev is not None:
+        output_stream.write((prev, count))
+\end{lstlisting}
+\end{importantbox}
+
+\begin{importantbox}
+\textbf{Block-Based RLE:}
+
+\textbf{Characteristics:}
+\begin{itemize}
+    \item Process data in fixed-size blocks
+    \item Can random-access within blocks
+    \item Better for indexed file formats
+    \item Block headers add overhead
+    \item Easier to parallelize
+\end{itemize}
+
+\textbf{Typical block header:}
+\begin{verbatim}
+[Block size][Number of runs][Optional checksum][RLE data...]
+\end{verbatim}
+
+\textbf{Trade-offs:}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Aspect} & \textbf{Streaming} & \textbf{Block-based} \\
+\hline
+Memory & O(1) & O(block size) \\
+Latency & Low (per symbol) & Higher (per block) \\
+Random access & No & Yes \\
+Error resilience & Loses sync & Can resync at blocks \\
+Overhead & None & Block headers \\
+\hline
+\end{tabular}
+\end{importantbox}
+
+\subsubsection{Memory Usage and Buffering}
+
+Even simple RLE implementations need to consider memory carefully.
+
+\begin{importantbox}
+\textbf{Memory Considerations:}
+
+\textbf{Encoder memory:}
+\begin{itemize}
+    \item Current symbol (1 value)
+    \item Current run count (1 integer)
+    \item Optional output buffer (tunable size)
+    \item Total: typically < 1 KB
+\end{itemize}
+
+\textbf{Decoder memory:}
+\begin{itemize}
+    \item Current (symbol, count) pair
+    \item Current position in run
+    \item Optional input buffer
+    \item Total: similarly tiny
+\end{itemize}
+
+\textbf{But watch out for:}
+\begin{itemize}
+    \item Very long runs: count must not overflow
+    \item Output buffering: if decoding to memory, need space for result
+    \item File I/O buffers: typically 4-64 KB for efficiency
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Memory-Efficient Decoding:}
+
+\begin{lstlisting}[caption=Streaming decoder with minimal memory]
+def decode_streaming(encoded_stream, output_callback):
+    while True:
+        try:
+            symbol = next(encoded_stream)
+            count = next(encoded_stream)
+            for _ in range(count):
+                output_callback(symbol)
+        except StopIteration:
+            break
+
+# Usage: outputs character by character
+decode_streaming(encoded_data, lambda c: print(c, end=''))
+\end{lstlisting}
+
+This uses O(1) memory regardless of file size!
+\end{examplebox}
+
+\subsubsection{Handling Large Run Counts Safely}
+
+When runs exceed the maximum representable count, we need strategies.
+
+\begin{importantbox}
+\textbf{Strategies for Large Runs:}
+
+\textbf{1. Split runs:}
+\begin{itemize}
+    \item When count exceeds maximum, output multiple run chunks
+    \item Example: max count = 255, actual run = 1000
+    \item Output: (sym,255), (sym,255), (sym,255), (sym,235)
+\end{itemize}
+
+\textbf{2. Use larger count fields:}
+\begin{itemize}
+    \item Switch to 16-bit or 32-bit counts
+    \item But overhead increases for all runs
+    \item May still need splitting for very large runs
+\end{itemize}
+
+\textbf{3. Escape sequence for overflow:}
+\begin{itemize}
+    \item Special marker means "count continues in next field"
+    \item Like UTF-8 for integers
+    \item More complex but flexible
+\end{itemize}
+
+\textbf{4. Variable-length encoding:}
+\begin{itemize}
+    \item Use Elias gamma, Fibonacci, etc.
+    \item No maximum, efficient for all sizes
+    \item But slower, bit-level I/O needed
+\end{itemize}
+\end{importantbox}
+
+\begin{examplebox}
+\textbf{Splitting Runs Example:}
+
+Assume 8-bit counts (max = 255)
+
+Input run: 1000 'A's
+
+\textbf{Approach 1: Split into max-sized chunks}
+\begin{itemize}
+    \item (A,255), (A,255), (A,255), (A,235)
+    \item Overhead: 4 pairs instead of 1
+    \item Extra overhead: 3 extra count bytes + 3 extra symbol bytes
+\end{itemize}
+
+\textbf{Approach 2: Use escape for overflow}
+\begin{itemize}
+    \item Define 255 as "overflow, next byte is additional count"
+    \item (A,255,235) where 255 means "add next byte"
+    \item Total count = 255 + 235 = 490 — still not enough!
+    \item Need cascading: (A,255,255,235) for 255+255+235 = 745
+    \item (A,255,255,255,235) for 1000
+    \item This is essentially variable-length encoding
+\end{itemize}
+\end{examplebox}
+
+\subsection{Worked Case Studies}
+
+Detailed examples help solidify understanding.
+
+\subsubsection{Blue Sky Example (Grayscale Image)}
+
+Consider a simple 10×10 grayscale image (8-bit pixels) with a blue sky gradient.
+
+\begin{examplebox}
+\textbf{Blue Sky Image Data:}
+
+Pixel values (simplified):
+\begin{verbatim}
+Row 1: 200,200,200,200,200,200,200,200,200,200
+Row 2: 200,200,200,200,200,200,200,200,200,200
+Row 3: 200,200,200,200,200,200,200,200,200,200
+Row 4: 180,180,180,180,180,180,180,180,180,180
+Row 5: 180,180,180,180,180,180,180,180,180,180
+Row 6: 160,160,160,160,160,160,160,160,160,160
+Row 7: 160,160,160,160,160,160,160,160,160,160
+Row 8: 140,140,140,140,140,140,140,140,140,140
+Row 9: 140,140,140,140,140,140,140,140,140,140
+Row10: 120,120,120,120,120,120,120,120,120,120
+\end{verbatim}
+
+\textbf{RLE Encoding (row-major order):}
+\begin{itemize}
+    \item Run 1: 30 pixels of 200 (rows 1-3) → (200,30)
+    \item Run 2: 20 pixels of 180 (rows 4-5) → (180,20)
+    \item Run 3: 20 pixels of 160 (rows 6-7) → (160,20)
+    \item Run 4: 20 pixels of 140 (rows 8-9) → (140,20)
+    \item Run 5: 10 pixels of 120 (row 10) → (120,10)
+\end{itemize}
+
+\textbf{Compression analysis:}
+\begin{itemize}
+    \item Original: 100 bytes
+    \item Encoded: 5 pairs = 10 bytes
+    \item Ratio: 10:1 (90\% compression!)
+\end{itemize}
+
+\textbf{With 2D structure:} If we encode each row separately:
+\begin{itemize}
+    \item 10 rows × 1 run each = 10 runs = 20 bytes
+    \item Worse than treating whole image as 1D stream
+    \item Shows importance of scan order
+\end{itemize}
+\end{examplebox}
+
+\subsubsection{Binary Document Scan}
+
+A typical business letter scanned at 300 DPI.
+
+\begin{examplebox}
+\textbf{Document Scan Analysis:}
+
+Consider a letter with:
+\begin{itemize}
+    \item 1-inch margins all around
+    \item 10-point text (about 1/8 inch tall)
+    \item Single-spaced text
+    \item Page size: 8.5" × 11"
+\end{itemize}
+
+\textbf{Dimensions at 300 DPI:}
+\begin{itemize}
+    \item Width: 8.5 × 300 = 2550 pixels
+    \item Height: 11 × 300 = 3300 pixels
+    \item Total pixels: ~8.4 million
+    \item Raw size (bi-level): ~1 MB
+\end{itemize}
+
+\textbf{Run characteristics:}
+\begin{itemize}
+    \item White space (margins): runs of 2550 pixels per line
+    \item Between lines: 1/8 inch = 37.5 pixels of white
+    \item Text lines: alternating black/white runs of 1-5 pixels
+    \item Paragraph breaks: larger white runs
+\end{itemize}
+
+\textbf{RLE encoding (per line):}
+For a typical text line:
+\begin{verbatim}
+[White margin: 200][Text pattern...][White margin: 200]
+\end{verbatim}
+
+White margin: 200 pixels (approx 0.67 inches at 300 DPI)
+Text pattern: alternating black/white runs: 2,1,2,1,3,1,2,1,... (character strokes)
+
+\textbf{Compression estimate:}
+\begin{itemize}
+    \item Average run length in text area: ~2-3 pixels
+    \item But long white runs dominate
+    \item Overall average run length: 50-100 pixels
+    \item Runs per line: 20-40
+    \item Total runs per page: 3300 lines × 30 runs $\approx$ 100,000 runs
+    \item With 2 bytes per run (1 symbol + 1 count): 200 KB
+    \item Ratio: 5:1 (80\% compression)
+\end{itemize}
+
+\textbf{With Group 4 fax:} Typically 20-50 KB per page (20-50:1 compression)
+\end{examplebox}
+
+\subsubsection{Why RLE Expands Shakespeare}
+
+A quantitative look at why RLE fails on literary text.
+
+\begin{examplebox}
+\textbf{Shakespeare's Sonnet 18:}
+
+\begin{quote}
+Shall I compare thee to a summer's day?
+Thou art more lovely and more temperate:
+Rough winds do shake the darling buds of May,
+And summer's lease hath all too short a date:
+\end{quote}
+
+\textbf{Statistical analysis:}
+\begin{itemize}
+    \item Total characters (including spaces, punctuation): ~500
+    \item Count runs of length 1: ~490
+    \item Runs of length 2: ~5 (double letters: "ll" in "shall", "mm" in "summer", etc.)
+    \item Runs of length 3: 0
+    \item Average run length: ~1.01
+\end{itemize}
+
+\textbf{RLE encoding:}
+\begin{itemize}
+    \item Original: 500 bytes
+    \item Encoded: ~500 runs × 2 = 1000 values
+    \item At 1 byte per value: 1000 bytes (100\% expansion)
+\end{itemize}
+
+\textbf{Why the expansion?}
+\begin{itemize}
+    \item Each run of length 1 requires a count of 1
+    \item The count field adds 100\% overhead to each character
+    \item The few runs of length 2 save only 1 byte each (2 chars → 2 bytes vs 4 bytes for two singles)
+    \item Savings from runs: 5 runs × (2 bytes saved per run) = 10 bytes saved
+    \item But overhead from counts: 500 extra bytes
+    \item Net loss: 490 bytes
+\end{itemize}
+
+\textbf{Mathematically:}
+Let $n$ = original length, $r$ = number of runs
+Basic RLE size = $2r$ (if counts and symbols same size)
+Expansion when $2r > n$, i.e., $r > n/2$
+For random text, $r \approx n$ (since avg run $\approx$ 1)
+Thus expansion $\approx$ $2n - n = n$ (100\%)
+\end{examplebox}
+
+\subsection{Summary and Conceptual Bridge to Transform Coding}
+
+\subsubsection{Equality Redundancy: A Foundational Compression Primitive}
+
+\begin{importantbox}
+\textbf{Key Takeaways:}
+
+\begin{enumerate}
+    \item \textbf{Definition:} Equality redundancy is the simplest form of data redundancy—consecutive identical symbols.
+    
+    \item \textbf{RLE basics:} Replace runs with (symbol, count) pairs. Simple, fast, optimal for certain data.
+    
+    \item \textbf{Performance:} 
+    \begin{itemize}
+        \item Best case: near-infinite compression (single run)
+        \item Worst case: 100\% expansion (no runs)
+        \item Break-even: depends on count field size and run length distribution
+    \end{itemize}
+    
+    \item \textbf{Variants:} Escape symbols, thresholds, PackBits, binary RLE—each addresses specific limitations.
+    
+    \item \textbf{Applications:} Fax, image formats, transform coding pipelines—RLE is everywhere.
+    
+    \item \textbf{Limitations:} Fails on natural language, sensitive to ordering, distribution-dependent.
+\end{enumerate}
+\end{importantbox}
+
+\subsubsection{The Fundamental Limitation of RLE: Passivity}
+
+\begin{importantbox}
+\textbf{RLE is Passive:}
+
+RLE can only exploit runs that already exist in the data. It cannot:
+\begin{itemize}
+    \item Create runs where none exist
+    \item Reorder data to make it more compressible
+    \item Find higher-order patterns
+    \item Adapt to the structure of the data
+\end{itemize}
+
+\textbf{This is the key insight:} RLE is a \textit{reactive} compressor, not a \textit{proactive} one.
+\end{importantbox}
+
+\subsubsection{From Passive Exploitation to Active Transformation}
+
+\begin{importantbox}
+\textbf{The Central Question:}
+
+What if we could \textit{transform} the data to make it more run-prone?
+
+\begin{itemize}
+    \item Can we reorder data so that identical symbols end up together?
+    \item Can we convert other types of redundancy into equality redundancy?
+    \item Can we design algorithms that \textit{create} the very patterns that RLE excels at compressing?
+\end{itemize}
+
+\textbf{This is exactly what transform-based compression does!}
+\end{importantbox}
+
+\subsubsection{Roadmap to the Burrows-Wheeler Transform}
+
+\begin{importantbox}
+\textbf{Preview of Chapter 8: The Burrows-Wheeler Transform}
+
+The BWT answers our central question by:
+
+\begin{enumerate}
+    \item \textbf{Reordering data:} It sorts all rotations of the input, bringing characters with similar contexts together.
+    
+    \item \textbf{Creating local similarity:} After BWT, identical characters appear near each other (though not necessarily in long runs yet).
+    
+    \item \textbf{MTF conversion:} Move-to-Front coding converts this "nearness" into actual runs of zeros and small numbers.
+    
+    \item \textbf{RLE application:} Now RLE can finally work its magic on the MTF output.
+\end{enumerate}
+
+\textbf{The pipeline:}
+\begin{verbatim}
+Original → BWT (reorder) → MTF (create runs) → RLE (compress runs) → Entropy coding
+\end{verbatim}
+
+\textbf{Why this works:} BWT doesn't compress directly. Instead, it \textit{transforms} the data into a form that plays to RLE's strengths. RLE then does what it does best—compress runs.
+\end{importantbox}
+
+\begin{tcolorbox}[colback=orange!10!white,colframe=orange!50!black, title=Conceptual Bridge Summary]
+\begin{center}
+\textbf{From RLE to BWT: The Evolution of Compression Thinking}
+
+\vspace{0.3cm}
+\textbf{Level 1:} "I see runs, I compress runs." (Basic RLE)
+
+\vspace{0.2cm}
+\textbf{Level 2:} "I adapt RLE to handle different situations." (RLE variants)
+
+\vspace{0.2cm}
+\textbf{Level 3:} "I transform data to create the runs RLE needs." (BWT)
+
+\vspace{0.3cm}
+The BWT chapter will show you how to achieve Level 3 thinking.
+\end{center}
+\end{tcolorbox}
+
+\subsection{Exercises and Projects}
+
+\begin{exercisebox}
+\textbf{Exercise 7.1: Basic RLE Implementation}
+
+Implement basic RLE encoding and decoding in your favorite programming language. Test on:
+\begin{enumerate}
+    \item A file with long runs (e.g., 1000 'A's)
+    \item A file with no runs (e.g., "abcdefghijklmnopqrstuvwxyz")
+    \item A binary image file (you can create a simple PBM file)
+\end{enumerate}
+
+Measure compression ratio for each case.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.2: Run Length Analysis}
+
+Write a program that analyzes a file and reports:
+\begin{enumerate}
+    \item Number of runs
+    \item Average run length
+    \item Distribution of run lengths (histogram)
+    \item Best and worst case compression ratios for this file
+\end{enumerate}
+
+Test on different file types: text, image, executable, random data.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.3: PackBits Implementation}
+
+Implement PackBits encoding and decoding. Compare its performance with basic RLE on:
+\begin{enumerate}
+    \item Files with mixed long runs and literals
+    \item Files with no runs
+    \item Files with very long runs (>128)
+\end{enumerate}
+
+When does PackBits outperform basic RLE? When does it underperform?
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.4: Threshold Optimization}
+
+For a given file, find the optimal minimum run length threshold for RLE encoding. 
+\begin{enumerate}
+    \item Try thresholds from 2 to 10
+    \item For each threshold, compute compressed size
+    \item Plot threshold vs. compressed size
+    \item Explain why the optimal threshold is what it is
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.5: Binary RLE for Fax Simulation}
+
+Create a simple fax-like document (black text on white background) as a PBM file.
+\begin{enumerate}
+    \item Implement binary RLE (store first bit, then run lengths)
+    \item Try different encodings for run lengths: fixed 8-bit, variable-length (gamma code)
+    \item Compare compression ratios
+    \item Research actual Group 3 fax tables and implement them
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.6: RLE + Huffman}
+
+Combine your RLE implementation with Huffman coding:
+\begin{enumerate}
+    \item After RLE, treat each (symbol,count) pair as a symbol
+    \item Build Huffman codes for these meta-symbols
+    \item Compress a file using this two-stage approach
+    \item Compare with RLE alone and Huffman alone
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.7: Preprocessing for RLE}
+
+Take a file that compresses poorly with RLE (e.g., English text). 
+\begin{enumerate}
+    \item Sort the entire file (destroying all order)
+    \item Apply RLE to the sorted file
+    \item Compare compression ratios
+    \item Explain why sorting helps (and why we can't actually do this in practice)
+\end{enumerate}
+This exercise demonstrates why BWT is clever—it approximates sorting while preserving reversibility.
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.8: Project - Simple Image Compressor}
+
+Build a complete image compressor for simple graphics:
+\begin{enumerate}
+    \item Input: PPM or BMP file
+    \item Convert to run-length encoded format of your design
+    \item Include options for:
+    \begin{itemize}
+        \item Row-major vs. column-major scanning
+        \item Plane separation (RRR...GGG...BBB...)
+        \item Threshold-based RLE
+        \item PackBits-style encoding
+    \end{itemize}
+    \item Compare compression for different image types:
+    \begin{itemize}
+        \item Computer-generated graphics
+        \item Photographs
+        \item Screenshots
+    \end{itemize}
+    \item Write a report on which techniques work best for which image types
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.9: Research and Analysis}
+
+Research one of these topics and write a brief report:
+\begin{enumerate}
+    \item The history and evolution of fax compression standards
+    \item How JPEG uses zero run-length encoding for AC coefficients
+    \item RLE in game console graphics (e.g., NES, Game Boy)
+    \item Comparison of RLE implementations in different file formats (BMP, PCX, TIFF)
+\end{enumerate}
+\end{exercisebox}
+
+\begin{exercisebox}
+\textbf{Exercise 7.10: Bridging to BWT}
+
+Take a small text file (e.g., "abracadabra").
+\begin{enumerate}
+    \item Apply BWT (you can look ahead or use an existing implementation)
+    \item Apply MTF to the BWT output
+    \item Apply RLE to the MTF output
+    \item Compare with RLE applied directly to the original text
+    \item Explain why the BWT+MTF+RLE pipeline compresses better
+\end{enumerate}
+This exercise prepares you for the next chapter!
+\end{exercisebox}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Chapter Challenge Problem]
+\textbf{Design a Better RLE:}
+
+Your task is to design an RLE variant optimized for a specific application:
+\begin{itemize}
+    \item \textbf{Scenario A:} Real-time sensor data with occasional long runs of identical readings, but mostly varying data. Must be extremely fast.
+    \item \textbf{Scenario B:} Archival storage of scanned documents. Compression ratio is critical; speed secondary.
+    \item \textbf{Scenario C:} Embedded system with 2KB RAM, compressing data for radio transmission. Must handle runs up to 65535.
+\end{itemize}
+
+For your chosen scenario:
+\begin{enumerate}
+    \item Specify your encoding format in detail
+    \item Justify design choices (count field size, escape handling, etc.)
+    \item Implement and test on representative data
+    \item Compare with at least two other RLE variants
+    \item Write a technical memo explaining your design
+\end{enumerate}
+\end{tcolorbox}
+
+\end{document}
