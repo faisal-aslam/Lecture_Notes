@@ -55,83 +55,6 @@ Original: 40 characters
 Encoded: 10 values (5 symbols + 5 counts) $\rightarrow$ significant savings!
 \end{examplebox}
 
-\subsubsection{Where Runs Naturally Occur: Images, Documents, Signals}
-
-Understanding where runs occur naturally helps us appreciate RLE's practical value. Different data modalities exhibit different run characteristics.
-
-\textbf{1. Digital Images:}
-\begin{itemize}
-    \item \textbf{Computer-generated graphics:} Icons, logos, GUI elements often have large uniform areas. A button might be solid blue (run of identical pixels).
-    \item \textbf{Line art:} Technical drawings, diagrams, charts have long runs of white background interrupted by black lines.
-    \item \textbf{Simple natural images:} Blue sky, green grass, walls—these often contain large regions of similar or identical colors, especially after quantization.
-    \item \textbf{Medical images:} X-rays have large dark background areas (runs of black pixels).
-\end{itemize}
-
-\textbf{2. Document Images:}
-\begin{itemize}
-    \item \textbf{Fax documents:} Mostly white paper with black text. A typical page might be 95\% white pixels, creating extremely long runs of white between lines and in margins.
-    \item \textbf{Scanned text:} Similar to fax, with alternating runs of white (background) and black (text).
-    \item \textbf{Form documents:} Pre-printed forms have consistent layouts with large white areas.
-\end{itemize}
-
-\textbf{3. Signals and Time Series:}
-\begin{itemize}
-    \item \textbf{Silence in audio:} Periods of no sound create runs of zero samples.
-    \item \textbf{Sensor data:} Temperature readings might stay constant for periods.
-    \item \textbf{Stock prices:} May remain unchanged for multiple consecutive ticks.
-    \item \textbf{Video:} Static scenes have runs of identical pixels across frames (temporal redundancy).
-\end{itemize}
-
-\textbf{4. Specialized Data:}
-\begin{itemize}
-    \item \textbf{DNA sequences:} Can have long runs of the same nucleotide (e.g., poly-A tails in mRNA).
-    \item \textbf{Index files:} Sorted indices often have runs of identical prefixes.
-    \item \textbf{Difference files:} After computing differences between versions, runs of zeros appear where files are identical.
-    \item \textbf{Transform outputs:} After applying transforms like DCT (Discrete Cosine Transform) or wavelet transforms, we get long runs of zeros—a crucial application we'll explore later.
-\end{itemize}
-
-\subsubsection{Historical Background of RLE}
-
-Run-Length Encoding has a rich history that parallels the development of digital communication and storage.
-
-\textbf{1950s-1960s: Early Digital Imaging}
-\begin{itemize}
-    \item As computers began processing images, the need for efficient storage became apparent
-    \item Early facsimile (fax) machines used analog methods; digital fax required compression
-    \item RLE was a natural fit for binary document images
-\end{itemize}
-
-\textbf{1967: First Fax Standard}
-\begin{itemize}
-    \item CCITT (now ITU-T) began standardizing digital facsimile transmission
-    \item Group 3 fax standard (1980) incorporated RLE as a core component
-    \item Modified Huffman coding combined RLE with Huffman for run lengths
-    \item This became one of the most widely deployed compression systems in history
-\end{itemize}
-
-\textbf{1970s-1980s: Image File Formats}
-\begin{itemize}
-    \item \textbf{PCX (1982):} ZSoft's PC Paintbrush format used RLE extensively
-    \item \textbf{BMP (late 1980s):} Microsoft's Windows bitmap format included RLE compression options
-    \item \textbf{TIFF (1986):} Tagged Image File Format included RLE as one of its compression methods
-    \item These formats made RLE ubiquitous in early personal computing
-\end{itemize}
-
-\textbf{1980s: Integration with Other Techniques}
-\begin{itemize}
-    \item Researchers realized RLE alone was insufficient for complex data
-    \item Combined approaches emerged: RLE + Huffman (fax), RLE + LZ (some compressors)
-    \item The concept of RLE as a preprocessing step gained traction
-\end{itemize}
-
-\textbf{1990s-Present: Modern Applications}
-\begin{itemize}
-    \item \textbf{bzip2 (1996):} Julian Seward's bzip2 used RLE as part of the BWT pipeline
-    \item \textbf{Image/Video codecs:} JPEG, MPEG use run-length coding for zero quantized coefficients
-    \item \textbf{PDF:} Supports RLE compression for embedded images
-    \item \textbf{Game assets:} Many game engines use RLE for sprite and tile compression
-\end{itemize}
-
 \begin{importantbox}
 \textbf{Why Study RLE Today?}
 Despite its age and simplicity, RLE remains relevant because:
@@ -284,7 +207,7 @@ Output: (W,13)(B,2)(W,13)(B,3)(W,9)
 \textbf{Example 2: Binary Image Data}
 \vspace{0.2cm}
 
-Consider a scan line from a fax document (1 = black, 0 = white):
+Consider a scan line from a fax document (1 = black, 0 = white):\\
 Input: \texttt{0000000000111110000011111100000000000}
 
 Let's count runs:
@@ -393,7 +316,8 @@ Understanding the computational efficiency of RLE helps in deciding when to use 
 Time Complexity & $O(n)$ & $O(n)$ \\
 Auxiliary Space (streaming) & $O(1)$ & $O(1)$ \\
 Auxiliary Space (buffered) & $O(r)$ & $O(1)$ \\
-Optimal? & Yes (linear lower bound) & Yes (output size lower bound) \\
+Optimal? & Yes & Yes \\
+& (linear lower bound) & (output size lower bound) \\
 \hline
 \end{tabular}
 \end{tcolorbox}
@@ -437,6 +361,7 @@ Consider a 1 MB file (1,048,576 bytes) of all 'A's.
 \end{itemize}
 
 \textbf{Impact of count field size:}
+
 \begin{tabular}{|l|c|c|c|}
 \hline
 \textbf{Count field size} & \textbf{Pair size} & \textbf{Compressed size} & \textbf{Ratio} \\
@@ -547,7 +472,7 @@ ASCII & 256 & $256/255 \approx 1.0039$ \\
 \begin{itemize}
     \item Binary data has the longest expected runs (2)
     \item ASCII text has runs barely longer than 1
-    \item For large alphabets, runs of length > 1 are rare events
+    \item For large alphabets, runs of length $>$ 1 are rare events
 \end{itemize}
 \end{examplebox}
 
@@ -747,6 +672,7 @@ One of the biggest problems with basic RLE is expansion on non-repetitive data. 
 \end{importantbox}
 
 \begin{examplebox}
+
 \textbf{Escape Scheme Example:}
 
 Let's design a simple escape scheme with escape marker = \texttt{0xFF} (255 in byte values).
@@ -994,6 +920,7 @@ We need multiple chunks:
 \end{itemize}
 \end{importantbox}
 
+
 \subsubsection{Fixed-Width vs. Variable-Length Count Fields}
 
 The representation of run lengths significantly impacts compression efficiency.
@@ -1020,6 +947,7 @@ The representation of run lengths significantly impacts compression efficiency.
 \end{itemize}
 
 \textbf{Typical trade-offs:}
+
 \begin{tabular}{|l|c|c|c|}
 \hline
 \textbf{Count size} & \textbf{Max run} & \textbf{Overhead/run} & \textbf{Best for} \\
@@ -1063,6 +991,122 @@ The representation of run lengths significantly impacts compression efficiency.
 \end{itemize}
 \end{importantbox}
 
+\subsection*{Understanding Variable-Length Codes Through Elias Gamma}
+
+To truly appreciate the trade-off between fixed and variable-length encoding, we need to understand how variable-length codes actually work. Elias gamma coding provides the clearest illustration of the fundamental principle: small numbers should use fewer bits than large numbers.
+
+\subsubsection*{Elias Gamma Coding: The Core Idea}
+
+Elias gamma coding builds numbers in two parts:
+
+\begin{enumerate}
+    \item \textbf{The size indicator:} A sequence of zeros that tells us "how many bits the number will need," terminated by a 1
+    \item \textbf{The remainder:} The actual value in binary, using exactly the number of bits indicated
+\end{enumerate}
+
+More formally, for any positive integer \(N\):
+\begin{itemize}
+    \item Find the largest power of two \(2^k\) that is less than or equal to \(N\)
+    \item Let \(M = N - 2^k\) (the remainder)
+    \item Write \(k\) zeros, then a 1 (the size indicator)
+    \item Append \(M\) in binary using exactly \(k\) bits
+\end{itemize}
+
+\subsubsection*{Building Elias Gamma Codes: Step by Step}
+
+Let's construct codes systematically to see the pattern:
+
+\begin{enumerate}
+    \item \textbf{For N = 1:}
+    \begin{itemize}
+        \item Largest power of two \(\le\) 1 is \(2^0 = 1\), so \(k = 0\)
+        \item Remainder \(M = 1 - 1 = 0\)
+        \item Size indicator: \(k\) zeros followed by 1 = "1" (just the 1, no zeros)
+        \item Remainder in \(k\) bits: \(k=0\) means no remainder bits
+        \item Final code: "1"
+    \end{itemize}
+    
+    \item \textbf{For N = 2:}
+    \begin{itemize}
+        \item Largest power of two \(\le\) 2 is \(2^1 = 2\), so \(k = 1\)
+        \item Remainder \(M = 2 - 2 = 0\)
+        \item Size indicator: "01" (one zero, then a 1)
+        \item Remainder in \(k=1\) bits: "0"
+        \item Final code: "010"
+    \end{itemize}
+    
+    \item \textbf{For N = 3:}
+    \begin{itemize}
+        \item Largest power of two \(\le\) 3 is \(2^1 = 2\), so \(k = 1\)
+        \item Remainder \(M = 3 - 2 = 1\)
+        \item Size indicator: "01" (one zero, then a 1)
+        \item Remainder in \(k=1\) bits: "1"
+        \item Final code: "011"
+    \end{itemize}
+    
+    \item \textbf{For N = 4:}
+    \begin{itemize}
+        \item Largest power of two \(\le\) 4 is \(2^2 = 4\), so \(k = 2\)
+        \item Remainder \(M = 4 - 4 = 0\)
+        \item Size indicator: "001" (two zeros, then a 1)
+        \item Remainder in \(k=2\) bits: "00"
+        \item Final code: "00100"
+    \end{itemize}
+    
+    \item \textbf{For N = 5:}
+    \begin{itemize}
+        \item Largest power of two \(\le\) 5 is \(2^2 = 4\), so \(k = 2\)
+        \item Remainder \(M = 5 - 4 = 1\)
+        \item Size indicator: "001" (two zeros, then a 1)
+        \item Remainder in \(k=2\) bits: "01"
+        \item Final code: "00101"
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection*{Complete Reference Table}
+
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{N} & \textbf{\(2^k\)} & \textbf{k} & \textbf{M} & \textbf{Elias Gamma Code} \\
+\hline
+1 & 1 & 0 & 0 & 1 \\
+2 & 2 & 1 & 0 & 010 \\
+3 & 2 & 1 & 1 & 011 \\
+4 & 4 & 2 & 0 & 00100 \\
+5 & 4 & 2 & 1 & 00101 \\
+6 & 4 & 2 & 2 & 00110 \\
+7 & 4 & 2 & 3 & 00111 \\
+8 & 8 & 3 & 0 & 0001000 \\
+9 & 8 & 3 & 1 & 0001001 \\
+10 & 8 & 3 & 2 & 0001010 \\
+15 & 8 & 3 & 7 & 0001111 \\
+16 & 16 & 4 & 0 & 000010000 \\
+\hline
+\end{tabular}
+
+\subsubsection*{How Decoding Works}
+
+The decoding process is symmetric and equally straightforward:
+
+\begin{enumerate}
+    \item Read bits until you encounter a 1. Count how many zeros came before it—this count is \(k\)
+    \item The 1 you just read is the termination of the size indicator
+    \item Read the next \(k\) bits—this is the remainder \(M\) in binary
+    \item Compute \(N = 2^k + M\)
+\end{enumerate}
+
+\textbf{Decoding Example:} Given bitstream "001011..."
+\begin{enumerate}
+    \item Read zeros: "00" then a 1 → found "001", so \(k = 2\)
+    \item Next \(k=2\) bits: "01" → this binary is \(M = 1\)
+    \item \(N = 2^2 + 1 = 4 + 1 = 5\)
+    \item First number decoded is 5, remaining bits "...", continue decoding
+\end{enumerate}
+
+\subsection*{Fixed-Width vs. Variable-Length: A Detailed Comparison}
+
+Now that we understand how variable-length coding works, let's compare the two approaches with concrete examples.
+
 \begin{examplebox}
 \textbf{Count Field Comparison:}
 
@@ -1071,31 +1115,89 @@ Consider a file with runs of lengths: 3, 5, 2, 100, 4, 200
 \textbf{Fixed 8-bit counts:}
 \begin{itemize}
     \item Each run: 1 byte for count
-    \item Total count overhead: 6 bytes
-    \item Can represent all runs (max 200 < 255)
+    \item Total count overhead: 6 bytes = 48 bits
+    \item Can represent all runs (max 200 $<$ 255)
+    \item Simple, fast, randomly accessible
 \end{itemize}
 
 \textbf{Fixed 4-bit counts:}
 \begin{itemize}
     \item Cannot represent runs >15
     \item Would need to split run 100 into: 15,15,15,15,15,15,10 (7 runs!)
-    \item Run 200: even worse
-    \item Total overhead: many more runs
+    \item Run 200: even worse, would need 14 runs (13×15 + 5)
+    \item Total overhead: 6 runs become 6+7+14 = 27 runs!
+    \item 27 runs × 0.5 bytes = 13.5 bytes (worse than 8-bit!)
 \end{itemize}
 
 \textbf{Variable-length (Elias gamma):}
 \begin{itemize}
-    \item 3 → "11" (2 bits)
-    \item 5 → "101" (3 bits)
-    \item 2 → "01" (2 bits)
-    \item 100 → needs about 12 bits
-    \item 4 → "00100"? Actually gamma: 4 = "00100" (5 bits)
-    \item 200 → about 13 bits
-    \item Total: ~37 bits $\approx$ 4.6 bytes (savings vs fixed 8-bit!)
+    \item 3 → "011" (3 bits)
+    \item 5 → "00101" (5 bits)
+    \item 2 → "010" (3 bits)
+    \item 100 → "0000001100100" (13 bits)
+    \item 4 → "00100" (5 bits)
+    \item 200 → "000000011001000" (15 bits)
+    \item Total: 44 bits $\approx$ 5.5 bytes
 \end{itemize}
 
-\textbf{Real-world hybrid:} Many formats use fixed-width but adapt based on context (e.g., JPEG uses different tables for DC and AC coefficients).
+\textbf{Comparison Table:}
+
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Method} & \textbf{Total Bits} & \textbf{Characteristics} \\
+\hline
+Fixed 4-bit & Not possible (runs too long) & Would need run splitting \\
+Fixed 8-bit & 48 bits & Simple, fast, random access \\
+Elias gamma & 44 bits & 8.3\% savings, complex, no random access \\
+\hline
+\end{tabular}
+
+\textbf{Bit-by-bit breakdown:}
+
+\begin{tabular}{|l|c|c|c|c|c|c|c|}
+\hline
+\textbf{Method} & \textbf{3} & \textbf{5} & \textbf{2} & \textbf{100} & \textbf{4} & \textbf{200} & \textbf{Total} \\
+\hline
+Fixed 8-bit & 8 & 8 & 8 & 8 & 8 & 8 & 48 \\
+Elias gamma & 3 & 5 & 3 & 13 & 5 & 15 & 44 \\
+Savings & +5 & +3 & +5 & -5 & +3 & -7 & +4 \\
+\hline
+\end{tabular}
+
+Notice the economic trade-off: small numbers (2,3,4,5) use fewer bits than fixed-width, which subsidizes the extra bits needed for large numbers (100,200). In typical data where short runs are much more common than long runs, this trade-off yields net compression.
 \end{examplebox}
+
+\subsection*{When to Use Each Approach}
+
+The choice between fixed and variable-width count fields depends on your priorities:
+
+\begin{tabular}{|p{3cm}|p{5cm}|p{5cm}|}
+\hline
+\textbf{Consideration} & \textbf{Fixed-Width Better} & \textbf{Variable-Width Better} \\
+\hline
+Implementation complexity & Simple hardware/software & Complex bit-level I/O \\
+Speed & Fast encoding/decoding & Slower parsing \\
+Random access & Yes—know where each run ends & No—must decode sequentially \\
+Run length distribution & Uniform or bounded & Highly skewed toward small values \\
+Maximum run length & Limited by width & Unlimited \\
+Error resilience & Errors isolated to one run & Errors propagate \\
+\hline
+\end{tabular}
+
+\subsection*{Real-World Hybrid Approaches}
+
+Many practical formats use hybrid strategies:
+
+\begin{itemize}
+    \item \textbf{JPEG:} Uses different fixed-width tables for DC and AC coefficients, adapting to their different distributions
+    \item \textbf{PNG:} Uses a combination of fixed and variable (LZ77) with Huffman coding
+    \item \textbf{H.264:} Uses Exponential-Golomb (variable) for syntax elements
+    \item \textbf{FAX compression:} Uses modified Huffman (variable) for run lengths
+\end{itemize}
+
+The key insight is that variable-length coding, while more complex, can significantly improve compression when run length distributions are skewed. Elias gamma provides the simplest introduction to this fundamental concept in data compression.
+
+
 
 \subsection{Bit-Level and Binary RLE}
 
@@ -1513,7 +1615,7 @@ Windows Bitmap format offers two RLE compression types:
 \textbf{BI\_RLE8 Encoding:}
 \begin{itemize}
     \item \textbf{Absolute mode (literal run):} 0x00 followed by count N, then N literal bytes (padded to even length)
-    \item \textbf{Encoded mode (run):} [count] [pixel] where count > 0
+    \item \textbf{Encoded mode (run):} [count] [pixel] where count $>$ 0
     \item \textbf{Special codes:}
     \begin{itemize}
         \item 0x00 0x00 = End of line
@@ -2071,7 +2173,7 @@ Even simple RLE implementations need to consider memory carefully.
     \item Current symbol (1 value)
     \item Current run count (1 integer)
     \item Optional output buffer (tunable size)
-    \item Total: typically < 1 KB
+    \item Total: typically $<$ 1 KB
 \end{itemize}
 
 \textbf{Decoder memory:}
