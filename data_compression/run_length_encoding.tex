@@ -701,7 +701,7 @@ Input: \texttt{AAAAABCDEFFFFGG} (15 bytes)
 
 \textbf{Step-by-step encoding:}
 \begin{itemize}
-    \item Position 1-5: \texttt{AAAAA} (5 A's) → run length 5 ≥ 3
+    \item Position 1-5: \texttt{AAAAA} (5 A's) → run length 5 $\ge$ 3
     \begin{itemize}
         \item Output: \texttt{FF A 05}
     \end{itemize}
@@ -709,11 +709,11 @@ Input: \texttt{AAAAABCDEFFFFGG} (15 bytes)
     \item Position 7: \texttt{C} (literal) → output: \texttt{C}
     \item Position 8: \texttt{D} (literal) → output: \texttt{D}
     \item Position 9: \texttt{E} (literal) → output: \texttt{E}
-    \item Position 10-13: \texttt{FFFF} (4 F's) → run length 4 ≥ 3
+    \item Position 10-13: \texttt{FFFF} (4 F's) → run length 4 $\ge$ 3
     \begin{itemize}
         \item Output: \texttt{FF F 04}
     \end{itemize}
-    \item Position 14-15: \texttt{GG} (2 G's) → run length 2 < 3, output as literals
+    \item Position 14-15: \texttt{GG} (2 G's) → run length 2 $<$ 3, output as literals
     \begin{itemize}
         \item Output: \texttt{G G}
     \end{itemize}
@@ -733,18 +733,18 @@ Encoded: \texttt{FF A 05 B C D E FF F 04 G G}
 \begin{examplebox}
 \textbf{Handling Escape Symbols in Literal Data:}
 
-Input: \texttt{ABC\xFF\xFFDEF} (contains two 0xFF bytes)
+Input: \texttt{ABC\textbackslash xFF\textbackslash xFFDEF} (contains two 0xFF bytes)
 
 \textbf{Encoding:}
 \begin{itemize}
     \item \texttt{A} → literal A
     \item \texttt{B} → literal B
     \item \texttt{C} → literal C
-    \item \texttt{\xFF} (first) → this is the escape symbol! Need to escape it
+    \item \verb|\xFF| (first) → this is the escape symbol! Need to escape it
     \begin{itemize}
         \item Output: \texttt{FF FF} (double escape means literal FF)
     \end{itemize}
-    \item \texttt{\xFF} (second) → another escape symbol
+    \item \verb|\xFF| (second) → another escape symbol
     \begin{itemize}
         \item Output: \texttt{FF FF}
     \end{itemize}
@@ -795,8 +795,8 @@ With 1-byte escape, 1-byte symbol, 1-byte count:
     \item Cost to encode run of length L: 3 bytes
     \item Cost to store as literals: L bytes
     \item Break-even when L = 3
-    \item Savings when L > 3: L - 3 bytes saved
-    \item Loss when L < 3: 3 - L bytes wasted
+    \item Savings when L $>$ 3: L - 3 bytes saved
+    \item Loss when L $<$ 3: 3 - L bytes wasted
 \end{itemize}
 \end{importantbox}
 
@@ -1277,7 +1277,7 @@ Zero-RLE → Entropy Coding → Compressed Bitstream
 
 \subsubsection{Decision Matrix}
 
-\begin{tabular}{|p{2.5cm}|p{2.8cm}|p{2.8cm}|p{2.8cm}|p{2.8cm}|}
+\begin{tabular}{|p{2.5cm}|p{2.6cm}|p{2.6cm}|p{2.6cm}|p{2.6cm}|p{2.6cm}|}
 \hline
 \textbf{Criteria} & \textbf{Count-Based Fixed} & \textbf{Count-Based Variable} & \textbf{Escape-Based} & \textbf{PackBits} & \textbf{Zero RLE} \\
 \hline
