@@ -238,6 +238,7 @@ The BWT has several remarkable properties:
     \item \textbf{Block Structure:} The transform operates on fixed-size blocks (typically 100KB–900KB), allowing a trade-off between compression ratio and memory usage.
 \end{enumerate}
 
+
 \subsection{Inverting the BWT}
 
 The inversion algorithm is where the true cleverness of the BWT reveals itself. Given only \(L\) (the last column) and \(I\) (the index of the original row), we can reconstruct the original string without ever storing the full rotation matrix.
@@ -281,7 +282,7 @@ For a character \(c\) that appears \(k\) times in the string, the \(k\) occurren
 
 \For{\(i \gets 0\) to \(n-1\)}
     \State \(c \gets L[i]\)
-    \State \(rank[i] \gets \text{count of } c \text{ seen so far in } L\)
+    \State \(rank[i] \gets \text{count of } c \text{ seen so far in } L\) \Comment{1-based rank}
     \State Increment \(C[c]\)
 \EndFor
 
@@ -294,63 +295,194 @@ For a character \(c\) that appears \(k\) times in the string, the \(k\) occurren
 \State \Comment{Compute LF mapping}
 \For{\(i \gets 0\) to \(n-1\)}
     \State \(c \gets L[i]\)
-    \State \(LF[i] \gets cum[c] + rank[i]\)
+    \State \(LF[i] \gets cum[c] + (rank[i] - 1)\) \Comment{Subtract 1 for 1-based rank}
 \EndFor
 
 \State \Return \(LF\)
 \end{algorithmic}
 \end{algorithm}
 
-\begin{examplebox}[Computing LF-Mapping for ``annb\$aa'']
-Let's compute the LF-mapping for our example step by step.
+\newpage
+\begin{examplebox}[Step-by-Step LF-Mapping for "annb\$aa"]
 
-First, determine the rank of each character in \(L\) (the occurrence number):
+We will compute the LF-mapping by building it incrementally, explaining each operation in detail.
+
+\subsection*{Step 1: Understanding the Goal}
+
+The LF-mapping answers: "If I am at row i in the last column L, which row in the first column F contains the SAME occurrence of the SAME character?"
+
+This works because:
+\begin{itemize}
+    \item The first column F is just L sorted
+    \item Identical characters appear in the same order in both columns
+    \item The k-th occurrence of character c in L corresponds to the k-th occurrence of c in F
+\end{itemize}
+
+\subsection*{Step 2: Our Data}
+
+The last column L from BWT("banana\$") is:
+
+\[
+L = [a,\; n,\; n,\; b,\; \$,\; a,\; a]
+\]
+
+Positions (indices):     0    1    2    3    4    5    6
+
+\subsection*{Step 3: Compute the First Column F}
+
+F is simply L sorted in ascending order (with '\$' < 'a' < 'b' < 'n'):
+
+\[
+\text{Sort}(L) = [\$,\; a,\; a,\; a,\; b,\; n,\; n]
+\]
+
+So the first column F is:
+\[
+F = [\$,\; a,\; a,\; a,\; b,\; n,\; n]
+\]
+Positions in F:           0    1    2    3    4    5    6
+
+\subsection*{Step 4: Count Occurrences in L (Build Rank Array)}
+
+We go through L from left to right, counting how many times we have seen each character so far. This count is called the "rank" - it tells us "this is the rank-th occurrence of this character."
 
 \begin{center}
-\begin{tabular}{c|c|c|c}
-\textbf{Index \(i\)} & \textbf{\(L[i]\)} & \textbf{Rank in \(L\)} & \textbf{Explanation} \\
+\begin{tabular}{|c|c|c|c|p{6cm}|}
 \hline
-0 & a & 1 & First 'a' in L \\
-1 & n & 1 & First 'n' in L \\
-2 & n & 2 & Second 'n' in L \\
-3 & b & 1 & First 'b' in L \\
-4 & \$ & 1 & First '\$' in L \\
-5 & a & 2 & Second 'a' in L \\
-6 & a & 3 & Third 'a' in L \\
+\textbf{Index i} & \textbf{L[i]} & \textbf{Rank in L} & \textbf{Explanation} \\
+\hline
+0 & a & 1 & First 'a' encountered in L (none seen before) \\
+1 & n & 1 & First 'n' encountered in L (none seen before) \\
+2 & n & 2 & Second 'n' (we saw one 'n' before at i=1) \\
+3 & b & 1 & First 'b' encountered in L (none seen before) \\
+4 & \$ & 1 & First '\$' encountered in L (none seen before) \\
+5 & a & 2 & Second 'a' (we saw one 'a' before at i=0) \\
+6 & a & 3 & Third 'a' (we saw two 'a's before at i=0 and i=5) \\
+\hline
 \end{tabular}
 \end{center}
 
-Now, compute cumulative counts for each character in \(F\):
+So the rank array R (matching each position in L to its occurrence number) is:
+\[
+R = [1,\; 1,\; 2,\; 1,\; 1,\; 2,\; 3]
+\]
+
+\subsection*{Step 5: Count Occurrences in F}
+
+Now we count how many times each character appears in the first column F:
 
 \begin{center}
-\begin{tabular}{c|c|c|c}
-\textbf{Character} & \textbf{Count in \(F\)} & \textbf{Cumulative} & \textbf{Positions} \\
+\begin{tabular}{|c|c|c|p{5cm}|}
 \hline
-\$ & 1 & 0 & 0 \\
-a & 3 & 1 & 1,2,3 \\
-b & 1 & 4 & 4 \\
-n & 2 & 5 & 5,6 \\
+\textbf{Character} & \textbf{Count in F} & \textbf{Positions in F} \\
+\hline
+\$ & 1 & Position 0 \\
+a & 3 & Positions 1, 2, 3 \\
+b & 1 & Position 4 \\
+n & 2 & Positions 5, 6 \\
+\hline
 \end{tabular}
 \end{center}
 
-The LF-mapping matches each position \(i\) in \(L\) to the position \(j\) in \(F\) that has the same character and the same rank:
+\subsection*{Step 6: Build Cumulative Starting Positions for F}
+
+For each character, we need to know: "Where does the first occurrence of this character appear in F?" This is the cumulative count.
+
+We calculate cum[c] = the starting index of character c in F:
 
 \begin{center}
-\begin{tabular}{c|c|c|c|c}
-\textbf{\(i\)} & \textbf{\(L[i]\)} & \textbf{Rank in \(L\)} & \textbf{Calculation} & \textbf{\(LF[i]\)} \\
+\begin{tabular}{|c|c|c|c|p{5cm}|}
 \hline
-0 & a & 1 & cum[a]=1 + (1-1) = 1 & 1 \\
-1 & n & 1 & cum[n]=5 + (1-1) = 5 & 5 \\
-2 & n & 2 & cum[n]=5 + (2-1) = 6 & 6 \\
-3 & b & 1 & cum[b]=4 + (1-1) = 4 & 4 \\
-4 & \$ & 1 & cum[\$]=0 + (1-1) = 0 & 0 \\
-5 & a & 2 & cum[a]=1 + (2-1) = 2 & 2 \\
-6 & a & 3 & cum[a]=1 + (3-1) = 3 & 3 \\
+\textbf{Character} & \textbf{Count} & \textbf{Cumulative Calculation} & \textbf{cum[c]} \\
+\hline
+\$ & 1 & cum[\$] = 0 (first character) & 0 \\
+a & 3 & cum[a] = cum[\$] + count[\$] = 0 + 1 & 1 \\
+b & 1 & cum[b] = cum[a] + count[a] = 1 + 3 & 4 \\
+n & 2 & cum[n] = cum[b] + count[b] = 4 + 1 & 5 \\
+\hline
 \end{tabular}
 \end{center}
 
-Thus, the correct LF-mapping array is:
-\[ LF = [1, 5, 6, 4, 0, 2, 3] \]
+This means:
+\begin{itemize}
+    \item The first '\$' in F is at position cum[\$] = 0
+    \item The first 'a' in F is at position cum[a] = 1
+    \item The second 'a' in F is at position cum[a] + 1 = 2
+    \item The third 'a' in F is at position cum[a] + 2 = 3
+    \item The first 'b' in F is at position cum[b] = 4
+    \item The first 'n' in F is at position cum[n] = 5
+    \item The second 'n' in F is at position cum[n] + 1 = 6
+\end{itemize}
+
+\subsection*{Step 7: The Key Formula}
+
+For any position i in L:
+\begin{itemize}
+    \item Let c = L[i] (the character at that position)
+    \item Let r = rank[i] (this is the r-th occurrence of c in L)
+    \item In F, the r-th occurrence of c appears at: cum[c] + (r - 1)
+\end{itemize}
+
+Why (r - 1)? Because:
+\begin{itemize}
+    \item The first occurrence (r=1) goes to cum[c] + 0
+    \item The second occurrence (r=2) goes to cum[c] + 1
+    \item The third occurrence (r=3) goes to cum[c] + 2
+\end{itemize}
+
+Therefore:
+\[
+LF[i] = cum[c] + (rank[i] - 1)
+\]
+
+\subsection*{Step 8: Compute LF for Each Position}
+
+Now we apply this formula to each position i:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+\textbf{i} & \textbf{L[i]} & \textbf{c} & \textbf{r = rank[i]} & \textbf{Formula Applied} & \textbf{Calculation} & \textbf{LF[i]} \\
+\hline
+0 & a & a & 1 & cum[a] + (1-1) & 1 + 0 & 1 \\
+1 & n & n & 1 & cum[n] + (1-1) & 5 + 0 & 5 \\
+2 & n & n & 2 & cum[n] + (2-1) & 5 + 1 & 6 \\
+3 & b & b & 1 & cum[b] + (1-1) & 4 + 0 & 4 \\
+4 & \$ & \$ & 1 & cum[\$] + (1-1) & 0 + 0 & 0 \\
+5 & a & a & 2 & cum[a] + (2-1) & 1 + 1 & 2 \\
+6 & a & a & 3 & cum[a] + (3-1) & 1 + 2 & 3 \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection*{Step 9: Understanding Each Result}
+
+Let's verify each mapping to build intuition:
+
+\begin{center}
+\begin{tabular}{|c|l|}
+\hline
+\textbf{LF[i]} & \textbf{Explanation} \\
+\hline
+LF[0] = 1 & L[0] is the first 'a'. In F, the first 'a' is at position 1. \\
+LF[1] = 5 & L[1] is the first 'n'. In F, the first 'n' is at position 5. \\
+LF[2] = 6 & L[2] is the second 'n'. In F, the second 'n' is at position 6. \\
+LF[3] = 4 & L[3] is the first 'b'. In F, the first 'b' is at position 4. \\
+LF[4] = 0 & L[4] is the first '\$'. In F, the first '\$' is at position 0. \\
+LF[5] = 2 & L[5] is the second 'a'. In F, the second 'a' is at position 2. \\
+LF[6] = 3 & L[6] is the third 'a'. In F, the third 'a' is at position 3. \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection*{Step 10: Final LF-Mapping Array}
+
+\[
+LF = [1,\; 5,\; 6,\; 4,\; 0,\; 2,\; 3]
+\]
+
+This array tells us: from row i in L, go to row LF[i] in F to find the same character occurrence.
+
 \end{examplebox}
 
 \subsubsection{Reconstruction Algorithm}
@@ -377,45 +509,82 @@ With the correct LF-mapping, we can now reconstruct the original string by walki
 \end{algorithmic}
 \end{algorithm}
 
-\begin{examplebox}[Correct Inversion of ``annb\$aa'' with I=4]
-Let us trace through the inversion using our correct LF-mapping:
+\newpage
+\begin{examplebox}[Step-by-Step Inversion of "annb\$aa" with I=4]
 
-\(LF = [1, 5, 6, 4, 0, 2, 3]\), \(I = 4\)
+Now we use the LF-mapping we computed to reconstruct the original string.
 
-We will walk backwards, prepending each character we encounter:
+\subsection*{Step 1: Initial Setup}
+
+We have:
+\begin{itemize}
+    \item Last column L = [a, n, n, b, \$, a, a]
+    \item LF-mapping = [1, 5, 6, 4, 0, 2, 3]
+    \item Primary index I = 4 (this tells us the original string is at row 4 in the sorted rotations matrix)
+\end{itemize}
+
+We start at row = I = 4.
+
+\subsection*{Step 2: Walk Backwards Through the Rows}
+
+At each step, we:
+\begin{enumerate}
+    \item Take the character at L[current row] and add it to the FRONT of our result
+    \item Move to the next row using LF-mapping: row = LF[row]
+\end{enumerate}
 
 \begin{center}
-\begin{tabular}{c|c|c|c}
-\textbf{Step} & \textbf{Current Row} & \textbf{Character to Prepend} & \textbf{New Row (\(LF[row]\))} \\
+\begin{tabularx}{\textwidth}{|c|c|c|c|X|}
 \hline
-Start & 4 & & \\
-1 & 4 & \(L[4] = \$\) & \(LF[4] = 0\) \\
-2 & 0 & \(L[0] = a\) & \(LF[0] = 1\) \\
-3 & 1 & \(L[1] = n\) & \(LF[1] = 5\) \\
-4 & 5 & \(L[5] = a\) & \(LF[5] = 2\) \\
-5 & 2 & \(L[2] = n\) & \(LF[2] = 6\) \\
-6 & 6 & \(L[6] = a\) & \(LF[6] = 3\) \\
-7 & 3 & \(L[3] = b\) & \(LF[3] = 4\) \\
+\textbf{Step} & \textbf{Current } & \textbf{Char =} & \textbf{Next Row =} & \textbf{Explanation} \\
+& Row & L[row] & LF[row] & \\
+\hline
+Start & 4 & -- & -- & Begin at primary index \\
+1 & 4 & \$ & LF[4] = 0 & Take '\$', move to row 0 \\
+2 & 0 & a & LF[0] = 1 & Take 'a', move to row 1 \\
+3 & 1 & n & LF[1] = 5 & Take 'n', move to row 5 \\
+4 & 5 & a & LF[5] = 2 & Take 'a', move to row 2 \\
+5 & 2 & n & LF[2] = 6 & Take 'n', move to row 6 \\
+6 & 6 & a & LF[6] = 3 & Take 'a', move to row 3 \\
+7 & 3 & b & LF[3] = 4 & Take 'b', move to row 4 (back to start) \\
+\hline
+\end{tabularx}
+\end{center}
+
+\subsection*{Step 3: Build the String by Prepending}
+
+We add each character to the FRONT of our result string:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Step} & \textbf{Character Prepended} & \textbf{Current String S} & \textbf{Explanation} \\
+\hline
+1 & \$ & "\$" & Start with just the '\$' \\
+2 & a & "a\$" & Add 'a' to front \\
+3 & n & "na\$" & Add 'n' to front \\
+4 & a & "ana\$" & Add 'a' to front \\
+5 & n & "nana\$" & Add 'n' to front \\
+6 & a & "anana\$" & Add 'a' to front \\
+7 & b & "banana\$" & Add 'b' to front \\
+\hline
 \end{tabular}
 \end{center}
 
-Now, let's track the string being built by prepending each character:
+\subsection*{Step 4: Remove the Marker}
 
-\begin{center}
-\begin{tabular}{c|c|c}
-\textbf{Step} & \textbf{Character Prepended} & \textbf{Current String \(S\)} \\
-\hline
-1 & \$ & ``\$'' \\
-2 & a & ``a\$'' \\
-3 & n & ``na\$'' \\
-4 & a & ``ana\$'' \\
-5 & n & ``nana\$'' \\
-6 & a & ``anana\$'' \\
-7 & b & ``banana\$'' \\
-\end{tabular}
-\end{center}
+The reconstructed string is "banana\$". Removing the end marker '\$' gives us the original: "banana".
 
-Perfect! We have successfully reconstructed ``banana\$''. The key was having the correct LF-mapping that preserves the order of identical characters.
+\subsection*{Why This Works}
+
+The LF-mapping creates a cycle that visits every row exactly once:
+\[
+4 \rightarrow 0 \rightarrow 1 \rightarrow 5 \rightarrow 2 \rightarrow 6 \rightarrow 3 \rightarrow 4
+\]
+
+Walking this cycle backwards and collecting L[row] at each step reconstructs the original string in reverse order. Prepending each character (rather than appending) gives us the correct forward order.
+
+This is the magic of the BWT - we can recover the original string using only L and I, without ever storing the full rotation matrix!
 \end{examplebox}
 
 \subsubsection{Proof of Correctness (Sketch)}
