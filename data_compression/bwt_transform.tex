@@ -8,20 +8,20 @@
 Before diving into the Burrows-Wheeler Transform (BWT), let us step back and consider the intellectual journey we have taken so far. Lossless compression algorithms generally fall into three broad paradigms:
 
 \begin{enumerate}
-    \item \textbf{Statistical/Entropy Coding (Lectures 1-4):} These methods build a probability model of the source and assign shorter codes to more probable symbols. Huffman coding and arithmetic coding are the quintessential examples. The fundamental limit is the source entropy \(H(S)\).
+    \item \textbf{Statistical/Entropy Coding (Chapters 1-4):} These methods build a probability model of the source and assign shorter codes to more probable symbols. Huffman coding and arithmetic coding are the quintessential examples. The fundamental limit is the source entropy \(H(S)\).
     
-    \item \textbf{Dictionary Methods (Lectures 5-6):} Instead of modeling probabilities, these methods identify repeated phrases and replace subsequent occurrences with references to earlier ones. LZ77, LZ78, and their descendant DEFLATE dominate practical compression due to their speed and simplicity.
+    \item \textbf{Dictionary Methods (Chapters 5-6):} Instead of modeling probabilities, these methods identify repeated phrases and replace subsequent occurrences with references to earlier ones. LZ77, LZ78, and their descendant DEFLATE dominate practical compression due to their speed and simplicity.
     
-    \item \textbf{Transform-Based Methods (Lecture 7):} These methods do not compress directly. Instead, they \emph{reorganize} the data to make it more amenable to compression by subsequent stages. The Burrows-Wheeler Transform is the most famous example, but this paradigm also includes the discrete cosine transform (DCT) in JPEG and wavelets in JPEG2000 (though those are lossy).
+    \item \textbf{Transform-Based Methods (Chapters 7-8):} These methods do not compress directly. Instead, they \emph{reorganize} the data to make it more amenable to compression by subsequent stages. In Chapter 7, we studied Run-Length Encoding (RLE), which exploits equality redundancy. In this chapter, we explore the Burrows-Wheeler Transform, which \emph{creates} the very runs that RLE excels at compressing.
 \end{enumerate}
 
-This lecture introduces the third paradigm through the lens of the Burrows-Wheeler Transform, showing how a reversible sorting operation can dramatically improve compressibility.
+This chapter introduces the third paradigm through the lens of the Burrows-Wheeler Transform, showing how a reversible sorting operation can dramatically improve compressibility when combined with the RLE variants from Chapter 7.
 
 \subsection{Motivation: Beyond Local Matching}
 
 \subsubsection{The Limits of Sliding Windows}
 
-Recall from Lecture 5 that LZ77-based compressors (like DEFLATE) use a sliding window to find repetitions. While effective, this approach has fundamental limitations:
+Recall from Chapter 5 that LZ77-based compressors (like DEFLATE) use a sliding window to find repetitions. While effective, this approach has fundamental limitations:
 
 \begin{itemize}
     \item \textbf{Local vs. Global Redundancy:} LZ77 can only detect repetitions that occur within the window (typically 32KB in DEFLATE). Repetitions separated by larger distances are missed entirely.
@@ -37,13 +37,13 @@ The fundamental insight of the Burrows-Wheeler Transform is this: instead of sea
 
 \subsubsection{The Global Reordering Idea}
 
-Imagine you have a long string of text. If you could somehow gather all characters that appear in similar contexts (e.g., all characters that follow ``th''), they would cluster together. Within these clusters, the data would exhibit strong local correlations that simple compression methods could exploit.
+Imagine you have a long string of text. If you could somehow gather all characters that appear in similar contexts (e.g., all characters that follow ``th''), they would cluster together. Within these clusters, the data would exhibit strong local correlations—exactly the kind of runs that the RLE variants from Chapter 7 can exploit.
 
 This is precisely what the Burrows-Wheeler Transform achieves. It does not compress data; it \emph{transforms} data into a form where:
 \begin{itemize}
     \item Identical characters tend to appear in runs
     \item The local structure is significantly enhanced
-    \item Simple coding methods (move-to-front, run-length encoding, Huffman) become extraordinarily effective
+    \item The RLE variants from Chapter 7 become extraordinarily effective
 \end{itemize}
 
 \begin{definitionbox}[The Transform-Then-Compress Principle]
@@ -193,7 +193,7 @@ The Burrows-Wheeler Transform of \(S\), denoted \(\text{BWT}(S)\), is computed a
     \item Form a matrix \(M\) of size \(n \times n\) where row \(i\) (0-indexed) is the cyclic rotation of \(S\) starting at position \(i\): 
     \[ M[i] = S[i:] + S[:i] \]
     
-    \item Sort the rows of \(M\) in lexicographic order (dictionary order, with '\$' < all other characters).
+    \item Sort the rows of \(M\) in lexicographic order (dictionary order, with '\$' $<$ all other characters).
     
     \item Let \(I\) be the index of the row containing the original string \(S\) in the sorted matrix.
     
@@ -263,9 +263,44 @@ The LF-mapping (Last-to-First mapping) is a function \(\text{LF}(i)\) that retur
 For a character \(c\) that appears \(k\) times in the string, the \(k\) occurrences appear in the same order in both \(F\) and \(L\). Therefore, if \(L[i]\) is the \(r\)-th occurrence of character \(c\) in \(L\) (counting from 1), then \(\text{LF}(i)\) is the position of the \(r\)-th occurrence of \(c\) in \(F\).
 \end{definitionbox}
 
-\subsubsection{Computing the LF-Mapping Correctly}
+\subsubsection{Algorithm for Computing LF-Mapping}
 
-Let us compute the LF-mapping for our example step by step.
+\begin{algorithm}[H]
+\caption{Compute LF-Mapping}
+\begin{algorithmic}[1]
+\Require \(L[0..n-1]\) (last column)
+\Ensure \(LF[0..n-1]\) (last-to-first mapping)
+
+\State \(n \gets \text{length}(L)\)
+\State \(F \gets \text{sort}(L)\) \Comment{First column}
+
+\State \Comment{Count occurrences of each character}
+\State Initialize arrays \(C[|\Sigma|]\) and \(rank[0..n-1]\)
+
+\For{\(i \gets 0\) to \(n-1\)}
+    \State \(c \gets L[i]\)
+    \State \(rank[i] \gets \text{count of } c \text{ seen so far in } L\)
+    \State Increment \(C[c]\)
+\EndFor
+
+\State \Comment{Build cumulative counts for first column}
+\State \(cum[0] \gets 0\)
+\For{each character \(c\) in sorted order}
+    \State \(cum[c] \gets cum[\text{prev}] + C[\text{prev}]\)
+\EndFor
+
+\State \Comment{Compute LF mapping}
+\For{\(i \gets 0\) to \(n-1\)}
+    \State \(c \gets L[i]\)
+    \State \(LF[i] \gets cum[c] + rank[i]\)
+\EndFor
+
+\State \Return \(LF\)
+\end{algorithmic}
+\end{algorithm}
+
+\begin{examplebox}[Computing LF-Mapping for ``annb\$aa'']
+Let's compute the LF-mapping for our example step by step.
 
 First, determine the rank of each character in \(L\) (the occurrence number):
 
@@ -283,19 +318,16 @@ First, determine the rank of each character in \(L\) (the occurrence number):
 \end{tabular}
 \end{center}
 
-Now, determine the rank of each character in \(F\):
+Now, compute cumulative counts for each character in \(F\):
 
 \begin{center}
 \begin{tabular}{c|c|c|c}
-\textbf{Index \(j\)} & \textbf{\(F[j]\)} & \textbf{Rank in \(F\)} & \textbf{Explanation} \\
+\textbf{Character} & \textbf{Count in \(F\)} & \textbf{Cumulative} & \textbf{Positions} \\
 \hline
-0 & \$ & 1 & First '\$' in F \\
-1 & a & 1 & First 'a' in F \\
-2 & a & 2 & Second 'a' in F \\
-3 & a & 3 & Third 'a' in F \\
-4 & b & 1 & First 'b' in F \\
-5 & n & 1 & First 'n' in F \\
-6 & n & 2 & Second 'n' in F \\
+\$ & 1 & 0 & 0 \\
+a & 3 & 1 & 1,2,3 \\
+b & 1 & 4 & 4 \\
+n & 2 & 5 & 5,6 \\
 \end{tabular}
 \end{center}
 
@@ -303,20 +335,21 @@ The LF-mapping matches each position \(i\) in \(L\) to the position \(j\) in \(F
 
 \begin{center}
 \begin{tabular}{c|c|c|c|c}
-\textbf{\(i\)} & \textbf{\(L[i]\)} & \textbf{Rank in \(L\)} & \textbf{Matches in \(F\)} & \textbf{\(LF[i]\)} \\
+\textbf{\(i\)} & \textbf{\(L[i]\)} & \textbf{Rank in \(L\)} & \textbf{Calculation} & \textbf{\(LF[i]\)} \\
 \hline
-0 & a & 1 & First 'a' in F at index 1 & 1 \\
-1 & n & 1 & First 'n' in F at index 5 & 5 \\
-2 & n & 2 & Second 'n' in F at index 6 & 6 \\
-3 & b & 1 & First 'b' in F at index 4 & 4 \\
-4 & \$ & 1 & First '\$' in F at index 0 & 0 \\
-5 & a & 2 & Second 'a' in F at index 2 & 2 \\
-6 & a & 3 & Third 'a' in F at index 3 & 3 \\
+0 & a & 1 & cum[a]=1 + (1-1) = 1 & 1 \\
+1 & n & 1 & cum[n]=5 + (1-1) = 5 & 5 \\
+2 & n & 2 & cum[n]=5 + (2-1) = 6 & 6 \\
+3 & b & 1 & cum[b]=4 + (1-1) = 4 & 4 \\
+4 & \$ & 1 & cum[\$]=0 + (1-1) = 0 & 0 \\
+5 & a & 2 & cum[a]=1 + (2-1) = 2 & 2 \\
+6 & a & 3 & cum[a]=1 + (3-1) = 3 & 3 \\
 \end{tabular}
 \end{center}
 
 Thus, the correct LF-mapping array is:
 \[ LF = [1, 5, 6, 4, 0, 2, 3] \]
+\end{examplebox}
 
 \subsubsection{Reconstruction Algorithm}
 
@@ -329,8 +362,7 @@ With the correct LF-mapping, we can now reconstruct the original string by walki
 \Ensure Original string \(S\)
 
 \State \(n \gets \text{length}(L)\)
-\State Compute \(F \gets \text{sort}(L)\)
-\State Build LF-mapping array \(LF[0..n-1]\) as described above
+\State Compute LF-mapping array \(LF[0..n-1]\) using Algorithm 8.2
 \State Initialize \(S\) as empty string
 \State \(row \gets I\)
 
@@ -409,7 +441,7 @@ The BWT's power for compression comes from its tendency to create runs of identi
 \begin{importantbox}[Important Clarification on Entropy]
 It is crucial to understand that the BWT does \textbf{not} reduce the zero-order entropy of the data. In fact, the zero-order entropy of \(L\) equals that of \(S\) because the transform is a permutation of the original characters.
 
-What the BWT achieves is something more subtle: it transforms \textbf{higher-order dependencies} in the original string into \textbf{lower-order dependencies} in the transformed string. After BWT, patterns that were previously spread across the text become localized, making them exploitable by simple zero-order coding methods like Move-To-Front and Run-Length Encoding.
+What the BWT achieves is something more subtle: it transforms \textbf{higher-order dependencies} in the original string into \textbf{lower-order dependencies} in the transformed string. After BWT, patterns that were previously spread across the text become localized, making them exploitable by simple zero-order coding methods like Move-To-Front and the RLE variants we studied in Chapter 7.
 
 In other words, the BWT rearranges the data so that the \emph{conditional probabilities} that characterize higher-order structure become visible as \emph{empirical frequencies} that zero-order coders can exploit.
 \end{importantbox}
@@ -419,16 +451,16 @@ Consider English text. The character 'u' frequently follows 'q'. In the original
 \begin{itemize}
     \item All occurrences of 'u' (as first column entries) will be grouped together because rotations starting with 'u' are adjacent in sorted order.
     \item Their corresponding last column entries will be the characters that preceded these 'u's—often 'q'.
-    \item Result: A run of 'q's appears in the output, which can be efficiently compressed by RLE.
+    \item Result: A run of 'q's appears in the output, which can be efficiently compressed by the Count-Based RLE (fixed or variable-width) we studied in Chapter 7.
 \end{itemize}
 \end{examplebox}
 
 \subsubsection{Connection to Context Modeling}
 
-Recall from Lecture 4 that higher-order Markov models capture dependencies by considering the previous \(k\) characters. The BWT achieves something analogous without explicit probability modeling:
+Recall from Chapter 4 that higher-order Markov models capture dependencies by considering the previous \(k\) characters. The BWT achieves something analogous without explicit probability modeling:
 
 \begin{itemize}
-    \item In Lecture 4, we built explicit models: \(P(\text{next symbol} \mid \text{previous } k \text{ symbols})\)
+    \item In Chapter 4, we built explicit models: \(P(\text{next symbol} \mid \text{previous } k \text{ symbols})\)
     \item In BWT, sorting rotations groups symbols that share the same context (the following characters)
     \item The result is that conditional probabilities become visible as local patterns in the output
 \end{itemize}
@@ -436,7 +468,7 @@ Recall from Lecture 4 that higher-order Markov models capture dependencies by co
 This is why BWT can be seen as an \emph{implicit context modeling} transform—it reorganizes data so that context-dependent structure becomes spatially local.
 
 \begin{importantbox}
-The BWT doesn't compress; it reveals structure. The actual compression is done by subsequent stages that exploit the local correlations the BWT creates.
+The BWT doesn't compress; it reveals structure. The actual compression is done by subsequent stages that exploit the local correlations the BWT creates. This is where the RLE variants from Chapter 7 become essential.
 \end{importantbox}
 
 \subsection{The Full BWT Compression Pipeline}
@@ -444,7 +476,7 @@ The BWT doesn't compress; it reveals structure. The actual compression is done b
 A complete BWT-based compressor typically consists of several stages:
 
 \begin{center}
-\begin{tikzpicture}[node distance=1.5cm, auto]
+\begin{tikzpicture}[node distance=1.8cm, auto]
     % Nodes
     \node (input) [draw, rectangle] {Original Data};
     \node (bwt) [draw, rectangle, right=of input] {BWT};
@@ -462,17 +494,37 @@ A complete BWT-based compressor typically consists of several stages:
 \end{tikzpicture}
 \end{center}
 
-\subsubsection{Move-To-Front (MTF) Encoding}
+\subsubsection{Stage 1: BWT Transform}
+
+The BWT rearranges the data to create local correlations and runs. As we saw with ``banana\$'', the output contains runs that didn't exist in the original.
+
+\subsubsection{Stage 2: Move-To-Front (MTF) Encoding}
 
 After the BWT, we have a string with local correlations but not yet in a form optimal for entropy coding. Move-To-Front encoding transforms this string into a sequence of small integers that are highly compressible.
 
 \begin{definitionbox}[Move-To-Front Encoding]
-The MTF encoder maintains a list of symbols. For each input symbol:
+The MTF encoder maintains a list of symbols (typically all 256 byte values). For each input symbol:
 \begin{enumerate}
     \item Output its current index in the list (0-based)
     \item Move that symbol to the front of the list
 \end{enumerate}
 \end{definitionbox}
+
+\begin{algorithm}[H]
+\caption{Move-To-Front Encoding}
+\begin{algorithmic}[1]
+\Require Input sequence \(X[0..n-1]\) over alphabet \(\Sigma\)
+\Ensure Output sequence \(Y[0..n-1]\) of indices
+
+\State Initialize list \(L \gets \text{sorted}(\Sigma)\) \Comment{Typically 0..255 in order}
+\For{\(i \gets 0\) to \(n-1\)}
+    \State Find position \(p\) such that \(L[p] = X[i]\)
+    \State \(Y[i] \gets p\)
+    \State Remove \(L[p]\) from list and insert at front
+\EndFor
+\State \Return \(Y\)
+\end{algorithmic}
+\end{algorithm}
 
 \begin{examplebox}[MTF of BWT Output]
 For pedagogical clarity, we use a simplified alphabet containing only the characters that appear in our example: \([a, b, n, \$]\). In practice, MTF operates on the full byte alphabet (0–255), but the principle remains identical.
@@ -505,31 +557,137 @@ MTF output: [0, 2, 0, 2, 3, 3, 0]
 Notice how runs of identical symbols in the BWT output become runs of zeros in the MTF output! This is the key to BWT's effectiveness—local structure in the BWT output translates to runs of small numbers after MTF.
 \end{examplebox}
 
-\subsubsection{Run-Length Encoding (RLE)}
+\subsubsection{Stage 3: Run-Length Encoding (RLE)}
 
-After MTF, we have a sequence dominated by small numbers, often with long runs of zeros. Run-length encoding compresses these runs efficiently.
+After MTF, we have a sequence dominated by small numbers, often with long runs of zeros. This is where the RLE variants from Chapter 7 become essential.
 
-\begin{examplebox}[RLE of MTF Output]
-MTF output: [0, 2, 0, 2, 3, 3, 0]
+\begin{importantbox}
+\textbf{Choosing the Right RLE Variant for BWT Output:}
 
-After RLE (encoding runs of identical values):
+The MTF output after BWT has specific characteristics that make certain RLE variants particularly effective:
+
 \begin{itemize}
-    \item 0 appears alone (position 1) → encode as (0,1)
-    \item 2 appears alone → (2,1)
-    \item 0 appears alone → (0,1)
-    \item 2 appears alone → (2,1)
-    \item 3 appears as a run of length 2 → (3,2)
-    \item 0 appears alone → (0,1)
+    \item \textbf{Long runs of zeros:} Common, especially in highly structured text
+    \item \textbf{Occasional small non-zero values:} Typically 1, 2, 3, etc.
+    \item \textbf{Few large values:} Rare, but possible
 \end{itemize}
 
-RLE output: (0,1), (2,1), (0,1), (2,1), (3,2), (0,1)
+Based on these characteristics:
+\begin{itemize}
+    \item \textbf{Zero RLE (Chapter 7, Section 7.6):} Highly effective for the long zero runs. Can be combined with encoding the non-zero values.
+    
+    \item \textbf{Variable-Width Count RLE (Chapter 7, Section 7.4.2):} Optimal for the skewed distribution of run lengths (many short runs, few long runs).
+    
+    \item \textbf{Escape-Based RLE (Chapter 7, Section 7.5):} Useful if the data has mixed runs and isolated values.
+    
+    \item \textbf{PackBits (Chapter 7, Section 7.6):} Simple and effective, though the 128-byte chunk limit may require splitting long zero runs.
+\end{itemize}
 
-This representation has even lower entropy than the MTF output.
+\texttt{bzip2} uses a custom RLE stage optimized for MTF output, but the principles are the same.
+\end{importantbox}
+
+\begin{examplebox}[RLE of MTF Output Using Different Variants]
+
+MTF output: [0, 2, 0, 2, 3, 3, 0]
+
+\textbf{Option 1: Count-Based Fixed-Width RLE (assuming 4-bit counts)}
+\begin{itemize}
+    \item (0,1), (2,1), (0,1), (2,1), (3,2), (0,1)
+    \item Each pair: 1 byte for value + 0.5 bytes for count = 1.5 bytes
+    \item Total: 6 pairs × 1.5 = 9 bytes
+\end{itemize}
+
+\textbf{Option 2: Count-Based Variable-Width RLE (Elias gamma)}
+\begin{itemize}
+    \item Values: 0,1,2,3 → encode with Elias gamma
+    \item Counts: mostly 1, one 2 → variable-length
+    \item Total: approximately 25-30 bits $\approx$ 3.5-4 bytes
+    \item Better compression but more complex
+\end{itemize}
+
+\textbf{Option 3: Zero RLE (focus on zero runs)}
+\begin{itemize}
+    \item Zero runs: (1), then later (1), then final (1) — not very effective here
+    \item Better for longer zero runs
+\end{itemize}
+
+\textbf{Option 4: PackBits}
+\begin{itemize}
+    \item Since most values are isolated, mostly literal chunks
+    \item Header per chunk adds overhead
+    \item Would likely expand this short sequence
+\end{itemize}
+
+This example shows that for short sequences, simpler methods may be sufficient, but for real data with long zero runs, the more sophisticated RLE variants shine.
 \end{examplebox}
 
-\subsubsection{Final Entropy Coding (Huffman or Arithmetic)}
+\subsubsection{Stage 4: Final Entropy Coding (Huffman or Arithmetic)}
 
 The final stage applies statistical coding (Huffman or arithmetic coding) to the RLE output. Because the data now consists of small integers with skewed distributions, entropy coding achieves excellent compression ratios.
+
+\begin{examplebox}[Complete BWT Pipeline for ``banana\$'']
+
+Let's trace the complete pipeline:
+
+\begin{enumerate}
+    \item \textbf{Original:} \texttt{banana\$}
+    
+    \item \textbf{BWT:} \texttt{annb\$aa} (with I=4)
+    
+    \item \textbf{MTF:} [0, 2, 0, 2, 3, 3, 0]
+    
+    \item \textbf{RLE (simplified):} (0,1), (2,1), (0,1), (2,1), (3,2), (0,1)
+    
+    \item \textbf{Huffman coding:} Assign codes based on frequencies
+    \begin{itemize}
+        \item (0,1) appears 3 times → shortest code
+        \item (2,1) appears 2 times → medium code
+        \item (3,2) appears 1 time → longer code
+    \end{itemize}
+\end{enumerate}
+
+The final compressed size is much smaller than the original 7 characters!
+\end{examplebox}
+
+\subsection{Why RLE is Essential After MTF}
+
+The connection between BWT and the RLE variants from Chapter 7 is profound:
+
+\begin{importantbox}
+\textbf{The BWT-MTF-RLE Synergy:}
+
+\begin{enumerate}
+    \item \textbf{BWT creates local correlations:} Characters that appear in similar contexts are grouped together.
+    
+    \item \textbf{MTF converts correlations to runs:} When the same character appears multiple times in the BWT output, MTF outputs zeros. When similar characters appear (e.g., 'a' then 'b' that recently moved to front), MTF outputs small numbers.
+    
+    \item \textbf{RLE compresses the runs:} The long runs of zeros and short runs of small numbers are exactly what the RLE variants from Chapter 7 are designed to compress efficiently.
+\end{enumerate}
+
+\textbf{Without RLE, the BWT+MTF combination would be much less effective.}
+\textbf{Without understanding RLE, you cannot fully understand BWT.}
+\end{importantbox}
+
+\begin{examplebox}[Real-World: How bzip2 Uses RLE]
+
+\texttt{bzip2} actually uses RLE in two places:
+
+\textbf{1. Preliminary RLE (before BWT):}
+\begin{itemize}
+    \item Compresses runs of 4 or more identical characters
+    \item Simplifies later stages by reducing extreme cases
+    \item Example: \texttt{AAAAAA} → \texttt{AAAA} with a special marker
+\end{itemize}
+
+\textbf{2. Main RLE (after MTF):}
+\begin{itemize}
+    \item Compresses runs in the MTF output
+    \item Uses a custom encoding optimized for the distribution
+    \item Handles runs of zeros and other small values
+\end{itemize}
+
+This two-stage approach shows how different RLE variants can be combined in a single compressor.
+\end{examplebox}
 
 \subsection{Efficient Implementation}
 
@@ -610,6 +768,7 @@ The fundamental difference between LZ77 and BWT lies in how they exploit redunda
 Redundancy Type & Local (within sliding window) & Global (across entire block) \\
 Detection Method & String matching in window & Sorting all rotations \\
 Memory Reference & Explicit (distance, length) & Implicit (context grouping) \\
+RLE Role & Optional (some implementations) & Essential (after MTF) \\
 Adaptivity & Online (streaming) & Block-based \\
 \bottomrule
 \end{tabularx}
@@ -664,9 +823,19 @@ Adaptivity & Online (streaming) & Block-based \\
     \item \textbf{Run-Length Encoding Prelim:} A preliminary RLE stage to compress repeated characters (simplifies later stages)
     \item \textbf{Burrows-Wheeler Transform:} Applied to blocks (default 900KB)
     \item \textbf{Move-To-Front Transform:} Converts local correlations into runs of zeros
-    \item \textbf{Run-Length Encoding:} Compresses runs from MTF
+    \item \textbf{Run-Length Encoding:} Compresses runs from MTF (custom variant)
     \item \textbf{Huffman Coding:} Multiple Huffman tables for different parts of the data
 \end{enumerate}
+
+\begin{importantbox}
+\texttt{bzip2}'s RLE stage after MTF is specifically designed for the characteristics of MTF output:
+\begin{itemize}
+    \item Long runs of zeros are encoded with a special marker
+    \item Small non-zero values are encoded directly
+    \item The encoding is byte-aligned for speed
+\end{itemize}
+This is essentially a specialized version of the Zero RLE variant we studied in Chapter 7.
+\end{importantbox}
 
 \subsubsection{Why BWT Beats DEFLATE on Text}
 
@@ -676,6 +845,7 @@ On natural language text, \texttt{bzip2} typically achieves 15-30\% better compr
     \item Text has global structure (frequent words, common phrases) that spans entire documents
     \item LZ77's window limits miss these long-range dependencies
     \item BWT's global reordering captures these dependencies implicitly
+    \item The RLE stages efficiently compress the resulting runs
 \end{itemize}
 
 \begin{examplebox}[Compression Comparison]
@@ -715,11 +885,13 @@ BWT requires:
 While BWT is reversible and theoretically cannot reduce compressibility, in practice several factors can lead to worse compression than simpler methods:
 
 \begin{itemize}
-    \item \textbf{Block overhead:} The transform operates on fixed-size blocks. Very small blocks (< 1KB) may have overhead that outweighs any compression benefit.
+    \item \textbf{Block overhead:} The transform operates on fixed-size blocks. Very small blocks ($<$ 1KB) may have overhead that outweighs any compression benefit.
     
     \item \textbf{Primary index storage:} The index \(I\) must be stored with each block, adding a small constant overhead.
     
     \item \textbf{MTF inefficiency on random data:} If the input has no structure, sorting creates no useful patterns, and MTF may actually increase the entropy by spreading out values.
+    
+    \item \textbf{RLE expansion on no runs:} As we saw in Chapter 7, RLE can expand data with no runs. If BWT fails to create runs, the RLE stage may hurt compression.
     
     \item \textbf{Algorithmic overhead:} The multi-stage pipeline (BWT + MTF + RLE + entropy coding) adds computational cost that may not be justified for data that compresses well with simpler methods.
 \end{itemize}
@@ -759,6 +931,18 @@ The BWT embodies a powerful design philosophy:
     \item \textbf{Structure exploitation:} Different transforms reveal different kinds of structure
 \end{enumerate}
 
+\subsubsection{The BWT-RLE Connection}
+
+The relationship between BWT and the RLE variants from Chapter 7 is fundamental:
+
+\begin{itemize}
+    \item \textbf{BWT creates the conditions} for effective RLE by grouping similar contexts
+    \item \textbf{MTF converts} these groupings into actual runs
+    \item \textbf{RLE variants} compress these runs efficiently
+\end{itemize}
+
+Without understanding RLE, you cannot fully appreciate why BWT works so well. The two techniques are complementary: BWT reorganizes, RLE exploits.
+
 \subsubsection{When to Use BWT-Based Compression}
 
 \begin{center}
@@ -767,25 +951,14 @@ The BWT embodies a powerful design philosophy:
 \textbf{Scenario} & \textbf{Recommendation} & \textbf{Rationale} \\
 \midrule
 Text files, source code & BWT (bzip2) & Global repetition matters \\
+DNA sequences & BWT-based + FM-index & Search+compress combined \\
 Web content (HTTP) & DEFLATE/gzip & Streaming, compatibility \\
 Archival storage & LZMA, Zstandard & Maximum compression \\
 Real-time systems & LZ77 variants & Low latency, streaming \\
 Embedded systems & Custom/simple RLE & Memory constraints \\
-DNA sequences & BWT-based + FM-index & Search+compress combined \\
 \bottomrule
 \end{tabularx}
 \end{center}
-
-\subsubsection{Beyond Compression: The FM-Index Revolution}
-
-The BWT's legacy extends far beyond file compression:
-
-\begin{itemize}
-    \item \textbf{Compressed data structures:} Store data in compressed form while supporting queries
-    \item \textbf{Bioinformatics:} Billions of DNA reads aligned daily using BWT-based tools
-    \item \textbf{Information retrieval:} Compressed full-text search engines
-    \item \textbf{Theory:} Deep connections between sorting, compression, and indexing
-\end{itemize}
 
 \subsection{Hands-On Exercises}
 
@@ -796,6 +969,8 @@ Apply the Burrows-Wheeler Transform to the string ``mississippi\$'' by hand. Sho
     \item The sorted rotations
     \item The BWT output L and primary index I
     \item Identify any runs in the output
+    \item Apply MTF and then the different RLE variants from Chapter 7
+    \item Compare which RLE variant works best
 \end{enumerate}
 \end{exercisebox}
 
@@ -813,12 +988,13 @@ def bwt_encode(s):
     pass
 \end{lstlisting}
 Test your implementation on ``banana'' and ``mississippi''.
+Then implement the full pipeline with MTF and at least two RLE variants.
 \end{exercisebox}
 
 \begin{exercisebox}
 Compare compression performance on a text file:
 \begin{enumerate}
-    \item Find a text file > 1MB (e.g., a book from Project Gutenberg)
+    \item Find a text file $>$ 1MB (e.g., a book from Project Gutenberg)
     \item Compress with \texttt{gzip -9} and \texttt{bzip2 -9}
     \item Compare sizes and compression times
     \item Use \texttt{time} command to measure speed
@@ -832,6 +1008,7 @@ Challenge: Why does BWT perform poorly on random data? Connect your answer to:
     \item The sorting process in BWT
     \item The subsequent MTF and RLE stages
     \item The concept of structure versus randomness
+    \item The run formation properties we studied in Chapter 7
 \end{enumerate}
 \end{exercisebox}
 
@@ -853,13 +1030,14 @@ Compare the three compression paradigms we've studied:
 \midrule
 Core idea & Model probabilities & Find repetitions & Reorganize data \\
 Example & Huffman, Arithmetic & LZ77, LZ78, DEFLATE & BWT, bzip2 \\
+RLE role & Optional & Optional & Essential \\
 Strengths & Optimal for known model & Fast, adaptive & Global structure \\
 Weaknesses & Needs good model & Limited window & Block-based, slower \\
 Best for & Well-characterized sources & General purpose & Text, structured data \\
 \bottomrule
 \end{tabularx}
 \end{center}
-Fill in this table based on Lectures 1-7.
+Fill in this table based on Chapters 1-8.
 \end{exercisebox}
 
 \subsection{Looking Forward}
@@ -873,9 +1051,9 @@ The Burrows-Wheeler Transform concludes our exploration of lossless compression 
     \item \textbf{Learned compression:} Using machine learning to predict and compress
 \end{itemize}
 
-The principles you've learned—entropy as a fundamental limit, the value of modeling, the power of transforms, the trade-offs between speed and ratio—will serve you well in all these advanced topics.
+The principles you've learned—entropy as a fundamental limit, the value of modeling, the power of transforms, the essential role of RLE in modern pipelines, and the trade-offs between speed and ratio—will serve you well in all these advanced topics.
 
 \begin{importantbox}[Key Takeaway]
-The Burrows-Wheeler Transform teaches us that sometimes the best way to solve a problem is to transform it into a different problem. By reordering data to reveal its inherent structure, we make the subsequent compression task dramatically easier—a lesson that applies far beyond data compression.
+The Burrows-Wheeler Transform teaches us that sometimes the best way to solve a problem is to transform it into a different problem. By reordering data to reveal its inherent structure, we make the subsequent compression task dramatically easier—and RLE becomes the perfect tool to exploit that revealed structure. This synergy between transformation and exploitation is a lesson that applies far beyond data compression.
 \end{importantbox}
-\end{document}
+
