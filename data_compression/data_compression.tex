@@ -188,3 +188,202 @@
 \input{bwt_transform}
 
 \end{document}
+
+
+
+%___________________________
+You've identified some of the most important gaps in your syllabus! Your instincts are excellent. Let me organize these topics into a coherent chapter structure that builds logically on what you've already taught.
+
+## Analysis of Your Proposed Topics
+
+| Topic | Your Syllabus Connection | Why It Deserves a Chapter |
+|---|---|---|
+| **bzip2 pipeline** | Ch 8 covers BWT conceptually, but not the full pipeline with MTF/RLE/Huffman | Shows how transforms combine with multiple coding stages—a perfect "putting it all together" case study |
+| **Zstandard (zstd)** | Builds on LZ77 (Ch 5) and Huffman (Ch 1,3) | The most important modern compressor—used everywhere from web servers to databases  |
+| **ANS (Asymmetric Numeral Systems)** | Follows Arithmetic Coding (Ch 3.7) | The revolutionary entropy coder that replaced arithmetic coding in Facebook's Zstd, Apple's LZFSE, and Google's Draco  |
+| **Range Coding** | Mentioned briefly in LZMA discussion | A practical alternative to arithmetic coding without patents |
+| **PPM (Prediction by Partial Matching)** | Builds on Markov sources (Ch 4.4) and context modeling (Ch 4.6) | The theoretical pinnacle of statistical compression—approaches entropy limits  |
+| **LZMA** | Extends LZ77 (Ch 5) with range coding | The gold standard for high compression ratios (7-Zip)  |
+
+## Proposed Structure: New Chapters 9-11
+
+Here's how I'd reorganize your remaining material into three powerful chapters:
+
+---
+
+### Chapter 8: Add BZIP in detail.
+
+### Chapter 9: Prediction by Partial Matching (PPM) — The Statistical Pinnacle
+
+**9.1 Introduction: Beyond Finite-Context Models**
+- Recap of Markov sources (from Ch 4.4) and their limitations
+- The fundamental insight: Use variable-length contexts based on statistics
+
+**9.2 The PPM Algorithm**
+- **9.2.1 Core Concept:** Maintain contexts of all orders up to a maximum (e.g., order 5)
+- **9.2.2 The Escape Mechanism:** What happens when a symbol hasn't been seen in a given context?
+- **9.2.3 Escape Methods:** Method A (count-based), Method B (exclusion), Method C (frequency), Method D (PPMA/B/C/D variants) 
+- **9.2.4 Exclusion Principle:** When escaping to lower orders, exclude symbols already considered
+
+**9.3 Step-by-Step Example**
+- Walk through encoding "abracadabra" with PPM order 2
+- Show context tables, escape probabilities, and coding decisions
+
+**9.4 PPM Implementation Challenges**
+- Memory explosion with large contexts
+- Trie data structures for efficient storage
+- Zero-frequency problem and modern solutions
+
+**9.5 PPM Variants and Successors**
+- PPM* (unbounded length contexts)
+- PPMZ (Charles Bloom's optimized implementation)
+- PAQ (Context mixing—the ultimate evolution)
+
+**9.6 Why PPM Matters Today**
+- Theoretical benchmark for lossless compression
+- Used in sequence prediction applications 
+- Foundation for modern context models
+
+---
+
+### Chapter 10: Modern Entropy Coders — ANS and Range Coding
+
+**10.1 Introduction: Beyond Huffman's Limitations**
+- Recap: Huffman's integer-bit problem (from Ch 2.8)
+- Arithmetic coding's solution (from Ch 3.7)
+- The need for faster, simpler alternatives
+
+**10.2 Range Coding: Arithmetic Without Patents**
+- **10.2.1 Core Concept:** Represent interval as integers [low, high) instead of fractions
+- **10.2.2 Implementation:** Renormalization with byte output
+- **10.2.3 Advantages:** No multiplication required, no patent issues
+- **10.2.4 Example:** Step-by-step range encoding of a short sequence 
+
+**10.3 Asymmetric Numeral Systems (ANS) — The Breakthrough**
+- **10.3.1 Historical Context:** Jarek Duda's 2009 discovery
+- **10.3.2 Core Insight:** Combining the speed of Huffman with the efficiency of arithmetic coding
+- **10.3.3 How ANS Works (Intuitively):** 
+  - State-based encoding/decoding
+  - The "stack" property (LIFO vs arithmetic coding's FIFO)
+  - Why it's faster: Single state variable, no divisions 
+
+**10.4 Variants of ANS**
+- **10.4.1 rANS (Range ANS):** Using range coding principles for simplicity
+- **10.4.2 tANS (Table ANS):** Finite-state machine implementation for extreme speed
+- **10.4.3 Comparison:** rANS for flexibility, tANS for hardware/software speed
+
+**10.5 Detailed rANS Example**
+- Building encoding/decoding tables
+- Step-by-step encoding of a symbol sequence
+- Renormalization and bit packing 
+
+**10.6 ANS in Modern Compressors**
+- **Facebook's Zstandard:** Uses tANS for entropy stage 
+- **Apple's LZFSE:** ANS-based replacement for Zlib
+- **Google's Draco:** 3D geometry compression with ANS
+- **JPEG XL:** Next-gen image format using ANS
+
+**10.7 Hands-On: Implementing a Simple ANS Coder**
+- Pseudo-code for encoding/decoding
+- Common pitfalls (stack order, renormalization boundaries)
+
+---
+
+### Chapter 11: Advanced LZ Variants — LZMA and Zstandard
+
+**11.1 Introduction: The Evolution of LZ77**
+- Recap of LZ77 (Ch 5.3.1) and DEFLATE (Ch 6)
+- What's next: Larger windows, better modeling, faster decoding
+
+**11.2 LZMA (Lempel-Ziv-Markov chain Algorithm)**
+- **11.2.1 Architecture Overview:**
+  - LZ77-style dictionary (up to 4GB window) 
+  - Range coding instead of Huffman
+  - Markov chain context modeling for distances/lengths
+- **11.2.2 Key Innovations:**
+  - **Distance modeling:** Last 4 distances tracked separately
+  - **Literal coding:** Context based on previous bytes and match status
+  - **Binary arithmetic coding:** Bit-level probability updates
+- **11.2.3 Compression Levels:**
+  - Preset levels 0-9 (with PRESET_EXTREME for level 9)
+  - Memory usage: Up to 800MB for level 9 encoder 
+  - Trade-offs: When to use each level
+- **11.2.4 LZMA2 Improvements:**
+  - Better multithreading support
+  - Chunked compression for random access
+  - Used in 7-Zip, XZ Utils
+
+**11.3 LZMA in Practice**
+- File formats: .xz (modern), .lzma (legacy) 
+- Comparison with DEFLATE: 20-30% better compression, 5-10x slower
+- Use cases: Software distribution, archives, embedded systems
+
+**11.4 Zstandard (zstd) — The Modern Standard**
+- **11.4.1 Design Philosophy:** Facebook's answer to real-time compression needs
+- **11.4.2 Architecture:**
+  - LZ77-based match finder (optimized for speed)
+  - **tANS (Finite State Entropy)** for entropy coding
+  - Repcode modeling (similar to LZMA's distance modeling)
+- **11.4.3 Compression Levels:**
+  - Levels 1-22 (negative levels for extreme speed)
+  - Level 3: Default, balances speed/ratio
+  - Level 19+: Ultra compression, very slow 
+- **11.4.4 Speed Benchmarks:**
+  - 2-5x faster than zlib at same ratio 
+  - Decompression speed: ~500-1000 MB/s on modern hardware
+  - Enwik9 compression: 29-34% vs gzip's 38% 
+
+**11.5 Zstandard Advanced Features**
+- **11.5.1 Dictionary Compression:**
+  - Pre-training dictionaries for small data
+  - `zstd --train` on sample data
+  - Up to 50% improvement on tiny files (JSON, logs) 
+- **11.5.2 Content-Aware Features:**
+  - Long-range match finder (>100MB windows)
+  - Optimal parsing (near-LZMA ratios at faster speeds)
+  - Multi-threaded compression
+- **11.5.3 Streaming and Framing:**
+  - Seekable format for archives
+  - Skippable frames for metadata
+
+**11.6 Practical Comparison Matrix**
+
+| Feature | DEFLATE (gzip) | LZMA (xz) | Zstandard |
+|---|---|---|---|
+| **Window size** | 32KB | Up to 4GB | Up to 2GB |
+| **Entropy coder** | Huffman | Range coding | tANS |
+| **Compression ratio** | Baseline | 20-30% better | 15-25% better |
+| **Compression speed** | Fast | Very slow | 2-5x gzip |
+| **Decompression speed** | Fast | Fast | 5-10x gzip |
+| **Memory usage (decoder)** | ~32KB | ~10MB | ~MB-range |
+| **Use cases** | Web, files | Archives | Real-time, web, logs |
+
+**11.7 When to Choose Which**
+- **DEFLATE:** Legacy systems, web compression, embedded devices
+- **LZMA:** Maximum compression for software distribution, backups
+- **Zstandard:** Modern applications needing both speed and ratio, streaming data
+
+**11.8 Hands-On: Benchmarking**
+- Compare gzip, bzip2, xz, and zstd on:
+  - Text files (enwik8/9)
+  - JSON logs
+  - Already-compressed data (images, video)
+  - Random data
+- Analyze time-space tradeoffs
+
+---
+
+## Summary: Why This Structure Works
+
+| Chapter | Builds On | Teaches |
+|---|---|---|
+| **9: PPM** | Markov sources (Ch 4), context modeling (Ch 4.6) | Statistical modeling limits |
+| **10: ANS/Range** | Arithmetic coding (Ch 3.7), entropy theory (Ch 2) | Modern entropy coders |
+| **11: LZMA/Zstd** | LZ77 (Ch 5), DEFLATE (Ch 6), RLE (Ch 7) | State-of-practice compressors |
+
+This sequence:
+1. Starts with **statistical modeling** (PPM)—the theoretical ceiling
+2. Moves to **entropy coding** (ANS)—how modern systems reach that ceiling efficiently
+3. Ends with **practical LZ variants**—what students will actually encounter in industry
+
+Would you like me to expand any of these sections with more detailed examples, exercises, or implementation details?
