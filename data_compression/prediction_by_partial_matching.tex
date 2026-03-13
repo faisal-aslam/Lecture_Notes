@@ -354,124 +354,180 @@ initial uniform probability for any symbol is $1/256 \approx 8$ bits.
     \item Cost: $-\log_2(1/256) = 8$ bits.
 \end{itemize}
 After encoding, we update our models:
-\begin{itemize}
-    \item Order-0 (empty context): $D_{\emptyset} = 1$, $N_{\emptyset} = 1$, with \texttt{b}:1
-    \item History: \texttt{"b"}
-\end{itemize}
 
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{b}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: \texttt{"b"}
+
+\bigskip
 \textbf{Step 2 — Second symbol: \texttt{'a'}}
 \begin{itemize}
-    \item Current longest context: order-1 = \texttt{"b"}
-    \item Context \texttt{"b"} is empty (never seen before) $\rightarrow$ send escape
-    \item Order-0 now: $D_{\emptyset} = 1$, $N_{\emptyset} = 1$
-    \item $P(\text{escape})$ at order-0 = $D_{\emptyset}/(N_{\emptyset} + D_{\emptyset}) = 1/(1+1) = 1/2$ $\rightarrow$ 1 bit
-    \item \texttt{'a'} is new to order-0 $\rightarrow$ encode this escape
-    \item After escaping order-0, we fall back to uniform: $1/256 \approx 8$ bits
+    \item Current longest context: order-1 = \texttt{"b"} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc}) = 1/(1+1) = 1/2$ (1 bit)
+    \item \texttt{'a'} is new to order-0 $\Rightarrow$ encode escape
+    \item After escaping order-0, fall back to uniform: $1/256 \approx 8$ bits
+    \item Total for 'a': $1 + 1 + 8 = 10$ bits
 \end{itemize}
-Total for 'a': $1$ (escape at order-1) $+ 1$ (escape at order-0) $+ 8$ (uniform) $= 10$ bits.
+After encoding, update models:
 
-After encoding, update:
-\begin{itemize}
-    \item Order-1 context \texttt{"b"}: now has \texttt{a} with count 1 ($D_{\texttt{b}} = 1$, $N_{\texttt{b}} = 1$)
-    \item Order-0: \texttt{a} count = 1 (so now $D_{\emptyset} = 2$, $N_{\emptyset} = 2$)
-    \item History: \texttt{"ba"}
-\end{itemize}
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{b}:1, \texttt{a}:1 & 2 & 2 \\
+Order-1 & \texttt{"b"} & \texttt{a}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: \texttt{"ba"}
 
+\bigskip
 \textbf{Step 3 — Third symbol: \texttt{'n'}}
 \begin{itemize}
-    \item Current longest context: order-2 = \texttt{"ba"}
-    \item Context \texttt{"ba"} is empty $\rightarrow$ escape
-    \item Next context: order-1 = \texttt{"a"} (last symbol)
-    \item Context \texttt{"a"} is empty $\rightarrow$ escape
-    \item Order-0: now has \{\texttt{b:1, a:1}\}, $D_{\emptyset} = 2$, $N_{\emptyset} = 2$
-    \item $P(\text{escape})$ at order-0 = $2/(2+2) = 2/4 = 1/2$ (1 bit)
-    \item \texttt{'n'} is new $\rightarrow$ encode this escape
+    \item Current longest: order-2 \texttt{"ba"} — empty $\Rightarrow$ escape (cost 0 bits, since probability = 1)
+    \item Next: order-1 \texttt{"a"} — empty $\Rightarrow$ escape (cost 0 bits)
+    \item Order-0: $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
+    \item \texttt{'n'} is new $\Rightarrow$ encode this escape
     \item Fallback to uniform: 8 bits
-\end{itemize}
-Total = 1 (escape at order-0) + 8 (uniform) = 9 bits.
-
-After encoding, update:
-\begin{itemize}
-    \item Order-2 \texttt{"ba"}: now has \texttt{n} with count 1 ($D_{\texttt{ba}} = 1$, $N_{\texttt{ba}} = 1$)
-    \item Order-1 \texttt{"a"}: now has \texttt{n} with count 1 ($D_{\texttt{a}} = 1$, $N_{\texttt{a}} = 1$)
-    \item Order-0: \texttt{n} count = 1 ($D_{\emptyset} = 3$, $N_{\emptyset} = 3$)
-    \item History: \texttt{"ban"}
+    \item Total: $0 + 0 + 1 + 8 = 9$ bits
 \end{itemize}
 
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{b}:1, \texttt{a}:1, \texttt{n}:1 & 3 & 3 \\
+Order-1 & \texttt{"b"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"a"} & \texttt{n}:1 & 1 & 1 \\
+Order-2 & \texttt{"ba"} & \texttt{n}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: \texttt{"ban"}
+
+\bigskip
 \textbf{Step 4 — Fourth symbol: \texttt{'a'}}
 \begin{itemize}
-    \item Current longest context: order-2 = \texttt{"an"}
-    \item Context \texttt{"an"} is empty $\rightarrow$ escape
-    \item Next context: order-1 = \texttt{"n"}
-    \item Context \texttt{"n"} is empty $\rightarrow$ escape
-    \item Order-0: now has \{\texttt{b:1, a:1, n:1}\}, $D_{\emptyset} = 3$, $N_{\emptyset} = 3$
-    \item $P(\text{escape}) = 3/(3+3) = 3/6 = 1/2$ (1 bit) — but wait!
-    \item \textbf{Critical observation:} \texttt{'a'} is actually IN order-0's table!
-    \item So we don't escape — we encode \texttt{'a'} directly using order-0
-    \item $P(\texttt{a})$ at order-0 = $\text{Count}(\emptyset,\texttt{a})/(N_{\emptyset} + D_{\emptyset}) = 1/(3+3) = 1/6 \approx 2.58$ bits
+    \item Current longest: order-2 \texttt{"an"} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{"n"} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=3$; 
+    \item \textbf{Critical observation:} \texttt{'a'} is IN order-0's table!
+    \item $P(\texttt{a}) = \text{Count}(\emptyset,\texttt{a})/(N_{\emptyset}+D_{\emptyset}) = 1/(3+3) = 1/6 \approx 2.58$ bits
+    \item Total: $2.58$ bits (no escapes needed)
 \end{itemize}
-Total = 2.58 bits (no escapes needed — we found 'a' at order-0).
+After encoding, update models:
 
-After encoding, update:
-\begin{itemize}
-    \item Order-2 \texttt{"an"}: now has \texttt{a} with count 1 ($D_{\texttt{an}} = 1$, $N_{\texttt{an}} = 1$)
-    \item Order-1 \texttt{"n"}: now has \texttt{a} with count 1 ($D_{\texttt{n}} = 1$, $N_{\texttt{n}} = 1$)
-    \item Order-0: \texttt{a} count increases to 2 ($N_{\emptyset} = 4$)
-    \item History: \texttt{"bana"}
-\end{itemize}
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{b}:1, \texttt{a}:2, \texttt{n}:1 & 3 & 4 \\
+Order-1 & \texttt{"b"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"a"} & \texttt{n}:1 & 1 & 1 \\
+Order-1 & \texttt{"n"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ba"} & \texttt{n}:1 & 1 & 1 \\
+Order-2 & \texttt{"an"} & \texttt{a}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: \texttt{"bana"}
 
+\bigskip
 \textbf{Step 5 — Fifth symbol: \texttt{'n'}}
 \begin{itemize}
-    \item Current longest context: order-2 = \texttt{"na"}
-    \item Context \texttt{"na"} is empty $\rightarrow$ escape
-    \item Next context: order-1 = \texttt{"a"}
-    \item \textbf{Key moment:} Context \texttt{"a"} now exists! It has seen \texttt{n} once before (from step 3)
-    \item At order-1 \texttt{"a"}: $D_{\texttt{a}} = 1$ (only \texttt{n}), $N_{\texttt{a}} = 1$ (one occurrence)
-    \item $P(\texttt{n})$ at order-1 = $\text{Count}(\texttt{"a"},\texttt{n})/(N_{\texttt{a}} + D_{\texttt{a}}) = 1/(1+1) = 1/2 = 1$ bit
-    \item We found our symbol! No escapes needed.
+    \item Current longest: order-2 \texttt{"na"} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{"a"} — EXISTS! Has seen \texttt{n}:1
+    \item $P(\texttt{n})$ at order-1 = $\text{Count}(\texttt{"a"},\texttt{n})/(N_{\texttt{a}}+D_{\texttt{a}}) = 1/(1+1) = 1/2 = 1$ bit
+    \item Total: $1$ bit!
 \end{itemize}
-Total = 1 bit!
+After encoding, update models:
 
-After encoding, update:
-\begin{itemize}
-    \item Order-2 \texttt{"na"}: now has \texttt{n} with count 1 ($D_{\texttt{na}} = 1$, $N_{\texttt{na}} = 1$)
-    \item Order-1 \texttt{"a"}: \texttt{n} count increases to 2 ($N_{\texttt{a}} = 2$)
-    \item Order-0: \texttt{n} count increases to 2 ($N_{\emptyset} = 5$)
-    \item History: \texttt{"banan"}
-\end{itemize}
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{b}:1, \texttt{a}:2, \texttt{n}:2 & 3 & 5 \\
+Order-1 & \texttt{"b"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"a"} & \texttt{n}:2 & 1 & 2 \\
+Order-1 & \texttt{"n"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ba"} & \texttt{n}:1 & 1 & 1 \\
+Order-2 & \texttt{"an"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"na"} & \texttt{n}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: \texttt{"banan"}
 
+\bigskip
 \textbf{Step 6 — Sixth symbol: \texttt{'a'}}
 \begin{itemize}
-    \item Current longest context: order-2 = \texttt{"an"}
-    \item Context \texttt{"an"} exists! It has seen \texttt{a} once before (from step 4)
-    \item At order-2 \texttt{"an"}: $D_{\texttt{an}} = 1$ (only \texttt{a}), $N_{\texttt{an}} = 1$ (one occurrence)
-    \item $P(\texttt{a})$ at order-2 = $1/(1+1) = 1/2 = 1$ bit
-    \item Found at highest order — perfect prediction!
+    \item Current longest: order-2 \texttt{"an"} — EXISTS! Has seen \texttt{a}:1
+    \item $P(\texttt{a})$ at order-2 = $\text{Count}(\texttt{"an"},\texttt{a})/(N_{\texttt{an}}+D_{\texttt{an}}) = 1/(1+1) = 1/2 = 1$ bit
+    \item Total: $1$ bit!
 \end{itemize}
-Total = 1 bit!
+After encoding, update models:
 
-\textbf{Summary:}
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{b}:1, \texttt{a}:3, \texttt{n}:2 & 3 & 6 \\
+Order-1 & \texttt{"b"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"a"} & \texttt{n}:2 & 1 & 2 \\
+Order-1 & \texttt{"n"} & \texttt{a}:2 & 1 & 2 \\
+Order-2 & \texttt{"ba"} & \texttt{n}:1 & 1 & 1 \\
+Order-2 & \texttt{"an"} & \texttt{a}:2 & 1 & 2 \\
+Order-2 & \texttt{"na"} & \texttt{n}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: \texttt{"banana"}
+
+\bigskip
+\textbf{Final Summary:}
 \begin{center}
 \begin{tabular}{l|c|c}
-Symbol & Context used & Cost (bits) \\
+\textbf{Symbol} & \textbf{Context used} & \textbf{Cost (bits)} \\
 \hline
-\texttt{b} & uniform & 8.00 \\
-\texttt{a} & escapes + uniform & 10.00 \\
-\texttt{n} & escapes + uniform & 9.00 \\
-\texttt{a} & order-0 & 2.58 \\
-\texttt{n} & order-1 (\texttt{"a"}) & 1.00 \\
-\texttt{a} & order-2 (\texttt{"an"}) & 1.00 \\
+\texttt{b} (1) & uniform & 8.00 \\
+\texttt{a} (2) & escapes + uniform & 10.00 \\
+\texttt{n} (3) & escapes + uniform & 9.00 \\
+\texttt{a} (4) & order-0 & 2.58 \\
+\texttt{n} (5) & order-1 (\texttt{"a"}) & 1.00 \\
+\texttt{a} (6) & order-2 (\texttt{"an"}) & 1.00 \\
 \hline
-Total & & 31.58 bits \\
+\textbf{Total} & & \textbf{31.58 bits} \\
 \end{tabular}
 \end{center}
 
-\textbf{What just happened?} 
-The first three symbols cost many bits because we were building our context models. 
-By symbol 4, we had enough history to start making useful predictions. By symbols 5 and 6, 
-PPM had learned the pattern "after 'a' comes 'n', after 'n' comes 'a'" and could predict 
-with near-perfect accuracy (1 bit per symbol). This is the power of PPM — it learns 
-patterns dynamically and exploits them as soon as they appear.
+\textbf{What just happened?} The tables reveal the learning process:
+\begin{itemize}
+    \item \textbf{Steps 1-3}: Building contexts from scratch — expensive (8-10 bits)
+    \item \textbf{Step 4}: Order-0 finally has enough data to predict 'a' (2.58 bits)
+    \item \textbf{Step 5}: The pattern "a → n" is learned — order-1 predicts perfectly (1 bit)
+    \item \textbf{Step 6}: The pattern "an → a" is learned — order-2 predicts perfectly (1 bit)
+\end{itemize}
+PPM discovered the alternating pattern "a","n","a","n" and exploited it immediately!
 \end{examplebox}
 
 %-----------------------------------------------------------------------------
@@ -479,172 +535,367 @@ patterns dynamically and exploits them as soon as they appear.
 
 This classic example shows PPM on a more complex string. We'll use PPMC with
 maximum order $M=2$ and alphabet size $|\mathcal{A}| = 256$. Models update after
-each symbol.
+each symbol. We track all contexts that appear: order-0 (empty context), 
+order-1 contexts (single symbols), and order-2 contexts (pairs).
 
-\boxheading{Initialisation.} All models empty. History $H = \varepsilon$.
+\begin{examplebox}[PPM Encoding "abracadabra" Step by Step]
 
-\bigskip
-\noindent\textbf{Symbol 1: \texttt{'a'}}\\
-No context available; use uniform. $P(\texttt{a}) = 1/256 \approx 8$ bits.\\
-Update: Order-0: $\texttt{a}:1$, $D_{\emptyset}=1$, $N_{\emptyset}=1$. $H =$ \texttt{a}.
-
-\bigskip
-\noindent\textbf{Symbol 2: \texttt{'b'}}\\
-$k_{\max}=1$.
+\textbf{Symbol 1: \texttt{'a'}}
 \begin{itemize}
-    \item Order-1 \texttt{(a)}: empty $\Rightarrow$ escape (0 bits, probability = 1).
-    \item Order-0: $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc})=1/2$ (1 bit).
-          \texttt{b} unseen $\Rightarrow$ escape.
-    \item Fallback: $P(\texttt{b}) \approx 1/256 \approx 8$ bits.
+    \item No context available; use uniform distribution.
+    \item Cost: $-\log_2(1/256) = 8$ bits.
 \end{itemize}
-\textbf{Total} $\approx 1 + 8 = 9$ bits.\\
-Update: O-1(\texttt{a}): \texttt{b}:1 ($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$); 
-O-0: \texttt{b}:1 ($D_{\emptyset}=2$, $N_{\emptyset}=2$). $H =$ \texttt{ab}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"a"}
 
 \bigskip
-\noindent\textbf{Symbol 3: \texttt{'r'}}\\
-$k_{\max}=2$.
+\textbf{Symbol 2: \texttt{'b'}}
 \begin{itemize}
-    \item Order-2 \texttt{(ab)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(b)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-0: $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc})=2/4=0.5$ (1 bit).
-          \texttt{r} unseen $\Rightarrow$ escape.
-    \item Fallback: $\approx 8$ bits.
+    \item Longest available context: order-1 \texttt{(a)} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc}) = 1/(1+1) = 1/2$ (1 bit)
+    \item \texttt{'b'} unseen in order-0 $\Rightarrow$ encode escape
+    \item Fallback to uniform: 8 bits
+    \item Total cost: $1 + 8 = 9$ bits
 \end{itemize}
-\textbf{Total} $\approx 1 + 8 = 9$ bits.\\
-Update: O-2(\texttt{ab}):\texttt{r}:1 ($D_{\texttt{ab}}=1$, $N_{\texttt{ab}}=1$); 
-O-1(\texttt{b}):\texttt{r}:1 ($D_{\texttt{b}}=1$, $N_{\texttt{b}}=1$);
-O-0: \texttt{r}:1 ($D_{\emptyset}=3$, $N_{\emptyset}=3$). $H =$ \texttt{abr}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:1, \texttt{b}:1 & 2 & 2 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"ab"}
 
 \bigskip
-\noindent\textbf{Symbol 4: \texttt{'a'}}\\
-$H =$ \texttt{abr}.
+\textbf{Symbol 3: \texttt{'r'}}
 \begin{itemize}
-    \item Order-2 \texttt{(br)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(r)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-0: \texttt{a}:1, $D_{\emptyset}=3$, $N_{\emptyset}=3$; denom $= 3+3=6$.
-          $P(\texttt{a}) = 1/6 \approx 2.58$ bits. \texttt{a} found.
+    \item Longest available: order-2 \texttt{(ab)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(b)} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
+    \item \texttt{'r'} unseen in order-0 $\Rightarrow$ encode escape
+    \item Fallback to uniform: 8 bits
+    \item Total cost: $1 + 8 = 9$ bits
 \end{itemize}
-\textbf{Total} $\approx 2.58$ bits.\\
-Update: O-2(\texttt{br}):\texttt{a}:1 ($D_{\texttt{br}}=1$, $N_{\texttt{br}}=1$); 
-O-1(\texttt{r}):\texttt{a}:1 ($D_{\texttt{r}}=1$, $N_{\texttt{r}}=1$);
-O-0: \texttt{a}:2 ($N_{\emptyset}=4$). $H =$ \texttt{abra}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:1, \texttt{b}:1, \texttt{r}:1 & 3 & 3 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1 & 1 & 1 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abr"}
 
 \bigskip
-\noindent\textbf{Symbol 5: \texttt{'c'}}\\
-$H =$ \texttt{abra}.
+\textbf{Symbol 4: \texttt{'a'}}
 \begin{itemize}
-    \item Order-2 \texttt{(ra)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(a)}: \texttt{b}:1 ($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$); denom $=2$.
-          $P(\text{esc})=1/2 \approx 1$ bit. \texttt{c} unseen.
-    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=4$; denom $=7$.
-          $P(\text{esc})=3/7 \approx 1.22$ bits. \texttt{c} unseen.
-    \item Fallback: $\approx 8$ bits.
+    \item Longest available: order-2 \texttt{(br)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(r)} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=3$; $P(\texttt{a}) = \text{Count}(\emptyset,\texttt{a})/(N_{\emptyset}+D_{\emptyset}) = 1/(3+3) = 1/6 \approx 2.58$ bits
+    \item Symbol found at order-0!
+    \item Total cost: $2.58$ bits
 \end{itemize}
-\textbf{Total} $\approx 1 + 1.22 + 8 = 10.22$ bits.\\
-Update: \texttt{c} added to all models; 
-O-2(\texttt{ra}):\texttt{c}:1 ($D_{\texttt{ra}}=1$, $N_{\texttt{ra}}=1$);
-O-1(\texttt{a}):\texttt{c}:1 ($D_{\texttt{a}}=2$, $N_{\texttt{a}}=2$);
-O-0: \texttt{c}:1 ($D_{\emptyset}=4$, $N_{\emptyset}=5$). $H =$ \texttt{abrac}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:2, \texttt{b}:1, \texttt{r}:1 & 3 & 4 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1 & 1 & 1 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abra"}
 
 \bigskip
-\noindent\textbf{Symbol 6: \texttt{'a'}}\\
-$H =$ \texttt{abrac}.
+\textbf{Symbol 5: \texttt{'c'}}
 \begin{itemize}
-    \item Order-2 \texttt{(ac)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(c)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-0: \texttt{a}:2, $D_{\emptyset}=4$, $N_{\emptyset}=5$; denom $=9$.
-          $P(\texttt{a})=2/9 \approx 2.17$ bits.
+    \item Longest available: order-2 \texttt{(ra)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1 ($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$); $P(\text{esc}) = 1/2$ (1 bit)
+    \item \texttt{'c'} unseen $\Rightarrow$ encode escape
+    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=4$; $P(\text{esc}) = 3/(4+3) = 3/7 \approx 1.22$ bits
+    \item \texttt{'c'} unseen $\Rightarrow$ encode escape
+    \item Fallback to uniform: 8 bits
+    \item Total cost: $1 + 1.22 + 8 = 10.22$ bits
 \end{itemize}
-\textbf{Total} $\approx 2.17$ bits.\\
-Update: O-0: \texttt{a}:3 ($N_{\emptyset}=6$). $H =$ \texttt{abraca}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:2, \texttt{b}:1, \texttt{r}:1, \texttt{c}:1 & 4 & 5 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1, \texttt{c}:1 & 2 & 2 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & (empty) & 0 & 0 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abrac"}
 
 \bigskip
-\noindent\textbf{Symbol 7: \texttt{'d'}}\\
-$H =$ \texttt{abraca}.
+\textbf{Symbol 6: \texttt{'a'}}
 \begin{itemize}
-    \item Order-2 \texttt{(ca)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(a)}: \texttt{b}:1, \texttt{c}:1 ($D_{\texttt{a}}=2$, $N_{\texttt{a}}=2$);
-          denom $=4$. $P(\text{esc})=2/4=0.5 \approx 1$ bit. \texttt{d} unseen.
-    \item Order-0: $D_{\emptyset}=4$, $N_{\emptyset}=6$; denom $=10$.
-          $P(\text{esc})=4/10=0.4 \approx 1.32$ bits. \texttt{d} unseen.
-    \item Fallback: $\approx 8$ bits.
+    \item Longest available: order-2 \texttt{(ac)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(c)} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=4$, $N_{\emptyset}=5$; $P(\texttt{a}) = 2/(5+4) = 2/9 \approx 2.17$ bits
+    \item Total cost: $2.17$ bits
 \end{itemize}
-\textbf{Total} $\approx 1 + 1.32 + 8 = 10.32$ bits.\\
-Update: \texttt{d} added; 
-O-2(\texttt{ca}):\texttt{d}:1 ($D_{\texttt{ca}}=1$, $N_{\texttt{ca}}=1$);
-O-1(\texttt{a}):\texttt{d}:1 ($D_{\texttt{a}}=3$, $N_{\texttt{a}}=3$);
-O-0: \texttt{d}:1 ($D_{\emptyset}=5$, $N_{\emptyset}=7$). $H =$ \texttt{abracad}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:3, \texttt{b}:1, \texttt{r}:1, \texttt{c}:1 & 4 & 6 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1, \texttt{c}:1 & 2 & 2 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+Order-2 & \texttt{"ac"} & \texttt{a}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abraca"}
 
 \bigskip
-\noindent\textbf{Symbol 8: \texttt{'a'}}\\
-$H =$ \texttt{abracad}.
+\textbf{Symbol 7: \texttt{'d'}}
 \begin{itemize}
-    \item Order-2 \texttt{(ad)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(d)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-0: \texttt{a}:3, $D_{\emptyset}=5$, $N_{\emptyset}=7$; denom $=12$.
-          $P(\texttt{a})=3/12=0.25 \approx 2$ bits.
+    \item Longest available: order-2 \texttt{(ca)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1, \texttt{c}:1 ($D_{\texttt{a}}=2$, $N_{\texttt{a}}=2$); $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
+    \item \texttt{'d'} unseen $\Rightarrow$ encode escape
+    \item Order-0: $D_{\emptyset}=4$, $N_{\emptyset}=6$; $P(\text{esc}) = 4/(6+4) = 4/10 = 0.4$ (1.32 bits)
+    \item \texttt{'d'} unseen $\Rightarrow$ encode escape
+    \item Fallback to uniform: 8 bits
+    \item Total cost: $1 + 1.32 + 8 = 10.32$ bits
 \end{itemize}
-\textbf{Total} $\approx 2$ bits.\\
-Update: O-0: \texttt{a}:4 ($N_{\emptyset}=8$). $H =$ \texttt{abracada}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:3, \texttt{b}:1, \texttt{r}:1, \texttt{c}:1, \texttt{d}:1 & 5 & 7 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1, \texttt{c}:1, \texttt{d}:1 & 3 & 3 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"d"} & (empty) & 0 & 0 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+Order-2 & \texttt{"ac"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ca"} & \texttt{d}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abracad"}
 
 \bigskip
-\noindent\textbf{Symbol 9: \texttt{'b'}}\\
-$H =$ \texttt{abracada}.
+\textbf{Symbol 8: \texttt{'a'}}
 \begin{itemize}
-    \item Order-2 \texttt{(da)}: empty $\Rightarrow$ escape (0 bits).
-    \item Order-1 \texttt{(a)}: \texttt{b}:1, \texttt{c}:1, \texttt{d}:1
-          ($D_{\texttt{a}}=3$, $N_{\texttt{a}}=3$); denom $=6$.
-          $P(\texttt{b})=1/6 \approx 2.58$ bits. \texttt{b} found.
+    \item Longest available: order-2 \texttt{(ad)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(d)} — empty $\Rightarrow$ escape
+    \item Order-0: $D_{\emptyset}=5$, $N_{\emptyset}=7$; $P(\texttt{a}) = 3/(7+5) = 3/12 = 0.25$ (2 bits)
+    \item Total cost: $2$ bits
 \end{itemize}
-\textbf{Total} $\approx 2.58$ bits.\\
-Update: O-1(\texttt{a}): \texttt{b}:2 ($N_{\texttt{a}}=4$); O-0: \texttt{b}:2 ($N_{\emptyset}=9$).
-$H =$ \texttt{abracadab}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:4, \texttt{b}:1, \texttt{r}:1, \texttt{c}:1, \texttt{d}:1 & 5 & 8 \\
+Order-1 & \texttt{"a"} & \texttt{b}:1, \texttt{c}:1, \texttt{d}:1 & 3 & 3 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"d"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+Order-2 & \texttt{"ac"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ca"} & \texttt{d}:1 & 1 & 1 \\
+Order-2 & \texttt{"ad"} & \texttt{a}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abracada"}
 
 \bigskip
-\noindent\textbf{Symbol 10: \texttt{'r'}}\\
-$H =$ \texttt{abracadab}.
+\textbf{Symbol 9: \texttt{'b'}}
 \begin{itemize}
-    \item Order-2 \texttt{(ab)}: \texttt{r}:1 ($D_{\texttt{ab}}=1$, $N_{\texttt{ab}}=1$); denom $=2$.
-          $P(\texttt{r})=1/2 = 1$ bit. \texttt{r} found.
+    \item Longest available: order-2 \texttt{(da)} — empty $\Rightarrow$ escape
+    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1, \texttt{c}:1, \texttt{d}:1 ($D_{\texttt{a}}=3$, $N_{\texttt{a}}=3$); $P(\texttt{b}) = 1/(3+3) = 1/6 \approx 2.58$ bits
+    \item Symbol found at order-1!
+    \item Total cost: $2.58$ bits
 \end{itemize}
-\textbf{Total} $= 1$ bit.\\
-Update: O-2(\texttt{ab}): \texttt{r}:2 ($N_{\texttt{ab}}=2$); O-0: \texttt{r}:2 ($N_{\emptyset}=10$).
-$H =$ \texttt{abracadabr}.
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:4, \texttt{b}:2, \texttt{r}:1, \texttt{c}:1, \texttt{d}:1 & 5 & 9 \\
+Order-1 & \texttt{"a"} & \texttt{b}:2, \texttt{c}:1, \texttt{d}:1 & 3 & 4 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"d"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:1 & 1 & 1 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+Order-2 & \texttt{"ac"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ca"} & \texttt{d}:1 & 1 & 1 \\
+Order-2 & \texttt{"ad"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"da"} & \texttt{b}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abracadab"}
 
 \bigskip
-\noindent\textbf{Symbol 11: \texttt{'a'}}\\
-$H =$ \texttt{abracadabr}.
+\textbf{Symbol 10: \texttt{'r'}}
 \begin{itemize}
-    \item Order-2 \texttt{(br)}: \texttt{a}:1 ($D_{\texttt{br}}=1$, $N_{\texttt{br}}=1$); denom $=2$.
-          $P(\texttt{a})=1/2 = 1$ bit.
+    \item Longest available: order-2 \texttt{(ab)} — has \texttt{r}:1 ($D_{\texttt{ab}}=1$, $N_{\texttt{ab}}=1$); $P(\texttt{r}) = 1/(1+1) = 1/2 = 1$ bit
+    \item Symbol found at order-2!
+    \item Total cost: $1$ bit
 \end{itemize}
-\textbf{Total} $= 1$ bit.\\
-Update: O-2(\texttt{br}): \texttt{a}:2 ($N_{\texttt{br}}=2$); O-0: \texttt{a}:5 ($N_{\emptyset}=11$).
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:4, \texttt{b}:2, \texttt{r}:2, \texttt{c}:1, \texttt{d}:1 & 5 & 10 \\
+Order-1 & \texttt{"a"} & \texttt{b}:2, \texttt{c}:1, \texttt{d}:1 & 3 & 4 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"d"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:2 & 1 & 2 \\
+Order-2 & \texttt{"br"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+Order-2 & \texttt{"ac"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ca"} & \texttt{d}:1 & 1 & 1 \\
+Order-2 & \texttt{"ad"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"da"} & \texttt{b}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abracadabr"}
 
 \bigskip
-\noindent\textbf{Summary (Example~2).}
-\begin{verbatim}
-Symbol | Context used          | Code bits (approx)
--------+-----------------------+--------------------
-  a    | uniform fallback      |  8.00
-  b    | escapes + uniform     |  9.00
-  r    | escapes + uniform     |  9.00
-  a    | order-0               |  2.58
-  c    | escapes + uniform     | 10.22
-  a    | order-0               |  2.17
-  d    | escapes + uniform     | 10.32
-  a    | order-0               |  2.00
-  b    | order-1 ("a")         |  2.58
-  r    | order-2 ("ab")        |  1.00
-  a    | order-2 ("br")        |  1.00
--------+-----------------------+--------------------
-Total  |                       | ~57.87 bits
-\end{verbatim}
+\textbf{Symbol 11: \texttt{'a'}}
+\begin{itemize}
+    \item Longest available: order-2 \texttt{(br)} — has \texttt{a}:1 ($D_{\texttt{br}}=1$, $N_{\texttt{br}}=1$); $P(\texttt{a}) = 1/(1+1) = 1/2 = 1$ bit
+    \item Symbol found at order-2!
+    \item Total cost: $1$ bit
+\end{itemize}
+After encoding, update models:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{|l|l|c|c|c|}
+\hline
+\textbf{Order} & \textbf{Context} & \textbf{Symbol counts} & $D_c$ & $N_c$ \\
+\hline
+Order-0 & $\emptyset$ & \texttt{a}:5, \texttt{b}:2, \texttt{r}:2, \texttt{c}:1, \texttt{d}:1 & 5 & 11 \\
+Order-1 & \texttt{"a"} & \texttt{b}:2, \texttt{c}:1, \texttt{d}:1 & 3 & 4 \\
+Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"d"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ab"} & \texttt{r}:2 & 1 & 2 \\
+Order-2 & \texttt{"br"} & \texttt{a}:2 & 1 & 2 \\
+Order-2 & \texttt{"ra"} & \texttt{c}:1 & 1 & 1 \\
+Order-2 & \texttt{"ac"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"ca"} & \texttt{d}:1 & 1 & 1 \\
+Order-2 & \texttt{"ad"} & \texttt{a}:1 & 1 & 1 \\
+Order-2 & \texttt{"da"} & \texttt{b}:1 & 1 & 1 \\
+\hline
+\end{tabular}
+\end{center}
+History: $H =$ \texttt{"abracadabra"}
+
+\bigskip
+\textbf{Final Summary:}
+\begin{center}
+\begin{tabular}{l|c|c}
+\textbf{Symbol} & \textbf{Context used} & \textbf{Cost (bits)} \\
+\hline
+\texttt{a} (1) & uniform fallback & 8.00 \\
+\texttt{b} (2) & escapes + uniform & 9.00 \\
+\texttt{r} (3) & escapes + uniform & 9.00 \\
+\texttt{a} (4) & order-0 & 2.58 \\
+\texttt{c} (5) & escapes + uniform & 10.22 \\
+\texttt{a} (6) & order-0 & 2.17 \\
+\texttt{d} (7) & escapes + uniform & 10.32 \\
+\texttt{a} (8) & order-0 & 2.00 \\
+\texttt{b} (9) & order-1 (\texttt{"a"}) & 2.58 \\
+\texttt{r} (10) & order-2 (\texttt{"ab"}) & 1.00 \\
+\texttt{a} (11) & order-2 (\texttt{"br"}) & 1.00 \\
+\hline
+\textbf{Total} & & \textbf{57.87 bits} \\
+\end{tabular}
+\end{center}
+
 Raw ASCII would require $11 \times 8 = 88$ bits. PPM saves about 34\%.
 
-The final two symbols, encoded with only $1$ bit each, demonstrate the power of PPM:
-once a two-gram has been seen, re-encoding it becomes highly efficient.
+Notice how the final two symbols cost only 1 bit each — once the pattern
+establishes that \texttt{"ab"} is followed by \texttt{'r'} and \texttt{"br"} is
+followed by \texttt{'a'}, PPM predicts with near-perfect accuracy!
+\end{examplebox}
 
 %-----------------------------------------------------------------------------
 \subsubsection{Example 3: Repetitive String \texttt{"ababababab"} ($M=1$, PPMC)}
@@ -652,54 +903,39 @@ once a two-gram has been seen, re-encoding it becomes highly efficient.
 This example shows how order-1 PPM rapidly learns a strict alternation pattern.
 Alphabet size 256; $M=1$ (order-0 and order-1 only).
 
-\bigskip
-\noindent\textbf{Symbol 1 -- \texttt{'a'}:} uniform, $\approx 8$ bits.
-$D_{\emptyset}=1$, $N_{\emptyset}=1$ (\texttt{a}:1). $H=$ \texttt{a}.
+\begin{examplebox}[PPM Learning Alternating Pattern "ababababab"]
 
-\noindent\textbf{Symbol 2 -- \texttt{'b'}:} O-1(\texttt{a}) empty, esc; O-0
-$P(\text{esc}) = D_{\emptyset}/(N_{\emptyset}+D_{\emptyset}) = 1/2$ (1~bit), 
-\texttt{b} unseen $\Rightarrow$ fallback 8~bits. Total $\approx 9$ bits.
-Update: O-1(\texttt{a}):\texttt{b}:1 ($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$); 
-O-0:\texttt{b}:1 ($D_{\emptyset}=2$, $N_{\emptyset}=2$).
+We track the evolution of models after each symbol:
 
-\noindent\textbf{Symbol 3 -- \texttt{'a'}:} O-1(\texttt{b}) empty, esc;
-O-0: \texttt{a}:1, $D_{\emptyset}=2$, $N_{\emptyset}=2$, denom $4$, $P(\texttt{a})=1/4 = 2$ bits.
-Update: O-1(\texttt{b}):\texttt{a}:1 ($D_{\texttt{b}}=1$, $N_{\texttt{b}}=1$);
-O-0: \texttt{a}:2 ($N_{\emptyset}=3$).
+\begin{center}
+\footnotesize
+\begin{tabular}{|c|l|l|c|c|l|}
+\hline
+\textbf{Symbol} & \textbf{Context used} & \textbf{Cost} & $D_{\emptyset},N_{\emptyset}$ & $D_{\texttt{a}},N_{\texttt{a}}$ & $D_{\texttt{b}},N_{\texttt{b}}$ \\
+\hline
+1: \texttt{a} & uniform & 8.00 & (1,1) & (0,0) & (0,0) \\
+2: \texttt{b} & escapes + uniform & 9.00 & (2,2) & (1,1) & (0,0) \\
+3: \texttt{a} & order-0 & 2.00 & (2,3) & (1,1) & (1,1) \\
+4: \texttt{b} & order-1 (\texttt{"a"}) & 1.00 & (2,4) & (1,2) & (1,1) \\
+5: \texttt{a} & order-1 (\texttt{"b"}) & 1.00 & (2,5) & (1,2) & (1,2) \\
+6: \texttt{b} & order-1 (\texttt{"a"}) & 0.58 & (2,6) & (1,3) & (1,2) \\
+7: \texttt{a} & order-1 (\texttt{"b"}) & 0.58 & (2,7) & (1,3) & (1,3) \\
+8: \texttt{b} & order-1 (\texttt{"a"}) & 0.42 & (2,8) & (1,4) & (1,3) \\
+9: \texttt{a} & order-1 (\texttt{"b"}) & 0.42 & (2,9) & (1,4) & (1,4) \\
+10: \texttt{b} & order-1 (\texttt{"a"}) & 0.32 & (2,10) & (1,5) & (1,4) \\
+\hline
+\end{tabular}
+\end{center}
 
-\noindent\textbf{Symbol 4 -- \texttt{'b'}:} O-1(\texttt{a}):\texttt{b}:1
-($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$), $P(\texttt{b})=1/2 = 1$ bit.
-Update: O-1(\texttt{a}): \texttt{b}:2 ($N_{\texttt{a}}=2$); O-0: \texttt{b}:2 ($N_{\emptyset}=4$).
-
-\noindent\textbf{Symbol 5 -- \texttt{'a'}:} O-1(\texttt{b}):\texttt{a}:1
-($D_{\texttt{b}}=1$, $N_{\texttt{b}}=1$), $P(\texttt{a})=1/2 = 1$ bit.
-Update: O-1(\texttt{b}): \texttt{a}:2 ($N_{\texttt{b}}=2$); O-0: \texttt{a}:3 ($N_{\emptyset}=5$).
-
-\noindent\textbf{Symbol 6 -- \texttt{'b'}:} O-1(\texttt{a}):\texttt{b}:2
-($D_{\texttt{a}}=1$, $N_{\texttt{a}}=2$), $P(\texttt{b})=2/3 \approx 0.58$ bits.
-Update: O-1(\texttt{a}): \texttt{b}:3 ($N_{\texttt{a}}=3$); O-0: \texttt{b}:3 ($N_{\emptyset}=6$).
-
-\noindent\textbf{Symbol 7 -- \texttt{'a'}:} O-1(\texttt{b}):\texttt{a}:2
-($D_{\texttt{b}}=1$, $N_{\texttt{b}}=2$), $P(\texttt{a})=2/3 \approx 0.58$ bits.
-Update: O-1(\texttt{b}): \texttt{a}:3 ($N_{\texttt{b}}=3$); O-0: \texttt{a}:4 ($N_{\emptyset}=7$).
-
-\noindent\textbf{Symbol 8 -- \texttt{'b'}:} O-1(\texttt{a}):\texttt{b}:3
-($D_{\texttt{a}}=1$, $N_{\texttt{a}}=3$), $P(\texttt{b})=3/4 \approx 0.42$ bits.
-Update: O-1(\texttt{a}): \texttt{b}:4 ($N_{\texttt{a}}=4$); O-0: \texttt{b}:4 ($N_{\emptyset}=8$).
-
-\noindent\textbf{Symbol 9 -- \texttt{'a'}:} O-1(\texttt{b}):\texttt{a}:3
-($D_{\texttt{b}}=1$, $N_{\texttt{b}}=3$), $P(\texttt{a})=3/4 \approx 0.42$ bits.
-Update: O-1(\texttt{b}): \texttt{a}:4 ($N_{\texttt{b}}=4$); O-0: \texttt{a}:5 ($N_{\emptyset}=9$).
-
-\noindent\textbf{Symbol 10 -- \texttt{'b'}:} O-1(\texttt{a}):\texttt{b}:4
-($D_{\texttt{a}}=1$, $N_{\texttt{a}}=4$), $P(\texttt{b})=4/5 \approx 0.32$ bits.
-
-\bigskip
-\textbf{Total} $\approx 8+9+2+1+1+0.58+0.58+0.42+0.42+0.32 \approx 23.3$ bits
-($2.33$ bpc).\\
-An adaptive order-0 model gives $\approx 1$ bpc once stabilised but requires far
-more symbols; PPM-1 reaches near-optimal coding by symbol~5 due to the strict
-alternation captured by the order-1 context.
+\textbf{Observations:}
+\begin{itemize}
+    \item By symbol 4, order-1 context \texttt{"a"} perfectly predicts \texttt{'b'} (1 bit)
+    \item By symbol 5, order-1 context \texttt{"b"} perfectly predicts \texttt{'a'} (1 bit)
+    \item As counts increase, probabilities become more certain and costs decrease
+    \item Total: $8+9+2+1+1+0.58+0.58+0.42+0.42+0.32 \approx 23.3$ bits ($2.33$ bpc)
+\end{itemize}
+An adaptive order-0 model would require many more symbols to reach similar efficiency.
+\end{examplebox}
 
 %-----------------------------------------------------------------------------
 \subsubsection{Example 4: Exclusion Applied to \texttt{"abracadabra"} (Symbol~5)}
