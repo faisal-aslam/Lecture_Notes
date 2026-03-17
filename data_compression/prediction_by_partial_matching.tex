@@ -338,22 +338,21 @@ next symbol.
 \subsection{Step-by-Step Examples}
 %=============================================================================
 
-\subsubsection{Example 1: A Simple Classroom Walkthrough — Encoding \texttt{"banana"}}
+\subsubsection{Example 1: Encoding \texttt{"banana"}}
 
-This example is designed to be presented in class without getting bogged down in 
-mathematical details. We'll use PPM with maximum order $M=2$ and PPMC
-for escape estimation. The alphabet size is $|\mathcal{A}| = 256$ (bytes), so
-initial uniform probability for any symbol is $1/256 \approx 8$ bits.
+This example demonstrates PPM with maximum order $M=2$ and PPMC escape estimation.
+The alphabet size is $|\mathcal{A}| = 256$ (bytes). We apply the exclusion principle throughout.
 
-\begin{examplebox}[PPM in Action: The Core Idea — Encoding "banana"]
+\begin{examplebox}[PPM in Action: Encoding "banana" with Exclusion]
 
 \textbf{Step 1 — First symbol: \texttt{'b'}}
 \begin{itemize}
-    \item No history exists yet. We have no contexts to use.
-    \item We must use a uniform distribution over all 256 symbols.
+    \item No history exists yet. All contexts are empty.
+    \item After escaping through all empty contexts (cost 0 bits each), we reach Order -1.
+    \item At Order -1: $|seen| = 0$, so $P(\texttt{b}) = 1/256$.
     \item Cost: $-\log_2(1/256) = 8$ bits.
 \end{itemize}
-After encoding, we update our models:
+After encoding, update models:
 
 \begin{center}
 \footnotesize
@@ -370,11 +369,11 @@ History: \texttt{"b"}
 \bigskip
 \textbf{Step 2 — Second symbol: \texttt{'a'}}
 \begin{itemize}
-    \item Current longest context: order-1 = \texttt{"b"} — empty $\Rightarrow$ escape
+    \item Current longest: order-1 context \texttt{"b"} — empty $\Rightarrow$ escape (0 bits)
     \item Order-0: $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc}) = 1/(1+1) = 1/2$ (1 bit)
-    \item \texttt{'a'} is new to order-0 $\Rightarrow$ encode escape
-    \item After escaping order-0, fall back to uniform: $1/256 \approx 8$ bits
-    \item Total for 'a': $1 + 1 + 8 = 10$ bits
+    \item \texttt{'a'} not in order-0 $\Rightarrow$ encode escape; add \{\texttt{b}\} to $seen$
+    \item Order -1: $|seen| = 1$, so $P(\texttt{a}) = 1/(256-1) = 1/255 \approx 7.99$ bits
+    \item Total for \texttt{'a'}: $0 + 1 + 7.99 = 8.99$ bits
 \end{itemize}
 After encoding, update models:
 
@@ -394,14 +393,13 @@ History: \texttt{"ba"}
 \bigskip
 \textbf{Step 3 — Third symbol: \texttt{'n'}}
 \begin{itemize}
-    \item Current longest: order-2 \texttt{"ba"} — empty $\Rightarrow$ escape (cost 0 bits, since probability = 1)
-    \item Next: order-1 \texttt{"a"} — empty $\Rightarrow$ escape (cost 0 bits)
+    \item Current longest: order-2 \texttt{"ba"} — empty $\Rightarrow$ escape (0 bits)
+    \item Next: order-1 \texttt{"a"} — empty $\Rightarrow$ escape (0 bits)
     \item Order-0: $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
-    \item \texttt{'n'} is new $\Rightarrow$ encode this escape
-    \item Fallback to uniform: 8 bits
-    \item Total: $0 + 0 + 1 + 8 = 9$ bits
+    \item \texttt{'n'} not in order-0 $\Rightarrow$ encode escape; add \{\texttt{a}, \texttt{b}\} to $seen$
+    \item Order -1: $|seen| = 2$, so $P(\texttt{n}) = 1/(256-2) = 1/254 \approx 7.99$ bits
+    \item Total: $0 + 0 + 1 + 7.99 = 8.99$ bits
 \end{itemize}
-
 After encoding, update models:
 
 \begin{center}
@@ -422,10 +420,9 @@ History: \texttt{"ban"}
 \bigskip
 \textbf{Step 4 — Fourth symbol: \texttt{'a'}}
 \begin{itemize}
-    \item Current longest: order-2 \texttt{"an"} — empty $\Rightarrow$ escape
-    \item Next: order-1 \texttt{"n"} — empty $\Rightarrow$ escape
-    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=3$; 
-    \item \textbf{Critical observation:} \texttt{'a'} is IN order-0's table!
+    \item Current longest: order-2 \texttt{"an"} — empty $\Rightarrow$ escape (0 bits)
+    \item Next: order-1 \texttt{"n"} — empty $\Rightarrow$ escape (0 bits)
+    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=3$; \texttt{'a'} IS in order-0 table!
     \item $P(\texttt{a}) = \text{Count}(\emptyset,\texttt{a})/(N_{\emptyset}+D_{\emptyset}) = 1/(3+3) = 1/6 \approx 2.58$ bits
     \item Total: $2.58$ bits (no escapes needed)
 \end{itemize}
@@ -451,7 +448,7 @@ History: \texttt{"bana"}
 \bigskip
 \textbf{Step 5 — Fifth symbol: \texttt{'n'}}
 \begin{itemize}
-    \item Current longest: order-2 \texttt{"na"} — empty $\Rightarrow$ escape
+    \item Current longest: order-2 \texttt{"na"} — empty $\Rightarrow$ escape (0 bits)
     \item Next: order-1 \texttt{"a"} — EXISTS! Has seen \texttt{n}:1
     \item $P(\texttt{n})$ at order-1 = $\text{Count}(\texttt{"a"},\texttt{n})/(N_{\texttt{a}}+D_{\texttt{a}}) = 1/(1+1) = 1/2 = 1$ bit
     \item Total: $1$ bit!
@@ -509,26 +506,25 @@ History: \texttt{"banana"}
 \begin{tabular}{l|c|c}
 \textbf{Symbol} & \textbf{Context used} & \textbf{Cost (bits)} \\
 \hline
-\texttt{b} (1) & uniform & 8.00 \\
-\texttt{a} (2) & escapes + uniform & 10.00 \\
-\texttt{n} (3) & escapes + uniform & 9.00 \\
+\texttt{b} (1) & Order -1 & 8.00 \\
+\texttt{a} (2) & Order -1 (after escapes) & 8.99 \\
+\texttt{n} (3) & Order -1 (after escapes) & 8.99 \\
 \texttt{a} (4) & order-0 & 2.58 \\
 \texttt{n} (5) & order-1 (\texttt{"a"}) & 1.00 \\
 \texttt{a} (6) & order-2 (\texttt{"an"}) & 1.00 \\
 \hline
-\textbf{Total} & & \textbf{31.58 bits} \\
+\textbf{Total} & & \textbf{30.56 bits} \\
 \end{tabular}
 \end{center}
 
-\textbf{What just happened?} The tables reveal the learning process:
+\textbf{Comparison:}
 \begin{itemize}
-    \item \textbf{Steps 1-3}: Building contexts from scratch — expensive (8-10 bits)
-    \item \textbf{Step 4}: Order-0 finally has enough data to predict 'a' (2.58 bits)
-    \item \textbf{Step 5}: The pattern "a → n" is learned — order-1 predicts perfectly (1 bit)
-    \item \textbf{Step 6}: The pattern "an → a" is learned — order-2 predicts perfectly (1 bit)
+    \item Raw ASCII: $6 \times 8 = 48$ bits
+    \item Our cost: $8 + 8.99 + 8.99 + 2.58 + 1 + 1 = 30.56$ bits
+    \item Savings from exclusion: $\approx 1.02$ bits
 \end{itemize}
-PPM discovered the alternating pattern "a","n","a","n" and exploited it immediately!
 \end{examplebox}
+
 
 %-----------------------------------------------------------------------------
 \subsubsection{Example 2: Encoding \texttt{"abracadabra"} (PPMC, $M=2$)}
