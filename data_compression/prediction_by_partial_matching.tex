@@ -5,7 +5,8 @@ Prediction by Partial Matching (PPM) is an adaptive statistical data compression
 technique that uses a set of variable-length contexts to predict the next symbol
 based on previously seen data. It dynamically builds models for contexts of
 different lengths, favouring longer contexts when possible while falling back to
-shorter ones to handle unseen patterns.
+shorter ones to handle unseen patterns. In this chapter, we focus on the PPMC
+variant (Method C), which is the most commonly used practical form of PPM.
 \end{definitionbox}
 
 PPM was introduced by Cleary and Witten in 1984 and represents a breakthrough in
@@ -59,8 +60,7 @@ up to a maximum order $M$ (typically $M = 3$ to $7$, depending on memory
 constraints). To predict or encode a symbol, PPM begins with the highest-order
 context (the last $M$ symbols). If that context has no record of the symbol (zero
 frequency), it encodes an \textit{escape} event and descends to the next lower order
-($M-1$), repeating until a matching context is found or order-0 is reached. This
-ensures non-zero probabilities for all symbols.
+($M-1$), repeating until a matching context is found or the \textbf{order -1} level is reached. This mechanism ensures that non-zero probabilities can be assigned to all symbols.
 \end{importantbox}
 
 This multi-order strategy leverages:
@@ -68,12 +68,12 @@ This multi-order strategy leverages:
     \item \textbf{High-order contexts} for precise predictions in repetitive or
           structured data (e.g.\ \texttt{"the "} is often followed by common words).
     \item \textbf{Low-order fallbacks} for robustness against novel or sparse contexts.
-    \item \textbf{Escape mechanism} to avoid zero probabilities, which would otherwise
-          halt arithmetic coding.
+    \item \textbf{Escape mechanism} to avoid zero-probability issues by assigning probability mass to unseen symbols via the escape event.
 \end{itemize}
 
 The result is a predictor that approximates the true conditional entropy of the
-source, often outperforming fixed-order models by 20--50\% on text data.
+source, often significantly outperforming fixed-order models on natural language
+data.
 
 %=============================================================================
 \subsection{The PPM Algorithm}
@@ -93,8 +93,7 @@ Throughout this chapter we use:
     \item For the order-0 context (empty string), we write $D_{\emptyset}$ and $N_{\emptyset}$
     \item $\mathcal{A}$ — the alphabet (e.g., 256 possible byte values)
 \end{itemize}
-When the context is clear from context (e.g., in examples with specific strings), we use 
-the notation directly.
+When the context is clear from the discussion, we use the notation directly.
 \end{definitionbox}
 
 \subsubsection{Core Components}
@@ -119,9 +118,15 @@ history buffer.
 \begin{definitionbox}
 The \textbf{escape symbol} is a virtual event signalling that the next symbol is
 unseen in the current context. Encoding or decoding the escape triggers a shift to
-the lower-order model, where the process repeats. At order-0, escape indicates a
-completely novel symbol in the entire stream, handled by a uniform distribution over
-the unseen portion of the alphabet.
+the lower-order model, where the process repeats.
+\end{definitionbox}
+
+\begin{definitionbox}[Order -1]
+The \textbf{order -1} model is a conceptual, final fallback mechanism that is invoked when the escape chain has exhausted all valid statistical models from order-$M$ down to order-0. At this level, the next symbol is guaranteed to be unseen in all higher-order contexts under the exclusion mechanism (i.e., it has not appeared in any considered context during this prediction step), though it may have occurred earlier in the input. The probability assigned to any single, currently unseen symbol $x$ is:
+\[
+    P(x \mid \text{order -1}) = \frac{1}{|\mathcal{A}| - |seen|},
+\]
+where $seen$ is the set of all symbols that have been excluded by higher orders during this encoding step. This ensures that the total probability mass for all currently unseen symbols sums to 1.
 \end{definitionbox}
 
 \begin{importantbox}
@@ -152,25 +157,26 @@ probabilities to select the symbol, updating models identically.
 \While{$k \geq 0$}
     \State $c \gets$ last $k$ symbols of $H$
     \State Retrieve model for $c$: frequencies for $S_c$, total $N_c$, distinct $D_c$
-    \State $S_{\mathrm{excl}} \gets S_c \cap seen$;\quad
-           $N_{\mathrm{excl}} \gets \sum_{s \in S_{\mathrm{excl}}} \text{Count}(c,s)$
+    \State $S_{\mathrm{excl}} \gets S_c \cap seen$
+    \State $N_{\mathrm{eff}} \gets N_c - \sum_{s \in S_{\mathrm{excl}}} \text{Count}(c,s)$
+    \State $D_{\mathrm{eff}} \gets D_c - |S_{\mathrm{excl}}|$
     \If{$x \in S_c \setminus S_{\mathrm{excl}}$}
         \State $P(x \mid c, \mathit{excl}) \gets
-               \dfrac{\text{Count}(c,x)}{N_c + D_c}$
-               \Comment{PPMC: escape weight $= D_c$}
+               \dfrac{\text{Count}(c,x)}{N_{\mathrm{eff}} + D_{\mathrm{eff}}}$
+               \Comment{PPMC with exclusion}
         \State Encode $x$ using this probability
         \State $\text{Count}(c,x) \gets \text{Count}(c,x) + 1$
         \State \textbf{return}
     \Else
         \State $P(\text{escape} \mid c, \mathit{excl}) \gets
-               \dfrac{D_c}{N_c + D_c}$
+               \dfrac{D_{\mathrm{eff}}}{N_{\mathrm{eff}} + D_{\mathrm{eff}}}$
         \State Encode escape using this probability
         \State $seen \gets seen \cup (S_c \setminus S_{\mathrm{excl}})$
         \State $k \gets k - 1$
     \EndIf
 \EndWhile
-\If{$k < 0$}
-    \State $U \gets |\mathcal{A}| - |seen|$ \Comment{Number of truly unseen symbols}
+\If{$k < 0$} \Comment{Order -1}
+    \State $U \gets |\mathcal{A}| - |seen|$ \Comment{Number of truly unseen symbols at this step}
     \State $P(x \mid \mathit{unseen}) \gets 1/U$
     \State Encode $x$ using this uniform probability
     \State Update order-0 model with $x$
@@ -265,8 +271,8 @@ drops slightly because the context is becoming more predictable.
 \textbf{Why PPMC works:}
 \begin{itemize}
     \item It \textbf{adapts} to context richness — diverse contexts escape more often
-    \item It \textbf{never assigns zero probability} to anything (escape always $>0$ 
-          once $D_c > 0$, and unseen symbols get probability via escape chain)
+    \item It avoids zero-probability issues by assigning probability mass to unseen 
+          symbols via the escape mechanism.
     \item It's \textbf{computationally simple} — just need to track counts and 
           distinct symbols
     \item Probabilities always sum to 1 automatically:
@@ -315,7 +321,8 @@ escapes from a higher-order context to a lower-order one, all symbols that were
 \emph{excluded} from the probability distribution in the lower-order context. This
 renormalises the remaining probabilities upward, sharpening predictions for
 genuinely novel symbols and typically saving 5--10\% of bits compared with
-non-excluding PPM.
+non-excluding PPM. Excluded symbols are removed from both the symbol set and the 
+normalization constant to ensure probabilities remain properly normalized.
 \end{importantbox}
 
 \begin{examplebox}
@@ -341,14 +348,14 @@ next symbol.
 \subsubsection{Example 1: Encoding \texttt{"banana"}}
 
 This example demonstrates PPM with maximum order $M=2$ and PPMC escape estimation.
-The alphabet size is $|\mathcal{A}| = 256$ (bytes). We apply the exclusion principle throughout.
+The alphabet size is $|\mathcal{A}| = 256$ (bytes). We apply the exclusion principle throughout, noting that in early steps, exclusion has no effect because there are no overlapping symbols between contexts. All bit costs are approximated to two decimal places.
 
 \begin{examplebox}[PPM in Action: Encoding "banana" with Exclusion]
 
 \textbf{Step 1 — First symbol: \texttt{'b'}}
 \begin{itemize}
-    \item No history exists yet. All contexts are empty.
-    \item After escaping through all empty contexts (cost 0 bits each), we reach Order -1.
+    \item History: \texttt{""}. The longest available context is order-2, then order-1, then order-0. All are empty. In an empty context, escape has probability 1, so it contributes 0 bits (i.e., it does not change the coding interval).
+    \item After escaping through all empty contexts, we reach Order -1.
     \item At Order -1: $|seen| = 0$, so $P(\texttt{b}) = 1/256$.
     \item Cost: $-\log_2(1/256) = 8$ bits.
 \end{itemize}
@@ -370,7 +377,7 @@ History: \texttt{"b"}
 \textbf{Step 2 — Second symbol: \texttt{'a'}}
 \begin{itemize}
     \item Current longest: order-1 context \texttt{"b"} — empty $\Rightarrow$ escape (0 bits)
-    \item Order-0: $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc}) = 1/(1+1) = 1/2$ (1 bit)
+    \item Next: order-0. $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc}) = 1/(1+1) = 1/2$ (1 bit)
     \item \texttt{'a'} not in order-0 $\Rightarrow$ encode escape; add \{\texttt{b}\} to $seen$
     \item Order -1: $|seen| = 1$, so $P(\texttt{a}) = 1/(256-1) = 1/255 \approx 7.99$ bits
     \item Total for \texttt{'a'}: $0 + 1 + 7.99 = 8.99$ bits
@@ -395,7 +402,7 @@ History: \texttt{"ba"}
 \begin{itemize}
     \item Current longest: order-2 \texttt{"ba"} — empty $\Rightarrow$ escape (0 bits)
     \item Next: order-1 \texttt{"a"} — empty $\Rightarrow$ escape (0 bits)
-    \item Order-0: $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
+    \item Next: order-0. $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
     \item \texttt{'n'} not in order-0 $\Rightarrow$ encode escape; add \{\texttt{a}, \texttt{b}\} to $seen$
     \item Order -1: $|seen| = 2$, so $P(\texttt{n}) = 1/(256-2) = 1/254 \approx 7.99$ bits
     \item Total: $0 + 0 + 1 + 7.99 = 8.99$ bits
@@ -422,7 +429,7 @@ History: \texttt{"ban"}
 \begin{itemize}
     \item Current longest: order-2 \texttt{"an"} — empty $\Rightarrow$ escape (0 bits)
     \item Next: order-1 \texttt{"n"} — empty $\Rightarrow$ escape (0 bits)
-    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=3$; \texttt{'a'} IS in order-0 table!
+    \item Next: order-0. $D_{\emptyset}=3$, $N_{\emptyset}=3$; \texttt{'a'} IS in order-0 table!
     \item $P(\texttt{a}) = \text{Count}(\emptyset,\texttt{a})/(N_{\emptyset}+D_{\emptyset}) = 1/(3+3) = 1/6 \approx 2.58$ bits
     \item Total: $2.58$ bits (no escapes needed)
 \end{itemize}
@@ -521,7 +528,7 @@ History: \texttt{"banana"}
 \begin{itemize}
     \item Raw ASCII: $6 \times 8 = 48$ bits
     \item Our cost: $8 + 8.99 + 8.99 + 2.58 + 1 + 1 = 30.56$ bits
-    \item Savings from exclusion: $\approx 1.02$ bits
+    \item Savings from PPM: $\approx 36\%$
 \end{itemize}
 \end{examplebox}
 
@@ -538,7 +545,7 @@ order-1 contexts (single symbols), and order-2 contexts (pairs).
 
 \textbf{Symbol 1: \texttt{'a'}}
 \begin{itemize}
-    \item No context available; use uniform distribution.
+    \item All contexts empty; escape to order -1.
     \item Cost: $-\log_2(1/256) = 8$ bits.
 \end{itemize}
 After encoding, update models:
@@ -560,9 +567,9 @@ History: $H =$ \texttt{"a"}
 \begin{itemize}
     \item Longest available context: order-1 \texttt{(a)} — empty $\Rightarrow$ escape
     \item Order-0: $D_{\emptyset}=1$, $N_{\emptyset}=1$; $P(\text{esc}) = 1/(1+1) = 1/2$ (1 bit)
-    \item \texttt{'b'} unseen in order-0 $\Rightarrow$ encode escape
-    \item Fallback to uniform: 8 bits
-    \item Total cost: $1 + 8 = 9$ bits
+    \item \texttt{'b'} unseen in order-0 $\Rightarrow$ encode escape. Add \texttt{a} to $seen$.
+    \item Order -1: $|seen| = 1$, so $P(\texttt{b}) = 1/255 \approx 7.99$ bits.
+    \item Total cost: $1 + 7.99 = 8.99$ bits
 \end{itemize}
 After encoding, update models:
 
@@ -585,9 +592,9 @@ History: $H =$ \texttt{"ab"}
     \item Longest available: order-2 \texttt{(ab)} — empty $\Rightarrow$ escape
     \item Next: order-1 \texttt{(b)} — empty $\Rightarrow$ escape
     \item Order-0: $D_{\emptyset}=2$, $N_{\emptyset}=2$; $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
-    \item \texttt{'r'} unseen in order-0 $\Rightarrow$ encode escape
-    \item Fallback to uniform: 8 bits
-    \item Total cost: $1 + 8 = 9$ bits
+    \item \texttt{'r'} unseen in order-0 $\Rightarrow$ encode escape. Add \{\texttt{a}, \texttt{b}\} to $seen$.
+    \item Order -1: $|seen| = 2$, so $P(\texttt{r}) = 1/254 \approx 7.99$ bits.
+    \item Total cost: $1 + 7.99 = 8.99$ bits (escapes from order-2 and order-1 cost 0 bits as their models are empty)
 \end{itemize}
 After encoding, update models:
 
@@ -638,12 +645,12 @@ History: $H =$ \texttt{"abra"}
 \textbf{Symbol 5: \texttt{'c'}}
 \begin{itemize}
     \item Longest available: order-2 \texttt{(ra)} — empty $\Rightarrow$ escape
-    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1 ($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$); $P(\text{esc}) = 1/2$ (1 bit)
-    \item \texttt{'c'} unseen $\Rightarrow$ encode escape
-    \item Order-0: $D_{\emptyset}=3$, $N_{\emptyset}=4$; $P(\text{esc}) = 3/(4+3) = 3/7 \approx 1.22$ bits
-    \item \texttt{'c'} unseen $\Rightarrow$ encode escape
-    \item Fallback to uniform: 8 bits
-    \item Total cost: $1 + 1.22 + 8 = 10.22$ bits
+    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1 ($D_{\texttt{a}}=1$, $N_{\texttt{a}}=1$); $P(\text{esc}) = 1/2$ (1 bit). Add \texttt{b} to $seen$.
+    \item Next: order-0. Effective model after exclusion: remaining symbols are \{\texttt{a}, \texttt{r}\}. $D_{\mathrm{eff}} = 2$, $N_{\mathrm{eff}} = 3$ (since count of \texttt{b} excluded). Denominator $= N_{\mathrm{eff}} + D_{\mathrm{eff}} = 3+2=5$.
+    \item $P(\text{esc})$ at order-0 = $2/5 \approx 1.32$ bits.
+    \item \texttt{'c'} unseen $\Rightarrow$ encode escape. Add \{\texttt{a}, \texttt{r}\} to $seen$.
+    \item Order -1: $|seen| = |\{\texttt{a}, \texttt{b}, \texttt{r}\}| = 3$, so $P(\texttt{c}) = 1/(256-3) = 1/253 \approx 7.98$ bits.
+    \item Total cost: $1 + 1.32 + 7.98 = 10.30$ bits
 \end{itemize}
 After encoding, update models:
 
@@ -671,7 +678,7 @@ History: $H =$ \texttt{"abrac"}
 \begin{itemize}
     \item Longest available: order-2 \texttt{(ac)} — empty $\Rightarrow$ escape
     \item Next: order-1 \texttt{(c)} — empty $\Rightarrow$ escape
-    \item Order-0: $D_{\emptyset}=4$, $N_{\emptyset}=5$; $P(\texttt{a}) = 2/(5+4) = 2/9 \approx 2.17$ bits
+    \item Next: order-0. $D_{\emptyset}=4$, $N_{\emptyset}=5$; $P(\texttt{a}) = 2/(5+4) = 2/9 \approx 2.17$ bits
     \item Total cost: $2.17$ bits
 \end{itemize}
 After encoding, update models:
@@ -700,12 +707,12 @@ History: $H =$ \texttt{"abraca"}
 \textbf{Symbol 7: \texttt{'d'}}
 \begin{itemize}
     \item Longest available: order-2 \texttt{(ca)} — empty $\Rightarrow$ escape
-    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1, \texttt{c}:1 ($D_{\texttt{a}}=2$, $N_{\texttt{a}}=2$); $P(\text{esc}) = 2/(2+2) = 1/2$ (1 bit)
-    \item \texttt{'d'} unseen $\Rightarrow$ encode escape
-    \item Order-0: $D_{\emptyset}=4$, $N_{\emptyset}=6$; $P(\text{esc}) = 4/(6+4) = 4/10 = 0.4$ (1.32 bits)
-    \item \texttt{'d'} unseen $\Rightarrow$ encode escape
-    \item Fallback to uniform: 8 bits
-    \item Total cost: $1 + 1.32 + 8 = 10.32$ bits
+    \item Next: order-1 \texttt{(a)} — has \texttt{b}:1, \texttt{c}:1 ($D_{\texttt{a}}=2$, $N_{\texttt{a}}=2$); $P(\text{esc}) = 2/4 = 1/2$ (1 bit). Add \{\texttt{b}, \texttt{c}\} to $seen$.
+    \item Next: order-0. Effective model after exclusion: remaining symbols are \{\texttt{a}, \texttt{r}\}. $D_{\mathrm{eff}} = 2$, $N_{\mathrm{eff}} = 4$ (counts of \texttt{a}:3, \texttt{r}:1). Denominator $= 4+2=6$.
+    \item $P(\text{esc})$ at order-0 = $2/6 = 1/3 \approx 1.58$ bits.
+    \item \texttt{'d'} unseen $\Rightarrow$ encode escape. Add \{\texttt{a}, \texttt{r}\} to $seen$.
+    \item Order -1: $|seen| = |\{\texttt{a}, \texttt{b}, \texttt{c}, \texttt{r}\}| = 4$, so $P(\texttt{d}) = 1/(256-4) = 1/252 \approx 7.97$ bits.
+    \item Total cost: $1 + 1.58 + 7.97 = 10.55$ bits
 \end{itemize}
 After encoding, update models:
 
@@ -736,7 +743,7 @@ History: $H =$ \texttt{"abracad"}
 \begin{itemize}
     \item Longest available: order-2 \texttt{(ad)} — empty $\Rightarrow$ escape
     \item Next: order-1 \texttt{(d)} — empty $\Rightarrow$ escape
-    \item Order-0: $D_{\emptyset}=5$, $N_{\emptyset}=7$; $P(\texttt{a}) = 3/(7+5) = 3/12 = 0.25$ (2 bits)
+    \item Next: order-0. $D_{\emptyset}=5$, $N_{\emptyset}=7$; $P(\texttt{a}) = 3/(7+5) = 3/12 = 0.25$ (2 bits)
     \item Total cost: $2$ bits
 \end{itemize}
 After encoding, update models:
@@ -815,7 +822,7 @@ After encoding, update models:
 \hline
 Order-0 & $\emptyset$ & \texttt{a}:4, \texttt{b}:2, \texttt{r}:2, \texttt{c}:1, \texttt{d}:1 & 5 & 10 \\
 Order-1 & \texttt{"a"} & \texttt{b}:2, \texttt{c}:1, \texttt{d}:1 & 3 & 4 \\
-Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
+Order-1 & \texttt{"b"} & \texttt{r}:2 & 1 & 2 \\
 Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
 Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
 Order-1 & \texttt{"d"} & \texttt{a}:1 & 1 & 1 \\
@@ -848,8 +855,8 @@ After encoding, update models:
 \hline
 Order-0 & $\emptyset$ & \texttt{a}:5, \texttt{b}:2, \texttt{r}:2, \texttt{c}:1, \texttt{d}:1 & 5 & 11 \\
 Order-1 & \texttt{"a"} & \texttt{b}:2, \texttt{c}:1, \texttt{d}:1 & 3 & 4 \\
-Order-1 & \texttt{"b"} & \texttt{r}:1 & 1 & 1 \\
-Order-1 & \texttt{"r"} & \texttt{a}:1 & 1 & 1 \\
+Order-1 & \texttt{"b"} & \texttt{r}:2 & 1 & 2 \\
+Order-1 & \texttt{"r"} & \texttt{a}:2 & 1 & 2 \\
 Order-1 & \texttt{"c"} & \texttt{a}:1 & 1 & 1 \\
 Order-1 & \texttt{"d"} & \texttt{a}:1 & 1 & 1 \\
 Order-2 & \texttt{"ab"} & \texttt{r}:2 & 1 & 2 \\
@@ -870,19 +877,19 @@ History: $H =$ \texttt{"abracadabra"}
 \begin{tabular}{l|c|c}
 \textbf{Symbol} & \textbf{Context used} & \textbf{Cost (bits)} \\
 \hline
-\texttt{a} (1) & uniform fallback & 8.00 \\
-\texttt{b} (2) & escapes + uniform & 9.00 \\
-\texttt{r} (3) & escapes + uniform & 9.00 \\
+\texttt{a} (1) & order -1 & 8.00 \\
+\texttt{b} (2) & order -1 & 8.99 \\
+\texttt{r} (3) & order -1 & 8.99 \\
 \texttt{a} (4) & order-0 & 2.58 \\
-\texttt{c} (5) & escapes + uniform & 10.22 \\
+\texttt{c} (5) & order -1 & 10.30 \\
 \texttt{a} (6) & order-0 & 2.17 \\
-\texttt{d} (7) & escapes + uniform & 10.32 \\
+\texttt{d} (7) & order -1 & 10.55 \\
 \texttt{a} (8) & order-0 & 2.00 \\
 \texttt{b} (9) & order-1 (\texttt{"a"}) & 2.58 \\
 \texttt{r} (10) & order-2 (\texttt{"ab"}) & 1.00 \\
 \texttt{a} (11) & order-2 (\texttt{"br"}) & 1.00 \\
 \hline
-\textbf{Total} & & \textbf{57.87 bits} \\
+\textbf{Total} & & \textbf{58.16 bits} \\
 \end{tabular}
 \end{center}
 
@@ -909,9 +916,9 @@ We track the evolution of models after each symbol:
 \hline
 \textbf{Symbol} & \textbf{Context used} & \textbf{Cost} & $D_{\emptyset},N_{\emptyset}$ & $D_{\texttt{a}},N_{\texttt{a}}$ & $D_{\texttt{b}},N_{\texttt{b}}$ \\
 \hline
-1: \texttt{a} & uniform & 8.00 & (1,1) & (0,0) & (0,0) \\
-2: \texttt{b} & escapes + uniform & 9.00 & (2,2) & (1,1) & (0,0) \\
-3: \texttt{a} & order-0 & 2.00 & (2,3) & (1,1) & (1,1) \\
+1: \texttt{a} & order -1 & 8.00 & (1,1) & (0,0) & (0,0) \\
+2: \texttt{b} & order -1 & 8.99 & (2,2) & (1,1) & (0,0) \\
+3: \texttt{a} & order-0 & 2.58 & (2,3) & (1,1) & (1,1) \\
 4: \texttt{b} & order-1 (\texttt{"a"}) & 1.00 & (2,4) & (1,2) & (1,1) \\
 5: \texttt{a} & order-1 (\texttt{"b"}) & 1.00 & (2,5) & (1,2) & (1,2) \\
 6: \texttt{b} & order-1 (\texttt{"a"}) & 0.58 & (2,6) & (1,3) & (1,2) \\
@@ -928,7 +935,7 @@ We track the evolution of models after each symbol:
     \item By symbol 4, order-1 context \texttt{"a"} perfectly predicts \texttt{'b'} (1 bit)
     \item By symbol 5, order-1 context \texttt{"b"} perfectly predicts \texttt{'a'} (1 bit)
     \item As counts increase, probabilities become more certain and costs decrease
-    \item Total: $8+9+2+1+1+0.58+0.58+0.42+0.42+0.32 \approx 23.3$ bits ($2.33$ bpc)
+    \item Total: $8+8.99+2.58+1+1+0.58+0.58+0.42+0.42+0.32 \approx 23.89$ bits ($2.39$ bpc)
 \end{itemize}
 An adaptive order-0 model would require many more symbols to reach similar efficiency.
 \end{examplebox}
@@ -1251,7 +1258,8 @@ pinnacle of Markov-based modeling. Key takeaways include:
           estimation, with PPMC being the most widely used method:
           $P(\text{escape} \mid c) = D_c/(N_c + D_c)$.
     \item The \textit{exclusion principle} sharpens probability estimates by 
-          removing symbols already considered in higher-order contexts.
+          removing symbols already considered in higher-order contexts, and requires the use of effective counts ($N_{\mathrm{eff}}$, $D_{\mathrm{eff}}$) for proper normalization.
+    \item The \textbf{order -1} model provides a final fallback for symbols that remain unseen after exclusion across all higher orders, assigning them uniform probability over the currently-unseen alphabet.
     \item Efficient implementation requires trie data structures with suffix links,
           where each node stores $D_c$ and $N_c$ for its context.
     \item Modern variants like PPM* (unbounded contexts) and PPMZ (secondary escape 
