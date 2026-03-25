@@ -1,0 +1,836 @@
+% chapter10_modern_entropy_coders.tex
+\section{Modern Entropy Coders — ANS and Range Coding}
+
+\subsection{Introduction: Beyond Huffman's Limitations}
+
+Entropy coding is the final stage of most modern compression systems.  
+Earlier chapters introduced two fundamental approaches:
+
+\begin{itemize}
+    \item \textbf{Huffman Coding} (Chapter 2.8) — fast but limited to integer-bit codeword lengths.
+    \item \textbf{Arithmetic Coding} (Chapter 3.7) — achieves fractional-bit precision and approaches the Shannon limit.
+\end{itemize}
+
+Although arithmetic coding provides near-optimal compression, it has historically faced several challenges:
+
+\begin{enumerate}
+    \item \textbf{Patent restrictions} (expired around 2005).
+    \item \textbf{High computational cost}, especially multiplications and divisions.
+    \item \textbf{Complex implementation}, particularly renormalization and interval management.
+\end{enumerate}
+
+These limitations motivated the search for faster, simpler entropy coders that still preserve the compression efficiency of arithmetic coding.  
+This chapter presents two such techniques:
+
+\begin{itemize}
+    \item \textbf{Range Coding} — a practical integer formulation of arithmetic coding used in LZMA, WebP, and ffmpeg.
+    \item \textbf{Asymmetric Numeral Systems (ANS)} — a breakthrough method discovered in 2009 that combines Huffman-like speed with arithmetic-like compression.
+\end{itemize}
+
+Both techniques are fundamental to modern compressors, including Zstd, LZFSE, JPEG~XL, and other industry standards.
+
+\subsection{Range Coding: Arithmetic With Integers}
+
+Range coding is best understood as a re-interpretation of arithmetic coding where the ``interval'' is represented using integers rather than fractions.  
+This gives several advantages:
+
+\begin{itemize}
+    \item simpler renormalization,
+    \item integer-only arithmetic,
+    \item complete avoidance of arithmetic coding patents,
+    \item highly efficient implementations (used by LZMA, WebP, VPx, and others).
+\end{itemize}
+
+\subsubsection{Core Concept}
+
+Arithmetic coding encodes a message by narrowing a fractional interval $[0,1)$.  
+Range coding reformulates this idea:
+
+\begin{quote}
+\emph{Represent the current interval as integer values \texttt{low} and \texttt{range} where the actual interval is $[\,\texttt{low},\, \texttt{low} + \texttt{range}\,)$ inside a fixed-size integer space (usually 32 bits).}
+\end{quote}
+
+For each symbol $s$ with frequency $f(s)$ and cumulative frequency $F(s)$ (where $\sum f(s) = \text{total}$), the interval is updated as:
+
+\begin{algorithm}[H]
+\caption{Modern Range Coding Update}
+\begin{algorithmic}[1]
+\Procedure{EncodeSymbol}{$s$, $freq$, $cum$, $total$}
+    \State $\text{range} \gets \text{range} \times \text{freq}[s] / \text{total}$  \Comment{First narrow range}
+    \State $\text{low} \gets \text{low} + \text{range} \times \text{cum}[s] / \text{total}$  \Comment{Then adjust low}
+    \State \Call{Renormalize}{}
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Most modern implementations use \textbf{scaled integer frequencies}, where \texttt{total} is a power of two (e.g., $2^{12}$, $2^{15}$) to replace division with bit shifts.
+
+\subsubsection{Renormalization with Byte Output}
+
+Because \texttt{low} and \texttt{range} are stored in a fixed-width integer (e.g., 32 bits), we must periodically \emph{renormalize} to maintain precision. The industry standard (LZMA, WebP) uses:
+
+\[
+\text{threshold} = 2^{24} = 16{,}777{,}216
+\]
+
+Whenever $\text{range} < 2^{24}$, we output the most significant byte of \texttt{low} and shift:
+
+\begin{algorithm}[H]
+\caption{Renormalization (Industry Standard)}
+\begin{algorithmic}[1]
+\Procedure{Renormalize}{}
+    \While{$\text{range} < 2^{24}$}
+        \State $\text{output\_byte}(\text{low} \gg 24)$
+        \State $\text{low} \leftarrow (\text{low} \ll 8) \;\&\; \text{0xFFFFFFFF}$
+        \State $\text{range} \leftarrow \text{range} \ll 8$
+    \EndWhile
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+This ensures at least 24 bits of precision at all times and produces a byte-aligned output stream.
+
+\subsubsection{Advantages}
+
+\begin{itemize}
+    \item No floating-point operations.
+    \item The method is patent-free.
+    \item Excellent performance on modern CPUs.
+    \item Simple to integrate into block compressors.
+\end{itemize}
+
+\subsubsection{Range Coding Example}
+
+Consider an alphabet $\{A,B,C\}$ with frequencies:
+
+\[
+f(A) = 5,\quad f(B) = 3,\quad f(C) = 2,\quad \text{total} = 10.
+\]
+
+Cumulative ranges:
+
+\[
+A: [0,5),\quad B: [5,8),\quad C: [8,10).
+\]
+
+Encode the sequence: \texttt{A B A C}.
+
+We begin with:
+
+\[
+\texttt{low} = 0,\qquad \texttt{range} = 2^{32}-1.
+\]
+
+\textbf{Encode 'A'}:
+\begin{align}
+\text{range} &\leftarrow \text{range} \times 5 / 10 = 2{,}147{,}483{,}647 \\
+\text{low} &\leftarrow 0 + 2{,}147{,}483{,}647 \times 0 / 10 = 0
+\end{align}
+
+Check renormalization: $\text{range} = 2{,}147{,}483{,}647 \ge 2^{24}$, so continue.
+
+\textbf{Encode 'B'}:
+\begin{align}
+\text{range} &\leftarrow 2{,}147{,}483{,}647 \times 3 / 10 = 644{,}245{,}094 \\
+\text{low} &\leftarrow 0 + 644{,}245{,}094 \times 5 / 10 = 322{,}122{,}547
+\end{align}
+
+\textbf{Encode 'A'}:
+\begin{align}
+\text{range} &\leftarrow 644{,}245{,}094 \times 5 / 10 = 322{,}122{,}547 \\
+\text{low} &\leftarrow 322{,}122{,}547 + 322{,}122{,}547 \times 0 / 10 = 322{,}122{,}547
+\end{align}
+
+\textbf{Encode 'C'}:
+\begin{align}
+\text{range} &\leftarrow 322{,}122{,}547 \times 2 / 10 = 64{,}424{,}509 \\
+\text{low} &\leftarrow 322{,}122{,}547 + 64{,}424{,}509 \times 8 / 10 = 322{,}122{,}547 + 51{,}539{,}607 = 373{,}662{,}154
+\end{align}
+
+Now $\text{range} = 64{,}424{,}509 \ge 2^{24}$, so no renormalization needed. The compressed representation is the final $\text{low}$ value.
+
+\subsection{Asymmetric Numeral Systems (ANS): The Breakthrough}
+
+Introduced in 2009 by Jarosław Duda, ANS revolutionized entropy coding by achieving:
+
+\begin{itemize}
+    \item compression efficiency very close to arithmetic coding,
+    \item speeds approaching and often exceeding Huffman coding,
+    \item simple integer arithmetic,
+    \item elegant mathematical structure,
+    \item ideal suitability for software and hardware implementations.
+\end{itemize}
+
+\subsubsection{Historical Context}
+
+Before ANS, entropy coding was effectively split between:
+
+\begin{itemize}
+    \item \textbf{Huffman coding}: fast but suboptimal (integer bits only).
+    \item \textbf{Arithmetic coding}: optimal but comparatively slow (requires multiplication/division).
+\end{itemize}
+
+Duda's insight was to invert the typical relationship between symbols and intervals, encoding information into the \emph{magnitude} of a single integer state.
+
+\subsubsection{The Core Insight}
+
+ANS is founded on a simple idea:
+
+\begin{quote}
+\emph{Maintain a single integer state $x$.  
+Encoding a symbol transforms $x$ into a larger value $x'$ whose growth approximates the ideal information cost $-\log_2 p(s)$.}
+\end{quote}
+
+If a symbol $s$ has probability $p$, ANS ensures:
+
+\[
+\log_2(x') - \log_2(x) \approx -\log_2 p.
+\]
+
+This mirrors arithmetic coding but uses integer state transitions instead of intervals.
+
+\subsubsection{Intuitive Explanation: The ``Stack'' Property}
+
+Arithmetic coding emits bits from the most significant side.  
+ANS, however, emits (and consumes) bits at the \emph{least significant side}, which reverses the order of symbols:
+
+\begin{itemize}
+    \item Encoding: symbols push bits onto the end of the state (like a stack).
+    \item Decoding: symbols are read in reverse order, popping bits from the state.
+\end{itemize}
+
+This natural LIFO (Last-In-First-Out) behavior means:
+\begin{itemize}
+    \item If you encode $s_1, s_2, \ldots, s_n$ in that order, decoding yields $s_n, \ldots, s_2, s_1$
+    \item To decode in natural order, either encode in reverse or buffer and reverse the output
+\end{itemize}
+
+\subsubsection{Why ANS Is Faster}
+
+\begin{itemize}
+    \item A single integer state variable (no interval maintenance).
+    \item No divisions in the fast path for tANS (precomputed tables).
+    \item Sequential memory access (no tree traversal like Huffman).
+    \item Compatible with SIMD and GPU architectures.
+\end{itemize}
+
+ANS supports two major variants: rANS and tANS.
+
+\subsection{Variations of ANS}
+
+\subsubsection{rANS (Range ANS)}
+
+rANS uses arithmetic-like interval partitioning:
+
+\[
+x' = \left\lfloor \frac{x}{f(s)} \right\rfloor \cdot \text{total} + (x \bmod f(s)) + F(s)
+\]
+
+where:
+\begin{itemize}
+    \item $x$ is the current state
+    \item $f(s)$ is the frequency of symbol $s$
+    \item $F(s)$ is the cumulative frequency of all symbols before $s$
+    \item $\text{total} = \sum f(s)$ (typically a power of two)
+\end{itemize}
+
+Key properties:
+
+\begin{itemize}
+    \item Very simple to implement.
+    \item Excellent compression efficiency.
+    \item Naturally streaming (push/pop bits from LSB side).
+\end{itemize}
+
+\subsubsection{tANS (Table ANS)}
+
+tANS precomputes a finite-state automaton (FSA) that maps:
+
+\[
+\text{state},\; \text{symbol} \longrightarrow \text{new state} + \text{emitted bits}.
+\]
+
+Properties:
+
+\begin{itemize}
+    \item Extremely fast (used in Zstandard).
+    \item No multiplications or divisions at runtime.
+    \item Ideal for hardware (lookup tables in ROM).
+    \item Memory: approximately $4 \times \text{states}$ bytes (e.g., 16 KB for 4096 states).
+\end{itemize}
+
+\subsubsection{Comparison}
+
+\begin{itemize}
+    \item \textbf{rANS}: easier to implement, flexible, great for streaming, $O(1)$ memory.
+    \item \textbf{tANS}: faster, more complex, uses $O(\text{states})$ memory, ideal for small alphabets.
+\end{itemize}
+
+\subsection{Detailed rANS Example}
+
+To make the mechanics of rANS fully concrete, this section walks through a complete encoding and decoding example.  
+This includes:
+
+\begin{itemize}
+    \item constructing normalized frequencies,
+    \item building cumulative tables,
+    \item understanding renormalization,
+    \item encoding a symbol sequence step-by-step,
+    \item decoding it back to the original sequence.
+\end{itemize}
+
+For pedagogical clarity, we use small numbers and a small symbol alphabet.  
+Practical implementations use much larger states and ranges.
+
+\subsubsection{Normalized Frequencies}
+
+Given an alphabet $\{A, B\}$ with raw frequencies:
+
+\[
+f(A)=2,\qquad f(B)=1,\qquad \text{total}=3,
+\]
+
+we normalize the frequencies to a power-of-two total:
+
+\[
+L = 4.
+\]
+
+Normalized frequencies:
+
+\[
+f_A = 3,\qquad f_B = 1.
+\]
+
+Cumulative frequency ranges:
+
+\[
+A:\; [0,3),\qquad B:\; [3,4).
+\]
+
+Throughout this example:
+
+\[
+L = 4.
+\]
+
+\subsubsection{Initial State}
+
+rANS maintains a single integer state $x$.  
+To keep the example small, we set:
+
+\[
+x_0 = L = 4.
+\]
+
+Practical implementations initialize $x$ to a much larger value (e.g., $2^{23}$ for rANS32 or $2^{56}$ for rANS64), but using $x_0=L$ is perfectly valid for illustrating the algorithm.
+
+\subsubsection{Encoding Equations}
+
+Given the current state $x$ and symbol $s$ with frequency $f(s)$ and cumulative range $F(s)$, rANS encodes using:
+
+\[
+x' = \left\lfloor \frac{x}{f(s)} \right\rfloor \cdot L + (x \bmod f(s)) + F(s).
+\]
+
+This increases the magnitude of $x$ so that its growth approximates $-\log_2 p(s)$ bits of information.
+
+\subsubsection{Renormalization}
+
+Since $x$ grows during encoding, we must periodically emit lower bits to keep it within a machine word.
+
+Define a renormalization lower bound (for educational purposes):
+
+\[
+\text{threshold} = L \cdot 256.
+\]
+
+While $x \geq \text{threshold}$:
+
+\begin{enumerate}
+    \item Emit the lowest 8 bits of $x$ (LSB-first).
+    \item Set $x \leftarrow x \gg 8$.
+\end{enumerate}
+
+This keeps $x$ at a manageable size. (Production implementations use much larger thresholds.)
+
+\subsubsection{Encoding the Sequence \texttt{B A B A}}
+
+\textbf{Important}: Because ANS is a stack-like coder, we encode symbols in \textbf{reverse order} so that decoding produces the original order. For sequence \texttt{B A B A} (original order), we encode:
+
+\[
+\texttt{A},\; \texttt{B},\; \texttt{A},\; \texttt{B}
+\]
+
+\textbf{Step 1: Encode A}
+
+Current state:
+
+\[
+x = 4.
+\]
+
+For $A$:
+
+\[
+f_A = 3,\qquad F(A)=0.
+\]
+
+Compute:
+
+\[
+x' = \left\lfloor \frac{4}{3} \right\rfloor \cdot 4 + (4 \bmod 3) + 0
+    = 1 \cdot 4 + 1 = 5.
+\]
+
+No renormalization required.
+
+\[
+x = 5.
+\]
+
+\textbf{Step 2: Encode B}
+
+\[
+x = 5.
+\]
+
+For $B$:
+
+\[
+f_B = 1,\qquad F(B)=3.
+\]
+
+Compute:
+
+\[
+x' = \left\lfloor \frac{5}{1} \right\rfloor \cdot 4 + (5 \bmod 1) + 3
+    = 5 \cdot 4 + 0 + 3 = 23.
+\]
+
+Still below the threshold:
+
+\[
+x = 23.
+\]
+
+\textbf{Step 3: Encode A}
+
+\[
+x = 23.
+\]
+
+For $A$:
+
+\[
+x' = \left\lfloor \frac{23}{3} \right\rfloor \cdot 4 + (23 \bmod 3)
+    = 7 \cdot 4 + 2 = 30.
+\]
+
+\[
+x = 30.
+\]
+
+\textbf{Step 4: Encode B}
+
+\[
+x = 30.
+\]
+
+For $B$:
+
+\[
+x' = \left\lfloor \frac{30}{1} \right\rfloor \cdot 4 + 3 = 30 \cdot 4 + 3 = 123.
+\]
+
+\[
+x = 123.
+\]
+
+No renormalization was triggered because our threshold $=4\cdot256=1024$.
+
+\subsubsection{Final Compressed State}
+
+At the end of encoding:
+
+\[
+x_{\text{final}} = 123.
+\]
+
+The output stream consists of:
+
+\begin{itemize}
+    \item All emitted renormalization bytes (none in this example).
+    \item The final state $x_{\text{final}}$ (which will be read by the decoder).
+\end{itemize}
+
+\subsubsection{Decoding}
+
+Decoding processes symbols in the \textbf{forward} order (starting from the final state) and will produce symbols in reverse order of encoding. Since we encoded \texttt{A, B, A, B}, decoding will produce:
+
+\[
+\texttt{B},\; \texttt{A},\; \texttt{B},\; \texttt{A}
+\]
+
+which matches our original sequence \texttt{B A B A}.
+
+Given current state $x$, we determine which symbol was encoded by computing:
+
+\[
+\text{slot} = x \bmod L.
+\]
+
+Then:
+
+\[
+\text{symbol} = \text{lookup\_by\_cumulative(slot)}.
+\]
+
+For our cumulative table:
+
+\[
+0,1,2 \rightarrow A,\qquad 3 \rightarrow B.
+\]
+
+After identifying the symbol $s$, we compute the previous state:
+
+\[
+x_{\text{prev}} = f(s) \cdot \left\lfloor \frac{x}{L} \right\rfloor + (x \bmod L) - F(s).
+\]
+
+Finally, if $x_{\text{prev}} < L$, we pull bytes from the input stream until:
+
+\[
+x_{\text{prev}} \geq L.
+\]
+
+\subsubsection{Decoding Step-by-Step}
+
+\paragraph{Start}
+
+\[
+x = 123.
+\]
+
+\paragraph{Step 1}
+
+\[
+\text{slot} = 123 \bmod 4 = 3.
+\]
+
+Slot 3 corresponds to $B$.
+
+Compute:
+
+\[
+x_{\text{prev}} = 1 \cdot \left\lfloor \frac{123}{4} \right\rfloor + 3 - 3
+= 1 \cdot 30 + 0 = 30.
+\]
+
+\[
+x = 30.
+\]
+
+\paragraph{Step 2}
+
+\[
+\text{slot} = 30 \bmod 4 = 2.
+\]
+
+Slot 2 → $A$.
+
+\[
+x_{\text{prev}} = 3 \cdot \left\lfloor \frac{30}{4} \right\rfloor + (2 - 0) = 3 \cdot 7 + 2 = 23.
+\]
+
+\[
+x = 23.
+\]
+
+\paragraph{Step 3}
+
+\[
+\text{slot} = 23 \bmod 4 = 3.
+\]
+
+Slot 3 → $B$.
+
+\[
+x_{\text{prev}} = 1 \cdot \left\lfloor \frac{23}{4} \right\rfloor + (3 - 3) = 1 \cdot 5 + 0 = 5.
+\]
+
+\[
+x = 5.
+\]
+
+\paragraph{Step 4}
+
+\[
+\text{slot} = 5 \bmod 4 = 1.
+\]
+
+Slot 1 → $A$.
+
+\[
+x_{\text{prev}} = 3 \cdot \left\lfloor \frac{5}{4} \right\rfloor + (1 - 0) = 3 \cdot 1 + 1 = 4.
+\]
+
+\[
+x = 4.
+\]
+
+This matches $x_0 = 4$, confirming correct decoding.
+
+\subsubsection{Summary}
+
+The decoded symbol sequence (in order of decoding):
+
+\[
+\boxed{\texttt{B A B A}}
+\]
+
+matches the original.  
+This demonstrates that:
+\begin{itemize}
+    \item Encoding in reverse order: \texttt{A, B, A, B}
+    \item Decoding in forward order: \texttt{B, A, B, A}
+    \item Result matches original: \texttt{B A B A}
+\end{itemize}
+
+\subsection{ANS in Modern Compressors}
+
+ANS is widely used in state-of-the-art compression formats and libraries due to its exceptional performance and flexibility.
+
+\subsubsection{Zstandard (Facebook / Meta)}
+
+Zstandard's entropy stage uses tANS extensively.  
+Benefits include:
+
+\begin{itemize}
+    \item extremely fast decoding,
+    \item efficient table-driven implementation,
+    \item well-suited for CPU vectorization,
+    \item significantly better speed than arithmetic coding in practice.
+\end{itemize}
+
+tANS contributes significantly to Zstd's reputation as one of the fastest modern general-purpose compressors.
+
+\subsubsection{Apple LZFSE}
+
+LZFSE uses ANS as a core component to replace zlib-style Huffman coding.  
+Advantages include:
+
+\begin{itemize}
+    \item improved compression ratio over zlib,
+    \item much higher throughput,
+    \item optimized for modern ARM processors.
+\end{itemize}
+
+\subsubsection{Google Draco}
+
+Draco uses ANS for compressing 3D geometry and mesh connectivity.  
+Reasons include:
+
+\begin{itemize}
+    \item compact symbol representation,
+    \item suitability for GPU-friendly decoding,
+    \item excellent branching behavior.
+\end{itemize}
+
+\subsubsection{JPEG XL}
+
+JPEG XL employs ANS as part of its modular and VarDCT encoding pipelines.  
+ANS allows:
+
+\begin{itemize}
+    \item high-speed entropy coding for transforms,
+    \item efficient modeling of image coefficients,
+    \item extremely competitive performance compared to arithmetic coding while avoiding multipliers.
+\end{itemize}
+
+\subsection{Hands-On: Implementing a Simple ANS Coder}
+
+This section provides a complete pedagogical implementation of rANS in Python.  
+Real-world implementations use optimizations, but this version is correct and readable.
+
+\subsubsection{Educational rANS Implementation}
+
+\begin{lstlisting}[language=Python, caption=Educational rANS Implementation]
+class EducationalRANS:
+    """Educational rANS implementation - demonstrates core concepts"""
+    
+    def __init__(self, freqs, L=1024):
+        """
+        Initialize rANS coder with symbol frequencies.
+        
+        Args:
+            freqs: List of frequencies for symbols 0..n-1
+            L: Total frequency (power of two, >= sum(freqs))
+        """
+        self.L = L
+        # Normalize frequencies to sum to L
+        total_raw = sum(freqs)
+        self.freqs = []
+        for f in freqs:
+            # Ensure at least 1 occurrence
+            norm = max(1, int(f * L / total_raw))
+            self.freqs.append(norm)
+        
+        # Adjust to exactly sum to L (add residuals to largest symbols)
+        diff = L - sum(self.freqs)
+        for i in range(diff):
+            self.freqs[i % len(freqs)] += 1
+        
+        # Build cumulative frequencies
+        self.cum = [0]
+        for f in self.freqs[:-1]:
+            self.cum.append(self.cum[-1] + f)
+        
+        # Build lookup table for decoding
+        self.slot_to_sym = [-1] * L
+        for sym, (start, end) in enumerate(zip(self.cum, 
+                                                [c + f for c, f in zip(self.cum, self.freqs)])):
+            for slot in range(start, end):
+                self.slot_to_sym[slot] = sym
+    
+    def encode(self, data):
+        """
+        Encode data to byte stream.
+        Note: Encodes in reverse order due to ANS LIFO property.
+        """
+        x = self.L  # Initial state
+        output = []
+        
+        # Encode in reverse order so decoding gives original order
+        for sym in reversed(data):
+            # Renormalization: emit bytes when state is large
+            while x >= self.L * 1024:  # Example threshold
+                output.append(x & 0xFF)
+                x >>= 8
+            
+            # rANS encoding step
+            freq = self.freqs[sym]
+            cum = self.cum[sym]
+            q = x // freq
+            r = x % freq
+            x = q * self.L + cum + r
+        
+        # Output final state
+        while x > 0:
+            output.append(x & 0xFF)
+            x >>= 8
+        
+        return output
+    
+    def decode(self, byte_stream):
+        """
+        Decode from byte stream.
+        Returns symbols in original order.
+        """
+        # Initialize state from bytes (LSB-first)
+        x = 0
+        for b in reversed(byte_stream):
+            x = (x << 8) | b
+        
+        result = []
+        
+        while x > self.L:
+            # rANS decoding step
+            slot = x % self.L
+            sym = self.slot_to_sym[slot]
+            
+            freq = self.freqs[sym]
+            cum = self.cum[sym]
+            x = freq * (x // self.L) + (slot - cum)
+            
+            result.append(sym)
+        
+        # Result is already in original order because we encoded in reverse
+        return result
+
+# Example usage
+def test_rans():
+    # Alphabet: A=0, B=1 with frequencies 2 and 1
+    freqs = [2, 1]
+    data = [1, 0, 1, 0]  # B A B A
+    
+    encoder = EducationalRANS(freqs, L=4)
+    encoded = encoder.encode(data)
+    decoded = encoder.decode(encoded)
+    
+    print(f"Original: {data}")
+    print(f"Encoded bytes: {encoded}")
+    print(f"Decoded: {decoded}")
+    assert decoded == data
+    print("Roundtrip successful!")
+
+if __name__ == "__main__":
+    test_rans()
+\end{lstlisting}
+
+\subsubsection{Key Implementation Notes}
+
+\begin{itemize}
+    \item \textbf{Reverse encoding}: The encode function processes symbols in reverse order so decode returns original order.
+    \item \textbf{Normalization}: Frequencies are normalized to sum to a power of two for efficient division (using bit shifts in optimized implementations).
+    \item \textbf{Renormalization threshold}: The example uses $L \times 1024$; production code uses much larger thresholds.
+    \item \textbf{Slot lookup}: The decoder uses a precomputed array for $O(1)$ symbol lookup.
+\end{itemize}
+
+\subsection{Summary}
+
+This chapter presented two powerful entropy coders that complement or replace traditional arithmetic coding:
+
+\begin{itemize}
+    \item \textbf{Range Coding} — an integer-based variant of arithmetic coding, widely used in LZMA, WebP, and ffmpeg.
+    \item \textbf{ANS (Asymmetric Numeral Systems)} — a revolutionary coding system offering arithmetic-like compression efficiency with Huffman-like speed.
+\end{itemize}
+
+Two variants of ANS were covered:
+
+\begin{itemize}
+    \item \textbf{rANS} — streaming, simple, and ideal for software implementations.
+    \item \textbf{tANS} — table-driven, extremely fast, ideal for high-performance applications.
+\end{itemize}
+
+Key takeaways:
+\begin{enumerate}
+    \item Range coding and ANS both achieve fractional bits per symbol (unlike Huffman).
+    \item ANS's LIFO property is fundamental — information is pushed to the least significant side.
+    \item rANS uses $O(1)$ memory; tANS uses $O(\text{states})$ memory but offers higher speed.
+    \item Both are patent-free and widely used in modern compressors.
+\end{enumerate}
+
+\subsection{Exercises}
+
+\begin{enumerate}
+    \item \textbf{Range Coding Implementation:} Construct a range coder for an alphabet of size 3 using 32-bit arithmetic. Encode and decode the sequence \texttt{CABAC}. Show all intermediate steps including renormalization.
+    
+    \item \textbf{rANS Bits Emitted:} Derive the exact number of bits emitted by the rANS encoding of \texttt{B A B A} when using a practical renormalization threshold of $L \times 1024$. How does this compare to the theoretical entropy?
+    
+    \item \textbf{tANS Table Construction:} Build a tANS table for frequencies $\{A:5, B:3, C:2\}$ with $L=16$ states. Trace encoding and decoding of the sequence \texttt{ABCAB}.
+    
+    \item \textbf{Performance Comparison:} Implement rANS32 in C or Python and benchmark it against a standard Huffman coder on:
+    \begin{itemize}
+        \item Random data with uniform distribution
+        \item English text (e.g., a book chapter)
+        \item Highly skewed data ($p(A)=0.95$, others small)
+    \end{itemize}
+    Compare compression ratio and speed.
+    
+    \item \textbf{Mathematical Analysis:} Compare arithmetic coding and rANS for a skewed distribution (e.g., $p(A)=0.95$, $p(B)=0.05$). Which produces more renormalization steps? Explain why.
+    
+    \item \textbf{Adaptive ANS:} Extend the rANS implementation to support adaptive probabilities. Use a simple update rule (e.g., increment frequency after each symbol). Compare compression ratio against static ANS on non-stationary data.
+    
+    \item \textbf{LIFO Analysis:} Explain why ANS's LIFO property is problematic for streaming applications. Propose two different solutions and discuss their trade-offs.
+\end{enumerate}
+
+\subsection*{Additional Resources}
+
+\begin{itemize}
+    \item Duda, J. (2013). "Asymmetric numeral systems: entropy coding combining speed of Huffman coding with compression rate of arithmetic coding." arXiv:1311.2540.
+    \item Giesen, F. (2014). "rANS in practice." \texttt{https://fgiesen.wordpress.com/}
+    \item Collet, Y. (2016). "Finite State Entropy: A new breed of entropy coder." \texttt{https://github.com/Cyan4973/FiniteStateEntropy}
+    \item Zstandard source code: \texttt{lib/compress/zstd\_opt.c} and \texttt{lib/entropy\_common.c}
+    \item WebP source code: \texttt{https://chromium.googlesource.com/webm/libwebp/}
+\end{itemize}
