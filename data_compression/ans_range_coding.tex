@@ -99,7 +99,7 @@ This ensures at least 24 bits of precision at all times and produces a byte-alig
     \item Simple to integrate into block compressors.
 \end{itemize}
 
-\subsubsection{Range Coding Example}
+\subsubsection{Range Coding Example with Renormalization}
 
 Consider an alphabet $\{A,B,C\}$ with frequencies:
 
@@ -107,47 +107,431 @@ Consider an alphabet $\{A,B,C\}$ with frequencies:
 f(A) = 5,\quad f(B) = 3,\quad f(C) = 2,\quad \text{total} = 10.
 \]
 
-Cumulative ranges:
+Cumulative frequencies:
+
+\[
+c(A) = 0,\quad c(B) = 5,\quad c(C) = 8.
+\]
+
+Symbol intervals within $[0,10)$:
 
 \[
 A: [0,5),\quad B: [5,8),\quad C: [8,10).
 \]
 
-Encode the sequence: \texttt{A B A C}.
+We encode the sequence: \texttt{B A C C C C} (six symbols total). This sequence includes different symbols and enough $C$'s (the smallest frequency) to trigger renormalization.
 
-We begin with:
+\paragraph{Encoding Algorithm}
 
+Initialize with 32-bit precision:
 \[
-\texttt{low} = 0,\qquad \texttt{range} = 2^{32}-1.
+\text{low} = 0,\qquad \text{range} = 2^{32} = 4{,}294{,}967{,}296.
 \]
 
-\textbf{Encode 'A'}:
-\begin{align}
-\text{range} &\leftarrow \text{range} \times 5 / 10 = 2{,}147{,}483{,}647 \\
-\text{low} &\leftarrow 0 + 2{,}147{,}483{,}647 \times 0 / 10 = 0
-\end{align}
+For each symbol $x$ with cumulative frequency $c_x$ and frequency $f_x$:
 
-Check renormalization: $\text{range} = 2{,}147{,}483{,}647 \ge 2^{24}$, so continue.
+\begin{enumerate}
+    \item Update low: $\text{low} \gets \text{low} + \text{range} \times \dfrac{c_x}{\text{total}}$
+    \item Update range: $\text{range} \gets \text{range} \times \dfrac{f_x}{\text{total}}$
+    \item Renormalize: while $\text{range} < 2^{24} = 16{,}777{,}216$, output one byte and scale
+\end{enumerate}
 
-\textbf{Encode 'B'}:
-\begin{align}
-\text{range} &\leftarrow 2{,}147{,}483{,}647 \times 3 / 10 = 644{,}245{,}094 \\
-\text{low} &\leftarrow 0 + 644{,}245{,}094 \times 5 / 10 = 322{,}122{,}547
-\end{align}
+\emph{Important: The $\text{low}$ update uses the \textbf{old} range value.}
 
-\textbf{Encode 'A'}:
-\begin{align}
-\text{range} &\leftarrow 644{,}245{,}094 \times 5 / 10 = 322{,}122{,}547 \\
-\text{low} &\leftarrow 322{,}122{,}547 + 322{,}122{,}547 \times 0 / 10 = 322{,}122{,}547
-\end{align}
+\paragraph{Step 1: Encode 'B'}
 
-\textbf{Encode 'C'}:
-\begin{align}
-\text{range} &\leftarrow 322{,}122{,}547 \times 2 / 10 = 64{,}424{,}509 \\
-\text{low} &\leftarrow 322{,}122{,}547 + 64{,}424{,}509 \times 8 / 10 = 322{,}122{,}547 + 51{,}539{,}607 = 373{,}662{,}154
-\end{align}
+For 'B': $c_B = 5$, $f_B = 3$
 
-Now $\text{range} = 64{,}424{,}509 \ge 2^{24}$, so no renormalization needed. The compressed representation is the final $\text{low}$ value.
+\[
+\begin{aligned}
+\text{low} &\gets 0 + 4{,}294{,}967{,}296 \times \frac{5}{10} = 2{,}147{,}483{,}648 \\
+\text{range} &\gets 4{,}294{,}967{,}296 \times \frac{3}{10} = 1{,}288{,}490{,}188
+\end{aligned}
+\]
+
+Renormalization check: $1{,}288{,}490{,}188 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 2: Encode 'A'}
+
+For 'A': $c_A = 0$, $f_A = 5$
+
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}147{,}483{,}648 + 1{,}288{,}490{,}188 \times \frac{0}{10} = 2{,}147{,}483{,}648 \\
+\text{range} &\gets 1{,}288{,}490{,}188 \times \frac{5}{10} = 644{,}245{,}094
+\end{aligned}
+\]
+
+Renormalization check: $644{,}245{,}094 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 3: Encode 'C'}
+
+For 'C': $c_C = 8$, $f_C = 2$
+
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}147{,}483{,}648 + 644{,}245{,}094 \times \frac{8}{10} \\
+&= 2{,}147{,}483{,}648 + 515{,}396{,}075 = 2{,}662{,}879{,}723 \\
+\text{range} &\gets 644{,}245{,}094 \times \frac{2}{10} = 128{,}849{,}018
+\end{aligned}
+\]
+
+Renormalization check: $128{,}849{,}018 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 4: Encode 'C'}
+
+For 'C': $c_C = 8$, $f_C = 2$
+
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}662{,}879{,}723 + 128{,}849{,}018 \times \frac{8}{10} \\
+&= 2{,}662{,}879{,}723 + 103{,}079{,}214 = 2{,}765{,}958{,}937 \\
+\text{range} &\gets 128{,}849{,}018 \times \frac{2}{10} = 25{,}769{,}803
+\end{aligned}
+\]
+
+Renormalization check: $25{,}769{,}803 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 5: Encode 'C'}
+
+For 'C': $c_C = 8$, $f_C = 2$
+
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}765{,}958{,}937 + 25{,}769{,}803 \times \frac{8}{10} \\
+&= 2{,}765{,}958{,}937 + 20{,}615{,}842 = 2{,}786{,}574{,}779 \\
+\text{range} &\gets 25{,}769{,}803 \times \frac{2}{10} = 5{,}153{,}960
+\end{aligned}
+\]
+
+Renormalization check: $5{,}153{,}960 < 16{,}777{,}216$ — \textbf{renormalization triggered!}
+
+\paragraph{Renormalization (after Step 5)}
+
+We output bytes until $\text{range} \ge 2^{24}$.
+
+\textbf{Iteration 1:}
+\[
+\begin{aligned}
+\text{output} &\gets \text{low} \gg 24 = 2{,}786{,}574{,}779 \gg 24 \\
+2{,}786{,}574{,}779 &= 0\text{xA61A2FBB} \\
+0\text{xA61A2FBB} \gg 24 &= 0\text{xA6} = 166 \\
+\text{low} &\gets (\text{low} \ll 8) \mathrel{\&} (2^{32}-1) \\
+&= (2{,}786{,}574{,}779 \ll 8) \mathrel{\&} 0\text{xFFFFFFFF} \\
+&= 0\text{xA61A2FBB00} \mathrel{\&} 0\text{xFFFFFFFF} = 0\text{x1A2FBB00} = 439{,}463{,}680 \\
+\text{range} &\gets \text{range} \ll 8 = 5{,}153{,}960 \times 256 = 1{,}319{,}413{,}760
+\end{aligned}
+\]
+
+Now $\text{range} = 1{,}319{,}413{,}760 \ge 16{,}777{,}216$, so stop renormalization.
+
+Output byte: $\text{0xA6}$ (166).
+
+\paragraph{Step 6: Encode 'C'}
+
+For 'C': $c_C = 8$, $f_C = 2$
+
+\[
+\begin{aligned}
+\text{low} &\gets 439{,}463{,}680 + 1{,}319{,}413{,}760 \times \frac{8}{10} \\
+&= 439{,}463{,}680 + 1{,}055{,}531{,}008 = 1{,}494{,}994{,}688 \\
+\text{range} &\gets 1{,}319{,}413{,}760 \times \frac{2}{10} = 263{,}882{,}752
+\end{aligned}
+\]
+
+Renormalization check: $263{,}882{,}752 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Final Encoding Output}
+
+The compressed representation consists of:
+\begin{itemize}
+    \item The byte $\text{0xA6}$ output during renormalization
+    \item The final $\text{low} = 1{,}494{,}994{,}688$ (output as 4 bytes)
+\end{itemize}
+
+Thus the encoded stream is: $[166, 1{,}494{,}994{,}688]$ (5 bytes total).
+
+In hexadecimal: $[\text{0xA6}, \text{0x59}, \text{0x1C}, \text{0x00}, \text{0x00}]$.
+
+\paragraph{Encoding State Table}
+
+\begin{center}
+\begin{tabular}{c|c|c|c|c}
+\hline
+\textbf{Step} & \textbf{Symbol} & \textbf{Low} & \textbf{Range} & \textbf{Renorm Output} \\ \hline
+Start & — & $0$ & $4{,}294{,}967{,}296$ & — \\
+1 & B & $2{,}147{,}483{,}648$ & $1{,}288{,}490{,}188$ & — \\
+2 & A & $2{,}147{,}483{,}648$ & $644{,}245{,}094$ & — \\
+3 & C & $2{,}662{,}879{,}723$ & $128{,}849{,}018$ & — \\
+4 & C & $2{,}765{,}958{,}937$ & $25{,}769{,}803$ & — \\
+5 & C & $2{,}786{,}574{,}779$ & $5{,}153{,}960$ & $166$ \\
+6 & C & $1{,}494{,}994{,}688$ & $263{,}882{,}752$ & — \\ \hline
+\end{tabular}
+\end{center}
+
+\paragraph{Visualization of Interval Narrowing}
+
+The table below shows how the interval $[\text{low}, \text{low}+\text{range})$ narrows with each symbol:
+
+\begin{center}
+\begin{tabular}{c|c|c|c}
+\hline
+\textbf{Step} & \textbf{Interval} & \textbf{Width} & \textbf{Symbol} \\ \hline
+Start & $[0, 4.295\times10^9)$ & $4.295\times10^9$ & — \\
+After B & $[2.147\times10^9, 3.436\times10^9)$ & $1.288\times10^9$ & B \\
+After A & $[2.147\times10^9, 2.792\times10^9)$ & $6.442\times10^8$ & A \\
+After C & $[2.663\times10^9, 2.792\times10^9)$ & $1.288\times10^8$ & C \\
+After C & $[2.766\times10^9, 2.792\times10^9)$ & $2.577\times10^7$ & C \\
+After C & $[2.787\times10^9, 2.792\times10^9)$ & $5.154\times10^6$ & C \\
+Renorm & $[4.395\times10^8, 1.759\times10^9)$ & $1.319\times10^9$ & — \\
+After C & $[1.495\times10^9, 1.759\times10^9)$ & $2.639\times10^8$ & C \\ \hline
+\end{tabular}
+\end{center}
+
+\newpage
+
+\paragraph{Decoding Algorithm}
+
+Given the encoded stream $[166, 1{,}494{,}994{,}688]$ (bytes: $\text{0xA6}, \text{0x59}, \text{0x1C}, \text{0x00}, \text{0x00}$), we reconstruct the original sequence.
+
+Initialize:
+\[
+\text{low} = 0,\qquad \text{range} = 2^{32} = 4{,}294{,}967{,}296
+\]
+
+Read the first 4 bytes from the stream as the initial code:
+\[
+\text{code} = 0\text{xA6591C00} = 2{,}789{,}021{,}696
+\]
+
+\paragraph{Step 1: Decode First Symbol}
+
+Current interval: $[0, 4{,}294{,}967{,}296)$
+
+Compute offset:
+\[
+u = \frac{\text{code} - \text{low}}{\text{range}} = \frac{2{,}789{,}021{,}696}{4{,}294{,}967{,}296} \approx 0.6494
+\]
+
+Find symbol containing $0.6494$:
+\begin{itemize}
+    \item $A$: $[0, 0.5)$ — no
+    \item $B$: $[0.5, 0.8)$ — contains $0.6494$? Yes
+    \item $C$: $[0.8, 1.0)$ — no
+\end{itemize}
+First symbol is $B$.
+
+Update for $B$ ($c_B=5$, $f_B=3$):
+\[
+\begin{aligned}
+\text{low} &\gets 0 + 4{,}294{,}967{,}296 \times \frac{5}{10} = 2{,}147{,}483{,}648 \\
+\text{range} &\gets 4{,}294{,}967{,}296 \times \frac{3}{10} = 1{,}288{,}490{,}188
+\end{aligned}
+\]
+
+Renormalization check: $\text{range} = 1{,}288{,}490{,}188 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 2: Decode Second Symbol}
+
+Current interval: $[2{,}147{,}483{,}648, 3{,}435{,}973{,}836)$
+
+Compute offset:
+\[
+u = \frac{2{,}789{,}021{,}696 - 2{,}147{,}483{,}648}{1{,}288{,}490{,}188} = \frac{641{,}538{,}048}{1{,}288{,}490{,}188} \approx 0.498
+\]
+
+Find symbol containing $0.498$:
+\begin{itemize}
+    \item $A$: $[0, 0.5)$ — contains $0.498$? Yes
+    \item $B$: $[0.5, 0.8)$ — no
+    \item $C$: $[0.8, 1.0)$ — no
+\end{itemize}
+Second symbol is $A$.
+
+Update for $A$ ($c_A=0$, $f_A=5$):
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}147{,}483{,}648 + 1{,}288{,}490{,}188 \times \frac{0}{10} = 2{,}147{,}483{,}648 \\
+\text{range} &\gets 1{,}288{,}490{,}188 \times \frac{5}{10} = 644{,}245{,}094
+\end{aligned}
+\]
+
+Renormalization check: $\text{range} = 644{,}245{,}094 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 3: Decode Third Symbol}
+
+Current interval: $[2{,}147{,}483{,}648, 2{,}791{,}728{,}742)$
+
+Compute offset:
+\[
+u = \frac{2{,}789{,}021{,}696 - 2{,}147{,}483{,}648}{644{,}245{,}094} = \frac{641{,}538{,}048}{644{,}245{,}094} \approx 0.9958
+\]
+
+Find symbol containing $0.9958$:
+\begin{itemize}
+    \item $A$: $[0, 0.5)$ — no
+    \item $B$: $[0.5, 0.8)$ — no
+    \item $C$: $[0.8, 1.0)$ — contains $0.9958$? Yes
+\end{itemize}
+Third symbol is $C$.
+
+Update for $C$ ($c_C=8$, $f_C=2$):
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}147{,}483{,}648 + 644{,}245{,}094 \times \frac{8}{10} \\
+&= 2{,}147{,}483{,}648 + 515{,}396{,}075 = 2{,}662{,}879{,}723 \\
+\text{range} &\gets 644{,}245{,}094 \times \frac{2}{10} = 128{,}849{,}018
+\end{aligned}
+\]
+
+Renormalization check: $\text{range} = 128{,}849{,}018 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 4: Decode Fourth Symbol}
+
+Current interval: $[2{,}662{,}879{,}723, 2{,}791{,}728{,}741)$
+
+Compute offset:
+\[
+u = \frac{2{,}789{,}021{,}696 - 2{,}662{,}879{,}723}{128{,}849{,}018} = \frac{126{,}141{,}973}{128{,}849{,}018} \approx 0.9790
+\]
+
+Find symbol containing $0.9790$:
+\begin{itemize}
+    \item $A$: $[0, 0.5)$ — no
+    \item $B$: $[0.5, 0.8)$ — no
+    \item $C$: $[0.8, 1.0)$ — contains $0.9790$? Yes
+\end{itemize}
+Fourth symbol is $C$.
+
+Update for $C$ ($c_C=8$, $f_C=2$):
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}662{,}879{,}723 + 128{,}849{,}018 \times \frac{8}{10} \\
+&= 2{,}662{,}879{,}723 + 103{,}079{,}214 = 2{,}765{,}958{,}937 \\
+\text{range} &\gets 128{,}849{,}018 \times \frac{2}{10} = 25{,}769{,}803
+\end{aligned}
+\]
+
+Renormalization check: $\text{range} = 25{,}769{,}803 \ge 16{,}777{,}216$, so continue.
+
+\paragraph{Step 5: Decode Fifth Symbol}
+
+Current interval: $[2{,}765{,}958{,}937, 2{,}791{,}728{,}740)$
+
+Compute offset:
+\[
+u = \frac{2{,}789{,}021{,}696 - 2{,}765{,}958{,}937}{25{,}769{,}803} = \frac{23{,}062{,}759}{25{,}769{,}803} \approx 0.8950
+\]
+
+Find symbol containing $0.8950$:
+\begin{itemize}
+    \item $A$: $[0, 0.5)$ — no
+    \item $B$: $[0.5, 0.8)$ — no
+    \item $C$: $[0.8, 1.0)$ — contains $0.8950$? Yes
+\end{itemize}
+Fifth symbol is $C$.
+
+Update for $C$ ($c_C=8$, $f_C=2$):
+\[
+\begin{aligned}
+\text{low} &\gets 2{,}765{,}958{,}937 + 25{,}769{,}803 \times \frac{8}{10} \\
+&= 2{,}765{,}958{,}937 + 20{,}615{,}842 = 2{,}786{,}574{,}779 \\
+\text{range} &\gets 25{,}769{,}803 \times \frac{2}{10} = 5{,}153{,}960
+\end{aligned}
+\]
+
+Now $\text{range} = 5{,}153{,}960 < 16{,}777{,}216$ — \textbf{renormalization triggered during decoding!}
+
+\paragraph{Renormalization During Decoding}
+
+When $\text{range} < 2^{24}$ during decoding, we:
+\begin{enumerate}
+    \item Update low: $\text{low} \gets (\text{low} \ll 8) \mathrel{\&} (2^{32}-1)$
+    \item Read next byte from stream and incorporate into code: $\text{code} \gets ((\text{code} \ll 8) \mathrel{\&} (2^{32}-1)) \mid \text{next\_byte}$
+    \item Update range: $\text{range} \gets \text{range} \ll 8$
+\end{enumerate}
+
+We have already consumed the first 4 bytes ($\text{0xA6}, \text{0x59}, \text{0x1C}, \text{0x00}$) as the initial code. The next byte is the fifth byte: $\text{0x00}$.
+
+\textbf{Iteration 1:}
+\[
+\begin{aligned}
+\text{low} &\gets (2{,}786{,}574{,}779 \ll 8) \mathrel{\&} 0\text{xFFFFFFFF} = 0\text{x1A2FBB00} = 439{,}463{,}680 \\
+\text{code} &\gets ((2{,}789{,}021{,}696 \ll 8) \mathrel{\&} 0\text{xFFFFFFFF}) \mid 0 = 0\text{x591C0000} = 1{,}494{,}994{,}688 \\
+\text{range} &\gets 5{,}153{,}960 \times 256 = 1{,}319{,}413{,}760
+\end{aligned}
+\]
+
+Now $\text{range} = 1{,}319{,}413{,}760 \ge 16{,}777{,}216$, so stop renormalization.
+
+\paragraph{Step 6: Decode Sixth Symbol}
+
+Current interval: $[439{,}463{,}680, 1{,}758{,}877{,}440)$
+
+Compute offset:
+\[
+u = \frac{\text{code} - \text{low}}{\text{range}} = \frac{1{,}494{,}994{,}688 - 439{,}463{,}680}{1{,}319{,}413{,}760} = \frac{1{,}055{,}531{,}008}{1{,}319{,}413{,}760} = 0.8
+\]
+
+Find symbol containing $0.8$:
+\begin{itemize}
+    \item $A$: $[0, 0.5)$ — no
+    \item $B$: $[0.5, 0.8)$ — note: $B$ is $[0.5, 0.8)$, which \textbf{excludes} $0.8$
+    \item $C$: $[0.8, 1.0)$ — contains $0.8$? Yes (the interval includes its left endpoint)
+\end{itemize}
+Sixth symbol is $C$.
+
+\paragraph{Decoding Complete}
+
+We have recovered the original sequence:
+\[
+\boxed{\texttt{B A C C C C}}
+\]
+
+\paragraph{Decoding State Table}
+
+\begin{center}
+\begin{tabular}{c|c|c|c|c}
+\hline
+\textbf{Step} & \textbf{Code} & \textbf{Low} & \textbf{Range} & \textbf{Symbol} \\ \hline
+Start & $2{,}789{,}021{,}696$ & $0$ & $4{,}294{,}967{,}296$ & — \\
+1 & $2{,}789{,}021{,}696$ & $2{,}147{,}483{,}648$ & $1{,}288{,}490{,}188$ & B \\
+2 & $2{,}789{,}021{,}696$ & $2{,}147{,}483{,}648$ & $644{,}245{,}094$ & A \\
+3 & $2{,}789{,}021{,}696$ & $2{,}662{,}879{,}723$ & $128{,}849{,}018$ & C \\
+4 & $2{,}789{,}021{,}696$ & $2{,}765{,}958{,}937$ & $25{,}769{,}803$ & C \\
+5 & $2{,}789{,}021{,}696$ & $2{,}786{,}574{,}779$ & $5{,}153{,}960$ & C \\
+Renorm & $1{,}494{,}994{,}688$ & $439{,}463{,}680$ & $1{,}319{,}413{,}760$ & — \\
+6 & $1{,}494{,}994{,}688$ & $439{,}463{,}680$ & $1{,}319{,}413{,}760$ & C \\ \hline
+\end{tabular}
+\end{center}
+
+\paragraph{Key Observations}
+
+\begin{enumerate}
+    \item \textbf{Renormalization symmetry:} The encoder outputs a byte when $\text{range} < 2^{24}$; the decoder reads that same byte when $\text{range} < 2^{24}$ and incorporates it into $\text{code}$. Both update $\text{low}$ and $\text{range}$ identically.
+    
+    \item \textbf{Why this sequence triggers renormalization:} Four consecutive $C$'s (each with frequency $2/10 = 0.2$) cause the range to shrink by a factor of $0.2$ each time:
+    \[
+    644{,}245{,}094 \times 0.2 = 128{,}849{,}018
+    \]
+    \[
+    128{,}849{,}018 \times 0.2 = 25{,}769{,}803
+    \]
+    \[
+    25{,}769{,}803 \times 0.2 = 5{,}153{,}960 < 16{,}777{,}216
+    \]
+    
+    \item \textbf{The mixed symbols:} Starting with $B$ and $A$ demonstrates different cumulative frequency calculations ($c_B=5$ for $B$, $c_A=0$ for $A$) before the repeated $C$'s trigger renormalization.
+    
+    \item \textbf{Interval visualization:} The interval narrowing table shows how each symbol selects a subinterval proportional to its frequency, progressively narrowing the range until renormalization resets it to a larger value.
+    
+    \item \textbf{Carry propagation:} In practice, implementations must handle carries when $\text{low}$ overflows during shifting. This is why real encoders use a buffer rather than outputting bytes immediately.
+\end{enumerate}
+
+
+\paragraph{Practical Implementation Note}
+
+In actual range coding implementations, the final $\text{low}$ value is typically flushed by outputting the remaining bytes to ensure the decoder has enough information. This example shows the core mechanism: renormalization outputs bytes during encoding and consumes them during decoding when the range becomes too small to maintain precision.
 
 \subsection{Asymmetric Numeral Systems (ANS): The Breakthrough}
 
