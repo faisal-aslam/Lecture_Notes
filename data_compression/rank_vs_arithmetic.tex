@@ -1,0 +1,524 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{tcolorbox}
+\usepackage{tikz}
+\geometry{a4paper, margin=1in}
+
+\usetikzlibrary{arrows.meta, positioning, calc, decorations.pathreplacing}
+
+\title{Arithmetic Coding and Range Coding: A Detailed Tutorial}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Arithmetic Coding and Range Coding: A Detailed Tutorial}
+
+\subsection{1. Introduction}
+
+Entropy coding is the final stage in many compression systems.
+Instead of assigning fixed codewords to symbols (like Huffman coding),
+\textbf{Arithmetic Coding} and \textbf{Range Coding} represent the entire
+message as a single number inside the unit interval $[0,1)$.
+This allows code lengths to approach the theoretical entropy limit.
+
+\begin{tcolorbox}[colback=blue!3,colframe=blue!40!black,title=Key Idea]
+Arithmetic coding does not assign codes to symbols individually.
+Instead, it assigns a code to the entire \textit{sequence} by repeatedly shrinking an interval.
+The more probable the message, the larger the final interval and the fewer bits needed.
+\end{tcolorbox}
+
+We now explain arithmetic coding in detail, followed by a complete worked
+example, a comparison with range coding, and finally the same example solved
+using range coding.
+
+\subsection{2. Arithmetic Coding: Theory}
+
+Arithmetic coding encodes a message by repeatedly narrowing an interval in $[0,1)$.
+Each symbol reduces the interval based on its probability.
+
+Given an alphabet $\{s_1,s_2,\dots,s_k\}$ with probabilities
+$p(s_i)$ and cumulative frequencies
+\[
+C(s_1)=0,\qquad C(s_i)=\sum_{j < i} p(s_j),
+\]
+we begin with
+\[
+\text{low}=0,\qquad \text{high}=1.
+\]
+
+For each symbol $s$, we update:
+\[
+\text{range} = \text{high} - \text{low},
+\]
+\[
+\text{high}' = \text{low} + \text{range} \times (C(s)+p(s)),
+\]
+\[
+\text{low}'  = \text{low} + \text{range} \times C(s).
+\]
+
+After computing $\text{low}'$ and $\text{high}'$, we update:
+\[
+\text{low} = \text{low}', \qquad \text{high} = \text{high}'.
+\]
+
+After encoding all symbols, any number in $[\text{low},\text{high})$
+represents the entire message.
+
+\subsubsection*{Key concepts}
+\begin{itemize}
+    \item The interval shrinks multiplicatively, so final interval length is approximately the probability of the whole message.
+    \item Shorter intervals correspond to less likely messages, giving them longer bit lengths.
+    \item No symbol is assigned a fixed code; the entire message determines the length.
+\end{itemize}
+
+\subsection{3. Example: Arithmetic Coding Step-by-Step}
+
+Consider alphabet $\{A,B,C\}$ with frequencies:
+
+\[
+f(A)=5,\qquad f(B)=3,\qquad f(C)=2,\qquad \text{Total}=10.
+\]
+
+Thus probabilities:
+
+\[
+p(A)=0.5,\qquad p(B)=0.3,\qquad p(C)=0.2.
+\]
+
+The cumulative frequencies define the sub-interval boundaries and are sorted in alphabetical order:
+
+\[
+C(A)=0,\qquad C(B)=0.5,\qquad C(C)=0.8.
+\]
+
+We encode the message:
+
+\[
+\text{MESSAGE} = \texttt{BAC}.
+\]
+
+\subsubsection*{Initial state}
+\[
+\text{low}=0,\qquad \text{high}=1.
+\]
+
+\subsubsection*{Step 1: Encode B}
+
+\[
+\text{range}=1-0=1,
+\]
+\[
+\text{low}=0 + 1 \times 0.5 = 0.5,
+\]
+\[
+\text{high}=0 + 1 \times 0.8 = 0.8.
+\]
+
+Interval after encoding B:
+\[
+[0.5,\; 0.8)
+\]
+
+\subsubsection*{Step 2: Encode A}
+
+\[
+\text{range}=0.8-0.5 = 0.3,
+\]
+\[
+\text{low}=0.5 + 0.3 \times 0 = 0.5,
+\]
+\[
+\text{high}=0.5 + 0.3 \times 0.5 = 0.65.
+\]
+
+Because symbol A occupies the interval $[0, 0.5)$, its cumulative is $0$ and its upper bound cumulative is $0.5$.
+
+Interval after encoding A:
+\[
+[0.5,\; 0.65)
+\]
+
+\subsubsection*{Step 3: Encode C}
+
+\[
+\text{range}=0.65 - 0.5 = 0.15,
+\]
+\[
+\text{low}=0.5 + 0.15 \times 0.8 = 0.62,
+\]
+\[
+\text{high}=0.5 + 0.15 \times 1.0 = 0.65.
+\]
+
+Final interval:
+\[
+[0.62,\; 0.65)
+\]
+
+\subsubsection*{Final arithmetic code}
+
+Any number between $0.62$ and $0.65$ encodes the message.
+We could output (for example):
+\[
+x = 0.63.
+\]
+
+This is the arithmetic-coded representation of \texttt{BAC}.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[scale=1.3, 
+    every node/.style={font=\small},
+    interval/.style={thick},
+    selected/.style={very thick, blue!70!black},
+    annotation/.style={font=\footnotesize, text=gray}
+]
+
+% Initial interval
+\node[anchor=east] at (-0.8,0) {\textbf{Step 0}};
+\draw[interval] (0,0) -- (10,0);
+\draw[annotation] (0,-0.15) -- (0,0);
+\draw[annotation] (10,-0.15) -- (10,0);
+\node[below] at (0,-0.1) {$0$};
+\node[below] at (10,-0.1) {$1$};
+\node[above] at (5,0.2) {Initial Interval $[0,1)$};
+
+% Step 1: Encode B → [0.5, 0.8)
+\node[anchor=east] at (-0.8,-1.4) {\textbf{Step 1}};
+\node[annotation, right] at (-0.8,-1.4) {Encode B};
+\draw[interval] (0,-1.4) -- (10,-1.4);
+\draw[selected] (5,-1.4) -- (8,-1.4);
+\draw[annotation] (5,-1.55) -- (5,-1.4);
+\draw[annotation] (8,-1.55) -- (8,-1.4);
+\node[below] at (5,-1.5) {$0.5$};
+\node[below] at (8,-1.5) {$0.8$};
+\node[above, blue!70!black] at (6.5,-1.2) {$[0.5,\;0.8)$};
+
+% Step 2: Encode A → [0.5, 0.65)
+\node[anchor=east] at (-0.8,-2.8) {\textbf{Step 2}};
+\node[annotation, right] at (-0.8,-2.8) {Encode A};
+\draw[interval] (0,-2.8) -- (10,-2.8);
+\draw[selected] (5,-2.8) -- (6.5,-2.8);
+\draw[annotation] (5,-2.95) -- (5,-2.8);
+\draw[annotation] (6.5,-2.95) -- (6.5,-2.8);
+\node[below] at (5,-2.9) {$0.5$};
+\node[below] at (6.5,-2.9) {$0.65$};
+\node[above, blue!70!black] at (5.75,-2.6) {$[0.5,\;0.65)$};
+
+% Step 3: Encode C → [0.62, 0.65)
+\node[anchor=east] at (-0.8,-4.2) {\textbf{Step 3}};
+\node[annotation, right] at (-0.8,-4.2) {Encode C};
+\draw[interval] (0,-4.2) -- (10,-4.2);
+\draw[selected] (6.2,-4.2) -- (6.5,-4.2);
+\draw[annotation] (6.2,-4.35) -- (6.2,-4.2);
+\draw[annotation] (6.5,-4.35) -- (6.5,-4.2);
+\node[below] at (6.2,-4.3) {$0.62$};
+\node[below] at (6.5,-4.3) {$0.65$};
+\node[above, blue!70!black] at (6.35,-4.0) {$[0.62,\;0.65)$};
+
+% Add a visual guide showing the shrinking process
+\draw[decorate, decoration={brace, amplitude=4pt, mirror}, gray!50] 
+    (10.2,0) -- (10.2,-4.2) node[midway, right, xshift=3pt] 
+    {Interval shrinks with each symbol};
+
+% Optional: Add probability annotation
+\node[annotation, text=gray!60, align=left] at (11.5,-2.1) 
+    {Symbol probabilities:\\ 
+    $p(A)=0.5$, $p(B)=0.3$, $p(C)=0.2$};
+
+\end{tikzpicture}
+\caption{Arithmetic Coding Interval Refinement for Message \texttt{BAC}. 
+Each step selects a sub-interval based on the symbol's probability. 
+The final interval $[0.62,0.65)$ represents the entire message.}
+\label{fig:arithmetic}
+\end{figure}
+
+\subsection{4. Why People Prefer Range Coding}
+
+Arithmetic coding is theoretically elegant but difficult to implement efficiently
+because:
+
+\begin{itemize}
+    \item It requires arbitrary-precision arithmetic or fixed-point intervals.
+    \item It must normalize intervals repeatedly to prevent underflow.
+    \item Multiplication and division at each step are computationally expensive.
+    \item Patent issues historically discouraged its use (not an issue today).
+\end{itemize}
+
+\textbf{Range Coding} solves these problems while producing the same outputs
+and remaining mathematically identical.
+
+Range coding is simply a \textbf{reparameterization of arithmetic coding}
+designed for efficiency.
+
+\subsection{5. Range Coding: Theory}
+
+Range coding works on integers rather than real-number intervals. The fundamental insight is that we can scale the $[0,1)$ interval to a large integer range, e.g., $[0, 2^{32})$. All operations then become integer arithmetic.
+
+We maintain two integers:
+\[
+\text{low}=0,\qquad \text{range}=2^{32} \quad (\text{or any large integer } R).
+\]
+
+The process for encoding a symbol $s$ with frequency $f(s)$ and total frequency $\text{total}$ is:
+
+\begin{enumerate}
+    \item \textbf{Scale the range:} Divide the current $\text{range}$ into $\text{total}$ equal parts. The size of one part is $\text{unit} = \text{range} / \text{total}$.
+    \item \textbf{Update low:} Move $\text{low}$ to the start of the sub-interval for symbol $s$, using its cumulative frequency $C(s)$:
+    \[
+    \text{low} = \text{low} + \text{unit} \times C(s)
+    \]
+    \item \textbf{Update range:} The new $\text{range}$ becomes the size of the sub-interval for symbol $s$:
+    \[
+    \text{range} = \text{unit} \times f(s)
+    \]
+\end{enumerate}
+
+This is a \textbf{direct integer analogue} of the arithmetic coding update:
+\begin{itemize}
+    \item $\text{unit}$ is analogous to the real-number $\text{range}$ from arithmetic coding.
+    \item $\text{low}$ is an integer representing the lower bound.
+    \item The final interval is $[\text{low}, \text{low} + \text{range})$.
+\end{itemize}
+
+\subsubsection*{Renormalization}
+
+To maintain precision, we ensure $\text{range}$ stays above a threshold (e.g., $2^{24}$). If $\text{range} < 2^{24}$, we:
+\begin{itemize}
+    \item Output the top byte (most significant 8 bits) of $\text{low}$.
+    \item Shift $\text{low}$ and $\text{range}$ left by 8 bits.
+\end{itemize}
+
+Each time the top byte of $\text{low}$ stabilizes (cannot change in future operations), we output it. This is why range coders emit data gradually instead of waiting for the final interval.
+
+For our simple example, we will skip renormalization to show the mathematical equivalence most clearly.
+
+\subsection{6. Range Coding Example (Same Message)}
+
+We now encode the same message \texttt{BAC} using integer range coding. We'll use a smaller initial range of $R = 2^{16} = 65536$ for simplicity in our calculations. The process is identical with $2^{32}$.
+
+Frequencies:
+\[
+f(A)=5,\quad f(B)=3,\quad f(C)=2,\quad \text{total}=10.
+\]
+
+Cumulative:
+\[
+C(A)=0,\quad C(B)=5,\quad C(C)=8.
+\]
+
+Start:
+\[
+\text{low}=0,\qquad \text{range}=65536.
+\]
+
+We will also keep track of a "real-number" interval $[\text{low}_{\text{real}}, \text{high}_{\text{real}})$ derived from our integer state as $[\text{low} / 65536, (\text{low}+\text{range}) / 65536)$. This reconstruction is only for visualization and is not used by real encoders. It allows us to directly compare with the arithmetic coding example.
+
+\subsubsection*{Step 1: Encode B}
+
+\textbf{Integer Range Coding:}
+\[
+\text{unit} = \frac{65536}{10} = 6553 \quad (\text{integer division truncates})
+\]
+\[
+\text{low} = 0 + 6553 \times 5 = 32765
+\]
+\[
+\text{range} = 6553 \times 3 = 19659
+\]
+
+\textbf{Real-number interval for comparison:}
+\[
+\text{low}_{\text{real}} = \frac{32765}{65536} \approx 0.5000
+\]
+\[
+\text{high}_{\text{real}} = \frac{32765 + 19659}{65536} = \frac{52424}{65536} \approx 0.8000
+\]
+
+This matches the arithmetic coding interval $[0.5, 0.8)$.
+
+\subsubsection*{Step 2: Encode A}
+
+\textbf{Integer Range Coding:}
+\[
+\text{unit} = \frac{19659}{10} = 1965 \quad (\text{integer division truncates})
+\]
+\[
+\text{low} = 32765 + 1965 \times 0 = 32765
+\]
+\[
+\text{range} = 1965 \times 5 = 9825
+\]
+
+\textbf{Real-number interval for comparison:}
+\[
+\text{low}_{\text{real}} = \frac{32765}{65536} \approx 0.5000
+\]
+\[
+\text{high}_{\text{real}} = \frac{32765 + 9825}{65536} = \frac{42590}{65536} \approx 0.6500
+\]
+
+This matches the arithmetic coding interval $[0.5, 0.65)$.
+
+\subsubsection*{Step 3: Encode C}
+
+\textbf{Integer Range Coding:}
+\[
+\text{unit} = \frac{9825}{10} = 982 \quad (\text{integer division truncates})
+\]
+\[
+\text{low} = 32765 + 982 \times 8 = 32765 + 7856 = 40621
+\]
+\[
+\text{range} = 982 \times 2 = 1964
+\]
+
+\textbf{Real-number interval for comparison:}
+\[
+\text{low}_{\text{real}} = \frac{40621}{65536} \approx 0.6198
+\]
+\[
+\text{high}_{\text{real}} = \frac{40621 + 1964}{65536} = \frac{42585}{65536} \approx 0.6498
+\]
+
+This closely approximates the arithmetic coding interval $[0.62, 0.65)$. The slight difference is due to integer division truncation. With a larger initial range (e.g., $2^{32}$), this error becomes negligible.
+
+\subsubsection*{Final range code}
+
+The final integer interval is $[\text{low}, \text{low}+\text{range}) = [40621, 42585)$.
+Any integer in this range encodes the message. We could output the value $40621$ as our compressed representation.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[scale=1.3,
+    every node/.style={font=\small},
+    interval/.style={thick},
+    selected/.style={very thick, blue!70!black},
+    annotation/.style={font=\footnotesize, text=gray}
+]
+
+% Initial interval
+\node[anchor=east] at (-1.2,0) {\textbf{Step 0}};
+\draw[interval] (0,0) -- (10,0);
+\draw[annotation] (0,-0.15) -- (0,0);
+\draw[annotation] (10,-0.15) -- (10,0);
+\node[below] at (0,-0.1) {$0$};
+\node[below] at (10,-0.1) {$65536$};
+\node[above] at (5,0.2) {Initial Range $[0,65536)$};
+
+% Step 1: Encode B → [32765, 52424)
+\node[anchor=east] at (-1.2,-1.4) {\textbf{Step 1}};
+\node[annotation, right] at (-1.2,-1.4) {Encode B};
+\draw[interval] (0,-1.4) -- (10,-1.4);
+\draw[selected] (5,-1.4) -- (8,-1.4);
+\draw[annotation] (5,-1.55) -- (5,-1.4);
+\draw[annotation] (8,-1.55) -- (8,-1.4);
+\node[below] at (5,-1.5) {$32765$};
+\node[below] at (8,-1.5) {$52424$};
+\node[above, blue!70!black] at (6.5,-1.2) {$[32765,\;52424)$};
+
+% Show real-number equivalent
+\node[annotation, text=teal!60!black] at (6.5,-1.7) 
+    {$\approx [0.5000,\;0.8000)$};
+
+% Step 2: Encode A → [32765, 42590)
+\node[anchor=east] at (-1.2,-2.8) {\textbf{Step 2}};
+\node[annotation, right] at (-1.2,-2.8) {Encode A};
+\draw[interval] (0,-2.8) -- (10,-2.8);
+\draw[selected] (5,-2.8) -- (6.5,-2.8);
+\draw[annotation] (5,-2.95) -- (5,-2.8);
+\draw[annotation] (6.5,-2.95) -- (6.5,-2.8);
+\node[below] at (5,-2.9) {$32765$};
+\node[below] at (6.5,-2.9) {$42590$};
+\node[above, blue!70!black] at (5.75,-2.6) {$[32765,\;42590)$};
+
+\node[annotation, text=teal!60!black] at (5.75,-3.1) 
+    {$\approx [0.5000,\;0.6500)$};
+
+% Step 3: Encode C → [40621, 42585)
+\node[anchor=east] at (-1.2,-4.2) {\textbf{Step 3}};
+\node[annotation, right] at (-1.2,-4.2) {Encode C};
+\draw[interval] (0,-4.2) -- (10,-4.2);
+\draw[selected] (6.2,-4.2) -- (6.5,-4.2);
+\draw[annotation] (6.2,-4.35) -- (6.2,-4.2);
+\draw[annotation] (6.5,-4.35) -- (6.5,-4.2);
+\node[below] at (6.2,-4.3) {$40621$};
+\node[below] at (6.5,-4.3) {$42585$};
+\node[above, blue!70!black] at (6.35,-4.0) {$[40621,\;42585)$};
+
+\node[annotation, text=teal!60!black] at (6.35,-4.5) 
+    {$\approx [0.6198,\;0.6498)$};
+
+% Add brace showing integer nature
+\draw[decorate, decoration={brace, amplitude=4pt, mirror}, gray!50] 
+    (10.2,0) -- (10.2,-4.2) node[midway, right, xshift=3pt, align=left] 
+    {Integer arithmetic\\ maintains precision};
+
+% Add frequency annotation
+\node[annotation, text=gray!60, align=left] at (11.5,-2.1) 
+    {Frequencies: $f(A)=5$, $f(B)=3$, $f(C)=2$\\ 
+    Total $=10$, $R=2^{16}=65536$};
+
+% Add note about truncation
+\node[annotation, text=orange!60!black, font=\tiny, align=center] 
+    at (11.5,-3.8) 
+    {Integer division truncation\\ causes slight drift};
+
+\end{tikzpicture}
+\caption{Range Coding Integer-Interval Refinement for Message \texttt{BAC}. 
+The real-number equivalents (in teal) show the correspondence with 
+arithmetic coding. Integer division truncation explains the minor 
+difference in the final step.}
+\label{fig:range}
+\end{figure}
+
+\subsection{7. Direct Comparison: Arithmetic vs. Range Coding}
+
+The following table summarizes the parallel between the two methods:
+
+\begin{center}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Concept} & \textbf{Arithmetic Coding} & \textbf{Range Coding} \\
+\midrule
+Representation & Real numbers in $[0,1)$ & Integers in $[0, R)$ \\
+Initial state & $\text{low}=0$, $\text{high}=1$ & $\text{low}=0$, $\text{range}=R$ \\
+Unit size & $\text{range} = \text{high}-\text{low}$ & $\text{unit} = \text{range} / \text{total}$ \\
+Low update & $\text{low} + \text{range} \times C(s)$ & $\text{low} + \text{unit} \times C(s)$ \\
+Range update & $\text{range} \times p(s)$ & $\text{unit} \times f(s)$ \\
+Precision handling & Floating-point normalization & Integer renormalization \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{8. Summary}
+
+\begin{itemize}
+    \item Arithmetic coding uses real-number intervals and is mathematically elegant.
+    \item Range coding uses integer intervals but produces the same final interval.
+    \item Range coding is faster in practice because it avoids floating-point arithmetic and uses only integer operations.
+    \item Both achieve compression close to the theoretical entropy limit.
+    \item The two methods are mathematically equivalent; range coding is simply an integer-based implementation of arithmetic coding.
+\end{itemize}
+
+\subsection{9. Exercises for Students}
+
+\begin{enumerate}
+    \item Encode the message \texttt{CAB} using arithmetic coding with the same probabilities. Show each step.
+    \item Encode the same message \texttt{CAB} using range coding with $R=65536$ and compare the final intervals.
+    \item Explain why range coding is more suitable for hardware implementation than arithmetic coding.
+    \item What would happen if we used a smaller initial range, such as $R=1000$, for range coding? How would it affect compression quality?
+    \item Write pseudocode for an arithmetic coding encoder and a range coding encoder. Identify the key differences.
+    \item Using the figures provided, explain how the interval refinement process differs between arithmetic coding and range coding.
+\end{enumerate}
+
+\end{document}
