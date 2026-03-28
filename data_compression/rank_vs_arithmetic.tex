@@ -795,12 +795,62 @@ Renormalization check: $\text{range} = 5{,}153{,}960 < 16{,}777{,}216$ — \text
 
 \subsubsection*{Renormalization During Decoding}
 
+When $\text{range} < 2^{24}$ during decoding, we need to read the next byte from the compressed stream and incorporate it into the code. This is the inverse of what the encoder did.
+
+\textbf{Understanding the Symmetry:}
+
+During encoding renormalization:
+\begin{enumerate}
+    \item Output the most significant byte of $\text{low}$ (bits 31-24)
+    \item Shift $\text{low}$ left by 8 bits (bits 23-0 become bits 31-8, bits 7-0 become 0)
+    \item Shift $\text{range}$ left by 8 bits
+\end{enumerate}
+
+During decoding renormalization, we need to reverse this process:
+\begin{enumerate}
+    \item Read the next byte from the stream (the byte that the encoder output)
+    \item Shift $\text{code}$ left by 8 bits to make room for the new byte
+    \item Insert the new byte into the least significant position (bits 7-0) of $\text{code}$
+    \item Shift $\text{low}$ left by 8 bits (same as encoder)
+    \item Shift $\text{range}$ left by 8 bits (same as encoder)
+\end{enumerate}
+
+The key insight is that both encoder and decoder shift $\text{low}$ and $\text{range}$ left by 8 bits. The difference is that the encoder \textbf{outputs} the byte that falls off the left side, while the decoder \textbf{reads} that same byte and inserts it on the right side of $\text{code}$.
+
+\vspace{2mm}
+\textbf{Our Example:}
+
+Before renormalization (after decoding symbol 5):
+\begin{align*}
+\text{code} &= 2{,}789{,}021{,}696 \quad (\text{0xA6591C00}) \\
+\text{low} &= 2{,}786{,}574{,}765 \quad (\text{0xA61A2FAD}) \\
+\text{range} &= 5{,}153{,}960
+\end{align*}
+
 We read the next byte from the stream (the fifth byte: $\text{0x00}$):
 
+\textbf{Step 1: Shift and update code}
 \begin{align*}
-\text{low} &= (\text{low} \ll 8) \mathrel{\&} (2^{32}-1) = 439{,}463{,}680 \\
-\text{code} &= ((\text{code} \ll 8) \mathrel{\&} (2^{32}-1)) \mid 0 = 1{,}494{,}994{,}688 \\
-\text{range} &= \text{range} \ll 8 = 1{,}319{,}413{,}760
+\text{code} &\leftarrow (\text{code} \ll 8) \mathrel{\&} (2^{32}-1) \\
+&= (2{,}789{,}021{,}696 \ll 8) \mathrel{\&} 0\text{xFFFFFFFF} \\
+&= 0\text{x591C0000} = 1{,}494{,}994{,}688
+\end{align*}
+Now insert the new byte into the least significant position:
+\begin{align*}
+\text{code} &\leftarrow \text{code} \mid \text{next\_byte} \\
+&= 1{,}494{,}994{,}688 \mid 0 = 1{,}494{,}994{,}688
+\end{align*}
+
+\textbf{Step 2: Shift low}
+\begin{align*}
+\text{low} &\leftarrow (\text{low} \ll 8) \mathrel{\&} (2^{32}-1) \\
+&= (2{,}786{,}574{,}765 \ll 8) \mathrel{\&} 0\text{xFFFFFFFF} \\
+&= 0\text{x1A2FAD00} = 439{,}463{,}680
+\end{align*}
+
+\textbf{Step 3: Shift range}
+\begin{align*}
+\text{range} &\leftarrow \text{range} \ll 8 = 5{,}153{,}960 \times 256 = 1{,}319{,}413{,}760
 \end{align*}
 
 Now $\text{range} = 1{,}319{,}413{,}760 \ge 16{,}777{,}216$, so stop renormalization.
@@ -851,7 +901,9 @@ Renorm & $1{,}494{,}994{,}688$ & $439{,}463{,}680$ & $1{,}319{,}413{,}760$ & —
 \begin{enumerate}
     \item \textbf{Decoding mirrors encoding:} The decoder uses the same cumulative frequencies and update formulas as the encoder.
     
-    \item \textbf{Renormalization symmetry:} The encoder outputs a byte when $\text{range} < 2^{24}$; the decoder reads that same byte when $\text{range} < 2^{24}$ and incorporates it into $\text{code}$. Both update $\text{low}$ and $\text{range}$ identically.
+    \item \textbf{Renormalization symmetry:} The encoder outputs a byte when $\text{range} < 2^{24}$; the decoder reads that same byte when $\text{range} < 2^{24}$ and incorporates it into $\text{code}$. Both update $\text{low}$ and $\text{range}$ identically (shifting left, which introduces zeros on the right).
+    
+    \item \textbf{Why code gets the byte, not low:} The encoder's $\text{low}$ gets zeros when shifted left because those bits are not yet determined. The decoder's $\text{code}$ needs the next byte from the stream because that byte represents the next part of the encoded number that was output by the encoder.
     
     \item \textbf{Offset calculation:} The offset determines which symbol's interval contains the current code value. The symbol is found by comparing the scaled offset with cumulative frequencies.
     
@@ -888,6 +940,7 @@ Final code & Midpoint of final interval & Integer from final interval \\ \hline
     \item The two methods are mathematically equivalent; range coding is simply an integer-based implementation of arithmetic coding.
     \item Renormalization in range coding is integrated into the symbol encoding loop, outputting bytes when the range becomes too small.
     \item Decoding mirrors encoding, using the same cumulative frequencies and update formulas to reconstruct the original message.
+    \item During renormalization, both encoder and decoder shift $\text{low}$ and $\text{range}$ left (introducing zeros). The encoder outputs the byte that falls off, while the decoder reads that byte and inserts it into $\text{code}$.
 \end{itemize}
 
 \subsection{Exercises for Students}
@@ -903,6 +956,7 @@ Final code & Midpoint of final interval & Integer from final interval \\ \hline
     \item What is the purpose of renormalization in range coding? In the normalization example, why did we need to renormalize after encoding the fifth symbol?
     \item Modify the normalization example to encode the message \texttt{B A C C} instead. Would renormalization still be triggered? Why or why not?
     \item Using the decoding algorithm, decode the compressed output from Exercise 2 (the \texttt{CAB} message) to verify you recover the original message.
+    \item Explain why the decoder shifts $\text{code}$ left and inserts the next byte, while the encoder shifts $\text{low}$ left and outputs the byte that falls off. What is the symmetry?
 \end{enumerate}
 
 \end{document}
