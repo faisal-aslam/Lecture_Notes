@@ -87,64 +87,114 @@ Consider the word ``BANANA''. In English text, the letter 'N' often follows 'A'.
 
 \subsubsection{Step-by-Step Example: \texttt{banana\$}}
 
-Let us work through a complete example to understand the mechanics. We will use the string ``banana'' with a special end-of-file marker '\$' that is lexicographically smaller than any other character.
+%%%%
+\begin{examplebox}[Computing the Burrows-Wheeler Transform (BWT) of ``banana\$'']
 
-\begin{examplebox}[Computing the BWT of ``banana\$'']
+\vspace{0.5cm}
 
-\underline{Step 1: Generate all cyclic rotations}
+% Step 1: Generate rotations
+\begin{minipage}{\textwidth}
+\colorbox{step1color}{\textbf{Step 1: Generate all cyclic rotations}}
 
-Original string (with marker): \texttt{banana\$}
+\vspace{0.3cm}
+
+\textbf{Original string} (with end-of-string marker \$): 
+\boxed{\texttt{banana\$}}
+
+\vspace{0.3cm}
 
 All rotations (starting at each character and wrapping around):
-\begin{enumerate}
-    \item[1.] banana\$
-    \item[2.] anana\$b
-    \item[3.] nana\$ba
-    \item[4.] ana\$ban
-    \item[5.] na\$bana
-    \item[6.] a\$banan
-    \item[7.] \$banana
-\end{enumerate}
-
-\underline{Step 2: Sort rotations lexicographically}
-
-We sort these strings as you would in a dictionary:
 \begin{center}
-\begin{tabular}{ccl}
-\textbf{Index} & \textbf{Sorted Rotation} & \textbf{Original Index} \\
+\begin{tabular}{|c|>{\ttfamily}c|>{\columncolor{lastcolcolor}}c|}
 \hline
-1 & \$banana & 7 \\
-2 & a\$banan & 6 \\
-3 & ana\$ban & 4 \\
-4 & anana\$b & 2 \\
-5 & banana\$ & 1 \\
-6 & na\$bana & 5 \\
-7 & nana\$ba & 3 \\
+\textbf{Rotation \#} & \textbf{Rotation String} & \textbf{Last Char} \\
+\hline
+1 & banana\$ & \$ \\
+2 & anana\$b & b \\
+3 & nana\$ba & a \\
+4 & ana\$ban & n \\
+5 & na\$bana & a \\
+6 & a\$banan & n \\
+7 & \$banana & a \\
 \hline
 \end{tabular}
 \end{center}
+\small\emph{Note: The last column will become the BWT output after sorting.}
+\end{minipage}
 
-\underline{Step 3: Extract the last column}
+\vspace{0.8cm}
+\textcolor{arrowcolor}{$\downarrow$ \textbf{SORT LEXICOGRAPHICALLY} $\downarrow$}
+\vspace{0.8cm}
 
-The BWT output is the last character of each sorted rotation:
+% Step 2: Sort rotations
+\begin{minipage}{\textwidth}
+\colorbox{step2color}{\textbf{Step 2: Sort rotations lexicographically}}
+
+\vspace{0.3cm}
+
+We sort these strings as you would in a dictionary (alphabetical order, with \$ coming first):
 \begin{center}
-\begin{tabular}{ccl}
+\begin{tabular}{|c|>{\ttfamily}c|c|>{\columncolor{lastcolcolor}}c|}
+\hline
+\textbf{Rank} & \textbf{Sorted Rotation} & \textbf{Orig. Index} & \textbf{Last Char} \\
+\hline
+1 & \$banana & 7 & a \\
+2 & a\$banan & 6 & n \\
+3 & ana\$ban & 4 & n \\
+\rowcolor{originalrowcolor} 4 & anana\$b & 2 & b \\
+5 & banana\$ & 1 & \$ \\
+6 & na\$bana & 5 & a \\
+7 & nana\$ba & 3 & a \\
+\hline
+\end{tabular}
+\end{center}
+\small\emph{The row with \colorbox{originalrowcolor}{blue background} contains the \textbf{original string} (anana\$b) before sorting.}
+\end{minipage}
+
+\vspace{0.8cm}
+\textcolor{arrowcolor}{$\downarrow$ \textbf{EXTRACT LAST COLUMN} $\downarrow$}
+\vspace{0.8cm}
+
+% Step 3: Extract BWT
+\begin{minipage}{\textwidth}
+\colorbox{step3color}{\textbf{Step 3: Extract the last column}}
+
+\vspace{0.3cm}
+
+The BWT output is the \textbf{last character} of each sorted rotation (highlighted column from Step 2):
+
+\begin{center}
+\setlength{\extrarowheight}{3pt}
+\begin{tabular}{|>{\ttfamily}c|>{\columncolor{bwtoutputcolor}}c|}
+\hline
 \textbf{Sorted Rotation} & \textbf{Last Character} \\
 \hline
-\$banana & a \\
-a\$banan & n \\
-ana\$ban & n \\
-anana\$b & b \\
-banana\$ & \$ \\
-na\$bana & a \\
-nana\$ba & a \\
+\$banana & \textbf{\textcolor{blue}{a}} \\
+a\$banan & \textbf{\textcolor{blue}{n}} \\
+ana\$ban & \textbf{\textcolor{blue}{n}} \\
+anana\$b & \textbf{\textcolor{blue}{b}} \\
+banana\$ & \textbf{\textcolor{blue}{\$}} \\
+na\$bana & \textbf{\textcolor{blue}{a}} \\
+nana\$ba & \textbf{\textcolor{blue}{a}} \\
 \hline
 \end{tabular}
 \end{center}
 
-Thus, \textbf{BWT(``banana\$'') = ``annb\$aa''}
+\vspace{0.3cm}
+\Large
+\fcolorbox{black}{bwtoutputcolor}{%
+    \parbox{0.8\textwidth}{\centering \textbf{BWT(``banana\$'') = ``\texttt{annb\$aa}''}}
+}
 
-Notice the runs: ``nn'' appears, and ``aa'' appears at the end. The original ``banana'' had no consecutive identical characters!
+\vspace{0.3cm}
+\normalsize
+\textbf{Observation:} The BWT contains runs of identical characters: \texttt{nn} appears, and \texttt{aa} appears at the end. 
+The original ``banana'' had \textit{no} consecutive identical characters — this clustering property makes BWT excellent for compression!
+
+\vspace{0.2cm}
+\small\emph{Note: The \$ marker ensures all rotations are unique and the transform is reversible.}
+\end{minipage}
+
 \end{examplebox}
 
 \subsubsection{Visualizing the Effect: Before and After}

@@ -1,10 +1,13 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[a4paper,margin=1in]{geometry}
+% ============ LOAD XCOLOR BEFORE PGFPLOTS ============
+\usepackage[table]{xcolor}  % Load xcolor with table option FIRST
+
 \usepackage{array}
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{setspace}
-\usepackage{titlesec} % Keep this ONE loading here
+\usepackage{titlesec}
 \usepackage{amsfonts}
 \usepackage{graphicx}
 \usepackage{algorithm}
@@ -12,31 +15,35 @@
 \usepackage{caption}
 \usepackage{multirow}
 \usepackage{enumitem}
-\usepackage{tcolorbox}
 \usepackage{listings}
-\usepackage{xcolor}
-\usepackage{tikz}
-\usetikzlibrary{positioning}
 \usepackage{float}
 \usepackage{tabularx}
 \usepackage{amsthm}
 \usepackage{amsmath, amssymb}
 \usepackage{framed}
-\usepackage{color}
 \usepackage{mathtools}
 \usepackage{forest}
-\usepackage{pgfplots}
 
-% ============ SECTION FORMATTING ============
-% Format section headings with "Lecture X:"
-\titleformat{\section}
-  {\normalfont\Large\bfseries}{\thesection:}{1em}{}
-  
-\titleformat{\subsection}
-  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
-% ===========================================
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usepackage{fontawesome5}
+
+% Now load pgfplots (which loads xcolor internally, but xcolor is already loaded)
+\usepackage{pgfplots}
+% ===================================================
+
+% Load tcolorbox
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable, skins}
 
 % Define colors
+\definecolor{step1color}{RGB}{230, 245, 255}
+\definecolor{step2color}{RGB}{255, 245, 230}
+\definecolor{step3color}{RGB}{230, 255, 230}
+\definecolor{bwtoutputcolor}{RGB}{255, 230, 200}
+\definecolor{lastcolcolor}{RGB}{255, 240, 180}
+\definecolor{originalrowcolor}{RGB}{200, 220, 255}
+\definecolor{arrowcolor}{RGB}{100, 100, 200}
 \definecolor{shadecolor}{RGB}{240,240,255}
 \definecolor{codegreen}{RGB}{0,128,0}
 \definecolor{codeblue}{RGB}{0,0,255}
@@ -44,8 +51,13 @@
 \definecolor{lectureblue}{RGB}{30, 60, 114}
 \definecolor{lightblue}{RGB}{230, 240, 255}
 
-% CRITICAL: Load tcolorbox libraries BEFORE defining boxes
-\tcbuselibrary{breakable, skins}
+% ============ SECTION FORMATTING ============
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\thesection:}{1em}{}
+  
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+% ===========================================
 
 \newcommand{\boxheading}[1]{\textbf{\textcolor{blue!80!black}{\large #1}}\par\vspace{0.3em}}
 
@@ -56,10 +68,10 @@
     fonttitle=\bfseries,
     title=Definition,
     sharp corners,
-    breakable, % ENABLES page breaking
-    enhanced, % Better visual appearance when broken
+    breakable,
+    enhanced,
     before upper={\parindent0pt},
-    parbox=false, % Important for proper breaking
+    parbox=false,
 }
 
 \newtcolorbox{examplebox}{
@@ -68,10 +80,10 @@
     fonttitle=\bfseries,
     title=Example,
     sharp corners,
-    breakable, % ENABLES page breaking
-    enhanced, % Better visual appearance when broken
+    breakable,
+    enhanced,
     before upper={\parindent0pt},
-    parbox=false, % Important for proper breaking
+    parbox=false,
 }
 
 \newtcolorbox{importantbox}{
@@ -80,13 +92,13 @@
     fonttitle=\bfseries,
     title=Important,
     sharp corners,
-    breakable, % ENABLES page breaking
-    enhanced, % Better visual appearance when broken
+    breakable,
+    enhanced,
     before upper={\parindent0pt},
-    parbox=false, % Important for proper breaking
+    parbox=false,
 }
 
-% Theorem environments (using amsthm, not tcolorbox)
+% Theorem environments
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{lemma}[theorem]{Lemma}
 \newtheorem{corollary}[theorem]{Corollary}
@@ -132,21 +144,19 @@
     fonttitle=\bfseries,
     title={Exercise \theexercise},
     sharp corners,
-    breakable, % ENABLES page breaking
-    enhanced, % Better visual appearance when broken
+    breakable,
+    enhanced,
     before upper={\refstepcounter{exercise}\parindent0pt},
-    parbox=false, % Important for proper breaking
+    parbox=false,
 }
 
 \setstretch{1.2}
 
-% ============ CRITICAL: CHANGE THESE LINES ============
-% For TOC: Just show numbers
+% ============ SECTION NUMBERING ============
 \renewcommand{\thesection}{\arabic{section}}
 \renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
 
 % For document body headings: Show "Lecture X"
-% Add this custom command to show "Lecture X" in headings
 \makeatletter
 \let\oldsection\section
 \renewcommand{\section}{%
@@ -159,12 +169,12 @@
   \oldsection[#1]{Lecture \thesection: #1}%
 }
 \makeatother
-% =====================================================
+% ===========================================
 
 \begin{document}
 
 \tableofcontents
-\thispagestyle{empty} % Remove page number from TOC
+\thispagestyle{empty}
 \clearpage
 
 \begin{center}
@@ -193,9 +203,6 @@
 \newpage
 \input{ans_range_coding}
 \end{document}
-
-
-
 %___________________________
 You've identified some of the most important gaps in your syllabus! Your instincts are excellent. Let me organize these topics into a coherent chapter structure that builds logically on what you've already taught.
 
