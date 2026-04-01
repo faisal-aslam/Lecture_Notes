@@ -32,7 +32,7 @@ Recall from Chapter 5 that LZ77-based compressors (like DEFLATE) use a sliding w
 \end{itemize}
 
 \begin{importantbox}
-The fundamental insight of the Burrows-Wheeler Transform is this: instead of searching for repetitions, why not \emph{rearrange} the data so that similar contexts—and hence similar symbols—are brought together? This rearrangement is reversible, so the original data can be recovered exactly.
+The Burrows-Wheeler Transform aims to make data more compressible by rearranging it so that long runs of identical symbols appear frequently. This structure is much easier to compress than the original scattered pattern—for example, using run-length encoding (RLE). Importantly, this rearrangement is reversible, allowing exact recovery of the original data. With efficient algorithms, the transform can be computed in linear time and uses only constant additional space beyond the input.
 \end{importantbox}
 
 \subsubsection{The Global Reordering Idea}
@@ -87,7 +87,6 @@ Consider the word ``BANANA''. In English text, the letter 'N' often follows 'A'.
 
 \subsubsection{Step-by-Step Example: \texttt{banana\$}}
 
-%%%%
 \begin{examplebox}[Computing the Burrows-Wheeler Transform (BWT) of ``banana\$'']
 
 \vspace{0.5cm}
@@ -266,10 +265,22 @@ In our ``banana\$'' example:
 
 \subsubsection{The Last Column Construction}
 
-Why do we take the last column? Consider any two rows that are adjacent in the sorted order. They share a common prefix (the longer the prefix, the more similar their contexts). The last characters of these rows are the characters that \emph{precede} these contexts in the original string. When contexts are similar, the preceding characters often come from a limited set, creating runs.
+A natural question arises: \emph{If the first column of the sorted rotations is already sorted and contains long runs of identical symbols, why not take that instead? Why bother with the last column?}
+
+The answer lies in two key properties: compressibility and reversibility with minimal overhead.
+
+\textbf{Why the last column is compressible:} Consider any two rows that are adjacent in the sorted order. They share a common prefix (the longer the prefix, the more similar their contexts). The last characters of these rows are the characters that \emph{precede} these contexts in the original string. When contexts are similar, the preceding characters often come from a limited set, creating runs of identical symbols—patterns that compression algorithms like run-length encoding can exploit efficiently.
+
+\textbf{Why the last column is chosen over the first:} While the first column is also compressible (it is fully sorted and contains even longer runs), it cannot be reversed with only constant auxiliary information. In theory, the first column \emph{could} be used to reconstruct the original string, but doing so would require storing significant additional information—on the order of \(O(n \log n)\) bits—to track the permutation mapping back to the original order.
+
+The last column, however, achieves the best of both worlds:
+\begin{itemize}
+    \item \textbf{Compressibility:} It contains runs of repeated symbols due to the clustering of preceding characters.
+    \item \textbf{Efficient reversibility:} It requires only the last column string \(L\) and a single index \(I\) (constant space) to reconstruct the original string exactly.
+\end{itemize}
 
 \begin{importantbox}
-The BWT is a \emph{reversible} transformation. Given only \(L\) (the last column) and \(I\) (the index of the original row), we can reconstruct the original string \(S\) exactly. This reversibility is what makes the transform useful for compression—we can recover the original data after decompression.
+The BWT is a \emph{reversible} transformation. Given only \(L\) (the last column) and \(I\) (the index of the original row), we can reconstruct the original string \(S\) exactly. This reversibility—achieved with only constant auxiliary information—is what makes the transform useful for compression. We can recover the original data after decompression without storing large amounts of additional metadata.
 \end{importantbox}
 
 \subsubsection{Properties of the Transform}
