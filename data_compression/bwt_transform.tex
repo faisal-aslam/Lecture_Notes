@@ -333,6 +333,7 @@ For a character \(c\) that appears \(k\) times in the string, the \(k\) occurren
 
 \begin{algorithm}[H]
 \caption{Compute LF-Mapping}
+\label{alg:lf-mapping}
 \begin{algorithmic}[1]
 \Require \(L[0..n-1]\) (last column)
 \Ensure \(LF[0..n-1]\) (last-to-first mapping)
@@ -542,32 +543,86 @@ LF[6] = 3 & L[6] is the third 'a'. In F, the third 'a' is at position 3. \\
 
 \subsubsection{Reconstruction Algorithm}
 
-With the correct LF-mapping, we can now reconstruct the original string by walking backwards from the known original row:
+Now that we understand the LF-mapping, let's see how it enables us to reconstruct the original string from just \(L\) and \(I\).
+
+\subsection*{The Key Insight}
+
+Recall what the sorted rotations matrix represents:
+\begin{itemize}
+    \item Each row is a cyclic rotation of the original string
+    \item The first column \(F\) contains the first character of each rotation
+    \item The last column \(L\) contains the last character of each rotation
+    \item The LF-mapping tells us: from a character in \(L\), where does the \textbf{same occurrence} appear in \(F\)?
+\end{itemize}
+
+Here's the crucial observation:
+
+\begin{importantbox}
+For any row \(i\) in the sorted matrix, the character \(L[i]\) (last column) is the character that \textbf{immediately precedes} the character \(F[i]\) (first column) in the original string.
+
+Why? Because row \(i\) is a rotation. If you take the last character and move it to the front, you get the rotation that starts with that character. The LF-mapping takes you to that row.
+\end{importantbox}
+
+This gives us a way to reconstruct the string backwards:
+
+\begin{enumerate}
+    \item Start at the row containing the original string (we know this row index = \(I\))
+    \item The last character of that row, \(L[I]\), is the \textbf{last character} of the original string
+    \item Use LF-mapping to find where this same character appears in \(F\) — that row's rotation starts with this character
+    \item The last character of \textit{that} row is the character that comes \textbf{before} it in the original string
+    \item Repeat — each step gives us the previous character
+\end{enumerate}
+
+\subsection*{The Algorithm}
 
 \begin{algorithm}[H]
 \caption{BWT Inversion}
+\label{alg:bwt_inverse}
 \begin{algorithmic}[1]
 \Require \(L[0..n-1]\) (last column), \(I\) (index of original row)
 \Ensure Original string \(S\)
 
 \State \(n \gets \text{length}(L)\)
-\State Compute LF-mapping array \(LF[0..n-1]\) using Algorithm~\ref{alg:lf-mapping} (or the algorithm described earlier in this section)
+\State Compute LF-mapping array \(LF[0..n-1]\) using Algorithm~\ref{alg:lf-mapping}
 \State Initialize \(S\) as empty string
 \State \(row \gets I\)
 
 \For{\(k \gets 0\) to \(n-1\)}
-    \State Prepend \(L[row]\) to \(S\) \Comment{Add character to front}
-    \State \(row \gets LF[row]\) \Comment{Move to previous row}
+    \State Prepend \(L[row]\) to \(S\) \Comment{Add character to front (building backwards)}
+    \State \(row \gets LF[row]\) \Comment{Move to the row that starts with this character}
 \EndFor
 
 \State \Return \(S\)
 \end{algorithmic}
 \end{algorithm}
 
+\subsection*{Why We Prepend (Not Append)}
+
+Notice that we \textbf{prepend} characters to \(S\) rather than appending. Here's why:
+
+\begin{itemize}
+    \item We start at the row containing the original string. Its last character \(L[I]\) is the \textbf{last} character of the original string.
+    \item Each LF step takes us to a row whose rotation starts with the character we just saw. The last character of that new row is the character that comes \textbf{before} it in the original string.
+    \item So we discover characters from \textbf{last to first}
+    \item Prepending builds the string in correct order: first character discovered becomes last, last discovered becomes first
+\end{itemize}
+
 \newpage
 \begin{examplebox}[Step-by-Step Inversion of "annb\$aa" with I=4]
 
 Now we use the LF-mapping we computed to reconstruct the original string.
+
+\subsection*{The Big Picture}
+
+Think of the sorted rotations matrix. We know:
+\begin{itemize}
+    \item Row 4 (since \(I=4\)) contains the original string: \texttt{anana\$b}
+    \item Its last character \(L[4] = \$\) is the last character of the original string
+    \item The LF-mapping tells us: the same '\$' appears in \(F\) at row \(LF[4] = 0\)
+    \item Row 0's rotation starts with '\$': \texttt{\$banana}
+    \item Its last character \(L[0] = a\) is the character that comes \textbf{before} '\$' in the original string
+    \item Repeat to discover characters backwards
+\end{itemize}
 
 \subsection*{Step 1: Initial Setup}
 
@@ -575,53 +630,55 @@ We have:
 \begin{itemize}
     \item Last column L = [a, n, n, b, \$, a, a]
     \item LF-mapping = [1, 5, 6, 4, 0, 2, 3]
-    \item Primary index I = 4 (this tells us the original string is at row 4 in the sorted rotations matrix)
+    \item Primary index I = 4 (tells us original string is at row 4)
 \end{itemize}
 
 We start at row = I = 4.
 
 \subsection*{Step 2: Walk Backwards Through the Rows}
 
-At each step, we:
+At each step:
 \begin{enumerate}
-    \item Take the character at L[current row] and add it to the FRONT of our result
-    \item Move to the next row using LF-mapping: row = LF[row]
+    \item Take \(L[row]\) — this is the next character we discovered (from end to beginning)
+    \item Follow \(LF[row]\) to find the row whose rotation starts with this character
+    \item That row's last character is the character that comes before it
 \end{enumerate}
 
 \begin{center}
 \begin{tabularx}{\textwidth}{|c|c|c|c|X|}
 \hline
-\textbf{Step} & \textbf{Current } & \textbf{Char =} & \textbf{Next Row =} & \textbf{Explanation} \\
-& Row & L[row] & LF[row] & \\
+\textbf{Step} & \textbf{Current Row} & \textbf{L[row]} & \textbf{Next Row = LF[row]} & \textbf{Explanation} \\
 \hline
-Start & 4 & -- & -- & Begin at primary index \\
-1 & 4 & \$ & LF[4] = 0 & Take '\$', move to row 0 \\
-2 & 0 & a & LF[0] = 1 & Take 'a', move to row 1 \\
-3 & 1 & n & LF[1] = 5 & Take 'n', move to row 5 \\
-4 & 5 & a & LF[5] = 2 & Take 'a', move to row 2 \\
-5 & 2 & n & LF[2] = 6 & Take 'n', move to row 6 \\
-6 & 6 & a & LF[6] = 3 & Take 'a', move to row 3 \\
-7 & 3 & b & LF[3] = 4 & Take 'b', move to row 4 (back to start) \\
+Start & 4 & -- & -- & Begin at original string's row \\
+1 & 4 & \$ & 0 & '\$' is last char. Follow to row starting with '\$' \\
+2 & 0 & a & 1 & 'a' comes before '\$'. Follow to row starting with 'a' \\
+3 & 1 & n & 5 & 'n' comes before that 'a' \\
+4 & 5 & a & 2 & 'a' comes before that 'n' \\
+5 & 2 & n & 6 & 'n' comes before that 'a' \\
+6 & 6 & a & 3 & 'a' comes before that 'n' \\
+7 & 3 & b & 4 & 'b' comes before that 'a' (back to start) \\
 \hline
 \end{tabularx}
 \end{center}
 
 \subsection*{Step 3: Build the String by Prepending}
 
-We add each character to the FRONT of our result string:
+We discovered characters in reverse order: \$, a, n, a, n, a, b
+
+To get the original forward order, we \textbf{prepend} each newly discovered character:
 
 \begin{center}
-\begin{tabular}{|c|c|c|c|}
+\begin{tabular}{|c|c|c|}
 \hline
-\textbf{Step} & \textbf{Character Prepended} & \textbf{Current String S} & \textbf{Explanation} \\
+\textbf{Step} & \textbf{Character Discovered} & \textbf{String After Prepending} \\
 \hline
-1 & \$ & "\$" & Start with just the '\$' \\
-2 & a & "a\$" & Add 'a' to front \\
-3 & n & "na\$" & Add 'n' to front \\
-4 & a & "ana\$" & Add 'a' to front \\
-5 & n & "nana\$" & Add 'n' to front \\
-6 & a & "anana\$" & Add 'a' to front \\
-7 & b & "banana\$" & Add 'b' to front \\
+1 & \$ & "\$" \\
+2 & a & "a\$" \\
+3 & n & "na\$" \\
+4 & a & "ana\$" \\
+5 & n & "nana\$" \\
+6 & a & "anana\$" \\
+7 & b & "banana\$" \\
 \hline
 \end{tabular}
 \end{center}
@@ -630,16 +687,17 @@ We add each character to the FRONT of our result string:
 
 The reconstructed string is "banana\$". Removing the end marker '\$' gives us the original: "banana".
 
-\subsection*{Why This Works}
+\subsection*{Why This Works (Revisited)}
 
 The LF-mapping creates a cycle that visits every row exactly once:
 \[
 4 \rightarrow 0 \rightarrow 1 \rightarrow 5 \rightarrow 2 \rightarrow 6 \rightarrow 3 \rightarrow 4
 \]
 
-Walking this cycle backwards and collecting L[row] at each step reconstructs the original string in reverse order. Prepending each character (rather than appending) gives us the correct forward order.
+Walking this cycle backwards (by following LF) and collecting \(L[row]\) at each step reconstructs the original string from last character to first. Prepending each character gives us the correct forward order.
 
-This is the magic of the BWT - we can recover the original string using only L and I, without ever storing the full rotation matrix!
+This is the elegance of BWT: we can recover the original string using only \(L\) and \(I\), without ever storing the full rotation matrix!
+
 \end{examplebox}
 
 \subsubsection{Proof of Correctness (Sketch)}
