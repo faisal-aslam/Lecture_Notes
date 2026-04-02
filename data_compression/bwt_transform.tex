@@ -2,6 +2,7 @@
 % Transform-Based Compression: The Burrows--Wheeler Transform
 
 \section{Transform-Based Compression: The Burrows--Wheeler Transform}
+\label{sec:bwt}
 
 \subsection{The Three Paradigms of Lossless Compression}
 
@@ -231,6 +232,7 @@ The BWT output has:
 \end{itemize}
 
 \subsection{Formal Definition of the BWT}
+\label{sec:bwt_formal}
 
 \subsubsection{Cyclic Rotations and Lexicographic Sorting}
 
@@ -364,11 +366,12 @@ For a character \(c\) that appears \(k\) times in the string, the \(k\) occurren
 \end{algorithm}
 
 \newpage
+
 \begin{examplebox}[Step-by-Step LF-Mapping for "annb\$aa"]
 
 We will compute the LF-mapping by building it incrementally, explaining each operation in detail.
 
-\subsection*{Step 1: Understanding the Goal}
+\subsection*{Preliminaries: Understanding the Goal}
 
 The LF-mapping answers: "If I am at row i in the last column L, which row in the first column F contains the SAME occurrence of the SAME character?"
 
@@ -379,7 +382,7 @@ This works because:
     \item The k-th occurrence of character c in L corresponds to the k-th occurrence of c in F
 \end{itemize}
 
-\subsection*{Step 2: Our Data}
+\subsection*{Our Data}
 
 The last column L from BWT("banana\$") is:
 
@@ -389,9 +392,9 @@ L = [a,\; n,\; n,\; b,\; \$,\; a,\; a]
 
 Positions (indices):     0    1    2    3    4    5    6
 
-\subsection*{Step 3: Compute the First Column F}
+\subsection*{Step 1: Compute the First Column F}
 
-F is simply L sorted in ascending order (with '\$' < 'a' < 'b' < 'n'):
+F is simply L sorted in ascending order (with '\$' $<$ 'a' $<$ 'b' $<$ 'n'):
 
 \[
 \text{Sort}(L) = [\$,\; a,\; a,\; a,\; b,\; n,\; n]
@@ -403,7 +406,7 @@ F = [\$,\; a,\; a,\; a,\; b,\; n,\; n]
 \]
 Positions in F:           0    1    2    3    4    5    6
 
-\subsection*{Step 4: Count Occurrences in L (Build Rank Array)}
+\subsection*{Step 2: Count Occurrences in L (Build Rank Array)}
 
 We go through L from left to right, counting how many times we have seen each character so far. This count is called the "rank" - it tells us "this is the rank-th occurrence of this character."
 
@@ -428,7 +431,7 @@ So the rank array R (matching each position in L to its occurrence number) is:
 R = [1,\; 1,\; 2,\; 1,\; 1,\; 2,\; 3]
 \]
 
-\subsection*{Step 5: Count Occurrences in F}
+\subsection*{Step 3: Count Occurrences in F}
 
 Now we count how many times each character appears in the first column F:
 
@@ -445,7 +448,7 @@ n & 2 & Positions 5, 6 \\
 \end{tabular}
 \end{center}
 
-\subsection*{Step 6: Build Cumulative Starting Positions for F}
+\subsection*{Step 4: Build Cumulative Starting Positions for F}
 
 For each character, we need to know: "Where does the first occurrence of this character appear in F?" This is the cumulative count.
 
@@ -475,7 +478,7 @@ This means:
     \item The second 'n' in F is at position cum[n] + 1 = 6
 \end{itemize}
 
-\subsection*{Step 7: The Key Formula}
+\subsection*{Step 5: Apply the LF Formula}
 
 For any position i in L:
 \begin{itemize}
@@ -484,19 +487,10 @@ For any position i in L:
     \item In F, the r-th occurrence of c appears at: cum[c] + (r - 1)
 \end{itemize}
 
-Why (r - 1)? Because:
-\begin{itemize}
-    \item The first occurrence (r=1) goes to cum[c] + 0
-    \item The second occurrence (r=2) goes to cum[c] + 1
-    \item The third occurrence (r=3) goes to cum[c] + 2
-\end{itemize}
-
 Therefore:
 \[
 LF[i] = cum[c] + (rank[i] - 1)
 \]
-
-\subsection*{Step 8: Compute LF for Each Position}
 
 Now we apply this formula to each position i:
 
@@ -516,9 +510,17 @@ Now we apply this formula to each position i:
 \end{tabular}
 \end{center}
 
-\subsection*{Step 9: Understanding Each Result}
+\subsection*{Step 6: Final LF-Mapping Array}
 
-Let's verify each mapping to build intuition:
+\[
+LF = [1,\; 5,\; 6,\; 4,\; 0,\; 2,\; 3]
+\]
+
+This array tells us: from row i in L, go to row LF[i] in F to find the same character occurrence.
+
+\subsection*{Verification (Optional)}
+
+Let's verify a few mappings to build intuition:
 
 \begin{center}
 \begin{tabular}{|c|l|}
@@ -536,14 +538,6 @@ LF[6] = 3 & L[6] is the third 'a'. In F, the third 'a' is at position 3. \\
 \end{tabular}
 \end{center}
 
-\subsection*{Step 10: Final LF-Mapping Array}
-
-\[
-LF = [1,\; 5,\; 6,\; 4,\; 0,\; 2,\; 3]
-\]
-
-This array tells us: from row i in L, go to row LF[i] in F to find the same character occurrence.
-
 \end{examplebox}
 
 \subsubsection{Reconstruction Algorithm}
@@ -557,7 +551,7 @@ With the correct LF-mapping, we can now reconstruct the original string by walki
 \Ensure Original string \(S\)
 
 \State \(n \gets \text{length}(L)\)
-\State Compute LF-mapping array \(LF[0..n-1]\) using Algorithm 8.2
+\State Compute LF-mapping array \(LF[0..n-1]\) using Algorithm~\ref{alg:lf-mapping} (or the algorithm described earlier in this section)
 \State Initialize \(S\) as empty string
 \State \(row \gets I\)
 
@@ -922,17 +916,33 @@ This two-stage approach shows how different RLE variants can be combined in a si
 \end{examplebox}
 
 \subsection{Efficient Implementation}
+\label{sec:bwt_efficient}
 
 \subsubsection{Naive Rotation Matrix: Why It Is Impractical}
 
-The naive BWT implementation described earlier—constructing an \(n \times n\) matrix of rotations—is completely impractical for real data:
+The naive BWT implementation described in Section~\ref{sec:bwt_formal}—constructing an \(n \times n\) matrix of rotations—is completely impractical for real data. Let's analyze its complexity to understand why.
+
+\begin{importantbox}[Complexity of the Naive BWT Algorithm]
+
+For an input string of length \(n\):
 
 \begin{itemize}
-    \item For a 1MB file (\(n \approx 10^6\)), storing all rotations would require \(10^{12}\) characters (1TB) of memory!
-    \item Even storing indices rather than full strings, we need \(n\) rotations of length \(n\), which is \(O(n^2)\) space.
+    \item \textbf{Space Complexity:} The rotation matrix requires storing \(n \times n\) characters. For a 1MB file (\(n \approx 10^6\)), this would require \(10^{12}\) characters—about \textbf{1 terabyte} of memory! Even if we store indices rather than full strings, we still need \(O(n^2)\) space to represent all rotations.
+
+    \item \textbf{Time Complexity:} 
+    \begin{itemize}
+        \item Generating rotations: \(O(n^2)\) to create all \(n\) rotations of length \(n\)
+        \item Sorting the rotations: \(O(n^2 \log n)\) using comparison-based sorting, since comparing two rotations takes \(O(n)\) time in the worst case
+        \item Extracting the last column: \(O(n)\)
+    \end{itemize}
+    Total: \(O(n^2 \log n)\) time and \(O(n^2)\) space.
 \end{itemize}
 
-Clearly, we need a more efficient approach.
+The naive matrix-based algorithm is \textbf{pedagogical, not practical}. For \(n = 10^6\) (a 1MB file), the matrix would require \(10^{12}\) characters—more memory than most computers have.
+
+\end{importantbox}
+
+Clearly, we need a more efficient approach. The key insight is that we don't need to store all rotations explicitly, which leads us to suffix arrays.
 
 \subsubsection{Suffix Arrays for Efficient Construction}
 
@@ -972,7 +982,7 @@ For BWT construction, we only need the suffix array of \(S\$\) (the original str
 \end{algorithmic}
 \end{algorithm}
 
-\subsubsection{Time and Space Complexity}
+\subsubsection{Time and Space Complexity of Efficient Implementation}
 
 Modern BWT implementations achieve excellent efficiency:
 
@@ -1275,4 +1285,3 @@ Fill in this table based on Chapters 1-8.
 \begin{importantbox}[Key Takeaway]
 The Burrows-Wheeler Transform teaches us that sometimes the best way to solve a problem is to transform it into a different problem. By reordering data to reveal its inherent structure, we make the subsequent compression task dramatically easier—and RLE becomes the perfect tool to exploit that revealed structure. This synergy between transformation and exploitation is a lesson that applies far beyond data compression.
 \end{importantbox}
-
