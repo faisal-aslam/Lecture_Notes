@@ -760,7 +760,7 @@ The BWT doesn't compress; it reveals structure. The actual compression is done b
 A complete BWT-based compressor typically consists of several stages:
 
 \begin{center}
-\begin{tikzpicture}[node distance=1.8cm, auto]
+\begin{tikzpicture}[node distance=0.5cm, auto]
     % Nodes
     \node (input) [draw, rectangle] {Original Data};
     \node (bwt) [draw, rectangle, right=of input] {BWT};
@@ -781,6 +781,28 @@ A complete BWT-based compressor typically consists of several stages:
 \subsubsection{Stage 1: BWT Transform}
 
 The BWT rearranges the data to create local correlations and runs. As we saw with ``banana\$'', the output contains runs that didn't exist in the original.
+
+\subsubsection{Why MTF? Why Not RLE Directly on BWT?}
+
+You might wonder: *BWT already creates runs like \texttt{nn} and \texttt{aa}. Why not just apply RLE directly?*
+
+The answer: BWT creates **clusters**, not necessarily runs. Look at a realistic BWT output:
+
+\[
+\text{BWT("mississippi")} = \texttt{ipssm\$pissii}
+\]
+
+The four 'i's are scattered. Direct RLE would see mostly isolated characters — poor compression.
+
+\begin{importantbox}[The Insight]
+BWT groups similar characters **near** each other, but not necessarily **consecutively**. 
+
+MTF converts this "nearness" into actual runs: when a character repeats (even with small gaps), MTF outputs zeros. The result becomes dominated by long runs of zeros — perfect for RLE.
+
+\textbf{Analogy:} BWT moves similar items into the same neighborhood. MTF walks through and shouts "same as before!" (0) each time it sees the same item again. RLE then compresses those shouts.
+\end{importantbox}
+
+Without MTF, BWT output is not directly RLE-friendly. MTF is the essential bridge.
 
 \subsubsection{Stage 2: Move-To-Front (MTF) Encoding}
 
