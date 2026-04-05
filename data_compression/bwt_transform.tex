@@ -86,6 +86,7 @@ The remarkable property is that the last column tends to contain long runs of id
 Consider the word ``BANANA''. In English text, the letter 'N' often follows 'A'. In the BWT output, all the characters that precede 'N' in the original string will be grouped together because all rotations starting with 'N' are adjacent in the sorted list. This clustering effect is what makes the transform powerful.
 \end{examplebox}
 
+
 \subsubsection{Step-by-Step Example: \texttt{banana\$}}
 
 \begin{examplebox}[Computing the Burrows-Wheeler Transform (BWT) of ``banana\$'']
@@ -109,17 +110,17 @@ All rotations (starting at each character and wrapping around):
 \hline
 \textbf{Rotation \#} & \textbf{Rotation String} & \textbf{Last Char} \\
 \hline
-1 & banana\$ & \$ \\
-2 & anana\$b & b \\
-3 & nana\$ba & a \\
-4 & ana\$ban & n \\
-5 & na\$bana & a \\
-6 & a\$banan & n \\
-7 & \$banana & a \\
+0 & banana\$ & \$ \\
+1 & anana\$b & b \\
+2 & nana\$ba & a \\
+3 & ana\$ban & n \\
+4 & na\$bana & a \\
+5 & a\$banan & n \\
+6 & \$banana & a \\
 \hline
 \end{tabular}
 \end{center}
-\small\emph{Note: The last column will become the BWT output after sorting.}
+\small\emph{Note: Rotation \#0 is the original string (no rotation). The last column will become the BWT output after sorting.}
 \end{minipage}
 
 \vspace{0.8cm}
@@ -138,17 +139,17 @@ We sort these strings as you would in a dictionary (alphabetical order, with \$ 
 \hline
 \textbf{Rank} & \textbf{Sorted Rotation} & \textbf{Orig. Index} & \textbf{Last Char} \\
 \hline
-1 & \$banana & 7 & a \\
-2 & a\$banan & 6 & n \\
-3 & ana\$ban & 4 & n \\
-\rowcolor{originalrowcolor} 4 & anana\$b & 2 & b \\
-5 & banana\$ & 1 & \$ \\
-6 & na\$bana & 5 & a \\
-7 & nana\$ba & 3 & a \\
+0 & \$banana & 6 & a \\
+1 & a\$banan & 5 & n \\
+2 & ana\$ban & 3 & n \\
+3 & anana\$b & 1 & b \\
+\rowcolor{originalrowcolor} 4 & banana\$ & 0 & \$ \\
+5 & na\$bana & 4 & a \\
+6 & nana\$ba & 2 & a \\
 \hline
 \end{tabular}
 \end{center}
-\small\emph{The row with \colorbox{originalrowcolor}{blue background} contains the \textbf{original string} (anana\$b) before sorting.}
+\small\emph{The row with \colorbox{originalrowcolor}{blue background} contains the \textbf{original string} (banana\$).}
 \end{minipage}
 
 \vspace{0.8cm}
@@ -165,17 +166,17 @@ The BWT output is the \textbf{last character} of each sorted rotation (highlight
 
 \begin{center}
 \setlength{\extrarowheight}{3pt}
-\begin{tabular}{|>{\ttfamily}c|>{\columncolor{bwtoutputcolor}}c|}
+\begin{tabular}{|c|>{\ttfamily}c|>{\columncolor{bwtoutputcolor}}c|}
 \hline
-\textbf{Sorted Rotation} & \textbf{Last Character} \\
+\textbf{Rank} & \textbf{Sorted Rotation} & \textbf{Last Character} \\
 \hline
-\$banana & \textbf{\textcolor{blue}{a}} \\
-a\$banan & \textbf{\textcolor{blue}{n}} \\
-ana\$ban & \textbf{\textcolor{blue}{n}} \\
-anana\$b & \textbf{\textcolor{blue}{b}} \\
-banana\$ & \textbf{\textcolor{blue}{\$}} \\
-na\$bana & \textbf{\textcolor{blue}{a}} \\
-nana\$ba & \textbf{\textcolor{blue}{a}} \\
+0 & \$banana & \textbf{\textcolor{blue}{a}} \\
+1 & a\$banan & \textbf{\textcolor{blue}{n}} \\
+2 & ana\$ban & \textbf{\textcolor{blue}{n}} \\
+3 & anana\$b & \textbf{\textcolor{blue}{b}} \\
+4 & banana\$ & \textbf{\textcolor{blue}{\$}} \\
+5 & na\$bana & \textbf{\textcolor{blue}{a}} \\
+6 & nana\$ba & \textbf{\textcolor{blue}{a}} \\
 \hline
 \end{tabular}
 \end{center}
@@ -188,6 +189,9 @@ nana\$ba & \textbf{\textcolor{blue}{a}} \\
 
 \vspace{0.3cm}
 \normalsize
+\textbf{Important:} The primary index \(I = 4\) (0-based), which is the rank of the row containing the original string \texttt{banana\$}.
+
+\vspace{0.3cm}
 \textbf{Observation:} The BWT contains runs of identical characters: \texttt{nn} appears, and \texttt{aa} appears at the end. 
 The original ``banana'' had \textit{no} consecutive identical characters — this clustering property makes BWT excellent for compression!
 
@@ -784,25 +788,24 @@ The BWT rearranges the data to create local correlations and runs. As we saw wit
 
 \subsubsection{Why MTF? Why Not RLE Directly on BWT?}
 
-You might wonder: *BWT already creates runs like \texttt{nn} and \texttt{aa}. Why not just apply RLE directly?*
+A common question is: \emph{If BWT already groups identical characters, why not apply RLE immediately?}
 
-The answer: BWT creates **clusters**, not necessarily runs. Look at a realistic BWT output:
+The key issue is that BWT creates \textbf{clusters}, not true \textbf{runs}. Real BWT outputs rarely contain long uninterrupted sequences of the same symbol. For example:
 
 \[
 \text{BWT("mississippi")} = \texttt{ipssm\$pissii}
 \]
 
-The four 'i's are scattered. Direct RLE would see mostly isolated characters — poor compression.
+All the `i`'s are nearby, but not consecutive. Direct RLE would mostly see runs of length~1, giving almost no compression.
 
 \begin{importantbox}[The Insight]
-BWT groups similar characters **near** each other, but not necessarily **consecutively**. 
+BWT brings similar symbols \emph{close} to each other, but not \emph{together}.  
+MTF converts this proximity into actual redundancy: whenever a symbol reappears within a short distance, MTF outputs \texttt{0} because that symbol is already at the front of the list. This produces long runs of~0s, which RLE compresses extremely well.
 
-MTF converts this "nearness" into actual runs: when a character repeats (even with small gaps), MTF outputs zeros. The result becomes dominated by long runs of zeros — perfect for RLE.
-
-\textbf{Analogy:} BWT moves similar items into the same neighborhood. MTF walks through and shouts "same as before!" (0) each time it sees the same item again. RLE then compresses those shouts.
+\textbf{Additional benefit:} After MTF, the alphabet collapses to very small integers (0--5 dominate). Thus RLE not only gains long runs but also \emph{smaller run symbols}. Encoding runs of \texttt{0} is far cheaper than encoding runs of characters like `i` or `s`.
 \end{importantbox}
 
-Without MTF, BWT output is not directly RLE-friendly. MTF is the essential bridge.
+In short: \textbf{BWT provides structure, but MTF converts that structure into compressible redundancy.} Without MTF, BWT output is not meaningfully RLE--friendly; with MTF, it becomes ideal for both RLE and entropy coding.
 
 \subsubsection{Stage 2: Move-To-Front (MTF) Encoding}
 
@@ -862,6 +865,78 @@ MTF output: [0, 2, 0, 2, 3, 3, 0]
 
 Notice how runs of identical symbols in the BWT output become runs of zeros in the MTF output! This is the key to BWT's effectiveness—local structure in the BWT output translates to runs of small numbers after MTF.
 \end{examplebox}
+
+% ============================================================
+% NEW SECTION: REVERSING MOVE-TO-FRONT (MTF DECODING)
+% ============================================================
+
+\subsubsection{Stage 2 (Reverse): Move-To-Front Decoding}
+
+The MTF encoding is fully reversible. Given the sequence of indices produced by the encoder and the same initial list, we can recover the original symbol sequence exactly. This is essential for decompression.
+
+\begin{definitionbox}[Move-To-Front Decoding]
+The MTF decoder maintains the same list of symbols as the encoder (initially identical). For each input index \(y\) (starting from 0):
+\begin{enumerate}
+    \item Output the symbol at position \(y\) in the current list
+    \item Move that symbol to the front of the list
+\end{enumerate}
+This exactly reverses the encoding process.
+\end{definitionbox}
+
+\begin{algorithm}[H]
+\caption{Move-To-Front Decoding}
+\begin{algorithmic}[1]
+\Require Input index sequence \(Y[0..n-1]\) (from MTF encoder)
+\Ensure Recovered symbol sequence \(X[0..n-1]\)
+
+\State Initialize list \(L \gets \text{sorted}(\Sigma)\) \Comment{Same initial order as encoder}
+\For{\(i \gets 0\) to \(n-1\)}
+    \State \(p \gets Y[i]\) \Comment{Index from the encoded stream}
+    \State \(X[i] \gets L[p]\) \Comment{Symbol at that position}
+    \State Remove \(L[p]\) from list and insert at front
+\EndFor
+\State \Return \(X\)
+\end{algorithmic}
+\end{algorithm}
+
+\begin{examplebox}[Decoding the MTF Output from Our Example]
+
+We now reverse the MTF encoding we performed earlier. The encoded output was:
+\[
+Y = [0, 2, 0, 2, 3, 3, 0]
+\]
+
+We start with the same initial list as the encoder: \([a, b, n, \$]\).
+
+\begin{center}
+\begin{tabular}{c|c|c}
+\textbf{Input Index} & \textbf{Current List} & \textbf{Output Symbol} \\
+\hline
+0 & \([a, b, n, \$]\) & a \\
+2 & \([a, b, n, \$]\) & n \\
+0 & \([n, a, b, \$]\) & n \\
+2 & \([n, a, b, \$]\) & b \\
+3 & \([b, n, a, \$]\) & \$ \\
+3 & \([\$, b, n, a]\) & a \\
+0 & \([a, \$, b, n]\) & a \\
+\end{tabular}
+\end{center}
+
+The recovered symbol sequence is: \([a, n, n, b, \$, a, a]\).
+
+Concatenating these gives the string \texttt{annb\$aa}, which is exactly the original BWT output we started with! This confirms that the MTF decoding correctly reverses the encoding.
+
+\end{examplebox}
+
+\subsubsection{Why MTF Decoding is Simple and Fast}
+
+Notice the symmetry between encoding and decoding:
+\begin{itemize}
+    \item \textbf{Encoding:} Symbol \(\rightarrow\) find index \(\rightarrow\) output index \(\rightarrow\) move symbol to front
+    \item \textbf{Decoding:} Index \(\rightarrow\) find symbol at that index \(\rightarrow\) output symbol \(\rightarrow\) move that symbol to front
+\end{itemize}
+
+Both operations run in \(O(1)\) time if we implement the list with a linked structure or an array and a separate ranking array. In practice, with an alphabet of 256 symbols, even a linear scan (\(O(|\Sigma|)\)) is negligible. This efficiency is one reason MTF is so popular in BWT-based compressors like \texttt{bzip2}.
 
 \subsubsection{Stage 3: Run-Length Encoding (RLE)}
 
