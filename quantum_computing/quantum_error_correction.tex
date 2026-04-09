@@ -1,0 +1,1118 @@
+% ----------------------------------------------------------------------
+% main.tex – Quantum Error Correction Lecture Notes v2.0 (Fully Corrected)
+% ----------------------------------------------------------------------
+
+\documentclass[11pt, a4paper]{article}
+
+% ----------------------------------------------------------------------
+% Packages
+% ----------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=cyan, urlcolor=magenta,
+            pdftitle={Quantum Error Correction Lecture Notes v2.0},
+            pdfauthor={Quantum Computing Course},
+            pdfpagemode=UseOutlines, bookmarks=true]{hyperref}
+\usepackage{braket}
+\usepackage{tikz}
+\usetikzlibrary{quantikz, positioning, shapes.geometric}
+\usepackage{fullpage}
+\usepackage{enumitem}  % Better lists
+
+% ----------------------------------------------------------------------
+% Theorem environments
+% ----------------------------------------------------------------------
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{exercise}{Exercise}[section]
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}[section]
+\newtheorem{note}{Note}[section]
+
+% ----------------------------------------------------------------------
+% Custom commands
+% ----------------------------------------------------------------------
+\newcommand{\ketbra}[1]{\outer{#1}{#1}}
+\newcommand{\Tr}{\operatorname{Tr}}
+\newcommand{\CNOT}{\text{CNOT}}
+\newcommand{\bit}{\{0,1\}}
+\newcommand{\calH}{\mathcal{H}}
+\newcommand{\calE}{\mathcal{E}}
+\newcommand{\calR}{\mathcal{R}}
+\newcommand{\X}{\sigma_x}
+\newcommand{\Y}{\sigma_y}
+\newcommand{\Z}{\sigma_z}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\1}{\mathbb{I}}
+\newcommand{\code}[1]{[[#1]]}  % For quantum code parameters
+
+% ----------------------------------------------------------------------
+% Color boxes for important notes
+% ----------------------------------------------------------------------
+\definecolor{keycolor}{RGB}{0, 102, 204}
+\definecolor{warncolor}{RGB}{204, 102, 0}
+\newenvironment{keypoint}{%
+    \begin{trivlist}\item\color{keycolor}\textbf{Key Point: }}{%
+    \end{trivlist}}
+\newenvironment{caution}{%
+    \begin{trivlist}\item\color{warncolor}\textbf{Caution: }}{%
+    \end{trivlist}}
+
+% ----------------------------------------------------------------------
+% Title
+% ----------------------------------------------------------------------
+\title{Quantum Error Correction \\ \large Lecture Notes – Version 2.0}
+\author{Quantum Computing Course}
+\date{\today}
+
+% ----------------------------------------------------------------------
+% Document
+% ----------------------------------------------------------------------
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+These lecture notes provide a comprehensive introduction to quantum error correction (QEC). 
+We cover classical error correction, the 3-qubit and Shor codes, the Steane \code{7,1,3} code, 
+stabilizer formalism, topological codes such as the surface and color codes, fault-tolerant gates, 
+magic state distillation, concatenated codes, and advanced quantum LDPC codes.  
+
+All sections include exercises, and key formulas are highlighted. Hyperlinks enable easy navigation.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ======================================================================
+% SECTION 1: INTRODUCTION
+% ======================================================================
+\section{Introduction: Why Quantum Error Correction?}
+\label{sec:intro}
+
+Quantum systems are notoriously fragile. Qubits, unlike classical bits, are susceptible to \textbf{decoherence} and operational errors:
+
+\begin{itemize}
+    \item \textbf{Decoherence:} Interaction with the environment destroys quantum superpositions. For example, an unknown magnetic field can randomly rotate a qubit, causing loss of phase information.
+    \item \textbf{Gate errors:} Imperfect operations (e.g., CNOT, Hadamard) introduce small inaccuracies, which accumulate over a computation.
+\end{itemize}
+
+Without error correction, the accumulation of these errors makes large-scale quantum computation impossible. Even a single logical qubit in a long algorithm will fail with high probability.
+
+\begin{keypoint}
+The goal of quantum error correction is to detect and correct errors without measuring (and thus destroying) the quantum information.
+\end{keypoint}
+
+\subsection{Why Classical Error Correction is Not Enough}
+
+Classical error correction often uses \textbf{repetition codes} or parity checks. For example, a classical 3-bit repetition code encodes:
+\[
+0 \to 000, \quad 1 \to 111
+\]
+and can correct a single bit flip using majority voting. However, classical methods \textbf{cannot directly handle quantum errors} because:
+
+\begin{enumerate}
+    \item Qubits cannot be cloned (no-cloning theorem, \S\ref{sec:no-cloning}).  
+    \item Errors are \textbf{continuous}, not discrete (a qubit can be partially rotated).  
+    \item Measurement collapses quantum states, potentially destroying superpositions.  
+\end{enumerate}
+
+\subsection{The No-Cloning Theorem}
+\label{sec:no-cloning}
+
+\begin{theorem}[No-Cloning]
+There is no unitary operation $U$ that copies an arbitrary unknown quantum state $\ket{\psi}$:
+\[
+U (\ket{\psi} \otimes \ket{0}) = \ket{\psi} \otimes \ket{\psi}, \quad \forall \ket{\psi}.
+\]
+\end{theorem}
+
+\begin{proof}[Sketch]
+Assume $U$ exists. Let $\ket{\psi}$ and $\ket{\phi}$ be two arbitrary states. Then:
+\[
+U(\ket{\psi}\ket{0}) = \ket{\psi}\ket{\psi}, \quad
+U(\ket{\phi}\ket{0}) = \ket{\phi}\ket{\phi}.
+\]
+Unitary operators preserve inner products:
+\[
+\braket{\psi|\phi} = \braket{\psi|\phi}^2
+\]
+which implies $\braket{\psi|\phi} = 0$ or $1$ — a contradiction for arbitrary states.
+\end{proof}
+
+This prevents naive repetition coding of qubits. A new strategy is required to \textbf{encode a logical qubit into multiple physical qubits without copying its state}.
+
+\subsection{Overview of Quantum Error Correction}
+
+Quantum error correction (QEC) works by:
+
+\begin{enumerate}
+    \item \textbf{Encoding} a logical qubit into an entangled state of multiple physical qubits.  
+    \item \textbf{Measuring error syndromes} using ancillary qubits, without collapsing the logical superposition.  
+    \item \textbf{Applying corrective operations} based on syndrome outcomes to restore the original logical qubit.
+\end{enumerate}
+
+\begin{remark}
+Although qubits cannot be copied, QEC leverages \textbf{entanglement} and \textbf{projective measurements} to detect and correct errors indirectly.
+\end{remark}
+
+\subsection{Historical Context}
+
+Quantum error correction was first proposed in the mid-1990s:
+
+\begin{itemize}
+    \item \textbf{Shor (1995):} 9-qubit code that corrects arbitrary single-qubit errors.  
+    \item \textbf{Steane (1996):} 7-qubit code, stabilizer-based, simpler encoding.  
+    \item \textbf{Knill-Laflamme (1997):} General conditions for correctable errors.  
+\end{itemize}
+
+\subsection{Learning Goals}
+
+After reading this chapter, students should:
+
+\begin{itemize}
+    \item Understand why quantum errors are fundamentally different from classical errors.  
+    \item Comprehend the constraints imposed by the no-cloning theorem.  
+    \item Grasp the general strategy of encoding, syndrome measurement, and error correction.  
+    \item Appreciate the historical and practical significance of quantum error correction.
+\end{itemize}
+
+\begin{exercise}
+Explain in your own words why the no-cloning theorem does not prohibit quantum error correction.
+\end{exercise}
+
+% ======================================================================
+% SECTION 2: QUANTUM ERRORS AND PAULI OPERATORS
+% ======================================================================
+\section{Quantum Errors and Pauli Operators}
+\label{sec:errors}
+
+Quantum computers are affected by various types of errors. Unlike classical bits, qubit errors are \textbf{continuous} and can involve both amplitude and phase changes. Understanding these errors is crucial for designing quantum error-correcting codes.
+
+\subsection{Types of Single-Qubit Errors}
+
+Consider a single qubit in state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$. Common errors:
+
+\begin{itemize}
+    \item \textbf{Bit-flip error} ($X$): flips $\ket{0} \leftrightarrow \ket{1}$.  
+    \[
+    X\ket{0} = \ket{1}, \quad X\ket{1} = \ket{0}
+    \]
+
+    \item \textbf{Phase-flip error} ($Z$): flips the relative phase.  
+    \[
+    Z\ket{0} = \ket{0}, \quad Z\ket{1} = -\ket{1}
+    \]
+
+    \item \textbf{Combined bit+phase flip} ($Y = iXZ$):  
+    \[
+    Y\ket{0} = i\ket{1}, \quad Y\ket{1} = -i\ket{0}
+    \]
+\end{itemize}
+
+\subsection{Pauli Operators}
+
+The set of single-qubit Pauli operators is:
+\[
+\{I, X, Y, Z\}
+\]
+with matrix representations:
+\[
+I = \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix}, \quad
+X = \begin{pmatrix}0 & 1 \\ 1 & 0\end{pmatrix}, \quad
+Y = \begin{pmatrix}0 & -i \\ i & 0\end{pmatrix}, \quad
+Z = \begin{pmatrix}1 & 0 \\ 0 & -1\end{pmatrix}.
+\]
+
+\begin{remark}
+Any single-qubit error $E$ can be written as a \textbf{linear combination} of Pauli operators:
+\[
+E = c_0 I + c_1 X + c_2 Y + c_3 Z, \quad c_i \in \mathbb{C}.
+\]
+This is the key idea behind \textbf{discretization of errors}.
+\end{remark}
+
+\subsection{Pauli Commutation Relations}
+
+The Pauli operators satisfy:
+\[
+XZ = -ZX = iY, \quad XY = -YX = iZ, \quad YZ = -ZY = iX.
+\]
+Equivalently, they anticommute: $\{X,Z\} = 0$, $\{X,Y\}=0$, $\{Y,Z\}=0$.
+
+\subsection{Multi-Qubit Pauli Group}
+
+For $n$ qubits, the Pauli group $\mathcal{P}_n$ consists of tensor products of single-qubit Pauli operators with phases $\pm1, \pm i$:
+\[
+\mathcal{P}_n = \{ e^{i\theta} P_1 \otimes P_2 \otimes \dots \otimes P_n \mid P_i \in \{I,X,Y,Z\}, \theta \in \{0,\pi/2,\pi,3\pi/2\} \}.
+\]
+
+\subsection{Discretization of Quantum Errors}
+
+\begin{theorem}[Discretization of Errors]
+\label{thm:discretization}
+If a quantum code can correct all single-qubit Pauli errors, it can correct \textbf{any error} on those qubits.
+\end{theorem}
+
+\begin{proof}[Sketch]
+Let $E$ be an arbitrary single-qubit error. Then:
+\[
+E = c_0 I + c_1 X + c_2 Y + c_3 Z
+\]
+for complex coefficients $c_i$. Syndrome measurement projects the error onto one Pauli component $P_i$, collapsing superpositions of errors. Once projected, the corresponding Pauli error is correctable.
+\end{proof}
+
+\begin{keypoint}
+Because of Theorem \ref{thm:discretization}, stabilizer codes only need to consider \textbf{Pauli errors} — this suffices to correct arbitrary continuous errors.
+\end{keypoint}
+
+\subsection{Error Representation: Kraus Operators}
+
+A more general error model uses \textbf{quantum channels}:
+\[
+\calE(\rho) = \sum_i E_i \rho E_i^\dagger, \quad \sum_i E_i^\dagger E_i = I
+\]
+where $\{E_i\}$ are \textbf{Kraus operators} representing different possible errors. For a single-qubit depolarizing channel:
+\[
+\calE(\rho) = (1-p)\rho + \frac{p}{3}(X\rho X + Y \rho Y + Z \rho Z)
+\]
+
+\begin{example}
+If $p = 0.01$, the qubit has a 1\% chance of a Pauli error; each Pauli occurs with probability $p/3 \approx 0.0033$.
+\end{example}
+
+\subsection{Common Noise Models}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Noise Model} & \textbf{Description} \\
+\hline
+Depolarizing & $X, Y, Z$ each with probability $p/3$ \\
+Dephasing & $Z$ error with probability $p$ \\
+Amplitude Damping & Energy relaxation ($T_1$ process) \\
+\hline
+\end{tabular}
+\caption{Common quantum noise models.}
+\end{table}
+
+\subsection{Error Propagation in Circuits}
+
+Errors can spread in multi-qubit gates:
+
+\begin{itemize}
+    \item For CNOT: a bit-flip $X$ on the control propagates to the target.  
+    \item For phase-flip $Z$ on the target: propagates to the control.  
+\end{itemize}
+
+This motivates \textbf{fault-tolerant circuit design} (see Section \ref{sec:fault-tolerant}).
+
+\begin{exercise}
+Verify the commutation relations: $[X,Z] = XZ - ZX = 2iY$.
+\end{exercise}
+
+\begin{exercise}
+For the depolarizing channel with $p=0.02$, what is the probability of no error? Of an $X$ error?
+\end{exercise}
+
+% ======================================================================
+% SECTION 3: REPETITION CODES
+% ======================================================================
+\section{Classical and Quantum Repetition Codes}
+\label{sec:repetition}
+
+Repetition codes are the simplest example of error correction, and they provide intuition for quantum codes.
+
+\subsection{Classical 3-Bit Repetition Code}
+
+A classical 3-bit repetition code maps a single bit to three bits:
+
+\[
+0 \to 000, \quad 1 \to 111.
+\]
+
+\begin{itemize}
+    \item If one bit flips (error probability $p$), we recover the original bit by \textbf{majority voting}.
+    \item Probability of error after decoding (one-bit flips):
+    \[
+    P_\text{error} = 3p^2(1-p) + p^3 \approx \mathcal{O}(p^2) \quad \text{for small } p
+    \]
+\end{itemize}
+
+\begin{remark}
+The classical code \textbf{cannot correct phase errors}, but it introduces the basic idea of redundancy.
+\end{remark}
+
+\subsection{Quantum 3-Qubit Bit-Flip Code}
+
+Consider encoding a logical qubit
+\[
+\ket{\psi} = \alpha \ket{0} + \beta \ket{1}
+\]
+into three physical qubits:
+
+\[
+\ket{\psi_L} = \alpha \ket{000} + \beta \ket{111}.
+\]
+
+This is the \textbf{quantum 3-qubit repetition code}.
+
+\subsubsection{Encoding Circuit}
+
+The encoding uses two CNOT gates:
+
+\[
+\ket{\psi}\ket{00} 
+\xrightarrow{\CNOT_{1,2}} \alpha\ket{00}\ket{0} + \beta \ket{11}\ket{0} 
+\xrightarrow{\CNOT_{1,3}} \alpha \ket{000} + \beta \ket{111}.
+\]
+
+\begin{quantikz}
+\lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \qw \\
+\lstick{$\ket{0}$} & \targ{} & \qw & \qw \\
+\lstick{$\ket{0}$} & \qw & \targ{} & \qw
+\end{quantikz}
+
+\subsubsection{Error Detection and Syndrome Measurement}
+
+Suppose a single-qubit bit-flip ($X$) occurs. We use \textbf{syndrome measurements}:
+
+\begin{itemize}
+    \item Measure parity of qubits 1\&2 and 2\&3 using ancilla qubits.  
+    \item Syndromes $(s_1,s_2)$ indicate which qubit flipped:
+
+    \[
+    \begin{array}{ccc}
+    \text{Error} & \text{State after error} & \text{Syndrome } (s_1,s_2) \\
+    \hline
+    \text{No error} & \alpha\ket{000} + \beta\ket{111} & (0,0) \\
+    X_1 & \alpha\ket{100} + \beta\ket{011} & (1,0) \\
+    X_2 & \alpha\ket{010} + \beta\ket{101} & (1,1) \\
+    X_3 & \alpha\ket{001} + \beta\ket{110} & (0,1)
+    \end{array}
+    \]
+
+    \item Apply corrective $X$ to the indicated qubit.
+\end{itemize}
+
+\begin{keypoint}
+Syndrome measurement does \textbf{not reveal $\alpha$ or $\beta$}, preserving the quantum superposition.
+\end{keypoint}
+
+\subsection{Syndrome Measurement Circuit}
+
+Below is the full syndrome measurement circuit for the 3-qubit bit-flip code:
+
+\begin{quantikz}
+\lstick{$\ket{\psi_L}$} & \qw & \ctrl{1} & \qw & \ctrl{2} & \qw & \qw \\
+\lstick{$\ket{0}$} & \qw & \targ{} & \meter{} & \qw & \qw & \qw \\
+\lstick{$\ket{0}$} & \qw & \qw & \qw & \targ{} & \meter{} & \qw
+\end{quantikz}
+
+\subsection{Quantum Phase-Flip Code}
+
+Phase errors correspond to the Pauli $Z$ operator:
+\[
+Z\ket{0} = \ket{0}, \quad Z\ket{1} = -\ket{1}.
+\]
+
+\begin{itemize}
+    \item By applying a \textbf{Hadamard transform} to all qubits, $Z$-errors become $X$-errors in the $\{\ket{+},\ket{-}\}$ basis:
+    \[
+    \ket{\psi} = \alpha\ket{0}+\beta\ket{1} \xrightarrow{H^{\otimes 3}} \alpha \ket{+}^{\otimes 3} + \beta \ket{-}^{\otimes 3}.
+    \]
+
+    \item Apply the 3-qubit bit-flip code in the Hadamard basis to correct phase flips.
+\end{itemize}
+
+\begin{caution}
+The phase-flip code alone does not correct arbitrary errors. For complete single-qubit error correction, combine bit-flip and phase-flip codes into the \textbf{Shor 9-qubit code} (Section \ref{sec:shor}).
+\end{caution}
+
+\subsection{Why This Works Despite the No-Cloning Theorem}
+
+\begin{itemize}
+    \item We do \textbf{not measure the quantum state directly}.  
+    \item Syndrome measurement only detects \textbf{which qubit flipped}, not $\alpha$ or $\beta$.  
+    \item The encoded state remains a superposition:
+    \[
+    \alpha \ket{000} + \beta \ket{111} \quad \xrightarrow{\text{corrected}} \quad \alpha \ket{000} + \beta \ket{111}.
+    \]
+\end{itemize}
+
+\begin{exercise}
+Show that the 3-qubit bit-flip code cannot correct a single phase-flip ($Z$) on one qubit.
+\end{exercise}
+
+\begin{exercise}
+Draw the full encoding and syndrome measurement circuit for the 3-qubit bit-flip code using ancilla qubits.
+\end{exercise}
+
+% ======================================================================
+% SECTION 4: SHOR 9-QUBIT CODE
+% ======================================================================
+\section{The Shor 9-Qubit Code}
+\label{sec:shor}
+
+The Shor code is the first quantum error-correcting code that can correct \textbf{any single-qubit error} (bit-flip, phase-flip, or both).
+
+\subsection{Encoding Logical Qubits}
+
+The logical qubits are encoded as:
+
+\[
+\ket{0}_L = \frac{1}{\sqrt{8}} \left(\ket{000}+\ket{111}\right)^{\otimes 3}, \quad
+\ket{1}_L = \frac{1}{\sqrt{8}} \left(\ket{000}-\ket{111}\right)^{\otimes 3}.
+\]
+
+\begin{itemize}
+    \item Each block of three qubits is a \textbf{bit-flip code}.  
+    \item The three blocks together form a \textbf{phase-flip code} in the computational basis.  
+    \item This combination allows correction of \textbf{arbitrary single-qubit errors}.
+\end{itemize}
+
+\subsection{Stabilizer Generators (Corrected)}
+
+The stabilizer group $S$ for the Shor code is generated by:
+
+\textbf{Bit-flip stabilizers (within each block of 3):}
+\[
+g_1 = Z_1 Z_2,\quad g_2 = Z_2 Z_3,\quad
+g_3 = Z_4 Z_5,\quad g_4 = Z_5 Z_6,\quad
+g_5 = Z_7 Z_8,\quad g_6 = Z_8 Z_9
+\]
+
+\textbf{Phase-flip stabilizers (across blocks):}
+\[
+g_7 = X_1 X_2 X_3 X_4 X_5 X_6,\quad
+g_8 = X_1 X_2 X_3 X_7 X_8 X_9
+\]
+
+\begin{keypoint}
+The 8 stabilizer generators are independent and commute. The code space has dimension $2^{9-8} = 2^1 = 2$, encoding 1 logical qubit.
+\end{keypoint}
+
+\subsection{Error Correction Capability}
+
+\begin{itemize}
+    \item Any single-qubit error $X$, $Y$, or $Z$ can be detected and corrected.
+    \item General errors (continuous rotations) can be expanded in the Pauli basis:
+    \[
+    E = c_0 I + c_1 X + c_2 Y + c_3 Z
+    \]
+    and corrected using \textbf{discretization} (Theorem \ref{thm:discretization}).
+\end{itemize}
+
+\subsection{Syndrome Measurement}
+
+The Shor code uses stabilizers to detect errors without measuring the logical qubit directly:
+
+\begin{itemize}
+    \item \textbf{Bit-flip stabilizers:} $Z_i Z_j$ within each 3-qubit block (detect which qubit flipped).  
+    \item \textbf{Phase-flip stabilizers:} $X^{\otimes 6}$ across the blocks (detect phase errors).  
+    \item In total, 8 independent stabilizers for 9 qubits produce 8 syndrome bits.
+\end{itemize}
+
+\subsection{Example: Single-Qubit Error}
+
+Suppose qubit 2 suffers a bit-flip $X_2$:
+
+\begin{enumerate}
+    \item Measure bit-flip stabilizers $Z_1Z_2$, $Z_2Z_3$ for the first block.  
+    \item Syndrome indicates qubit 2 is flipped.  
+    \item Apply $X_2$ to correct.  
+    \item Phase-flip stabilizers remain $+1$ if no phase error occurred.
+\end{enumerate}
+
+\subsection{Logical Operators}
+
+\[
+X_L = X^{\otimes 9}, \quad Z_L = Z_1 Z_2 Z_3
+\]
+These act on the encoded qubit without leaving the code space.
+
+\begin{exercise}
+Verify that all 8 stabilizer generators commute with each other.
+\end{exercise}
+
+\begin{exercise}
+Show that the Shor code corrects a $Y$-error on any single qubit by decomposing $Y = iXZ$.
+\end{exercise}
+
+\begin{exercise}
+Explain why measuring $Z_iZ_j$ stabilizers does not reveal the encoded coefficients $\alpha$ and $\beta$.
+\end{exercise}
+
+% ======================================================================
+% SECTION 5: STEANE 7-QUBIT CODE
+% ======================================================================
+\section{The Steane \code{7,1,3} Code}
+\label{sec:steane}
+
+The Steane code is a Calderbank-Shor-Steane (CSS) code derived from the classical Hamming code. It corrects any single-qubit error and has a nice structure that admits transversal Clifford gates.
+
+\subsection{Classical Hamming Code}
+
+The classical Hamming \code{7,4,3} code has parity check matrix:
+\[
+H = \begin{pmatrix}
+1 & 1 & 1 & 1 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 1 & 1 & 0 \\
+1 & 0 & 1 & 0 & 1 & 0 & 1
+\end{pmatrix}
+\]
+
+\subsection{Quantum CSS Construction}
+
+The Steane code is a CSS code with $H_X = H_Z = H$ (the Hamming parity check matrix). The stabilizer generators are:
+
+\textbf{X-type stabilizers} (rows of $H$ as $X$ operators):
+\[
+\begin{aligned}
+X_1 X_2 X_3 X_4,&\quad X_1 X_2 X_5 X_6,\quad X_1 X_3 X_5 X_7
+\end{aligned}
+\]
+
+\textbf{Z-type stabilizers} (same pattern with $Z$):
+\[
+\begin{aligned}
+Z_1 Z_2 Z_3 Z_4,&\quad Z_1 Z_2 Z_5 Z_6,\quad Z_1 Z_3 Z_5 Z_7
+\end{aligned}
+\]
+
+\subsection{Properties}
+
+\begin{itemize}
+    \item Number of qubits: $n = 7$
+    \item Logical qubits: $k = 1$
+    \item Distance: $d = 3$ (corrects 1 error)
+    \item Notation: \code{7,1,3}
+\end{itemize}
+
+\subsection{Transversal Gates}
+
+The Steane code admits the following \textbf{transversal} gates:
+\[
+H_L = H^{\otimes 7},\quad S_L = S^{\otimes 7},\quad \CNOT_L = \CNOT^{\otimes 7}
+\]
+where $H$ is Hadamard, $S$ is the phase gate, and $\CNOT$ is applied bitwise between two encoded blocks.
+
+\begin{caution}
+The $T$ gate is \textbf{not transversal} in the Steane code. This is why magic state distillation is needed (Section \ref{sec:magic}).
+\end{caution}
+
+\begin{exercise}
+Verify that the Steane code stabilizers commute with each other.
+\end{exercise}
+
+\begin{exercise}
+Why does the CSS construction guarantee that $X$-type and $Z$-type stabilizers commute?
+\end{exercise}
+
+% ======================================================================
+% SECTION 6: STABILIZER FORMALISM
+% ======================================================================
+\section{The Stabilizer Formalism}
+\label{sec:stabilizer}
+
+The stabilizer formalism is the modern framework for constructing and analyzing quantum error-correcting codes. It generalizes examples like the 3-qubit, Shor, and Steane codes.
+
+\subsection{Pauli Group (Recap)}
+
+The $n$-qubit \textbf{Pauli group} $\mathcal{P}_n$ consists of all $n$-fold tensor products of single-qubit Pauli operators $\{I, X, Y, Z\}$, with overall phases $\pm 1$ or $\pm i$:
+\[
+\mathcal{P}_n = \{ e^{i\phi} P_1 \otimes P_2 \otimes \dots \otimes P_n \mid P_i \in \{I,X,Y,Z\}, \phi \in \{0, \pi/2, \pi, 3\pi/2\} \}.
+\]
+
+\subsection{Definition of Stabilizer Codes}
+
+\begin{definition}[Stabilizer]
+A \textbf{stabilizer} $S$ is an abelian subgroup of $\mathcal{P}_n$ such that $-I \notin S$. The code space $\mathcal{C}$ is the simultaneous $+1$ eigenspace of all $s \in S$:
+\[
+\mathcal{C} = \{\ket{\psi} \in (\mathbb{C}^2)^{\otimes n} \mid s\ket{\psi} = \ket{\psi}, \forall s\in S\}.
+\]
+\end{definition}
+
+\begin{itemize}
+    \item If $S$ has $n-k$ independent generators $\{g_1, \dots, g_{n-k}\}$, then $\dim \mathcal{C} = 2^k$, encoding $k$ logical qubits into $n$ physical qubits.
+\end{itemize}
+
+\subsection{Logical Operators}
+
+Logical operators act on the encoded qubits without leaving the code space:
+
+\begin{itemize}
+    \item Logical $X_L$, $Z_L$ satisfy:
+    \[
+    [X_L, g_i] = [Z_L, g_i] = 0 \quad \forall i, \quad X_L, Z_L \notin S
+    \]
+    \item They implement operations on encoded qubits, e.g., $X_L \ket{0}_L = \ket{1}_L$.
+\end{itemize}
+
+\subsection{Syndrome Measurement}
+
+\begin{itemize}
+    \item For each stabilizer generator $g_i$, measure its eigenvalue $s_i = \pm 1$ using an ancilla qubit.
+    \item The collection $(s_1, \dots, s_{n-k})$ forms the \textbf{error syndrome}.  
+    \item Errors $E$ that \textbf{anticommute} with $g_i$ flip the measurement outcome.
+\end{itemize}
+
+\subsection{Worked Example: 3-Qubit Bit-Flip Code}
+
+\begin{itemize}
+    \item Stabilizers: $g_1 = Z_1 Z_2$, $g_2 = Z_2 Z_3$.  
+    \item Code space: $\{\ket{000}, \ket{111}\}$.  
+    \item Logical operators: $X_L = X_1 X_2 X_3$, $Z_L = Z_1$ (or $Z_3$).  
+    \item Syndrome measurement:
+    \begin{itemize}
+        \item No error: $g_1=+1, g_2=+1$
+        \item $X_1$ error: $g_1=-1, g_2=+1$
+        \item $X_2$ error: $g_1=-1, g_2=-1$
+        \item $X_3$ error: $g_1=+1, g_2=-1$
+    \end{itemize}
+\end{itemize}
+
+\subsection{Normalizer and Logical Operators}
+
+\begin{itemize}
+    \item The \textbf{normalizer} $N(S)$ is the set of Pauli operators that commute with all elements of $S$.  
+    \item Logical operators are in $N(S) \setminus S$. They are also called \textbf{undetectable errors} — applying them does not change the syndrome but changes the encoded state.
+\end{itemize}
+
+\subsection{Error-Correction Conditions}
+
+\begin{theorem}[Knill-Laflamme Conditions]
+\label{thm:knill-laflamme}
+A code with projector $P$ can correct a set of errors $\{E_a\}$ iff
+\[
+P E_a^\dagger E_b P = \alpha_{ab} P
+\]
+for some Hermitian matrix $\alpha$ (i.e., $\alpha_{ab}$ is a scalar and $P$ is the code projector).
+\end{theorem}
+
+\begin{itemize}
+    \item Intuition: The projected error operators must act like multiples of the identity within the code space.  
+    \item For stabilizer codes: $E_a^\dagger E_b$ must either belong to $S$ or lie outside the normalizer $N(S) \setminus S$.
+\end{itemize}
+
+\subsection{Advantages of the Stabilizer Formalism}
+
+\begin{itemize}
+    \item Provides a systematic construction of QEC codes.  
+    \item Makes \textbf{syndrome measurement} and error correction algorithmic.  
+    \item Encodes multiple logical qubits efficiently.  
+    \item Works naturally with \textbf{topological codes} like the surface code.
+\end{itemize}
+
+\begin{exercise}
+For the 3-qubit bit-flip code, compute the syndrome for an $X_1$ error using the stabilizer formalism.
+\end{exercise}
+
+\begin{exercise}
+Show that for the Steane code, the normalizer contains logical $X_L$ and $Z_L$ operators.
+\end{exercise}
+
+\begin{exercise}
+Explain why an error that commutes with all stabilizers but is not in $S$ is undetectable and acts as a logical operator.
+\end{exercise}
+
+% ======================================================================
+% SECTION 7: SURFACE CODE
+% ======================================================================
+\section{The Surface Code}
+\label{sec:surface}
+
+The \textbf{surface code} is a topological quantum error-correcting code defined on a 2D lattice. It is currently the most promising architecture for scalable quantum computation.
+
+\subsection{Lattice Setup}
+
+\begin{itemize}
+    \item Data qubits are placed on the \textbf{edges} of a square lattice.  
+    \item Two types of stabilizers:
+    \begin{enumerate}
+        \item \textbf{Z-stabilizers (plaquettes):} Product of $Z$ operators around a square face (detects bit-flip errors).  
+        \item \textbf{X-stabilizers (stars/vertices):} Product of $X$ operators around a vertex (detects phase-flip errors).
+    \end{enumerate}
+    \item Each stabilizer involves 4 qubits in the bulk of the lattice.  
+    \item Code parameters for a lattice of distance $d$:
+    \[
+    [[d^2 + (d-1)^2, 1, d]] = [[2d^2 - 2d + 1, 1, d]]
+    \]
+    meaning 1 logical qubit encoded into $n = 2d^2 - 2d + 1$ physical qubits with distance $d$.
+\end{itemize}
+
+\subsection{Syndrome Measurement}
+
+\begin{itemize}
+    \item Each stabilizer generator is measured using an \textbf{ancilla qubit}.  
+    \item Measurement outcomes $s_i = \pm 1$ form the \textbf{syndrome pattern}.  
+    \item Syndromes reveal the \textbf{endpoints of error chains} (defects) rather than the full error location.
+\end{itemize}
+
+\subsection{Error Correction via Matching}
+
+\begin{itemize}
+    \item Errors create chains of $X$ or $Z$ operators.  
+    \item Syndrome defects appear at the \textbf{endpoints} of these chains.  
+    \item Correct errors by pairing defects using \textbf{minimum-weight perfect matching} (e.g., Blossom algorithm).  
+    \item The error-correction procedure identifies the most probable error configuration consistent with the syndrome.
+\end{itemize}
+
+\subsection{Example: $3\times 3$ Lattice}
+
+\begin{itemize}
+    \item Data qubits: $d^2 + (d-1)^2 = 9 + 4 = 13$  
+    \item Stabilizers: 9 Z-plaquettes + 4 X-stars = 13 measurements  
+    \item Code distance: $d = 3$, can correct $\lfloor (d-1)/2 \rfloor = 1$ arbitrary error.
+\end{itemize}
+
+\subsection{Fault-Tolerance Threshold}
+
+\begin{itemize}
+    \item Surface code has a high \textbf{fault-tolerance threshold}: $p_{\text{th}} \sim 1\%$ for depolarizing noise.  
+    \item Below threshold, the logical error rate decreases exponentially with code distance $d$:
+    \[
+    p_L \propto \left(\frac{p}{p_{\text{th}}}\right)^{\lfloor (d+1)/2 \rfloor}
+    \]
+    \item Above threshold, increasing $d$ no longer reduces the logical error rate.
+\end{itemize}
+
+\subsection{Lattice Surgery for Logical Gates}
+
+Logical operations on surface codes are performed via \textbf{lattice surgery} or \textbf{braiding} of defects:
+
+\begin{itemize}
+    \item \textbf{Logical CNOT:} Implemented by merging and splitting code patches.
+    \item \textbf{Logical Hadamard:} Transversal on rotated surface code.
+    \item \textbf{Logical $T$ gate:} Requires magic state distillation (Section \ref{sec:magic}).
+\end{itemize}
+
+\subsection{Advantages of the Surface Code}
+
+\begin{itemize}
+    \item Uses \textbf{nearest-neighbor interactions}, suitable for 2D architectures.  
+    \item High threshold for realistic noise models.  
+    \item Can be combined with \textbf{lattice surgery} for logical gates.  
+    \item Provides a natural framework for \textbf{fault-tolerant quantum computation}.
+\end{itemize}
+
+\begin{exercise}
+For a $5\times 5$ distance-$5$ surface code lattice, calculate the number of data qubits, Z-plaquette stabilizers, X-star stabilizers, and total stabilizer measurements.
+\end{exercise}
+
+\begin{exercise}
+Explain how minimum-weight perfect matching is used to correct a chain of $X$ errors given the syndrome.
+\end{exercise}
+
+\begin{exercise}
+Why does the surface code require only local interactions, and how does this affect physical implementation?
+\end{exercise}
+
+% ======================================================================
+% SECTION 8: FAULT-TOLERANT GATES
+% ======================================================================
+\section{Fault-Tolerant Quantum Gates}
+\label{sec:fault-tolerant}
+
+Encoding qubits is not sufficient for scalable quantum computation. Gates must be performed \textbf{directly on encoded qubits} without introducing uncorrectable errors.
+
+\subsection{Transversal Gates}
+
+\begin{definition}[Transversal Gate]
+A gate $U_L$ is \textbf{transversal} if it can be implemented qubit-wise on each physical qubit:
+\[
+U_L = U^{\otimes n} \quad (\text{possibly with qubit permutations})
+\]
+\end{definition}
+
+\begin{itemize}
+    \item Transversal gates prevent errors from spreading within a code block.  
+    \item Example: For the Steane \code{7,1,3} code:
+    \begin{itemize}
+        \item Transversal $H$ (Hadamard), $S$ (phase), and $\CNOT$ exist.  
+        \item $T$ gate is \textbf{not transversal}, requiring special techniques.  
+    \end{itemize}
+\end{itemize}
+
+\subsection{Fault-Tolerant Measurement}
+
+Measuring stabilizers fault-tolerantly requires:
+
+\begin{enumerate}
+    \item Use \textbf{ancilla qubits} prepared in $|0\rangle$ or $|+\rangle$.
+    \item Apply CNOT gates between data and ancilla.
+    \item Measure the ancilla.
+    \item Repeat measurements to avoid measurement errors.
+\end{enumerate}
+
+\begin{caution}
+A single faulty CNOT can spread an error to multiple data qubits. Fault-tolerant designs use \textbf{cat states} or \textbf{flag qubits} to detect such spreading.
+\end{caution}
+
+\subsection{Magic State Distillation}
+\label{sec:magic}
+
+\begin{itemize}
+    \item To implement a universal gate set (Clifford + $T$), we need high-fidelity $T$ gates.  
+    \item Produce special \textbf{magic states}:
+    \[
+    \ket{T} = \frac{\ket{0} + e^{i \pi/4}\ket{1}}{\sqrt{2}}
+    \]
+    \item Use \textbf{distillation protocols} (e.g., 15-to-1 distillation) to convert many noisy $\ket{T}$ states into fewer high-fidelity ones.  
+    \item Apply \textbf{gate teleportation} with magic states to implement $T$ gates fault-tolerantly.
+\end{itemize}
+
+\subsection{Fault-Tolerant Threshold Theorem}
+
+\begin{theorem}[Threshold Theorem]
+\label{thm:threshold}
+If the physical error rate $p$ is below a threshold $p_{\rm th}$ and the noise is local, then arbitrarily long quantum computations can be performed with arbitrarily small logical error rate using concatenated codes or topological codes like the surface code. The overhead scales polylogarithmically with computation size.
+\end{theorem}
+
+\begin{itemize}
+    \item The threshold depends on the code and noise model (e.g., $p_{\rm th} \sim 1\%$ for the surface code under depolarizing noise).  
+    \item Logical error rate $p_L$ decays exponentially with \textbf{code distance $d$} below threshold:
+    \[
+    p_L \sim \left(\frac{p}{p_{\rm th}}\right)^{\lfloor (d+1)/2 \rfloor}
+    \]  
+    \item Above threshold, increasing code distance does not improve reliability.
+\end{itemize}
+
+\subsection{Summary of Fault-Tolerance Principles}
+
+\begin{itemize}
+    \item Perform \textbf{gates, measurements, and state preparations} in ways that prevent error propagation.  
+    \item Use \textbf{transversal gates} wherever possible.  
+    \item Non-transversal gates require \textbf{ancilla-based methods}, e.g., magic state distillation.  
+    \item Combined with error correction, these principles enable \textbf{scalable quantum computation}.
+\end{itemize}
+
+\begin{exercise}
+Explain why the $T$ gate cannot be implemented transversally in the Steane code.
+\end{exercise}
+
+\begin{exercise}
+Describe the basic idea of magic state distillation and why it improves fidelity.
+\end{exercise}
+
+\begin{exercise}
+For a surface code with distance $d=5$ and physical error rate $p=0.5\%$, estimate the logical error rate assuming the threshold $p_{\rm th} = 1\%$.
+\end{exercise}
+
+% ======================================================================
+% SECTION 9: ADVANCED TOPICS
+% ======================================================================
+\section{Advanced Topics in Quantum Error Correction}
+\label{sec:advanced}
+
+Beyond standard codes like the 3-qubit code, Shor code, and surface code, several advanced constructions provide better rates, distances, and fault-tolerance properties.
+
+\subsection{Quantum LDPC Codes}
+
+\begin{itemize}
+    \item \textbf{Low-Density Parity-Check (LDPC) codes} have stabilizer generators that involve only a small number of qubits (sparse).  
+    \item Advantages:
+    \begin{itemize}
+        \item Sparse generators $\Rightarrow$ fewer interactions and simpler syndrome measurement.  
+        \item Can achieve \textbf{constant rate} $k/n$ and distance scaling $d = O(\sqrt{n})$ or better.  
+        \item Recent breakthroughs achieve $d = \Theta(n)$ (good quantum LDPC codes).
+    \end{itemize}
+    \item Useful for reducing overhead in large-scale quantum computation.
+\end{itemize}
+
+\subsection{Color Codes}
+
+\begin{itemize}
+    \item \textbf{Color codes} are topological codes defined on \textbf{3-colorable lattices} (usually 2D or 3D).  
+    \item Features:
+    \begin{itemize}
+        \item Each face is colored red, green, or blue; qubits reside on vertices (or faces in dual version).  
+        \item Stabilizers are associated with faces: both $X$-type and $Z$-type.  
+        \item Admit \textbf{transversal implementation} of several logical gates:
+        \begin{itemize}
+            \item $H$, $S$, $\CNOT$ are transversal in 2D color codes.  
+            \item In some variants, $T$ is also transversal, enabling \textbf{universal fault-tolerance without magic state distillation}.
+        \end{itemize}
+    \end{itemize}
+\end{itemize}
+
+\subsection{Concatenated Codes}
+
+\begin{itemize}
+    \item \textbf{Concatenation} embeds one code (inner) into another (outer).  
+    \item Example: Encode with a \code{7,1,3} Steane code (outer), then encode each qubit with a \code{4,2,2} inner code.  
+    \item Benefits:
+    \begin{itemize}
+        \item Reduces logical error rate exponentially with concatenation level.  
+        \item Allows trade-off between \textbf{qubit overhead} and \textbf{error suppression}.  
+    \end{itemize}
+    \item Often used in theoretical threshold proofs and fault-tolerant constructions.
+\end{itemize}
+
+\subsection{Comparison of Advanced Codes}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Code Family} & \textbf{Rate $k/n$} & \textbf{Distance $d$} & \textbf{Transversal Gates} \\
+\hline
+Surface Code & $1/n$ & $O(\sqrt{n})$ & Clifford (some) \\
+Color Code (2D) & $1/n$ & $O(\sqrt{n})$ & Clifford + $T$ (some) \\
+Quantum LDPC & Constant & $O(\sqrt{n})$ to $O(n)$ & Limited \\
+Concatenated & Variable & Exponential in levels & Depends on inner/outer \\
+\hline
+\end{tabular}
+\caption{Comparison of advanced QEC code families.}
+\end{table}
+
+\begin{exercise}
+Compare the distance and rate of a surface code versus a 2D color code of the same lattice size.
+\end{exercise}
+
+\begin{exercise}
+Explain how sparse stabilizers in LDPC codes reduce measurement overhead.
+\end{exercise}
+
+\begin{exercise}
+Describe the effect of one level of concatenation on the logical error rate for a simple code.
+\end{exercise}
+
+% ======================================================================
+% SECTION 10: SUMMARY
+% ======================================================================
+\section{Summary of Quantum Error Correction}
+\label{sec:summary}
+
+Quantum error correction (QEC) provides the foundation for scalable quantum computation. Key concepts covered in these lectures:
+
+\begin{itemize}
+    \item \textbf{Quantum errors are continuous:} Unlike classical bits, qubits experience both bit-flip ($X$) and phase-flip ($Z$) errors, as well as arbitrary linear combinations.  
+    \item \textbf{Syndrome measurement discretizes errors:} Measuring stabilizers projects the error into a correctable Pauli error without collapsing the logical quantum information.  
+    \item \textbf{Classical repetition codes motivate QEC:} The 3-qubit bit flip code corrects single bit flips, while the phase-flip code handles phase errors.  
+    \item \textbf{Shor 9-qubit code:} First code capable of correcting any single-qubit error. Combines bit-flip and phase-flip codes.  
+    \item \textbf{Steane \code{7,1,3} code:} CSS code with transversal Clifford gates.  
+    \item \textbf{Stabilizer formalism:} Systematic way to describe quantum codes using abelian subgroups of the Pauli group.  
+    \item \textbf{Surface code:} Topological code with high fault-tolerance threshold, using local stabilizers on a 2D lattice.  
+    \item \textbf{Fault-tolerant gates:} Transversal gates, magic state distillation, and gate teleportation enable universal fault-tolerant computation.  
+    \item \textbf{Threshold theorem (Theorem \ref{thm:threshold}):} Provided physical error rates are below a threshold, arbitrarily long quantum computations can be performed reliably.  
+    \item \textbf{Advanced codes:} LDPC, color, and concatenated codes improve scalability, reduce overhead, and provide different trade-offs between threshold, locality, and transversal gates.
+\end{itemize}
+
+\section*{Comprehensive Exercises}
+
+\begin{exercise}
+Show that the 3-qubit bit flip code cannot correct a phase flip on one qubit.
+\end{exercise}
+
+\begin{exercise}
+Compute the stabilizer generators for the Shor 9-qubit code and verify they commute.
+\end{exercise}
+
+\begin{exercise}
+For the surface code on a $3\times 3$ lattice:
+\begin{itemize}
+    \item How many data qubits are needed?
+    \item How many stabilizer measurements are required?
+    \item What is the code distance?
+\end{itemize}
+\end{exercise}
+
+\begin{exercise}
+Prove that no quantum code can correct all errors on $n$ qubits if the error set contains all $2^n$ orthogonal errors.
+\end{exercise}
+
+\begin{exercise}
+Explain why the $T$ gate cannot be implemented transversally in the Steane code.
+\end{exercise}
+
+\begin{exercise}
+Describe the basic idea of magic state distillation and why it improves fidelity.
+\end{exercise}
+
+\begin{exercise}
+For a surface code with distance $d=5$ and physical error rate $p=0.5\%$, estimate the logical error rate assuming a threshold $p_{\rm th}=1\%$.
+\end{exercise}
+
+\begin{exercise}
+Compare the distance and rate of a surface code versus a 2D color code of the same lattice size.
+\end{exercise}
+
+\begin{exercise}
+Explain how sparse stabilizers in LDPC codes reduce measurement overhead.
+\end{exercise}
+
+\begin{exercise}
+Describe the effect of one level of concatenation on the logical error rate for a simple code.
+\end{exercise}
+
+\begin{exercise}
+Summarize the advantages and disadvantages of surface codes, color codes, and LDPC codes in practical quantum computing.
+\end{exercise}
+
+\begin{exercise}
+Discuss how the stabilizer formalism generalizes the classical parity-check matrix and how it simplifies error correction analysis.
+\end{exercise}
+
+\begin{exercise}
+Given a 3-qubit bit flip code, derive the syndrome table for all possible single-qubit errors and explain how the error is corrected.
+\end{exercise}
+
+\begin{exercise}
+Explain why the principle of error discretization (Theorem \ref{thm:discretization}) allows correction of arbitrary continuous errors using Pauli-based stabilizer codes.
+\end{exercise}
+
+% ======================================================================
+% BIBLIOGRAPHY
+% ======================================================================
+\begin{thebibliography}{9}
+
+\bibitem{nielsen2010} 
+Nielsen, M. A., \& Chuang, I. L. (2010). \textit{Quantum Computation and Quantum Information: 10th Anniversary Edition}. Cambridge University Press.
+
+\bibitem{shor1995}
+Shor, P. W. (1995). Scheme for reducing decoherence in quantum computer memory. \textit{Physical Review A}, 52(4), R2493.
+
+\bibitem{steane1996}
+Steane, A. M. (1996). Error correcting codes in quantum theory. \textit{Physical Review Letters}, 77(5), 793.
+
+\bibitem{kitaev1997} 
+Kitaev, A. Y. (1997). Quantum computations: algorithms and error correction. \textit{Russian Mathematical Surveys}, 52(6), 1191.
+
+\bibitem{fowler2012} 
+Fowler, A. G., Mariantoni, M., Martinis, J. M., \& Cleland, A. N. (2012). Surface codes: Towards practical large-scale quantum computation. \textit{Physical Review A}, 86(3), 032324.
+
+\bibitem{knill1997}
+Knill, E., \& Laflamme, R. (1997). Theory of quantum error-correcting codes. \textit{Physical Review A}, 55(2), 900.
+
+\end{thebibliography}
+
+% ======================================================================
+% GLOSSARY
+% ======================================================================
+\section*{Glossary}
+
+\begin{itemize}
+    \item \textbf{Syndrome:} The pattern of $\pm1$ outcomes from measuring stabilizers, used to identify errors.
+    \item \textbf{Stabilizer:} A Pauli operator that fixes all code states ($s\ket{\psi} = \ket{\psi}$).
+    \item \textbf{Logical operator:} A Pauli operator that maps code states to code states without being in the stabilizer.
+    \item \textbf{Distance:} The minimum weight of an undetectable logical operator.
+    \item \textbf{Threshold:} The maximum physical error rate below which error correction improves reliability.
+    \item \textbf{Transversal gate:} A gate implemented qubit-wise, preventing error spread.
+    \item \textbf{Magic state:} A non-stabilizer state used to implement non-Clifford gates via teleportation.
+\end{itemize}
+
+\end{document}
