@@ -127,6 +127,10 @@ Thus, the only cases where cloning works are when $\ket{\gamma}$ is either $\ket
 
 The linearity of quantum mechanics forbids a universal cloning transformation. A machine that clones even two distinct states cannot clone their superpositions.
 
+
+
+
+
 \section{Second Proof: Inner Product Preservation}
 
 \subsection{Setup}
@@ -139,47 +143,100 @@ for all $\ket{\psi}$.
 
 \subsection{Proof}
 
-Let $\ket{\phi}$ and $\ket{\psi}$ be two arbitrary states. Before applying $U$, the inner product is
+Let $\ket{\phi}$ and $\ket{\psi}$ be two arbitrary states. 
+Consider the inner product of the \emph{input} states 
+$\ket{\phi} \tensor \ket{\Sigma}$ and $\ket{\psi} \tensor \ket{\Sigma}$:
 \begin{equation}
-\braket{\phi}{\psi} \braket{\Sigma}{\Sigma} = \braket{\phi}{\psi},
+\bigl(\bra{\phi} \tensor \bra{\Sigma}\bigr)\bigl(\ket{\psi} \tensor \ket{\Sigma}\bigr)
+= \braket{\phi}{\psi}\,\braket{\Sigma}{\Sigma}
+= \braket{\phi}{\psi},
 \label{eq:innerbefore}
 \end{equation}
 since $\ket{\Sigma}$ is normalized ($\braket{\Sigma}{\Sigma} = 1$).
 
-After applying $U$, using unitarity ($U^\dagger U = I$) and the cloning assumption:
-\begin{align}
-&\left(\bra{\phi} \tensor \bra{\Sigma}\right) U^\dagger U \left(\ket{\psi} \tensor \ket{\Sigma}\right) \notag \\
-&= \left(\bra{\phi} \tensor \bra{\phi}\right) \left(\ket{\psi} \tensor \ket{\psi}\right) \notag \\
-&= \braket{\phi}{\psi} \cdot \braket{\phi}{\psi} \notag \\
-&= \abs{\braket{\phi}{\psi}}^2.
+Now consider the inner product of the \emph{output} states
+$U(\ket{\phi}\tensor\ket{\Sigma}) = \ket{\phi}\tensor\ket{\phi}$
+and $U(\ket{\psi}\tensor\ket{\Sigma}) = \ket{\psi}\tensor\ket{\psi}$:
+\begin{equation}
+\bigl(\bra{\phi} \tensor \bra{\phi}\bigr)\bigl(\ket{\psi} \tensor \ket{\psi}\bigr)
+= \braket{\phi}{\psi}\,\braket{\phi}{\psi}
+= \braket{\phi}{\psi}^2.
 \label{eq:innerafter}
-\end{align}
+\end{equation}
 
-Since unitary transformations preserve inner products, \eqref{eq:innerbefore} and \eqref{eq:innerafter} must be equal:
+Since $U$ is unitary, it \textbf{preserves inner products}: for any two vectors 
+$\ket{u}$ and $\ket{v}$,
 \[
-\braket{\phi}{\psi} = \abs{\braket{\phi}{\psi}}^2.
+\langle Uu \mid Uv \rangle = \langle u \mid U^\dagger U \mid v \rangle = \langle u \mid v \rangle.
+\]
+Applying this to our input vectors $\ket{\phi}\tensor\ket{\Sigma}$ 
+and $\ket{\psi}\tensor\ket{\Sigma}$, we conclude that the inner product 
+\emph{before} applying $U$ must equal the inner product \emph{after}:
+\[
+\braket{\phi}{\psi} = \braket{\phi}{\psi}^2.
 \]
 
-Let $x = \braket{\phi}{\psi}$. Writing $x = re^{i\theta}$ in polar form:
+\subsection{Solving the Constraint}
+
+Let $z = \braket{\phi}{\psi} \in \mathbb{C}$. We must solve:
 \[
-re^{i\theta} = r^2.
+z = z^2.
 \]
 
-This implies:
-\begin{enumerate}
-    \item $r = r^2$ $\Rightarrow$ $r(1 - r) = 0$ $\Rightarrow$ $r = 0$ or $r = 1$
-    \item If $r = 1$, then $e^{i\theta} = 1$ $\Rightarrow$ $\theta = 0$ (mod $2\pi$)
-\end{enumerate}
+Rearranging:
+\[
+z^2 - z = 0 \implies z(z - 1) = 0.
+\]
 
-Thus, $\braket{\phi}{\psi} = \abs{\braket{\phi}{\psi}}^2$ holds only if:
+So the only solutions are $z = 0$ or $z = 1$.
+
+\textbf{Now write $z$ in polar form} $z = r e^{i\theta}$, where $r = |z| \geq 0$
+and $\theta \in [0, 2\pi)$. Substituting into $z = z^2$:
+\[
+r e^{i\theta} = r^2 e^{2i\theta}.
+\]
+
+For two complex numbers to be equal, both their \emph{moduli} and 
+their \emph{arguments} must match:
+\[
+\underbrace{r = r^2}_{\text{moduli equal}} \qquad \text{and} \qquad
+\underbrace{e^{i\theta} = e^{2i\theta}}_{\text{arguments equal}}.
+\]
+
+\textbf{From the moduli condition} $r = r^2$:
+\[
+r^2 - r = 0 \implies r(r-1) = 0 \implies r = 0 \quad \text{or} \quad r = 1.
+\]
+
+\textbf{From the arguments condition} $e^{i\theta} = e^{2i\theta}$:
+\[
+e^{i\theta} = e^{2i\theta} \implies e^{i\theta}(e^{i\theta} - 1) = 0.
+\]
+Since $|e^{i\theta}| = 1 \neq 0$, we must have $e^{i\theta} = 1$, 
+which means $\theta = 0$ (mod $2\pi$), i.e.\ the inner product is a 
+\emph{non-negative real number}.
+
+Combining both conditions:
 \begin{itemize}
-    \item $\braket{\phi}{\psi} = 0$ (the states are orthogonal), or
-    \item $\braket{\phi}{\psi} = 1$ (the states are identical, up to a global phase)
+    \item $r = 0$ and $\theta = 0$: gives $z = 0$.
+    \item $r = 1$ and $\theta = 0$: gives $z = 1$.
 \end{itemize}
 
 \subsection{Interpretation}
 
-Perfect cloning is possible only for mutually orthogonal states or identical states. Since arbitrary quantum states are generally non-orthogonal, a universal cloner cannot exist.
+The inner product $\braket{\phi}{\psi}$ can only be $0$ or $1$, meaning:
+\begin{itemize}
+    \item $\braket{\phi}{\psi} = 0$: the states $\ket{\phi}$ and $\ket{\psi}$ 
+    are \textbf{orthogonal}, or
+    \item $\braket{\phi}{\psi} = 1$: the states are \textbf{identical} 
+    (since for normalized states, $|\braket{\phi}{\psi}| = 1$ implies 
+    $\ket{\phi} = e^{i\alpha}\ket{\psi}$ for some global phase $e^{i\alpha}$, 
+    which is physically the same state).
+\end{itemize}
+
+But generic quantum states have inner products that are complex numbers 
+\emph{strictly between} $0$ and $1$ in magnitude, so no universal cloning 
+machine can exist. $\blacksquare$
 
 \section{Consequences and Implications}
 
