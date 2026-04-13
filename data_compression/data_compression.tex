@@ -201,7 +201,9 @@
 \newpage
 \input{prediction_by_partial_matching}
 \newpage
-\input{ans_range_coding}
+\input{range_coding}
+\newpage
+\input{ans_coding}
 \end{document}
 %___________________________
 You've identified some of the most important gaps in your syllabus! Your instincts are excellent. Let me organize these topics into a coherent chapter structure that builds logically on what you've already taught.
@@ -223,38 +225,6 @@ Here's how I'd reorganize your remaining material into three powerful chapters:
 
 ---
 
-### Chapter 9: Prediction by Partial Matching (PPM) — The Statistical Pinnacle
-
-**9.1 Introduction: Beyond Finite-Context Models**
-- Recap of Markov sources (from Ch 4.4) and their limitations
-- The fundamental insight: Use variable-length contexts based on statistics
-
-**9.2 The PPM Algorithm**
-- **9.2.1 Core Concept:** Maintain contexts of all orders up to a maximum (e.g., order 5)
-- **9.2.2 The Escape Mechanism:** What happens when a symbol hasn't been seen in a given context?
-- **9.2.3 Escape Methods:** Method A (count-based), Method B (exclusion), Method C (frequency), Method D (PPMA/B/C/D variants) 
-- **9.2.4 Exclusion Principle:** When escaping to lower orders, exclude symbols already considered
-
-**9.3 Step-by-Step Example**
-- Walk through encoding "abracadabra" with PPM order 2
-- Show context tables, escape probabilities, and coding decisions
-
-**9.4 PPM Implementation Challenges**
-- Memory explosion with large contexts
-- Trie data structures for efficient storage
-- Zero-frequency problem and modern solutions
-
-**9.5 PPM Variants and Successors**
-- PPM* (unbounded length contexts)
-- PPMZ (Charles Bloom's optimized implementation)
-- PAQ (Context mixing—the ultimate evolution)
-
-**9.6 Why PPM Matters Today**
-- Theoretical benchmark for lossless compression
-- Used in sequence prediction applications 
-- Foundation for modern context models
-
----
 
 ### Chapter 10: Modern Entropy Coders — ANS and Range Coding
 
@@ -383,17 +353,3 @@ Here's how I'd reorganize your remaining material into three powerful chapters:
 
 ---
 
-## Summary: Why This Structure Works
-
-| Chapter | Builds On | Teaches |
-|---|---|---|
-| **9: PPM** | Markov sources (Ch 4), context modeling (Ch 4.6) | Statistical modeling limits |
-| **10: ANS/Range** | Arithmetic coding (Ch 3.7), entropy theory (Ch 2) | Modern entropy coders |
-| **11: LZMA/Zstd** | LZ77 (Ch 5), DEFLATE (Ch 6), RLE (Ch 7) | State-of-practice compressors |
-
-This sequence:
-1. Starts with **statistical modeling** (PPM)—the theoretical ceiling
-2. Moves to **entropy coding** (ANS)—how modern systems reach that ceiling efficiently
-3. Ends with **practical LZ variants**—what students will actually encounter in industry
-
-Would you like me to expand any of these sections with more detailed examples, exercises, or implementation details?
