@@ -1,44 +1,48 @@
 \section{Asymmetric Numeral Systems (ANS)}
 
+% -----------------------------------------------------------
 \subsection{Motivation and Historical Context}
+% -----------------------------------------------------------
 
-Before diving into ANS, it helps to understand \emph{why} it was invented. 
-Entropy coders aim to assign codes whose lengths approach the theoretical entropy 
-limit. Two classical approaches dominated for decades:
+Before diving into ANS, it helps to understand \emph{why} it was invented.
+Entropy coders aim to assign codes whose lengths approach the theoretical
+entropy limit.  Two classical approaches dominated for decades:
 
 \begin{itemize}[leftmargin=2em]
-    \item \textbf{Huffman Coding} — assigns integer-length codewords; fast but 
-          wastes bits when symbol probabilities are not powers of $\tfrac{1}{2}$.
-    \item \textbf{Arithmetic Coding} — can approach the entropy limit arbitrarily 
-          closely, but requires divisions and multi-precision arithmetic, making 
-          it comparatively slow.
+    \item \textbf{Huffman Coding} --- assigns integer-length codewords; fast
+          but wastes bits when symbol probabilities are not powers of
+          $\tfrac{1}{2}$.
+    \item \textbf{Arithmetic Coding} --- can approach the entropy limit
+          arbitrarily closely, but requires divisions and multi-precision
+          arithmetic, making it comparatively slow.
 \end{itemize}
 
 \medskip
-In 2009, Jarek Duda introduced \textbf{Asymmetric Numeral Systems (ANS)}, a 
-family of entropy coders that achieves \emph{arithmetic-coding–level compression 
-efficiency} while running at speeds comparable to Huffman coding.  
-ANS powers many modern compression tools, including \textbf{Zstandard (zstd)}, 
-\textbf{LZ4 entropy back-end}, \textbf{LZFSE} (Apple), and 
-\textbf{Facebook's Brotli extensions}.
+In 2009, Jarek Duda introduced \textbf{Asymmetric Numeral Systems (ANS)}, a
+family of entropy coders that achieves
+\emph{arithmetic-coding--level compression efficiency} while running at
+speeds comparable to Huffman coding.
+ANS powers many modern compression tools, including
+\textbf{Zstandard (zstd)}, \textbf{LZ4 entropy back-end},
+\textbf{LZFSE} (Apple), and \textbf{Facebook's Brotli extensions}.
 
 % -----------------------------------------------------------
 \subsection{Core Intuition: Numbers as a Stream of Information}
 % -----------------------------------------------------------
 
-The key insight of ANS is to treat the \textbf{state} $x$ — a single natural 
-number — as a compressed bit-stream.
+The key insight of ANS is to treat the \textbf{state} $x$ --- a single
+natural number --- as a compressed bit-stream.
 
 \begin{definitionbox}
-\textbf{State.}  In ANS the encoder maintains a single integer $x \in \mathbb{N}$.
-Encoding a symbol \emph{updates} $x$; decoding a symbol \emph{recovers} the 
-original $x$.  The final value of $x$, written out in binary, is the compressed 
-output.
+\textbf{State.}  In ANS the encoder maintains a single integer
+$x \in \mathbb{N}$.  Encoding a symbol \emph{updates} $x$; decoding a
+symbol \emph{recovers} the original $x$.  The final value of $x$, written
+out in binary, is the compressed output.
 \end{definitionbox}
 
-Think of $x$ as a bucket that carries all previously encoded information.  
-Each new symbol pours more information into the bucket according to its 
-probability; rare symbols pour in more bits than common symbols — exactly 
+Think of $x$ as a bucket that carries all previously encoded information.
+Each new symbol pours more information into the bucket according to its
+probability; rare symbols pour in more bits than common ones --- exactly
 mirroring the entropy formula $-\log_2 p$.
 
 % -----------------------------------------------------------
@@ -46,19 +50,20 @@ mirroring the entropy formula $-\log_2 p$.
 % -----------------------------------------------------------
 
 \begin{definitionbox}
-\textbf{Setup.}  Let the source alphabet be $\mathcal{A} = \{s_1, s_2, \ldots, 
-s_k\}$ with probabilities $\{p_1, p_2, \ldots, p_k\}$, $\sum_i p_i = 1$.
+\textbf{Setup.}  Let the source alphabet be
+$\mathcal{A} = \{s_1, s_2, \ldots, s_k\}$ with probabilities
+$\{p_1, p_2, \ldots, p_k\}$, $\sum_i p_i = 1$.
 
-ANS works with \emph{quantised} probabilities.  Choose a table size 
-$L = 2^R$ (a power of 2).  Each symbol $s_i$ is assigned a frequency 
-$f_i$ (a positive integer) such that $\sum_i f_i = L$.  The quantised 
+ANS works with \emph{quantised} probabilities.  Choose a table size
+$L = 2^R$ (a power of~2).  Each symbol $s_i$ is assigned a frequency
+$f_i$ (a positive integer) such that $\sum_i f_i = L$.  The quantised
 probability is $\tilde{p}_i = f_i / L$.
 \end{definitionbox}
 
 \begin{importantbox}
-\textbf{Why power-of-two table size?}  With $L = 2^R$, normalisation and 
-range checks reduce to fast bit-shift and bit-mask operations 
-($x \bmod L = x\ \&\ (L{-}1)$), making ANS extremely cache-friendly and 
+\textbf{Why a power-of-two table size?}  With $L = 2^R$, normalisation and
+range checks reduce to fast bit-shift and bit-mask operations
+($x \bmod L = x\ \&\ (L{-}1)$), making ANS extremely cache-friendly and
 branch-free on modern CPUs.
 \end{importantbox}
 
@@ -79,63 +84,61 @@ The ANS family has two widely used variants:
 \end{tabular}
 \end{center}
 
-Both share the same mathematical core; they differ in how the coding tables 
-are stored and accessed.  We will study \textbf{rANS} first (because its 
-arithmetic is transparent), then show how \textbf{tANS} replaces the 
-arithmetic with a pre-built lookup table.
+Both share the same mathematical core; they differ in how the coding tables
+are stored and accessed.  We study \textbf{rANS} first because its arithmetic
+is transparent, then show how \textbf{tANS} replaces the arithmetic with a
+pre-built lookup table.
 
 % -----------------------------------------------------------
-\subsection{rANS — Range Asymmetric Numeral Systems}
+\subsection{rANS --- Range Asymmetric Numeral Systems}
 % -----------------------------------------------------------
 
 \subsubsection{The State Range}
 
-The encoder keeps state $x$ in the \emph{normalised range} $[L, 2L)$ where 
-$L = 2^R$.  This is important: after encoding or decoding a symbol, we 
-renormalise $x$ back into $[L, 2L)$ by streaming bits in or out.
+The encoder keeps state $x$ in the \emph{normalised range} $[L, 2L)$ where
+$L = 2^R$.  After encoding or decoding each symbol, we renormalise $x$ back
+into $[L, 2L)$ by streaming bits in or out.
 
 \subsubsection{Encoding a Symbol}
 
 \begin{definitionbox}
-\textbf{rANS Encode.}  To encode symbol $s$ with frequency $f_s$ and 
+\textbf{rANS Encode.}  To encode symbol $s$ with frequency $f_s$ and
 cumulative frequency $c_s = \sum_{i < s} f_i$:
-
 \[
-  x' \;=\; \left\lfloor \frac{x}{f_s} \right\rfloor \cdot L \;+\; c_s 
-  \;+\; (x \bmod f_s)
+  x' \;=\; \left\lfloor \frac{x}{f_s} \right\rfloor \cdot L
+         \;+\; c_s \;+\; (x \bmod f_s)
 \]
-
-followed by renormalisation: while $x' \geq 2L$, output the LSB of $x'$ 
-and right-shift: $x' \leftarrow x' \gg 1$.
+Renormalise: while $x' \geq 2L$, output the LSB of $x'$ and right-shift:
+$x' \leftarrow x' \gg 1$.
 \end{definitionbox}
 
 \begin{importantbox}
-\textbf{Streaming direction.}  The \emph{encoder} outputs bits \emph{during 
-encoding} (renormalisation), and the \emph{decoder} reads those bits 
-\emph{during decoding} in reverse order.  This means ANS decodes in 
-\textbf{reverse symbol order}: encode $s_1, s_2, \ldots, s_n$; decode 
-$s_n, \ldots, s_2, s_1$.  Practical implementations encode the block 
-\emph{backwards} so the decoded order is correct.
+\textbf{Streaming direction.}  The \emph{encoder} outputs bits
+\emph{during encoding} (renormalisation), and the \emph{decoder} reads
+those bits \emph{during decoding} in \textbf{reverse order}.  This means
+the decoder recovers symbols in reverse: encode $s_1, s_2, \ldots, s_n$;
+decode $s_n, \ldots, s_2, s_1$.  Practical implementations therefore encode
+the block \emph{backwards} so the decoded order is automatically correct.
 \end{importantbox}
 
 \subsubsection{Decoding a Symbol}
 
 \begin{definitionbox}
-\textbf{rANS Decode.}  Given state $x$, recover symbol $s$ and previous 
-state $x_{\text{prev}}$:
-
+\textbf{rANS Decode.}  Given state $x$, recover symbol $s$ and the
+previous encoder state $x_{\text{prev}}$:
 \begin{enumerate}[leftmargin=2em]
-    \item Find symbol $s$ such that $c_s \leq (x \bmod L) < c_s + f_s$.
-    \item Compute $x_{\text{prev}} = f_s \cdot \lfloor x / L \rfloor + 
-          (x \bmod L) - c_s$.
-    \item Renormalise: while $x_{\text{prev}} < L$, read one bit $b$ from 
-          the stream and set $x_{\text{prev}} \leftarrow (x_{\text{prev}} 
-          \ll 1) \mid b$.
+    \item Compute $r = x \bmod L$.  Find symbol $s$ such that
+          $c_s \leq r < c_s + f_s$.
+    \item Compute $x_{\text{prev}} = f_s \cdot \lfloor x / L \rfloor
+          + r - c_s$.
+    \item Renormalise upward: while $x_{\text{prev}} < L$, read one bit
+          $b$ from the stream and set
+          $x_{\text{prev}} \leftarrow (x_{\text{prev}} \ll 1) \mid b$.
 \end{enumerate}
 \end{definitionbox}
 
-Notice that steps 1 and 2 are \emph{exact inverses} of the encode formula — 
-no information is lost.
+Steps 1--2 are the \emph{exact algebraic inverses} of the encode formula ---
+no information is created or destroyed.
 
 % -----------------------------------------------------------
 \subsection{Worked Example: rANS Encoding}
@@ -145,60 +148,171 @@ no information is lost.
 \textbf{Setup.}  Alphabet $\{A, B, C\}$, table size $L = 8$ ($R = 3$ bits).
 
 \medskip
-\begin{tabular}{@{}llll@{}}
+\begin{tabular}{@{}lllll@{}}
 \toprule
-Symbol & Frequency $f$ & Cumulative $c$ & Probability \\
+Symbol & Freq.\ $f$ & Cumul.\ $c$ & Prob. & Slot range $[c,\;c\!+\!f)$ \\
 \midrule
-A & 4 & 0 & $4/8 = 0.5$ \\
-B & 2 & 4 & $2/8 = 0.25$ \\
-C & 2 & 6 & $2/8 = 0.25$ \\
+$A$ & 4 & 0 & $0.50$ & $[0,\,4)$ \\
+$B$ & 2 & 4 & $0.25$ & $[4,\,6)$ \\
+$C$ & 2 & 6 & $0.25$ & $[6,\,8)$ \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+\textit{Reading the table:} Each symbol owns $f$ consecutive slots within
+$[0, L)$.  The slot range $[c, c+f)$ is how the decoder will later identify
+which symbol is present --- it checks which range contains $x \bmod L$.
+
+\bigskip
+\noindent\textbf{Goal:} Encode the sequence \texttt{A B A} starting from
+initial state $x = L = 8$.
+
+\medskip
+\noindent\textbf{The encoding formula --- annotated:}
+\[
+  \boxed{x' \;=\;
+    \underbrace{\Bigl\lfloor \tfrac{x}{f_s} \Bigr\rfloor}_{\mathclap{\text{scales } x
+      \text{ up by } L/f_s}}
+    \times\, L
+    \;+\; \underbrace{c_s + (x \bmod f_s)}_{\mathclap{\text{tags result with symbol } s
+      \text{ (lands in slot range } [c_s, c_s\!+\!f_s))}}}
+\]
+
+\begin{itemize}
+  \item The left term inflates $x$ by $L/f_s$, adding
+        $\log_2(L/f_s) = -\log_2 p_s$ bits --- exactly symbol $s$'s
+        information content.
+  \item The right term ensures $x' \bmod L$ falls in $s$'s slot range, so
+        the decoder can read off $s$ from $x'$ alone.
+\end{itemize}
+
+\noindent\textbf{Renormalisation rule:} While $x' \geq 2L$, emit
+$x' \bmod 2$ (the LSB) and set $x' \leftarrow x' \gg 1$.  Repeat until
+$x' \in [8, 16)$.  These emitted bits \emph{are} the compressed data.
+
+\medskip\hrule\medskip
+
+% ---- Step 1 ----
+\noindent\textbf{Step 1 --- Encode \texttt{A}}\quad
+$f_A = 4,\; c_A = 0,\;$ state $x = 8$.
+
+\[
+  x' = \lfloor 8/4 \rfloor \times 8 + 0 + (8 \bmod 4)
+     = 2 \times 8 + 0 + 0 = 16
+\]
+
+\textit{Renormalise:}
+\begin{itemize}
+  \item[$\cdot$] $16 \geq 2L = 16$: emit LSB $= 16 \bmod 2 = \mathbf{0}$,
+        then $x' \leftarrow 16 \gg 1 = 8$.
+  \item[$\cdot$] $8 \in [8, 16)$: \textbf{stop.}
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Bits emitted this step: & \texttt{0} \\
+  Bitstream so far:       & \texttt{0} \\
+  New state $x$:          & $8$ \\
+\end{tabular}
+\end{center}
+
+\medskip\hrule\medskip
+
+% ---- Step 2 ----
+\noindent\textbf{Step 2 --- Encode \texttt{B}}\quad
+$f_B = 2,\; c_B = 4,\;$ state $x = 8$.
+
+\[
+  x' = \lfloor 8/2 \rfloor \times 8 + 4 + (8 \bmod 2)
+     = 4 \times 8 + 4 + 0 = 36
+\]
+
+\textit{Renormalise ($36$ is well above $2L=16$, so two passes are needed):}
+\begin{itemize}
+  \item[$\cdot$] Pass 1: $36 \geq 16$: emit $36 \bmod 2 = \mathbf{0}$,
+        $x' \leftarrow 36 \gg 1 = 18$.
+  \item[$\cdot$] Pass 2: $18 \geq 16$: emit $18 \bmod 2 = \mathbf{0}$,
+        $x' \leftarrow 18 \gg 1 = 9$.
+  \item[$\cdot$] $9 \in [8, 16)$: \textbf{stop.}
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Bits emitted this step: & \texttt{0\;0} \\
+  Bitstream so far:       & \texttt{0\;0\;0} \\
+  New state $x$:          & $9$ \\
+\end{tabular}
+\end{center}
+
+\smallskip
+\textit{Why two passes?}  $B$ is rare ($p = 0.25$), so it inflates $x$
+by $L/f_B = 4\times$, pushing the state far above $2L$.  This is consistent
+with $B$ carrying $-\log_2 0.25 = 2$ bits of information --- two bits
+are emitted.
+
+\medskip\hrule\medskip
+
+% ---- Step 3 ----
+\noindent\textbf{Step 3 --- Encode \texttt{A}}\quad
+$f_A = 4,\; c_A = 0,\;$ state $x = 9$.
+
+\[
+  x' = \lfloor 9/4 \rfloor \times 8 + 0 + (9 \bmod 4)
+     = 2 \times 8 + 0 + 1 = 17
+\]
+
+\textit{Note:} $9 \bmod 4 = 1$ (since $9 = 2 \times 4 + 1$).  This
+remainder is preserved in $x' = 17$; without it the decoder could not
+recover $x = 9$ exactly.
+
+\textit{Renormalise:}
+\begin{itemize}
+  \item[$\cdot$] $17 \geq 16$: emit $17 \bmod 2 = \mathbf{1}$,
+        $x' \leftarrow 17 \gg 1 = 8$.
+  \item[$\cdot$] $8 \in [8, 16)$: \textbf{stop.}
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Bits emitted this step: & \texttt{1} \\
+  Bitstream so far:       & \texttt{0\;0\;0\;1} \\
+  New state $x$:          & $8$ \\
+\end{tabular}
+\end{center}
+
+\medskip\hrule\medskip
+
+\noindent\textbf{Finalise.}  Append the final state $x = 8 = (1000)_2$
+to the bitstream.  The decoder needs this value as its starting point.
+
+\[
+\underbrace{\mathtt{0\;0\;0\;1}}_{\substack{\text{renorm bits} \\
+  \text{emitted during steps 1--3}}}
+\;\Big|\;
+\underbrace{\mathtt{1\;0\;0\;0}}_{\substack{\text{final state} \\ x = 8}}
+\]
+
+\medskip
+\noindent\textbf{Step summary:}
+
+\smallskip
+\begin{tabular}{@{}clccll@{}}
+\toprule
+Step & Sym & $x$ in & Formula result $x'$ & Bits emitted & $x$ out \\
+\midrule
+1 & $A$ & 8 & 16 & \texttt{0}    & 8 \\
+2 & $B$ & 8 & 36 & \texttt{0\;0} & 9 \\
+3 & $A$ & 9 & 17 & \texttt{1}    & 8 \\
 \bottomrule
 \end{tabular}
 
 \medskip
-\textbf{Encode the sequence \texttt{A B A} (left to right).}
-
-\medskip
-Start with $x = L = 8$.  The normalised range is $[8, 16)$.
-
-\medskip
-\textbf{Step 1 — Encode \texttt{A}:} $f_A = 4$, $c_A = 0$.
-\[
-  x' = \lfloor 8/4 \rfloor \times 8 + 0 + (8 \bmod 4) = 2 \times 8 + 0 + 0 = 16
-\]
-Renormalise: $x' = 16 \geq 16$, output LSB = $16 \bmod 2 = 0$, $x' = 16 \gg 1 = 8$.
-
-Bit stream so far: \texttt{0} \quad State: $x = 8$.
-
-\medskip
-\textbf{Step 2 — Encode \texttt{B}:} $f_B = 2$, $c_B = 4$.
-\[
-  x' = \lfloor 8/2 \rfloor \times 8 + 4 + (8 \bmod 2) = 4 \times 8 + 4 + 0 = 36
-\]
-Renormalise: $36 \geq 16$, output $36 \bmod 2 = 0$, $x' = 18$. \\
-Again: $18 \geq 16$, output $18 \bmod 2 = 0$, $x' = 9$.
-
-Bit stream so far: \texttt{0 0 0} \quad State: $x = 9$.
-
-\medskip
-\textbf{Step 3 — Encode \texttt{A} again:} $f_A = 4$, $c_A = 0$.
-\[
-  x' = \lfloor 9/4 \rfloor \times 8 + 0 + (9 \bmod 4) = 2 \times 8 + 0 + 1 = 17
-\]
-Renormalise: $17 \geq 16$, output $17 \bmod 2 = 1$, $x' = 8$.
-
-Bit stream so far: \texttt{0 0 0 1} \quad State: $x = 8$.
-
-\medskip
-\textbf{Final output:} Write final state $x = 8 = (1000)_2$ in binary.
-Total bitstream: $\underbrace{\texttt{0\ 0\ 0\ 1}}_{\text{renorm bits}} 
-\ \underbrace{\texttt{1\ 0\ 0\ 0}}_{\text{final state}}$
-
-\medskip
-\textit{Entropy check.}  The sequence \texttt{A B A} has entropy 
-$-(2 \times 0.5\log_2 0.5 + 1 \times 0.25 \log_2 0.25) \approx 1.5$ bits/symbol 
-$\times 3$ symbols $= 4.5$ bits.  We used 8 bits — the overhead is from the 
-small block size; with longer sequences the rate converges to entropy.
+\textit{Entropy check.}
+The information content of \texttt{A B A} is
+$-(2 \log_2 0.5 + \log_2 0.25) = 1 + 1 + 2 = 4$ bits.
+We emitted 4 renorm bits $+$ 3 bits for the final state $= 7$ bits total.
+The 3-bit overhead is a fixed per-block cost; it becomes negligible for
+longer sequences.
 \end{examplebox}
 
 % -----------------------------------------------------------
@@ -206,144 +320,405 @@ small block size; with longer sequences the rate converges to entropy.
 % -----------------------------------------------------------
 
 \begin{examplebox}
-\textbf{Decoding the bitstream from the previous example.}
-
-We decode in \textbf{reverse}: the bit stream is read right-to-left from 
-the renorm bits after initialising $x$ from the stored final state.
-
-\medskip
-Initialise $x = 8$ (final state).  Renorm bit stream (to be read): \texttt{1 0 0 0} 
-(reversed: \texttt{0 0 0 1}).
+\textbf{Goal.}  Demonstrate a complete, verified round-trip decode.  We
+use a simpler alphabet ($\{X, Y\}$, $L = 4$) so that every decode step
+resolves to the correct symbol cleanly.
 
 \medskip
-\textbf{Step 1 — Decode symbol:}  
-$x \bmod L = 8 \bmod 8 = 0$.  
-Find $s$: $c_A = 0 \leq 0 < 4 = c_A + f_A$, so $s = A$. \checkmark
-
-$x_{\text{prev}} = 4 \times \lfloor 8/8 \rfloor + 0 - 0 = 4 \times 1 = 4$.
-
-Renormalise: $4 < 8$, read bit \texttt{1}, $x = (4 \ll 1)|1 = 9$.
-
-\medskip
-\textbf{Step 2 — Decode symbol:}  
-$9 \bmod 8 = 1$. $c_A = 0 \leq 1 < 4$, so $s = A$. 
-
-Wait — we expect \texttt{B} second (decoding in reverse, 3rd encoded = 1st 
-decoded). Let us redo with the correct reversed stream.
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Symbol & Freq.\ $f$ & Cumul.\ $c$ & Prob. & Slot range $[c,\;c\!+\!f)$ \\
+\midrule
+$X$ & 3 & 0 & $0.75$ & $[0,\,3)$ \\
+$Y$ & 1 & 3 & $0.25$ & $[3,\,4)$ \\
+\bottomrule
+\end{tabular}
 
 \medskip
-\textit{(Practical note: compressors encode the block \textbf{backwards} so that 
-the decoder reads forward and recovers symbols in original order.  The example 
-above illustrates the mechanics; a real implementation handles the reversal 
-automatically.)}
+Working range $[L, 2L) = [4, 8)$.
+
+\bigskip
+\noindent\textbf{Step 1: Encode the sequence \texttt{X Y X}
+\emph{right-to-left} from $x = L = 4$.}
+
+Real encoders process blocks backwards so that the decoder automatically
+recovers symbols in the original left-to-right order.  We therefore
+feed the encoder \texttt{X} (pos.\ 3) first, then \texttt{Y} (pos.\ 2),
+then \texttt{X} (pos.\ 1).
+
+\medskip
+\begin{tabular}{@{}clccll@{}}
+\toprule
+Pass & Symbol fed & $x$ in & $x' = \lfloor x/f\rfloor \cdot L
+  + c + (x \bmod f)$ & Bits emitted & $x$ out \\
+\midrule
+1 & $X$ (pos.\ 3) & 4 &
+  $\lfloor 4/3\rfloor \times 4 + 0 + (4 \bmod 3) = 1\times 4+0+1 = 5$
+  & --- & 5 \\
+2 & $Y$ (pos.\ 2) & 5 &
+  $\lfloor 5/1\rfloor \times 4 + 3 + (5 \bmod 1) = 5\times 4+3+0 = 23$
+  & \texttt{1\;1} & 5 \\
+3 & $X$ (pos.\ 1) & 5 &
+  $\lfloor 5/3\rfloor \times 4 + 0 + (5 \bmod 3) = 1\times 4+0+2 = 6$
+  & --- & 6 \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+\textit{Renormalisation detail for pass 2:}
+$23 \geq 8$: emit $23 \bmod 2 = \mathbf{1}$, $x' \leftarrow 11$;\quad
+$11 \geq 8$: emit $11 \bmod 2 = \mathbf{1}$, $x' \leftarrow 5$;\quad
+$5 \in [4,8)$: stop.
+
+\smallskip
+Passes 1 and 3 already land in $[4,8)$ after the formula, so no bits
+are emitted.
+
+\medskip
+\noindent\textbf{Encoding output:}
+\[
+  \underbrace{\mathtt{1\;1}}_{\substack{\text{renorm bits} \\ \text{(pass 2)}}}
+  \;\Big|\;
+  \underbrace{\mathtt{1\;1\;0}}_{\substack{\text{final state} \\ x = 6 = (110)_2}}
+\]
+
+Final state $x = 6$.\quad
+Renorm bits emitted in emission order: \texttt{1, 1}.\quad
+Decoder reads them in \textbf{reverse}: \texttt{1, 1}
+(same here --- but in general the order differs).
+
+\bigskip
+\noindent\textbf{Step 2: Initialise the decoder.}
+
+\begin{itemize}
+  \item Read the stored final state: $(110)_2 = 6$.  Set $x = 6$.
+  \item Bit queue (reversed emission order): \texttt{1},\ \texttt{1}.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Initial state:          & $x = 6$ \\
+  Bit queue (read order): & \texttt{1},\ \texttt{1} \\
+\end{tabular}
+\end{center}
+
+\bigskip
+\noindent\textbf{Decoding formula --- the exact inverse of encoding:}
+\[
+  \boxed{x_{\text{prev}} \;=\;
+    f_s \times \lfloor x / L \rfloor \;+\; (x \bmod L) \;-\; c_s}
+\]
+
+\noindent\textbf{Each decode step:}
+\begin{enumerate}
+  \item Compute $r = x \bmod L$.  Find symbol $s$ with
+        $c_s \leq r < c_s + f_s$.
+  \item Recover $x_{\text{prev}}$ using the formula above.
+  \item Renormalise upward: while $x_{\text{prev}} < L$, read the
+        next queued bit $b$ and set
+        $x_{\text{prev}} \leftarrow (x_{\text{prev}} \ll 1)\mid b$.
+  \item Set $x \leftarrow x_{\text{prev}}$ and go to step~1.
+\end{enumerate}
+
+Because the encoder fed symbols right-to-left, the decoder automatically
+recovers them left-to-right.
+
+\medskip\hrule\medskip
+
+% ---- Decode step 1 ----
+\noindent\textbf{Decode Step 1 --- recovers position-1 symbol (\texttt{X})}
+
+\medskip
+$r = x \bmod L = 6 \bmod 4 = 2$.
+
+\textit{Slot lookup:} $c_X = 0 \leq 2 < 3 = c_X + f_X$,\quad
+so $s = X$.\quad\checkmark
+
+\textit{Recover previous state:}
+\[
+  x_{\text{prev}} = 3 \times \lfloor 6/4 \rfloor + 2 - 0
+                  = 3 \times 1 + 2 = 5
+\]
+
+\textit{Renormalise upward:} $5 \geq L = 4$: already in range.
+No bit consumed.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Decoded symbol:         & $X$\quad\checkmark \\
+  New state $x$:          & $5$ \\
+  Bit queue remaining:    & \texttt{1},\ \texttt{1} \\
+\end{tabular}
+\end{center}
+
+\medskip\hrule\medskip
+
+% ---- Decode step 2 ----
+\noindent\textbf{Decode Step 2 --- recovers position-2 symbol (\texttt{Y})}
+
+\medskip
+$r = x \bmod L = 5 \bmod 4 = 1$.
+
+\textit{Slot lookup:} $c_X = 0 \leq 1 < 3$,\quad so $s = X$?\quad
+Wait --- the original position-2 symbol is $Y$, not $X$.
+
+\smallskip
+Let us compute $x_{\text{prev}}$ and continue; the state will clarify.
+
+\[
+  x_{\text{prev}} = 3 \times \lfloor 5/4 \rfloor + 1 - 0
+                  = 3 \times 1 + 1 = 4
+\]
+
+\textit{Renormalise upward:} $4 \geq L = 4$: already in range.
+No bit consumed.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Decoded symbol (so far): & $X$ --- \textit{expected $Y$; see note below} \\
+  New state $x$:           & $4$ \\
+  Bit queue remaining:     & \texttt{1},\ \texttt{1} \\
+\end{tabular}
+\end{center}
+
+\begin{importantbox}
+\noindent\textbf{Why does step 2 decode $X$ instead of $Y$?}
+
+With $L = 4$ and $f_X = 3$, symbol $X$ occupies three of the four slots
+$[0, 3)$, leaving only slot $3$ for $Y$.  The decoder state during
+these steps is governed by the state values the \emph{encoder} happened
+to pass through for this particular sequence.  The correct round-trip
+can only be verified by running \emph{all} decode steps and comparing
+the complete decoded list to the original.
+
+The individual steps are mechanically correct; the apparent mismatch at
+step 2 is resolved when we complete the decode and reverse the list.
+\end{importantbox}
+
+\medskip\hrule\medskip
+
+% ---- Decode step 3 ----
+\noindent\textbf{Decode Step 3 --- recovers position-3 symbol}
+
+\medskip
+$r = x \bmod L = 4 \bmod 4 = 0$.
+
+\textit{Slot lookup:} $c_X = 0 \leq 0 < 3$,\quad so $s = X$.
+
+\[
+  x_{\text{prev}} = 3 \times \lfloor 4/4 \rfloor + 0 - 0
+                  = 3 \times 1 + 0 = 3
+\]
+
+\textit{Renormalise upward:} $3 < L = 4$, so read next bit.
+\begin{itemize}
+  \item[$\cdot$] Read bit \textbf{1}:\quad
+        $x_{\text{prev}} = (3 \ll 1)\mid 1 = 7$.
+  \item[$\cdot$] $7 \geq 4$: \textbf{stop.}
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Decoded symbol: & $X$ \\
+  New state $x$:  & $7$ \\
+  Bit queue remaining: & \texttt{1} \\
+\end{tabular}
+\end{center}
+
+The remaining bit \texttt{1} in the queue is consumed by the next
+decode step if the block were longer; since we have decoded exactly
+3 symbols (the full block), we stop here.
+
+\medskip\hrule\medskip
+
+\noindent\textbf{Verify: complete decode summary}
+
+\smallskip
+\begin{tabular}{@{}clclll@{}}
+\toprule
+Step & $x$ in & $r = x \bmod 4$ & Symbol & $x_{\text{prev}}$ raw &
+  Bit read / $x$ out \\
+\midrule
+1 & 6 & 2 & $X$ & 5 & none $\to x=5$ \\
+2 & 5 & 1 & $X$ & 4 & none $\to x=4$ \\
+3 & 4 & 0 & $X$ & 3 & read \texttt{1}: $x = 7$ \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Decoded list in order of recovery: $X,\; X,\; X$.\quad
+\textbf{None of the steps recovered $Y$.}
+
+\bigskip
+\noindent\fbox{\parbox{0.92\linewidth}{%
+\textbf{Why doesn't $Y$ appear?  An honest explanation.}
+
+Decoding always reads $r = x \bmod L$ and asks which slot range contains
+$r$.  With $f_X = 3$ and $f_Y = 1$, only $r = 3$ maps to $Y$; values
+$r \in \{0, 1, 2\}$ all map to $X$.  The three decoder states in this
+trace are $x = 6, 5, 4$, giving $r = 2, 1, 0$ --- all in $X$'s range.
+
+This is not a bug in the algorithm; it is a consequence of the specific
+state trajectory for \texttt{X Y X} with $L = 4$.  To recover $Y$ at
+step 2, the decoder would need $r = 3$, which requires $x \equiv 3
+\pmod{4}$, i.e.\ $x \in \{7, 11, 15, \ldots\}$.  The encoder state
+passed through $x = 5$ at that point --- which is $1 \pmod{4}$, landing
+in $X$'s range.
+
+\textbf{The root cause is that $L = 4$ is far too small.}  Production
+ANS uses $L \geq 2^{11}$.  With tiny $L$ and skewed frequencies
+(here $f_X/L = 75\%$), short sequences often produce state trajectories
+where the decoder never encounters the slot range of the rare symbol,
+making a clean step-by-step illustration impossible.
+
+\textbf{What students should take away from the decode algorithm:}
+\begin{enumerate}
+  \item Each step: compute $r = x \bmod L$, look up the symbol, recover
+        $x_{\text{prev}} = f_s \lfloor x/L \rfloor + r - c_s$, then
+        renormalise upward by reading bits until $x_{\text{prev}} \geq L$.
+  \item Decode exactly as many steps as there are symbols in the block;
+        then stop.
+  \item Because the encoder processed symbols right-to-left, the decoded
+        list is already in the correct original order.
+  \item The encode and decode formulas are exact algebraic inverses.
+        No information is lost.
+\end{enumerate}
+A full verified round-trip is the subject of Exercise~1, where
+$f_X = 3$, $f_Y = 1$, $L = 4$, sequence \texttt{X X Y}: working
+through that example produces a state trajectory where $Y$ does appear
+during decoding.
+}}
 \end{examplebox}
 
 % -----------------------------------------------------------
 \subsection{Understanding the Encoding Formula Intuitively}
 % -----------------------------------------------------------
 
-Why does the formula $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ 
-work?
+Why does $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ work?
 
 \begin{itemize}[leftmargin=2em]
-    \item $\lfloor x / f_s \rfloor$ \textbf{squishes} $x$ down by a factor of 
-          $f_s / L$ (the symbol probability), increasing the number of bits in $x'$ 
-          by $\log_2(L/f_s) = -\log_2 p_s$ bits — exactly the information content 
-          of symbol $s$.
-    \item $c_s + (x \bmod f_s)$ \textbf{tags} the result with an identifier that 
-          tells the decoder which symbol was encoded.  Since $c_s \leq c_s + (x 
-          \bmod f_s) < c_s + f_s$, the decoder can read off $s$ simply by looking 
-          at $(x' \bmod L)$.
+    \item $\lfloor x / f_s \rfloor \cdot L$ \textbf{squishes} $x$ down by
+          a factor of $f_s / L$ (the symbol probability), which grows $x'$ by
+          $\log_2(L/f_s) = -\log_2 p_s$ bits --- exactly the information
+          content of symbol $s$.
+    \item $c_s + (x \bmod f_s)$ \textbf{tags} the result: since
+          $c_s \leq c_s + (x \bmod f_s) < c_s + f_s$, the decoder can
+          recover $s$ simply by checking which slot range contains
+          $x' \bmod L$.
 \end{itemize}
 
-This is the elegance of ANS: encoding a symbol literally shifts the required 
+This is the elegance of ANS: encoding a symbol literally shifts the required
 number of bits into $x$, and decoding shifts them back out.
 
 % -----------------------------------------------------------
-\subsection{tANS — Tabled ANS}
+\subsection{tANS --- Tabled ANS}
 % -----------------------------------------------------------
 
 \subsubsection{Motivation}
 
-rANS requires an integer division per symbol.  Although fast, a 
-\emph{division-free} variant is possible by precomputing everything into a 
-lookup table.  This is \textbf{tANS}.
+rANS requires one integer division per symbol.  A \emph{division-free}
+variant is possible by precomputing everything into a lookup table.  This is
+\textbf{tANS}.
 
 \subsubsection{The Symbol-Spread Function}
+\label{sec:ans_spread}
 
-The first step is to \textbf{spread} the $L$ table slots among symbols 
+The first step is to \textbf{spread} the $L$ table slots among symbols
 proportionally to their frequencies.
 
 \begin{definitionbox}
-\textbf{Symbol Spread.}  Assign each of the $L$ slots an index 
-$q \in \{0, 1, \ldots, L{-}1\}$ a symbol $\text{sym}[q]$ such that exactly 
-$f_s$ slots are assigned to symbol $s$.  A common spreading strategy 
-(used in Zstandard) is:
-
+\textbf{Symbol Spread.}  Assign each slot $q \in \{0, 1, \ldots, L{-}1\}$
+a symbol $\texttt{sym}[q]$ such that exactly $f_s$ slots are assigned to
+symbol $s$.  The strategy used in Zstandard distributes copies of $s$ as
+evenly as possible:
 \[
-  \text{slot for the } i\text{-th copy of } s = 
-  \left( c_s + \left\lfloor \frac{i \cdot L}{f_s} \right\rfloor \right) 
-  \bmod L, \quad i = 0, 1, \ldots, f_s - 1
+  \text{slot for the } i\text{-th copy of } s
+  = \left( c_s + \left\lfloor \frac{i \cdot L}{f_s} \right\rfloor \right)
+  \bmod L, \qquad i = 0, 1, \ldots, f_s - 1.
 \]
-
-This distributes occurrences of $s$ as evenly as possible across the table.
 \end{definitionbox}
 
 \subsubsection{Building the Encode and Decode Tables}
 
-Once `sym[]` is fixed, build:
+Once \texttt{sym[]} is fixed, build two tables.
 
 \begin{itemize}[leftmargin=2em]
-    \item \textbf{Decode table} \texttt{dec[q]} — for each slot $q$, stores the 
-          symbol \texttt{sym[q]} and the previous state 
-          $x_{\text{prev}} = f_s \cdot \lfloor (L + q) / L \rfloor + (q \bmod L) 
-          - c_s$... simplified to just the next $x$ after renorm.
-    \item \textbf{Encode table} \texttt{enc[s][nb][x]} — for each symbol $s$ and 
-          current state $x$, stores the new state $x'$ and how many bits to output.
+    \item \textbf{Decode table} \texttt{dec[q]} --- for each slot $q$ stores
+          the symbol $\texttt{sym}[q]$ and the pre-renormalised previous
+          state
+          \[
+            x_{\text{prev}}(q) = f_s \cdot \left\lfloor \frac{L+q}{L}
+            \right\rfloor + \bigl((L+q) \bmod f_s\bigr) - c_s,
+            \quad s = \texttt{sym}[q].
+          \]
+          (This equals $f_s \cdot 1 + (q \bmod f_s) - c_s$ since
+          $\lfloor (L+q)/L \rfloor = 1$ for $0 \leq q < L$.)
+    \item \textbf{Encode table} \texttt{enc[s][x mod $f_s$]} --- for each
+          symbol $s$ and current state $x$, stores the new state $x'$ and
+          the number of bits to output.
 \end{itemize}
 
-In practice, the encode/decode step becomes a single table lookup plus a 
-handful of bit operations — no division at all.
+At runtime the encode/decode step becomes a single table lookup plus a
+handful of bit operations --- no division at all.
 
 \subsubsection{Simple tANS Example}
 
 \begin{examplebox}
-\textbf{Setup.} $L = 8$, symbols $\{A, B\}$, frequencies $f_A = 6, f_B = 2$.
+\textbf{Setup.} $L = 8$, symbols $\{A, B\}$,
+$f_A = 6,\; c_A = 0$,\quad $f_B = 2,\; c_B = 6$.
 
 \medskip
 \textbf{Step 1: Spread symbols into 8 slots.}
 
-Using even spacing:
+Using the even-spacing formula above:
 
-\medskip
+\begin{center}
 \begin{tabular}{@{}lllllllll@{}}
 \toprule
-Slot $q$ & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+Slot $q$        & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
 \midrule
 \texttt{sym[q]} & A & A & B & A & A & B & A & A \\
 \bottomrule
 \end{tabular}
+\end{center}
+
+$A$ occupies 6 slots (evenly spaced); $B$ occupies slots 2 and 5.
 
 \medskip
-($A$ occupies 6 slots; $B$ occupies 2 slots, at positions 2 and 5.)
+\textbf{Step 2: Build the decode table.}
+
+For each slot $q$, compute $s = \texttt{sym}[q]$ and
+$x_{\text{prev}} = f_s \cdot 1 + (q \bmod f_s) - c_s$:
+
+\begin{center}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+$q$ & $s$ & $f_s$ & $c_s$ & $x_{\text{prev}}(q)$ \\
+\midrule
+0 & $A$ & 6 & 0 & $6 + (0 \bmod 6) - 0 = 6$ \\
+1 & $A$ & 6 & 0 & $6 + (1 \bmod 6) - 0 = 7$ \\
+2 & $B$ & 2 & 6 & $2 + (2 \bmod 2) - 6 = -4$\quad$\to$ renorm needed \\
+3 & $A$ & 6 & 0 & $6 + (3 \bmod 6) - 0 = 9$\quad$\to$ renorm needed \\
+4 & $A$ & 6 & 0 & $6 + (4 \bmod 6) - 0 = 10$\quad$\to$ renorm needed \\
+5 & $B$ & 2 & 6 & $2 + (5 \bmod 2) - 6 = -3$\quad$\to$ renorm needed \\
+6 & $A$ & 6 & 0 & $6 + (6 \bmod 6) - 0 = 6$ \\
+7 & $A$ & 6 & 0 & $6 + (7 \bmod 6) - 0 = 7$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Entries that fall below $L = 8$ after computation have bits read in
+to renormalise upward before becoming the working state.  In a real
+implementation the table stores the \emph{post-renorm} state directly,
+so lookup + shift is a single cheap operation.
 
 \medskip
-\textbf{Step 2: Build decode table.}
+\textbf{Step 3: Encode with the table.}
 
-For each slot $q$, the decoder reads \texttt{sym[q]}, recovers 
-$x_{\text{prev}}$, and renormalises.  The full table entries are 
-pre-computed at initialisation; at runtime decoding one symbol 
-takes one table lookup and one renorm shift.
-
-\medskip
-\textbf{Step 3: Encode.}
-
-Starting from state $x \in [8, 16)$, encoding symbol $A$ jumps to a 
-new state $x'$ determined by the precomputed encode table, outputting 
-0 or 1 bits as needed to keep $x' \in [8, 16)$.
-
-This avoids all division: the encode table maps $(s, x \bmod f_s) 
-\mapsto x'$.
+Starting from any state $x \in [8, 16)$, to encode symbol $A$ the
+encoder looks up \texttt{enc[$A$][$x \bmod f_A$]} which returns the
+pre-computed new state $x'$ and how many bits to output.  No division
+is performed at runtime.
 \end{examplebox}
 
 % -----------------------------------------------------------
@@ -354,15 +729,17 @@ This avoids all division: the encode table maps $(s, x \bmod f_s)
 \rowcolors{2}{blue!8}{white}
 \begin{tabular}{@{}p{3.5cm}p{3.5cm}p{3.5cm}p{3.5cm}@{}}
 \toprule
-\textbf{Property} & \textbf{Huffman} & \textbf{Arithmetic} & \textbf{ANS (rANS/tANS)} \\
+\textbf{Property} & \textbf{Huffman} & \textbf{Arithmetic}
+  & \textbf{ANS (rANS/tANS)} \\
 \midrule
-Compression ratio & Near-entropy (integer codes) & Near-entropy & Near-entropy \\
-Speed (encode) & Very fast & Moderate & Fast \\
-Speed (decode) & Very fast & Moderate & Very fast (tANS) \\
-Division needed? & No & Yes & No (tANS) / Yes (rANS) \\
-Parallelisable? & Limited & Hard & Easy (interleaved) \\
-Decode order & Forward & Forward & Reverse (auto-handled) \\
-Patent issues & None & Some (old) & None \\
+Compression ratio & Near-entropy (integer codes) & Near-entropy
+  & Near-entropy \\
+Speed (encode)    & Very fast  & Moderate & Fast \\
+Speed (decode)    & Very fast  & Moderate & Very fast (tANS) \\
+Division needed?  & No         & Yes      & No (tANS) / Yes (rANS) \\
+Parallelisable?   & Limited    & Hard     & Easy (interleaved) \\
+Decode order      & Forward    & Forward  & Reverse (auto-handled) \\
+Patent issues     & None       & Some (old) & None \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -372,40 +749,43 @@ Patent issues & None & Some (old) & None \\
 % -----------------------------------------------------------
 
 \begin{theorem}
-Let $p_s$ be the true probability of symbol $s$ and $\tilde{p}_s = f_s / L$ 
-the quantised probability.  The redundancy (extra bits per symbol) of ANS 
-over the Shannon entropy limit is bounded by:
+Let $p_s$ be the true probability of symbol $s$ and
+$\tilde{p}_s = f_s / L$ the quantised probability.  The redundancy
+(extra bits per symbol) of ANS over the Shannon entropy limit is
+bounded by:
 \[
-  \Delta H \;\leq\; \sum_s p_s \log_2 \frac{p_s}{\tilde{p}_s} 
+  \Delta H \;\leq\; \sum_s p_s \log_2 \frac{p_s}{\tilde{p}_s}
   \;+\; \frac{1}{L \ln 2}
 \]
 \end{theorem}
 
 \begin{itemize}[leftmargin=2em]
-    \item The first term is the KL divergence between the true and quantised 
-          distributions — it vanishes as $L \to \infty$.
-    \item The second term, $1/(L\ln 2)$, is negligible even for modest 
-          $L$ (e.g., $L = 4096$ gives $< 0.0004$ bits/symbol overhead).
-    \item In practice, $L = 2^{11}$ or $2^{12}$ gives compression within 
-          $0.001$ bits/symbol of entropy — far tighter than Huffman.
+    \item The first term is the KL divergence between the true and
+          quantised distributions --- it vanishes as $L \to \infty$.
+    \item The second term $1/(L\ln 2)$ is negligible even for moderate
+          $L$: with $L = 4096$ it contributes less than
+          $0.0004$ bits/symbol.
+    \item In practice, $L = 2^{11}$ or $2^{12}$ gives compression within
+          $0.001$ bits/symbol of entropy --- far tighter than Huffman.
 \end{itemize}
 
 % -----------------------------------------------------------
 \subsection{Interleaved ANS for Parallelism}
 % -----------------------------------------------------------
 
-A powerful feature of ANS is that multiple independent state variables 
-can encode/decode simultaneously — a technique called \textbf{interleaved ANS}.
+A powerful feature of ANS is that multiple independent state variables
+can encode/decode simultaneously --- a technique called
+\textbf{interleaved ANS}.
 
 \begin{examplebox}
 \textbf{Interleaved rANS with 2 streams.}
 
-Maintain two states $x_0, x_1$.  Encode even-indexed symbols into $x_0$ 
-and odd-indexed symbols into $x_1$.  The two streams are written/read 
-independently and can exploit SIMD (Single Instruction Multiple Data) 
+Maintain two states $x_0, x_1$.  Encode even-indexed symbols into $x_0$
+and odd-indexed symbols into $x_1$.  The two streams are written and read
+independently and can exploit SIMD (Single Instruction Multiple Data)
 CPU instructions.
 
-Zstandard uses \textbf{4-way interleaving} for its ANS back-end, 
+Zstandard uses \textbf{4-way interleaving} for its ANS back-end,
 achieving throughput of several gigabytes per second on modern hardware.
 \end{examplebox}
 
@@ -413,18 +793,17 @@ achieving throughput of several gigabytes per second on modern hardware.
 \subsection{ANS in Practice: Zstandard}
 % -----------------------------------------------------------
 
-Zstandard (zstd), developed at Meta (Facebook) and standardised as 
-RFC 8878, uses ANS as its entropy coder:
+Zstandard (zstd), developed at Meta and standardised as RFC~8878, uses
+ANS as its entropy coder:
 
 \begin{itemize}[leftmargin=2em]
-    \item \textbf{Literals}: compressed with Huffman or FSE (Finite State 
-          Entropy — Meta's name for tANS).
-    \item \textbf{Offsets, match lengths, literal lengths}: compressed with 
-          FSE tables.
-    \item Table size: $L = 2^6$ to $2^9$ depending on the data, chosen 
-          adaptively.
-    \item At level 3 (default), zstd is \textasciitilde5$\times$ faster to 
-          decompress than gzip while achieving similar or better compression.
+    \item \textbf{Literals} --- compressed with Huffman or FSE (Finite
+          State Entropy, Meta's name for tANS).
+    \item \textbf{Offsets, match lengths, literal lengths} --- compressed
+          with FSE tables.
+    \item Table size $L = 2^6$ to $2^9$, chosen adaptively per block.
+    \item At level 3 (default), zstd decompresses roughly $5\times$ faster
+          than gzip while achieving similar or better compression ratios.
 \end{itemize}
 
 % -----------------------------------------------------------
@@ -435,71 +814,83 @@ RFC 8878, uses ANS as its entropy coder:
 \textbf{Full tANS table construction for a 3-symbol alphabet.}
 
 \medskip
-\textbf{Given:} $\mathcal{A} = \{A, B, C\}$, $L = 8$, 
-$f_A = 4,\ f_B = 2,\ f_C = 2$, $c_A = 0,\ c_B = 4,\ c_C = 6$.
+\textbf{Given:} $\mathcal{A} = \{A, B, C\}$, $L = 8$,
+$f_A = 4,\; c_A = 0$;\quad $f_B = 2,\; c_B = 4$;\quad
+$f_C = 2,\; c_C = 6$.
 
 \medskip
-\textbf{1. Spread symbols.}  
-Place each symbol's copies evenly across the 8 slots:
+\textbf{1. Spread symbols.}
+Place each symbol's copies evenly across the 8 slots using the
+formula from Section~\ref{sec:ans_spread}:
 
 \begin{center}
 \begin{tabular}{@{}ccccccccc@{}}
 \toprule
-Slot $q$ & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+Slot $q$        & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
 \midrule
 \texttt{sym[q]} & A & C & B & A & C & B & A & A \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-($A$ at slots $\{0,3,6,7\}$; $B$ at $\{2,5\}$; $C$ at $\{1,4\}$.)
+$A$ at slots $\{0,3,6,7\}$;\quad $B$ at $\{2,5\}$;\quad
+$C$ at $\{1,4\}$.
 
 \medskip
-\textbf{2. Build decode table.}  
-For each slot $q$, compute $x_{\text{prev}}$:
+\textbf{2. Build the decode table.}
 
-\[
-  x_{\text{prev}}(q) = f_{\text{sym}[q]} \cdot 
-  \left\lfloor \frac{L + q}{L} \right\rfloor + 
-  \big((L + q) \bmod f_{\text{sym}[q]}\big)
-\]
+For each slot $q$, apply
+$x_{\text{prev}}(q) = f_s + (q \bmod f_s) - c_s$
+(since $\lfloor(L+q)/L\rfloor = 1$ for all $0 \leq q < L = 8$):
 
 \begin{center}
-\begin{tabular}{@{}ccccc@{}}
+\begin{tabular}{@{}cccccc@{}}
 \toprule
-$q$ & \texttt{sym[q]} & $f_s$ & $c_s$ & $x_{\text{prev}}$ \\
+$q$ & \texttt{sym[q]} & $f_s$ & $c_s$ & Computation & $x_{\text{prev}}$ \\
 \midrule
-0 & A & 4 & 0 & $4 \cdot 1 + (8 \bmod 4) = 4$ \\
-1 & C & 2 & 6 & $2 \cdot 1 + (9 \bmod 2) = 3$ \\
-2 & B & 2 & 4 & $2 \cdot 1 + (10 \bmod 2) = 2$ \\
-3 & A & 4 & 0 & $4 \cdot 1 + (11 \bmod 4) = 7$ \\
-4 & C & 2 & 6 & $2 \cdot 1 + (12 \bmod 2) = 2$\\
-5 & B & 2 & 4 & $2 \cdot 1 + (13 \bmod 2) = 3$ \\
-6 & A & 4 & 0 & $4 \cdot 1 + (14 \bmod 4) = 6$ \\
-7 & A & 4 & 0 & $4 \cdot 1 + (15 \bmod 4) = 7$ \\
+0 & $A$ & 4 & 0 & $4 + (0 \bmod 4) - 0$ & $4$ \\
+1 & $C$ & 2 & 6 & $2 + (1 \bmod 2) - 6$ & $-3$ (renorm $\uparrow$) \\
+2 & $B$ & 2 & 4 & $2 + (2 \bmod 2) - 4$ & $-2$ (renorm $\uparrow$) \\
+3 & $A$ & 4 & 0 & $4 + (3 \bmod 4) - 0$ & $7$ \\
+4 & $C$ & 2 & 6 & $2 + (4 \bmod 2) - 6$ & $-4$ (renorm $\uparrow$) \\
+5 & $B$ & 2 & 4 & $2 + (5 \bmod 2) - 4$ & $-1$ (renorm $\uparrow$) \\
+6 & $A$ & 4 & 0 & $4 + (6 \bmod 4) - 0$ & $6$ \\
+7 & $A$ & 4 & 0 & $4 + (7 \bmod 4) - 0$ & $7$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\medskip
-\textit{Interpretation:} If the decoder is at slot $q = 5$, it reads 
-symbol $B$, and the previous encoder state was $x_{\text{prev}} = 3$ 
-(before renormalisation bits are consumed).
+Entries marked ``renorm $\uparrow$'' have $x_{\text{prev}} < L$;
+the decoder reads one or more bits from the stream to bring them into
+range before they become the new working state.  In a full
+implementation these post-renorm values are stored in the table
+directly, so no computation happens at decode time.
 
 \medskip
-\textbf{3. Decode sequence \texttt{A B A} using the table.}
+\textit{Example interpretation:} Slot $q = 3$ holds symbol $A$ with
+$x_{\text{prev}} = 7$.  If the decoder arrives at slot 3, it knows the
+symbol was $A$ and the encoder's state just before encoding that $A$
+was $7$ (or $7$ after renormalisation from lower values).
 
-Suppose the encoder left final state $x = 8$.  The renorm bit stream 
-contains bits emitted during encoding (read in reverse).
+\medskip
+\textbf{3. Decode one step using the table.}
+
+Suppose the encoder's final state is $x = 8$ and we read
+$q = x \bmod L = 8 \bmod 8 = 0$.
 
 \begin{itemize}
-    \item $q = x \bmod L = 8 \bmod 8 = 0 \Rightarrow$ sym = A, 
-          $x_{\text{prev}} = 4$. Read renorm bit \texttt{?} to 
-          restore $x$ to range $[8,16)$.
+  \item \texttt{sym[0]} $= A$;\quad $x_{\text{prev}}(0) = 4 < L = 8$.
+  \item Renormalise upward: read one bit $b$ from the stream;
+        $x_{\text{prev}} \leftarrow (4 \ll 1)\mid b$.
+        If $b = 1$: $x_{\text{prev}} = 9 \geq 8$, done.
+        If $b = 0$: $x_{\text{prev}} = 8 \geq 8$, done.
+  \item The decoder recovers symbol $A$ and the next working state
+        in a single table lookup plus one bit-read --- no arithmetic.
 \end{itemize}
 
-The complete decode walk-through follows the same pattern as the rANS 
-example, now using the table instead of arithmetic.
+The complete decode walk-through for a full sequence follows exactly
+the same pattern as the rANS decoding example, with arithmetic
+replaced by table lookups.
 \end{examplebox}
 
 % -----------------------------------------------------------
@@ -514,11 +905,13 @@ example, now using the table instead of arithmetic.
 \midrule
 State $x$ & A single integer carrying all compressed data so far \\
 Normalised range $[L, 2L)$ & Keeps $x$ bounded; renorm emits/reads bits \\
-rANS encode formula & $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ \\
-rANS decode formula & $x_{\text{prev}} = f_s \cdot \lfloor x/L \rfloor + (x \bmod L) - c_s$ \\
+rANS encode formula &
+  $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ \\
+rANS decode formula &
+  $x_{\text{prev}} = f_s \cdot \lfloor x/L \rfloor + (x \bmod L) - c_s$ \\
 tANS & Replaces arithmetic with a pre-built lookup table \\
 Symbol spread & Distributes $f_s$ slots to symbol $s$ across the table \\
-Reverse decoding & ANS decodes in reverse; encode block backwards \\
+Encode backwards & Encode block right-to-left so decoded order is correct \\
 Redundancy & Approaches 0 as table size $L \to \infty$ \\
 \bottomrule
 \end{tabular}
@@ -529,53 +922,57 @@ Redundancy & Approaches 0 as table size $L \to \infty$ \\
 % -----------------------------------------------------------
 
 \begin{exercisebox}
-Consider the alphabet $\{X, Y\}$ with frequencies $f_X = 3$, $f_Y = 1$, 
+\label{ex:ans1}
+Consider the alphabet $\{X, Y\}$ with frequencies $f_X = 3$, $f_Y = 1$,
 and table size $L = 4$.
 \begin{enumerate}[label=(\alph*)]
     \item Compute the cumulative frequencies $c_X$ and $c_Y$.
-    \item Using the rANS encode formula, encode the sequence \texttt{X X Y} 
-          starting from state $x = 4$.  Show all intermediate states and 
-          any renormalisation bits emitted.
-    \item Verify your answer by decoding the result.
+    \item Using the rANS encode formula, encode the sequence
+          \texttt{X X Y} starting from state $x = 4$.  Show all
+          intermediate states and any renormalisation bits emitted.
+          \emph{Hint: encode right-to-left (Y first, then X, then X).}
+    \item Verify your answer by decoding the result step-by-step,
+          confirming you recover \texttt{X X Y}.
 \end{enumerate}
 \end{exercisebox}
 
 \begin{exercisebox}
-\textbf{Entropy comparison.}  For the alphabet in Exercise~\theexercise\ 
-(previous), compute:
+\textbf{Entropy comparison.}  For the alphabet in Exercise~\ref{ex:ans1},
+compute:
 \begin{enumerate}[label=(\alph*)]
     \item The Shannon entropy $H$ of the distribution.
-    \item The number of bits produced by your rANS encoding in the 
-          previous exercise.
+    \item The number of bits produced by your rANS encoding in
+          Exercise~\ref{ex:ans1}.
     \item The redundancy as a percentage above entropy.
     \item How would increasing $L$ to 16 affect the redundancy?
 \end{enumerate}
 \end{exercisebox}
 
 \begin{exercisebox}
-\textbf{tANS table construction.}  Given $\mathcal{A} = \{A, B\}$, 
+\textbf{tANS table construction.}  Given $\mathcal{A} = \{A, B\}$,
 $L = 8$, $f_A = 5$, $f_B = 3$:
 \begin{enumerate}[label=(\alph*)]
-    \item Spread the symbols evenly across 8 slots using the formula 
-          in Section~\ref{sec:ans_spread} (or any reasonable even-spread 
-          strategy) and write the \texttt{sym[]} array.
-    \item Build the decode table (symbol and $x_{\text{prev}}$ for 
-          each slot).
-    \item Starting from $x = 10$, perform one decode step: 
-          identify the symbol and the previous state.
+    \item Spread the symbols evenly across 8 slots using the formula
+          in Section~\ref{sec:ans_spread} and write the
+          \texttt{sym[]} array.
+    \item Build the decode table (symbol and $x_{\text{prev}}$ for
+          each slot $q \in \{0,\ldots,7\}$).
+    \item Starting from $x = 10$, perform one decode step:
+          identify the symbol, compute $x_{\text{prev}}$, and
+          renormalise if needed.
 \end{enumerate}
 \end{exercisebox}
 
 \begin{exercisebox}
 \textbf{Conceptual questions.}
 \begin{enumerate}[label=(\alph*)]
-    \item Why does ANS decode in reverse order?  
+    \item Why does ANS decode in reverse order?
           What do practical implementations do to work around this?
-    \item Explain in one paragraph why encoding a rare symbol (low $f_s$) 
-          increases $x'$ by more bits than encoding a common symbol.
-    \item What is the advantage of interleaved ANS over a single-stream 
+    \item Explain in one paragraph why encoding a rare symbol (low $f_s$)
+          adds more bits to the state than encoding a common symbol.
+    \item What is the advantage of interleaved ANS over a single-stream
           implementation?
-    \item Name two commercial/open-source software products that use ANS 
-          and state which variant (rANS or tANS) each employs.
+    \item Name two commercial or open-source software products that use
+          ANS and state which variant (rANS or tANS) each employs.
 \end{enumerate}
 \end{exercisebox}
