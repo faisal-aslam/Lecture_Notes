@@ -455,7 +455,10 @@ discrete error correction possible.
 \subsection{Single-Qubit Error Types}
 
 Consider a qubit in state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$.
-Three ``pure'' error types cover all possibilities:
+
+Although a single qubit can undergo infinitely many possible errors (e.g., arbitrary rotations or phase changes), it is sufficient to study a small set of fundamental error operators. In particular, the Pauli operators $\{I, X, Y, Z\}$ form a basis for all single-qubit operations. This means that any physical error can be expressed as a linear combination of these operators.
+
+For this reason, we focus on the following three ``pure'' error types, which serve as basis elements for all possible single-qubit errors:
 
 \begin{center}
 \renewcommand{\arraystretch}{1.4}
@@ -464,14 +467,16 @@ Three ``pure'' error types cover all possibilities:
   \textbf{Error} & \textbf{Op.} & \textbf{Action} & \textbf{Physical meaning}\\
   \midrule
   Bit-flip   & $X$ & $\ket{0}\leftrightarrow\ket{1}$ &
-      Like a classical bit-flip; flips amplitude\\
+      Like a classical bit-flip; exchanges amplitudes\\
   Phase-flip & $Z$ & $\ket{0}\mapsto\ket{0}$, $\ket{1}\mapsto{-}\ket{1}$ &
-      Relative phase flips sign; no classical analogue\\
+      Flips the relative phase between basis states\\
   Bit+Phase  & $Y{=}iXZ$ & $\ket{0}\mapsto i\ket{1}$, $\ket{1}\mapsto{-}i\ket{0}$ &
-      Both effects simultaneously\\
+      Combines both bit-flip and phase-flip effects\\
   \bottomrule
 \end{tabular}
 \end{center}
+
+Correcting these three types of errors is sufficient, because any general single-qubit error can be decomposed into a combination of them. Thus, in quantum error correction, these operators provide a complete and convenient description of all possible single-qubit errors.
 
 \subsection{Pauli Matrices}
 
