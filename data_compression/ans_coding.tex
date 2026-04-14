@@ -96,48 +96,71 @@ pre-built lookup table.
 \subsubsection{The State Range}
 
 The encoder keeps state $x$ in the \emph{normalised range} $[L, 2L)$ where
-$L = 2^R$.  After encoding or decoding each symbol, we renormalise $x$ back
+$L = 2^R$.  After encoding or decoding each symbol, $x$ is renormalised back
 into $[L, 2L)$ by streaming bits in or out.
 
 \subsubsection{Encoding a Symbol}
 
-\begin{definitionbox}
-\textbf{rANS Encode.}  To encode symbol $s$ with frequency $f_s$ and
-cumulative frequency $c_s = \sum_{i < s} f_i$:
+The encoding formula maps a state $x$ and symbol $s$ to a new state $x'$:
 \[
   x' \;=\; \left\lfloor \frac{x}{f_s} \right\rfloor \cdot L
          \;+\; c_s \;+\; (x \bmod f_s)
 \]
-Renormalise by emitting bits until $x'$ is back in $[L, 2L)$:
+For the decoder to correctly identify the symbol from $x' \bmod L$, we need
+$x' \bmod L \in [c_s, c_s + f_s)$.  Inspecting the formula:
+\[
+  x' \bmod L \;=\; c_s + (x \bmod f_s)
+\]
+This lands in $[c_s, c_s + f_s)$ for any $x$ --- the slot tag is always
+correct.  However, the formula may produce $x'$ outside $[L, 2L)$, and
+\emph{renormalisation must not disturb} $x' \bmod L$.  Right-shifting
+$x'$ to shrink it would scramble the remainder, so we instead
+\textbf{pre-normalise}: emit bits from $x$ \emph{before} applying the
+formula, bringing $x$ into $[f_s, 2f_s)$.  With $x \in [f_s, 2f_s)$ we
+have $\lfloor x/f_s \rfloor = 1$, so:
+\[
+  x' = L + c_s + (x \bmod f_s)
+  \;\in\; [L + c_s,\; L + c_s + f_s) \;\subset\; [L, 2L)
+\]
+The output lands in $[L, 2L)$ with no further adjustment needed.
+
+\begin{definitionbox}
+\textbf{rANS Encode.}  To encode symbol $s$ with frequency $f_s$ and
+cumulative frequency $c_s = \sum_{i < s} f_i$:
+
 \begin{algorithmic}[1]
-\While{$x' \ge 2L$}
-    \State $\text{emit}(x' \mathrel{\&} 1)$ \Comment{output LSB}
-    \State $x' \leftarrow x' \gg 1$          \Comment{divide by 2 (floor)}
+\While{$x \ge 2f_s$}
+    \State $\text{emit}(x \mathrel{\&} 1)$ \Comment{output LSB of $x$}
+    \State $x \leftarrow x \gg 1$          \Comment{divide by 2 (floor)}
 \EndWhile
-\Comment{Now $L \le x' < 2L$}
+\Comment{Now $f_s \le x < 2f_s$; apply formula:}
+\State $x \leftarrow \lfloor x / f_s \rfloor \cdot L + c_s + (x \bmod f_s)$
+\Comment{Result is guaranteed to be in $[L, 2L)$}
 \end{algorithmic}
 \end{definitionbox}
 
 \begin{importantbox}
 \textbf{Streaming direction.}  The \emph{encoder} outputs bits
-\emph{during encoding} (renormalisation), and the \emph{decoder} reads
-those bits \emph{during decoding} in \textbf{reverse order}.  This means
-the decoder recovers symbols in reverse: encode $s_1, s_2, \ldots, s_n$;
-decode $s_n, \ldots, s_2, s_1$.  Practical implementations therefore encode
-the block \emph{backwards} so the decoded order is automatically correct.
+\emph{before} applying the encoding formula (pre-normalisation), and the
+\emph{decoder} reads those bits \emph{after} inverting the formula
+(post-normalisation upward), in \textbf{reverse order}.  This means the
+decoder recovers symbols in reverse: encode $s_1, s_2, \ldots, s_n$;
+decode $s_n, \ldots, s_2, s_1$.  Practical implementations therefore
+encode the block \emph{backwards} so the decoded order is automatically
+correct.
 \end{importantbox}
 
 \subsubsection{Decoding a Symbol}
 
 \begin{definitionbox}
-\textbf{rANS Decode.}  Given state $x$, recover symbol $s$ and the
-previous encoder state $x_{\text{prev}}$:
+\textbf{rANS Decode.}  Given state $x \in [L, 2L)$, recover symbol $s$
+and the previous encoder state $x_{\text{prev}}$:
 \begin{enumerate}[leftmargin=2em]
     \item Compute $r = x \bmod L$.  Find symbol $s$ such that
-          $c_s \leq r < c_s + f_s$.
+          $c_s \leq r < c_s + f_s$. \hfill (slot lookup)
     \item Compute $x_{\text{prev}} = f_s \cdot \lfloor x / L \rfloor
-          + r - c_s$.
-    \item Renormalise upward until $x_{\text{prev}} \geq L$:
+          + r - c_s$. \hfill (inverse formula)
+    \item Renormalise $x_{\text{prev}}$ upward into $[L, 2L)$:
 \begin{algorithmic}[1]
 \While{$x_{\text{prev}} < L$}
     \State Read next bit $b$ from the stream
@@ -149,8 +172,12 @@ previous encoder state $x_{\text{prev}}$:
 \end{enumerate}
 \end{definitionbox}
 
-Steps 1--2 are the \emph{exact algebraic inverses} of the encode formula ---
-no information is created or destroyed.
+Steps 1--2 are the \emph{exact algebraic inverses} of the encode formula.
+Since $x \in [L, 2L)$, we have $\lfloor x/L \rfloor = 1$, so
+$x_{\text{prev}} = f_s + r - c_s \in [f_s, 2f_s)$ --- precisely the
+pre-normalised range the encoder started from.  Renormalising upward then
+consumes the bits the encoder emitted, restoring the encoder's state before
+it encoded $s$.
 
 % -----------------------------------------------------------
 \subsection{Worked Example: rANS Encoding}
@@ -172,42 +199,22 @@ $C$ & 2 & 6 & $0.25$ & $[6,\,8)$ \\
 
 \smallskip
 \textit{Reading the table:} Each symbol owns $f$ consecutive slots within
-$[0, L)$.  The slot range $[c, c+f)$ is how the decoder will later identify
-which symbol is present --- it checks which range contains $x \bmod L$.
+$[0, L)$.  The slot range $[c, c+f)$ is how the decoder identifies which
+symbol is present --- it checks which range contains $x \bmod L$.
 
 \bigskip
-\noindent\textbf{Goal:} Encode the sequence \texttt{A A B} starting from
+\noindent\textbf{Goal:} Encode the sequence \texttt{A B A} starting from
 initial state $x = L = 8$.
 
 \medskip
-\noindent\textbf{The encoding formula --- annotated:}
-\[
-  \boxed{x' \;=\;
-    \underbrace{\Bigl\lfloor \tfrac{x}{f_s} \Bigr\rfloor}_{\mathclap{\text{scales } x
-      \text{ up by } L/f_s}}
-    \times\, L
-    \;+\; \underbrace{c_s + (x \bmod f_s)}_{\mathclap{\text{tags result with symbol } s
-      \text{ (lands in slot range } [c_s, c_s\!+\!f_s))}}}
-\]
-
-\begin{itemize}
-  \item The left term inflates $x$ by $L/f_s$, adding
-        $\log_2(L/f_s) = -\log_2 p_s$ bits --- exactly symbol $s$'s
-        information content.
-  \item The right term ensures $x' \bmod L$ falls in $s$'s slot range, so
-        the decoder can read off $s$ from $x'$ alone.
-\end{itemize}
-
-\noindent\textbf{Renormalisation rule:}
-
-\begin{algorithmic}[1]
-\While{$x' \ge 2L$}
-    \State $\text{emit}(x' \mathrel{\&} 1)$ \Comment{LSB (compressed output)}
-    \State $x' \leftarrow x' \gg 1$ \Comment{divide by 2 (floor)}
-\EndWhile
-\Comment{Now $L \le x' < 2L$}
-\end{algorithmic}
-These emitted bits \emph{are} the compressed data.
+\noindent\textbf{The encoding procedure:}
+\begin{enumerate}
+  \item \textbf{Pre-normalise:} emit LSBs of $x$ until $x \in [f_s, 2f_s)$.
+  \item \textbf{Apply formula:} $x' = \lfloor x/f_s \rfloor \cdot L
+        + c_s + (x \bmod f_s)$.  With $x \in [f_s, 2f_s)$,
+        $\lfloor x/f_s \rfloor = 1$, so $x' = L + c_s + (x \bmod f_s)
+        \in [L, 2L)$ directly.
+\end{enumerate}
 
 \medskip\hrule\medskip
 
@@ -215,125 +222,134 @@ These emitted bits \emph{are} the compressed data.
 \noindent\textbf{Step 1 --- Encode \texttt{A}}\quad
 $f_A = 4,\; c_A = 0,\;$ state $x = 8$.
 
-\[
-  x' = \lfloor 8/4 \rfloor \times 8 + 0 + (8 \bmod 4)
-     = 2 \times 8 + 0 + 0 = 16
-\]
-
-\textit{Renormalise:}
+\textit{Pre-normalise into $[f_A, 2f_A) = [4, 8)$:}
 \begin{algorithmic}[1]
-\While{$x' \ge 2L = 16$}
-    \State $16 \ge 16$:\enspace $\text{emit}(16 \mathrel{\&} 1) = \mathbf{0}$;\enspace
-           $x' \leftarrow 16 \gg 1 = 8$
+\While{$x \ge 2f_A = 8$}
+    \State $8 \ge 8$:\enspace $\text{emit}(8 \mathrel{\&} 1) = \mathbf{0}$;\enspace
+           $x \leftarrow 8 \gg 1 = 4$
 \EndWhile
-\Comment{$8 \in [8, 16)$: stop}
+\Comment{$4 \in [4, 8)$: stop}
 \end{algorithmic}
+
+\textit{Apply formula} (with pre-normed $x = 4$):
+\[
+  x' = \lfloor 4/4 \rfloor \times 8 + 0 + (4 \bmod 4)
+     = 1 \times 8 + 0 + 0 = 8
+\]
+$x' = 8 \in [8, 16)$\checkmark\quad
+$x' \bmod 8 = 0 \in [0, 4)$ (A's slot)\checkmark
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
-  Bits emitted this step: & \texttt{0} \\
-  Bitstream so far:       & \texttt{0} \\
-  New state $x$:          & $8$ \\
+  Bit emitted this step: & \texttt{0} \\
+  Bitstream so far:      & \texttt{0} \\
+  New state $x$:         & $8$ \\
 \end{tabular}
 \end{center}
 
 \medskip\hrule\medskip
 
 % ---- Step 2 ----
-\noindent\textbf{Step 2 --- Encode \texttt{A}}\quad
-$f_A = 4,\; c_A = 0,\;$ state $x = 8$.
-
-\[
-  x' = \lfloor 8/4 \rfloor \times 8 + 0 + (8 \bmod 4)
-     = 2 \times 8 + 0 + 0 = 16
-\]
-
-\textit{Renormalise:}
-\begin{algorithmic}[1]
-\While{$x' \ge 2L = 16$}
-    \State $16 \ge 16$:\enspace $\text{emit}(16 \mathrel{\&} 1) = \mathbf{0}$;\enspace
-           $x' \leftarrow 16 \gg 1 = 8$
-\EndWhile
-\Comment{$8 \in [8, 16)$: stop}
-\end{algorithmic}
-
-\begin{center}
-\begin{tabular}{@{}ll@{}}
-  Bits emitted this step: & \texttt{0} \\
-  Bitstream so far:       & \texttt{0\;0} \\
-  New state $x$:          & $8$ \\
-\end{tabular}
-\end{center}
-
-\medskip\hrule\medskip
-
-% ---- Step 3 ----
-\noindent\textbf{Step 3 --- Encode \texttt{B}}\quad
+\noindent\textbf{Step 2 --- Encode \texttt{B}}\quad
 $f_B = 2,\; c_B = 4,\;$ state $x = 8$.
 
-\[
-  x' = \lfloor 8/2 \rfloor \times 8 + 4 + (8 \bmod 2)
-     = 4 \times 8 + 4 + 0 = 36
-\]
-
-\textit{Renormalise ($36$ is well above $2L = 16$, so two iterations are needed):}
+\textit{Pre-normalise into $[f_B, 2f_B) = [2, 4)$:}
 \begin{algorithmic}[1]
-\While{$x' \ge 2L = 16$}
-    \State $36 \ge 16$:\enspace $\text{emit}(36 \mathrel{\&} 1) = \mathbf{0}$;\enspace
-           $x' \leftarrow 36 \gg 1 = 18$
-    \State $18 \ge 16$:\enspace $\text{emit}(18 \mathrel{\&} 1) = \mathbf{0}$;\enspace
-           $x' \leftarrow 18 \gg 1 = 9$
+\While{$x \ge 2f_B = 4$}
+    \State $8 \ge 4$:\enspace $\text{emit}(8 \mathrel{\&} 1) = \mathbf{0}$;\enspace
+           $x \leftarrow 8 \gg 1 = 4$
+    \State $4 \ge 4$:\enspace $\text{emit}(4 \mathrel{\&} 1) = \mathbf{0}$;\enspace
+           $x \leftarrow 4 \gg 1 = 2$
 \EndWhile
-\Comment{$9 \in [8, 16)$: stop}
+\Comment{$2 \in [2, 4)$: stop}
 \end{algorithmic}
+
+\textit{Apply formula} (with pre-normed $x = 2$):
+\[
+  x' = \lfloor 2/2 \rfloor \times 8 + 4 + (2 \bmod 2)
+     = 1 \times 8 + 4 + 0 = 12
+\]
+$x' = 12 \in [8, 16)$\checkmark\quad
+$x' \bmod 8 = 4 \in [4, 6)$ (B's slot)\checkmark
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
   Bits emitted this step: & \texttt{0\;0} \\
-  Bitstream so far:       & \texttt{0\;0\;0\;0} \\
-  New state $x$:          & $9$ \\
+  Bitstream so far:       & \texttt{0\;0\;0} \\
+  New state $x$:          & $12$ \\
 \end{tabular}
 \end{center}
 
 \smallskip
-\textit{Why two iterations?}  $B$ is rare ($p = 0.25$), so it inflates $x$
-by $L/f_B = 4\times$, pushing the state far above $2L$.  This is consistent
-with $B$ carrying $-\log_2 0.25 = 2$ bits of information --- two bits
-are emitted.
+\textit{Why two bits?}  $B$ has probability $0.25$, so $x$ must be
+shrunk into the range $[2, 4)$ before the formula --- requiring two
+right-shifts from $x = 8$.  This is consistent with $B$ carrying
+$-\log_2 0.25 = 2$ bits of information.
 
 \medskip\hrule\medskip
 
-\noindent\textbf{Finalise.}  Append the final state $x = 9 = (1001)_2$
-to the bitstream.  The decoder needs this value as its starting point.
+% ---- Step 3 ----
+\noindent\textbf{Step 3 --- Encode \texttt{A}}\quad
+$f_A = 4,\; c_A = 0,\;$ state $x = 12$.
+
+\textit{Pre-normalise into $[f_A, 2f_A) = [4, 8)$:}
+\begin{algorithmic}[1]
+\While{$x \ge 2f_A = 8$}
+    \State $12 \ge 8$:\enspace $\text{emit}(12 \mathrel{\&} 1) = \mathbf{0}$;\enspace
+           $x \leftarrow 12 \gg 1 = 6$
+\EndWhile
+\Comment{$6 \in [4, 8)$: stop}
+\end{algorithmic}
+
+\textit{Apply formula} (with pre-normed $x = 6$):
+\[
+  x' = \lfloor 6/4 \rfloor \times 8 + 0 + (6 \bmod 4)
+     = 1 \times 8 + 0 + 2 = 10
+\]
+$x' = 10 \in [8, 16)$\checkmark\quad
+$x' \bmod 8 = 2 \in [0, 4)$ (A's slot)\checkmark
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Bit emitted this step: & \texttt{0} \\
+  Bitstream so far:      & \texttt{0\;0\;0\;0} \\
+  New state $x$:         & $10$ \\
+\end{tabular}
+\end{center}
+
+\medskip\hrule\medskip
+
+\noindent\textbf{Finalise.}  Append the final state
+$x = 10 = (1010)_2$ to the bitstream.
 
 \[
-\underbrace{\mathtt{0\;0\;0\;0}}_{\substack{\text{renorm bits} \\
+\underbrace{\mathtt{0\;0\;0\;0}}_{\substack{\text{pre-norm bits} \\
   \text{emitted during steps 1--3}}}
 \;\Big|\;
-\underbrace{\mathtt{1\;0\;0\;1}}_{\substack{\text{final state} \\ x = 9}}
+\underbrace{\mathtt{1\;0\;1\;0}}_{\substack{\text{final state} \\ x = 10}}
 \]
 
 \medskip
 \noindent\textbf{Step summary:}
 
 \smallskip
-\begin{tabular}{@{}clccll@{}}
+\begin{tabular}{@{}clcccll@{}}
 \toprule
-Step & Sym & $x$ in & Formula result $x'$ & Bits emitted & $x$ out \\
+Step & Sym & $x$ in & Bits emitted & $x$ pre-norm & Formula result $x'$ & $x$ out \\
 \midrule
-1 & $A$ & 8 & 16 & \texttt{0}    & 8 \\
-2 & $A$ & 8 & 16 & \texttt{0}    & 8 \\
-3 & $B$ & 8 & 36 & \texttt{0\;0} & 9 \\
+1 & $A$ & 8  & \texttt{0}    & 4 & $1{\times}8+0+0=8$   & 8  \\
+2 & $B$ & 8  & \texttt{0\;0} & 2 & $1{\times}8+4+0=12$  & 12 \\
+3 & $A$ & 12 & \texttt{0}    & 6 & $1{\times}8+0+2=10$  & 10 \\
 \bottomrule
 \end{tabular}
 
 \medskip
 \textit{Entropy check.}
-The information content of \texttt{A A B} is
+The information content of \texttt{A B A} is
 $-(2\log_2 0.5 + \log_2 0.25) = 1 + 1 + 2 = 4$ bits.
-We emitted 4 renorm bits $+$ 4 bits for the final state $= 8$ bits total.
-The 4-bit overhead is a fixed per-block cost; it becomes negligible for
-longer sequences.
+We emitted exactly 4 pre-norm bits $+$ 4 bits for the final state
+$= 8$ bits total.  The 4-bit overhead is a fixed per-block cost that
+becomes negligible for longer sequences.
 \end{examplebox}
 
 % -----------------------------------------------------------
@@ -342,8 +358,7 @@ longer sequences.
 
 \begin{examplebox}
 \textbf{Goal.}  Decode the bitstream produced above and verify that we
-recover exactly \texttt{A A B} --- the same sequence we encoded.
-We use the same alphabet and table throughout.
+recover exactly \texttt{A B A} --- the same sequence that was encoded.
 
 \medskip
 \begin{tabular}{@{}lllll@{}}
@@ -363,16 +378,17 @@ Working range $[L, 2L) = [8, 16)$.
 \noindent\textbf{Initialise the decoder.}
 
 \begin{itemize}
-  \item Read the stored final state: $(1001)_2 = 9$.  Set $x = 9$.
-  \item The encoder emitted renorm bits in order \texttt{0, 0, 0, 0}.
+  \item Read the stored final state: $(1010)_2 = 10$.  Set $x = 10$.
+  \item The encoder emitted pre-norm bits in order \texttt{0, 0, 0, 0}.
         The decoder reads them in \textbf{reverse order}: \texttt{0, 0, 0, 0}
-        (identical here since all bits are zero, but the reversal rule always
-        applies in general).
+        (identical here since all bits are zero; in general the reversal
+        matters and is what allows the decoder to undo each encoding step
+        exactly).
 \end{itemize}
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
-  Initial state:          & $x = 9$ \\
+  Initial state:          & $x = 10$ \\
   Bit queue (read order): & \texttt{0},\ \texttt{0},\ \texttt{0},\ \texttt{0} \\
 \end{tabular}
 \end{center}
@@ -383,75 +399,42 @@ Working range $[L, 2L) = [8, 16)$.
   \boxed{x_{\text{prev}} \;=\;
     f_s \times \lfloor x / L \rfloor \;+\; (x \bmod L) \;-\; c_s}
 \]
-
-\noindent\textbf{Renormalisation rule (upward):}
-
-\begin{algorithmic}[1]
-\While{$x_{\text{prev}} < L$}
-    \State Read next bit $b$ from the queue
-    \State $x_{\text{prev}} \leftarrow (x_{\text{prev}} \ll 1) \mid b$
-           \Comment{shift left, insert bit}
-\EndWhile
-\Comment{Now $L \le x_{\text{prev}} < 2L$}
-\end{algorithmic}
+Since $x \in [L, 2L)$, $\lfloor x/L \rfloor = 1$, so
+$x_{\text{prev}} = f_s + (x \bmod L) - c_s \in [f_s, 2f_s)$.
+Renormalising upward then restores $x_{\text{prev}}$ to $[L, 2L)$,
+consuming the same bits the encoder emitted for that symbol.
 
 \noindent\textbf{Each decode step:}
 \begin{enumerate}[leftmargin=2em]
   \item Compute $r = x \bmod L$.  Find symbol $s$ with
         $c_s \leq r < c_s + f_s$.
-  \item Recover $x_{\text{prev}}$ using the formula above.
-  \item Renormalise upward as shown until $x_{\text{prev}} \geq L$.
+  \item Recover $x_{\text{prev}} = f_s \cdot \lfloor x/L \rfloor + r - c_s$.
+  \item Renormalise upward:
+\begin{algorithmic}[1]
+\While{$x_{\text{prev}} < L$}
+    \State Read next bit $b$ from the queue
+    \State $x_{\text{prev}} \leftarrow (x_{\text{prev}} \ll 1) \mid b$
+\EndWhile
+\Comment{Now $L \le x_{\text{prev}} < 2L$}
+\end{algorithmic}
   \item Set $x \leftarrow x_{\text{prev}}$ and repeat.
 \end{enumerate}
 
-Because the encoder processed symbols left-to-right (A, A, B), the
-decoder undoes the \emph{last} encoding step first and naturally
-reconstructs the sequence in the original left-to-right order A, A, B.
-No reversal of the decoded list is needed.
+Because the encoder processed \texttt{A B A} left-to-right, the decoder
+undoes the last encoding step first (recovering the final \texttt{A}),
+then \texttt{B}, then the first \texttt{A} --- giving the original
+sequence in correct order.
 
 \medskip\hrule\medskip
 
 % ---- Decode step 1 ----
-\noindent\textbf{Decode Step 1 --- recovers \texttt{A} (position 1)}
-
-\medskip
-$r = x \bmod L = 9 \bmod 8 = 1$.
-
-\textit{Slot lookup:} $c_A = 0 \leq 1 < 4 = c_A + f_A$,\quad
-so $s = A$.\quad\checkmark
-
-\textit{Recover previous state:}
-\[
-  x_{\text{prev}} = 4 \times \lfloor 9/8 \rfloor + 1 - 0
-                  = 4 \times 1 + 1 = 5
-\]
-
-\textit{Renormalise upward:}
-\begin{algorithmic}[1]
-\While{$x_{\text{prev}} < L = 8$}
-    \State $5 < 8$:\enspace read bit $\mathbf{0}$;\enspace
-           $x_{\text{prev}} \leftarrow (5 \ll 1)\mid 0 = 10$
-\EndWhile
-\Comment{$10 \ge 8$: stop}
-\end{algorithmic}
-
-\begin{center}
-\begin{tabular}{@{}ll@{}}
-  Decoded symbol:         & $A$\quad\checkmark \\
-  New state $x$:          & $10$ \\
-  Bit queue remaining:    & \texttt{0},\ \texttt{0},\ \texttt{0} \\
-\end{tabular}
-\end{center}
-
-\medskip\hrule\medskip
-
-% ---- Decode step 2 ----
-\noindent\textbf{Decode Step 2 --- recovers \texttt{A} (position 2)}
+\noindent\textbf{Decode Step 1 --- recovers \texttt{A} (position 3, last encoded)}
 
 \medskip
 $r = x \bmod L = 10 \bmod 8 = 2$.
 
-\textit{Slot lookup:} $c_A = 0 \leq 2 < 4$,\quad so $s = A$.\quad\checkmark
+\textit{Slot lookup:} $c_A = 0 \leq 2 < 4 = c_A + f_A$,\quad
+so $s = A$.\quad\checkmark
 
 \textit{Recover previous state:}
 \[
@@ -468,18 +451,21 @@ $r = x \bmod L = 10 \bmod 8 = 2$.
 \Comment{$12 \ge 8$: stop}
 \end{algorithmic}
 
+$x_{\text{prev}} = 12$ --- compare with the encoding table: the encoder
+entered step~3 with $x = 12$.\quad\checkmark
+
 \begin{center}
 \begin{tabular}{@{}ll@{}}
   Decoded symbol:         & $A$\quad\checkmark \\
   New state $x$:          & $12$ \\
-  Bit queue remaining:    & \texttt{0},\ \texttt{0} \\
+  Bit queue remaining:    & \texttt{0},\ \texttt{0},\ \texttt{0} \\
 \end{tabular}
 \end{center}
 
 \medskip\hrule\medskip
 
-% ---- Decode step 3 ----
-\noindent\textbf{Decode Step 3 --- recovers \texttt{B} (position 3)}
+% ---- Decode step 2 ----
+\noindent\textbf{Decode Step 2 --- recovers \texttt{B} (position 2)}
 
 \medskip
 $r = x \bmod L = 12 \bmod 8 = 4$.
@@ -504,17 +490,53 @@ so $s = B$.\quad\checkmark
 \Comment{$8 \ge 8$: stop}
 \end{algorithmic}
 
+$x_{\text{prev}} = 8$ --- compare with the encoding table: the encoder
+entered step~2 with $x = 8$.\quad\checkmark
+
 \begin{center}
 \begin{tabular}{@{}ll@{}}
-  Decoded symbol:      & $B$\quad\checkmark \\
-  New state $x$:       & $8$ \\
-  Bit queue remaining: & (empty) \\
+  Decoded symbol:         & $B$\quad\checkmark \\
+  New state $x$:          & $8$ \\
+  Bit queue remaining:    & \texttt{0} \\
 \end{tabular}
 \end{center}
 
-The bit queue is now empty and we have decoded exactly 3 symbols.
-The decoder consumed all 4 renorm bits exactly, confirming the encode
-and decode are perfectly consistent.
+\medskip\hrule\medskip
+
+% ---- Decode step 3 ----
+\noindent\textbf{Decode Step 3 --- recovers \texttt{A} (position 1, first encoded)}
+
+\medskip
+$r = x \bmod L = 8 \bmod 8 = 0$.
+
+\textit{Slot lookup:} $c_A = 0 \leq 0 < 4 = c_A + f_A$,\quad
+so $s = A$.\quad\checkmark
+
+\textit{Recover previous state:}
+\[
+  x_{\text{prev}} = 4 \times \lfloor 8/8 \rfloor + 0 - 0
+                  = 4 \times 1 + 0 = 4
+\]
+
+\textit{Renormalise upward:}
+\begin{algorithmic}[1]
+\While{$x_{\text{prev}} < L = 8$}
+    \State $4 < 8$:\enspace read bit $\mathbf{0}$;\enspace
+           $x_{\text{prev}} \leftarrow (4 \ll 1)\mid 0 = 8$
+\EndWhile
+\Comment{$8 \ge 8$: stop}
+\end{algorithmic}
+
+$x_{\text{prev}} = 8 = L$ is the encoder's initial state.\quad\checkmark
+The bit queue is now empty and all 3 symbols have been decoded.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  Decoded symbol:      & $A$\quad\checkmark \\
+  New state $x$:       & $8 = L$ (encoder's initial state) \\
+  Bit queue remaining: & (empty) \\
+\end{tabular}
+\end{center}
 
 \medskip\hrule\medskip
 
@@ -526,24 +548,20 @@ and decode are perfectly consistent.
 Step & $x$ in & $r = x \bmod 8$ & Symbol & $x_{\text{prev}}$ (raw) &
   Bits read & $x$ out \\
 \midrule
-1 & 9  & 1 & $A$ & 5 & \texttt{0}    & 10 \\
-2 & 10 & 2 & $A$ & 6 & \texttt{0}    & 12 \\
-3 & 12 & 4 & $B$ & 2 & \texttt{0\;0} & 8  \\
+1 & 10 & 2 & $A$ & 6 & \texttt{0}    & 12 \\
+2 & 12 & 4 & $B$ & 2 & \texttt{0\;0} & 8  \\
+3 & 8  & 0 & $A$ & 4 & \texttt{0}    & 8  \\
 \bottomrule
 \end{tabular}
 
 \medskip
-\textbf{Decoded sequence: \texttt{A A B} --- identical to the encoded input.}\quad\checkmark
+\textbf{Decoded sequence: \texttt{A B A} --- identical to the encoded input.}\quad\checkmark
 
 \medskip
-\textit{Why are the encode and decode formulas inverses?}
-The encode formula transforms $(x, s)$ into $x'$ by expanding $x$ by
-a factor of $L/f_s$ and tagging it with $s$'s slot offset.  The decode
-formula exactly reverses this: given $x'$, it strips the slot offset to
-recover $s$, then contracts by the same factor to recover $x$.
-Renormalisation exchanges bits with the bitstream symmetrically: every
-bit emitted by the encoder is read back by the decoder --- no information
-is created or destroyed.
+\textit{Bit accounting.}  The encoder emitted 4 pre-norm bits; the
+decoder consumed all 4 --- one for each \texttt{A} ($-\log_2 0.5 = 1$
+bit) and two for \texttt{B} ($-\log_2 0.25 = 2$ bits).  No bits are
+left over.  Encode and decode are exact inverses.
 \end{examplebox}
 
 % -----------------------------------------------------------
@@ -553,18 +571,19 @@ is created or destroyed.
 Why does $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ work?
 
 \begin{itemize}[leftmargin=2em]
-    \item $\lfloor x / f_s \rfloor \cdot L$ \textbf{squishes} $x$ down by
-          a factor of $f_s / L$ (the symbol probability), which grows $x'$ by
-          $\log_2(L/f_s) = -\log_2 p_s$ bits --- exactly the information
-          content of symbol $s$.
+    \item $\lfloor x / f_s \rfloor \cdot L$ \textbf{scales} $x$ up by
+          $L / f_s$, adding $\log_2(L/f_s) = -\log_2 p_s$ bits to the
+          state --- exactly the information content of symbol $s$.  After
+          pre-normalisation, $\lfloor x / f_s \rfloor = 1$, so this term
+          simply equals $L$.
     \item $c_s + (x \bmod f_s)$ \textbf{tags} the result: since
-          $c_s \leq c_s + (x \bmod f_s) < c_s + f_s$, the decoder can
-          recover $s$ simply by checking which slot range contains
-          $x' \bmod L$.
+          $0 \leq x \bmod f_s < f_s$, we have
+          $c_s \leq x' \bmod L < c_s + f_s$, so the decoder can
+          recover $s$ by checking which slot range contains $x' \bmod L$.
 \end{itemize}
 
-This is the elegance of ANS: encoding a symbol literally shifts the required
-number of bits into $x$, and decoding shifts them back out.
+This is the elegance of ANS: encoding a symbol shifts exactly $-\log_2 p_s$
+bits of information into $x$, and decoding shifts them back out.
 
 % -----------------------------------------------------------
 \subsection{tANS --- Tabled ANS}
@@ -826,7 +845,7 @@ directly, so no computation happens at decode time.
 \textit{Example interpretation:} Slot $q = 3$ holds symbol $A$ with
 $x_{\text{prev}} = 7$.  If the decoder arrives at slot 3, it knows the
 symbol was $A$ and the encoder's state just before encoding that $A$
-was $7$ (or $7$ after renormalisation from lower values).
+was $7$ (or brought to $7$ after upward renorm).
 
 \medskip
 \textbf{3. Decode one step using the table.}
@@ -861,8 +880,11 @@ replaced by table lookups.
 \midrule
 State $x$ & A single integer carrying all compressed data so far \\
 Normalised range $[L, 2L)$ & Keeps $x$ bounded; renorm emits/reads bits \\
+Pre-normalisation & Emit bits \emph{before} the formula so $x \in [f_s, 2f_s)$ \\
+Slot invariant & $x' \bmod L \in [c_s, c_s+f_s)$ must hold after renorm \\
 rANS encode formula &
-  $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ \\
+  $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$,
+  applied after pre-norm \\
 rANS decode formula &
   $x_{\text{prev}} = f_s \cdot \lfloor x/L \rfloor + (x \bmod L) - c_s$ \\
 tANS & Replaces arithmetic with a pre-built lookup table \\
@@ -883,9 +905,10 @@ Consider the alphabet $\{X, Y\}$ with frequencies $f_X = 3$, $f_Y = 1$,
 and table size $L = 4$.
 \begin{enumerate}[label=(\alph*)]
     \item Compute the cumulative frequencies $c_X$ and $c_Y$.
-    \item Using the rANS encode formula, encode the sequence
+    \item Using the rANS encode procedure (pre-normalise into
+          $[f_s, 2f_s)$, then apply the formula), encode the sequence
           \texttt{X X Y} starting from state $x = 4$.  Show all
-          intermediate states and any renormalisation bits emitted.
+          intermediate states and bits emitted.
           \emph{Hint: encode right-to-left (Y first, then X, then X).}
     \item Verify your answer by decoding the result step-by-step,
           confirming you recover \texttt{X X Y}.
@@ -924,8 +947,13 @@ $L = 8$, $f_A = 5$, $f_B = 3$:
 \begin{enumerate}[label=(\alph*)]
     \item Why does ANS decode in reverse order?
           What do practical implementations do to work around this?
+    \item Explain why the encoder must \emph{pre-normalise} $x$ into
+          $[f_s, 2f_s)$ before applying the encoding formula.  What
+          property of the output $x'$ does this guarantee, and why
+          would applying the formula first and normalising afterwards
+          break decoding?
     \item Explain in one paragraph why encoding a rare symbol (low $f_s$)
-          adds more bits to the state than encoding a common symbol.
+          causes more bits to be emitted than encoding a common symbol.
     \item What is the advantage of interleaved ANS over a single-stream
           implementation?
     \item Name two commercial or open-source software products that use
