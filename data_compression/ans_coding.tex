@@ -210,9 +210,9 @@ initial state $x = L = 8$.
 \noindent\textbf{The encoding procedure:}
 \begin{enumerate}
   \item \textbf{Pre-normalise:} emit LSBs of $x$ until $x \in [f_s, 2f_s)$.
-  \item \textbf{Apply formula:} $x' = \lfloor x/f_s \rfloor \cdot L
+  \item \textbf{Apply formula:} $x \leftarrow \lfloor x/f_s \rfloor \cdot L
         + c_s + (x \bmod f_s)$.  With $x \in [f_s, 2f_s)$,
-        $\lfloor x/f_s \rfloor = 1$, so $x' = L + c_s + (x \bmod f_s)
+        $\lfloor x/f_s \rfloor = 1$, so $x \leftarrow L + c_s + (x \bmod f_s)
         \in [L, 2L)$ directly.
 \end{enumerate}
 
@@ -233,11 +233,9 @@ $f_A = 4,\; c_A = 0,\;$ state $x = 8$.
 
 \textit{Apply formula} (with pre-normed $x = 4$):
 \[
-  x' = \lfloor 4/4 \rfloor \times 8 + 0 + (4 \bmod 4)
+  x \leftarrow \lfloor 4/4 \rfloor \times 8 + 0 + (4 \bmod 4)
      = 1 \times 8 + 0 + 0 = 8
 \]
-$x' = 8 \in [8, 16)$\checkmark\quad
-$x' \bmod 8 = 0 \in [0, 4)$ (A's slot)\checkmark
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
@@ -266,11 +264,9 @@ $f_B = 2,\; c_B = 4,\;$ state $x = 8$.
 
 \textit{Apply formula} (with pre-normed $x = 2$):
 \[
-  x' = \lfloor 2/2 \rfloor \times 8 + 4 + (2 \bmod 2)
+  x \leftarrow \lfloor 2/2 \rfloor \times 8 + 4 + (2 \bmod 2)
      = 1 \times 8 + 4 + 0 = 12
 \]
-$x' = 12 \in [8, 16)$\checkmark\quad
-$x' \bmod 8 = 4 \in [4, 6)$ (B's slot)\checkmark
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
@@ -303,11 +299,9 @@ $f_A = 4,\; c_A = 0,\;$ state $x = 12$.
 
 \textit{Apply formula} (with pre-normed $x = 6$):
 \[
-  x' = \lfloor 6/4 \rfloor \times 8 + 0 + (6 \bmod 4)
+  x \leftarrow \lfloor 6/4 \rfloor \times 8 + 0 + (6 \bmod 4)
      = 1 \times 8 + 0 + 2 = 10
 \]
-$x' = 10 \in [8, 16)$\checkmark\quad
-$x' \bmod 8 = 2 \in [0, 4)$ (A's slot)\checkmark
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
@@ -335,7 +329,7 @@ $x = 10 = (1010)_2$ to the bitstream.
 \smallskip
 \begin{tabular}{@{}clcccll@{}}
 \toprule
-Step & Sym & $x$ in & Bits emitted & $x$ pre-norm & Formula result $x'$ & $x$ out \\
+Step & Sym & $x$ in & Bits emitted & $x$ pre-norm & Formula result & $x$ out \\
 \midrule
 1 & $A$ & 8  & \texttt{0}    & 4 & $1{\times}8+0+0=8$   & 8  \\
 2 & $B$ & 8  & \texttt{0\;0} & 2 & $1{\times}8+4+0=12$  & 12 \\
@@ -433,8 +427,7 @@ sequence in correct order.
 \medskip
 $r = x \bmod L = 10 \bmod 8 = 2$.
 
-\textit{Slot lookup:} $c_A = 0 \leq 2 < 4 = c_A + f_A$,\quad
-so $s = A$.\quad\checkmark
+\textit{Slot lookup:} $r = 2$ falls in $[0, 4)$, so $s = A$.
 
 \textit{Recover previous state:}
 \[
@@ -451,12 +444,9 @@ so $s = A$.\quad\checkmark
 \Comment{$12 \ge 8$: stop}
 \end{algorithmic}
 
-$x_{\text{prev}} = 12$ --- compare with the encoding table: the encoder
-entered step~3 with $x = 12$.\quad\checkmark
-
 \begin{center}
 \begin{tabular}{@{}ll@{}}
-  Decoded symbol:         & $A$\quad\checkmark \\
+  Decoded symbol:         & $A$ \\
   New state $x$:          & $12$ \\
   Bit queue remaining:    & \texttt{0},\ \texttt{0},\ \texttt{0} \\
 \end{tabular}
@@ -470,8 +460,7 @@ entered step~3 with $x = 12$.\quad\checkmark
 \medskip
 $r = x \bmod L = 12 \bmod 8 = 4$.
 
-\textit{Slot lookup:} $c_B = 4 \leq 4 < 6 = c_B + f_B$,\quad
-so $s = B$.\quad\checkmark
+\textit{Slot lookup:} $r = 4$ falls in $[4, 6)$, so $s = B$.
 
 \textit{Recover previous state:}
 \[
@@ -490,12 +479,9 @@ so $s = B$.\quad\checkmark
 \Comment{$8 \ge 8$: stop}
 \end{algorithmic}
 
-$x_{\text{prev}} = 8$ --- compare with the encoding table: the encoder
-entered step~2 with $x = 8$.\quad\checkmark
-
 \begin{center}
 \begin{tabular}{@{}ll@{}}
-  Decoded symbol:         & $B$\quad\checkmark \\
+  Decoded symbol:         & $B$ \\
   New state $x$:          & $8$ \\
   Bit queue remaining:    & \texttt{0} \\
 \end{tabular}
@@ -509,8 +495,7 @@ entered step~2 with $x = 8$.\quad\checkmark
 \medskip
 $r = x \bmod L = 8 \bmod 8 = 0$.
 
-\textit{Slot lookup:} $c_A = 0 \leq 0 < 4 = c_A + f_A$,\quad
-so $s = A$.\quad\checkmark
+\textit{Slot lookup:} $r = 0$ falls in $[0, 4)$, so $s = A$.
 
 \textit{Recover previous state:}
 \[
@@ -527,12 +512,11 @@ so $s = A$.\quad\checkmark
 \Comment{$8 \ge 8$: stop}
 \end{algorithmic}
 
-$x_{\text{prev}} = 8 = L$ is the encoder's initial state.\quad\checkmark
 The bit queue is now empty and all 3 symbols have been decoded.
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
-  Decoded symbol:      & $A$\quad\checkmark \\
+  Decoded symbol:      & $A$ \\
   New state $x$:       & $8 = L$ (encoder's initial state) \\
   Bit queue remaining: & (empty) \\
 \end{tabular}
@@ -555,7 +539,7 @@ Step & $x$ in & $r = x \bmod 8$ & Symbol & $x_{\text{prev}}$ (raw) &
 \end{tabular}
 
 \medskip
-\textbf{Decoded sequence: \texttt{A B A} --- identical to the encoded input.}\quad\checkmark
+\textbf{Decoded sequence: \texttt{A B A} --- identical to the encoded input.}
 
 \medskip
 \textit{Bit accounting.}  The encoder emitted 4 pre-norm bits; the
@@ -568,7 +552,7 @@ left over.  Encode and decode are exact inverses.
 \subsection{Understanding the Encoding Formula Intuitively}
 % -----------------------------------------------------------
 
-Why does $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ work?
+Why does $x \leftarrow \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ work?
 
 \begin{itemize}[leftmargin=2em]
     \item $\lfloor x / f_s \rfloor \cdot L$ \textbf{scales} $x$ up by
@@ -578,8 +562,9 @@ Why does $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$ work?
           simply equals $L$.
     \item $c_s + (x \bmod f_s)$ \textbf{tags} the result: since
           $0 \leq x \bmod f_s < f_s$, we have
-          $c_s \leq x' \bmod L < c_s + f_s$, so the decoder can
-          recover $s$ by checking which slot range contains $x' \bmod L$.
+          $c_s \leq x \bmod L < c_s + f_s$ after the update, so the
+          decoder can recover $s$ by checking which slot range contains
+          $x \bmod L$.
 \end{itemize}
 
 This is the elegance of ANS: encoding a symbol shifts exactly $-\log_2 p_s$
@@ -629,7 +614,7 @@ Once \texttt{sym[]} is fixed, build two tables.
           (This equals $f_s \cdot 1 + (q \bmod f_s) - c_s$ since
           $\lfloor (L+q)/L \rfloor = 1$ for $0 \leq q < L$.)
     \item \textbf{Encode table} \texttt{enc[s][x mod $f_s$]} --- for each
-          symbol $s$ and current state $x$, stores the new state $x'$ and
+          symbol $s$ and current state $x$, stores the new state and
           the number of bits to output.
 \end{itemize}
 
@@ -692,7 +677,7 @@ so lookup + shift is a single cheap operation.
 
 Starting from any state $x \in [8, 16)$, to encode symbol $A$ the
 encoder looks up \texttt{enc[$A$][$x \bmod f_A$]} which returns the
-pre-computed new state $x'$ and how many bits to output.  No division
+pre-computed new state and how many bits to output.  No division
 is performed at runtime.
 \end{examplebox}
 
@@ -881,9 +866,9 @@ replaced by table lookups.
 State $x$ & A single integer carrying all compressed data so far \\
 Normalised range $[L, 2L)$ & Keeps $x$ bounded; renorm emits/reads bits \\
 Pre-normalisation & Emit bits \emph{before} the formula so $x \in [f_s, 2f_s)$ \\
-Slot invariant & $x' \bmod L \in [c_s, c_s+f_s)$ must hold after renorm \\
+Slot invariant & $x \bmod L \in [c_s, c_s+f_s)$ must hold after update \\
 rANS encode formula &
-  $x' = \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$,
+  $x \leftarrow \lfloor x/f_s \rfloor \cdot L + c_s + (x \bmod f_s)$,
   applied after pre-norm \\
 rANS decode formula &
   $x_{\text{prev}} = f_s \cdot \lfloor x/L \rfloor + (x \bmod L) - c_s$ \\
@@ -949,7 +934,7 @@ $L = 8$, $f_A = 5$, $f_B = 3$:
           What do practical implementations do to work around this?
     \item Explain why the encoder must \emph{pre-normalise} $x$ into
           $[f_s, 2f_s)$ before applying the encoding formula.  What
-          property of the output $x'$ does this guarantee, and why
+          property of the output guarantees $x \in [L, 2L)$, and why
           would applying the formula first and normalising afterwards
           break decoding?
     \item Explain in one paragraph why encoding a rare symbol (low $f_s$)
