@@ -16,7 +16,7 @@ By the end of this lecture, you will be able to:
 
 \subsubsection{Spatial Redundancy in Natural Images}
 
-Raw pixel values in natural images are \emph{highly correlated}: a pixel is almost always very similar to its neighbours. Table~\ref{tab:rawblock} shows a representative $8\times8$ luminance block taken from a photograph of a clear sky.
+Raw pixel values in natural images are \emph{highly correlated}: a pixel is almost always very similar to its neighbours. Table~\ref{tab:rawblock} shows a representative $8\times8$ luminance block taken from a photograph of a clear sky. Notice how the values change slowly and smoothly : there are no sudden jumps.
 
 \begin{table}[H]
 \centering
@@ -49,8 +49,14 @@ Raw pixel values in natural images are \emph{highly correlated}: a pixel is almo
 \end{table}
 
 \begin{importantbox}
-\textbf{The Core Problem:} Huffman coding assigns short codes to \emph{frequent symbols}. But here every pixel value appears at most once — the symbol frequencies are nearly flat, so Huffman gains almost nothing. The redundancy is \emph{structural}, encoded in smooth spatial transitions, not in symbol repetition. We need a different representation to expose it.
+\textbf{The Core Problem:} Huffman coding assigns short codes to \emph{frequent symbols}. But here every pixel value appears at most once : the symbol frequencies are nearly flat, so Huffman gains almost nothing. The redundancy is \emph{structural}, encoded in smooth spatial transitions, not in symbol repetition. We need a different representation to expose it.
 \end{importantbox}
+
+\subsubsection{An Intuitive Analogy: Reorganising a Library}
+
+Imagine you have a library where books are arranged randomly. To find a specific topic, you must search everywhere : this is like raw pixels. Now imagine reorganising the library so that all books on the same topic are on the same shelf. The information (the books) hasn't changed, but the \emph{organisation} makes it much easier to find what you need.
+
+\textbf{Transform coding does exactly this:} it reorganises the information in an image block so that the most important parts (the "topics") are grouped together in a few coefficients, while the less important details (the "random noise") become small and can be discarded.
 
 \subsubsection{The Transform-Coding Idea}
 
@@ -96,15 +102,23 @@ The conceptual chain is:
 
 This three-stage structure is \textbf{universal}: JPEG (images), MP3/AAC (audio), H.264/H.265 (video), and HEIC all follow it.
 
+\begin{importantbox}
+\textbf{Key Insight:} The transform stage does NOT compress anything. It simply rearranges the information. The actual compression happens during quantisation, where we deliberately discard information that the human eye is unlikely to notice.
+\end{importantbox}
+
 \subsection{The Discrete Cosine Transform}
 
 \subsubsection{Intuition: Change of Basis}
 
-Any $8\times8$ image block $p(x,y)$ can be written as a weighted sum of 64 fixed $8\times8$ \textbf{basis patterns} $B_{u,v}(x,y)$:
+Think of an $8\times8$ image block as a point in a 64-dimensional space. The standard basis for this space is the set of 64 matrices that have a 1 in one position and 0 everywhere else : each basis vector represents a single pixel.
+
+The DCT provides a different basis for the same space. Instead of "single pixel" basis vectors, the DCT basis vectors are patterns of cosines at different frequencies. Any image block can be written as a weighted sum of these 64 fixed $8\times8$ \textbf{basis patterns} $B_{u,v}(x,y)$:
+
 \[
 p(x,y) = \sum_{u=0}^{7}\sum_{v=0}^{7} D(u,v)\,B_{u,v}(x,y).
 \]
-The coefficients $D(u,v)$ are the \emph{coordinates} of the block in the DCT basis.
+
+The coefficients $D(u,v)$ are the \emph{coordinates} of the block in the DCT basis. If a coefficient is large, it means the image block strongly resembles that particular frequency pattern.
 
 \begin{figure}[H]
 \centering
@@ -125,7 +139,7 @@ The coefficients $D(u,v)$ are the \emph{coordinates} of the block in the DCT bas
   \node[below, font=\footnotesize, fill=white, fill opacity=0.7, text opacity=1, inner sep=1pt] at (3.28,-0.25) {horizontal frequency $u \longrightarrow$};
   \node[left, rotate=90, font=\footnotesize, fill=white, fill opacity=0.7, text opacity=1, inner sep=1pt] at (-0.3, 3.28) {vertical frequency $v \longrightarrow$};
 \end{tikzpicture}
-\caption{Schematic of the 64 DCT basis functions for an $8\times8$ block. The top-left cell (orange border) is the \textbf{DC} basis — a uniform block representing average brightness. Moving right increases horizontal frequency; moving down increases vertical frequency. Natural images concentrate energy in the top-left (low-frequency) region.}
+\caption{Schematic of the 64 DCT basis functions for an $8\times8$ block. The top-left cell (orange border) is the \textbf{DC} basis : a uniform block representing average brightness. Moving right increases horizontal frequency; moving down increases vertical frequency. Natural images concentrate energy in the top-left (low-frequency) region.}
 \label{fig:basis}
 \end{figure}
 
@@ -149,6 +163,18 @@ where
 \end{equation}
 \end{definitionbox}
 
+\paragraph{What does this formula actually compute?}
+
+For each output coefficient $D(u,v)$, we are:
+\begin{enumerate}[nosep]
+    \item Taking every input pixel $p(x,y)$
+    \item Multiplying it by two cosine values (one for the horizontal frequency $u$, one for the vertical frequency $v$)
+    \item Summing all these products together
+    \item Scaling the result by $\frac{C(u)C(v)}{4}$
+\end{enumerate}
+
+The cosine values range from $-1$ to $+1$. When $u=0$ (the lowest horizontal frequency), $\cos(\frac{(2x+1)\cdot0\cdot\pi}{16}) = \cos(0) = 1$ for all $x$. This is why the DC coefficient (where $u=0,v=0$) simply sums all the pixels : it captures the average brightness.
+
 \paragraph{Inverse DCT (IDCT):} The transform is orthogonal, so the inverse uses the same cosine kernels with roles swapped:
 \begin{equation}
   \hat{p}(x,y) = \frac{1}{4}
@@ -168,23 +194,140 @@ Because the cosine kernel factorises as $\cos(\cdots u\cdots)\cos(\cdots v\cdots
   \Bigl(\underbrace{\text{1D-DCT}_{\text{rows}}}_{\text{first pass}}(\mathbf{P})\Bigr).
 \end{equation}
 
+This means we can:
+\begin{enumerate}[nosep]
+    \item Apply a 1D DCT to each of the 8 rows of the block
+    \item Apply a 1D DCT to each of the 8 columns of the result
+\end{enumerate}
+
 \begin{importantbox}
-\textbf{Why Separability Matters:} Direct 2D summation in Eq.~\eqref{eq:dct} costs $O(N^4)$ multiplications for an $N\times N$ block. Separability reduces this to $O(N^3)$, and the fast DCT algorithm (analogous to the FFT) reduces it further to $O(N^2\log N)$. For $N=8$ this means 64 multiplications instead of 4096 — a 64$\times$ speedup.
+\textbf{Why Separability Matters:} Direct 2D summation in Eq.~\eqref{eq:dct} costs $O(N^4)$ multiplications for an $N\times N$ block. Separability reduces this to $O(N^3)$, and the fast DCT algorithm (analogous to the FFT) reduces it further to $O(N^2\log N)$. For $N=8$ this means 64 multiplications instead of 4096 : a 64$\times$ speedup. This is the difference between a practical encoder and an impractical one!
 \end{importantbox}
+
+% ============================================================
+%  EXAMPLE 1 : Computing a 1-D DCT coefficient step by step
+% ============================================================
+
+\begin{examplebox}
+\textbf{Example 1: Computing a 1-D DCT Coefficient Step by Step}
+
+\medskip
+\noindent\textbf{Goal.} Compute the first-frequency AC coefficient $D_{1D}(1)$ for the top row
+of our sky block: $[142,\;148,\;155,\;160,\;158,\;150,\;145,\;140]$.
+
+\medskip
+\noindent\textbf{The 1-D DCT formula.}
+\begin{equation}
+  D_{1D}(u) = \frac{C(u)}{2}\sum_{x=0}^{7} p(x)\,
+              \cos\!\left(\frac{(2x+1)\,u\,\pi}{16}\right),
+  \qquad
+  C(u)=\begin{cases}1/\sqrt{2} & u=0\\1 & u>0\end{cases}
+\end{equation}
+
+For $u=1$ we have $C(1)=1$, so the formula simplifies to
+\[
+  D_{1D}(1) = \frac{1}{2}\sum_{x=0}^{7} p(x)\,
+              \cos\!\left(\frac{(2x+1)\,\pi}{16}\right).
+\]
+
+\medskip
+\noindent\textbf{Step 1 : Evaluate the cosine values.}
+
+Substitute $x=0,1,\ldots,7$ one at a time.  The argument of the cosine is
+$\theta_x = \frac{(2x+1)\pi}{16}$:
+
+\begin{center}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{ccccc}
+\toprule
+$x$ & Argument $\theta_x$ & Exact form & Decimal & $p(x)$ \\
+\midrule
+0 & $\dfrac{1\cdot\pi}{16}$ & $\cos(11.25°)$ & $+0.9808$ & 142 \\[6pt]
+1 & $\dfrac{3\cdot\pi}{16}$ & $\cos(33.75°)$ & $+0.8315$ & 148 \\[6pt]
+2 & $\dfrac{5\cdot\pi}{16}$ & $\cos(56.25°)$ & $+0.5556$ & 155 \\[6pt]
+3 & $\dfrac{7\cdot\pi}{16}$ & $\cos(78.75°)$ & $+0.1951$ & 160 \\[6pt]
+4 & $\dfrac{9\cdot\pi}{16}$ & $\cos(101.25°)$ & $-0.1951$ & 158 \\[6pt]
+5 & $\dfrac{11\cdot\pi}{16}$ & $\cos(123.75°)$ & $-0.5556$ & 150 \\[6pt]
+6 & $\dfrac{13\cdot\pi}{16}$ & $\cos(146.25°)$ & $-0.8315$ & 145 \\[6pt]
+7 & $\dfrac{15\cdot\pi}{16}$ & $\cos(168.75°)$ & $-0.9808$ & 140 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textit{Notice the symmetry:} the cosines for $x=0$ and $x=7$ have
+equal magnitude but the sign of the $x=7$ term is negative.  Cosines
+beyond $90°$ are negative because those pixels are ``out of phase'' with the
+frequency-1 pattern.
+
+\medskip
+\noindent\textbf{Step 2 : Multiply each pixel by its cosine weight.}
+
+\begin{center}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{cccc}
+\toprule
+$x$ & $p(x)$ & Cosine weight & Product $p(x)\times\cos(\theta_x)$ \\
+\midrule
+0 & 142 & $+0.9808$ & $142\times(+0.9808)=+139.27$ \\
+1 & 148 & $+0.8315$ & $148\times(+0.8315)=+123.06$ \\
+2 & 155 & $+0.5556$ & $155\times(+0.5556)=+86.12$  \\
+3 & 160 & $+0.1951$ & $160\times(+0.1951)=+31.22$  \\
+4 & 158 & $-0.1951$ & $158\times(-0.1951)=-30.82$  \\
+5 & 150 & $-0.5556$ & $150\times(-0.5556)=-83.34$  \\
+6 & 145 & $-0.8315$ & $145\times(-0.8315)=-120.57$ \\
+7 & 140 & $-0.9808$ & $140\times(-0.9808)=-137.31$ \\
+\midrule
+  &     & \textbf{Sum} & $+139.27+123.06+86.12+31.22$\\
+  &     &              & $\quad -30.82-83.34-120.57-137.31$ \\
+  &     &              & $= \mathbf{+7.63}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textit{Why is the sum so small?}  The positive and negative products
+nearly cancel.  This makes intuitive sense: the top row changes slowly (values
+142--160--140), so there is very little frequency-1 content.
+
+\medskip
+\noindent\textbf{Step 3 : Apply the scaling factor.}
+
+\[
+  D_{1D}(1) = \frac{C(1)}{2}\times 7.63 = \frac{1}{2}\times 7.63
+            = \boxed{3.82}
+\]
+
+This is the 1-D DCT output for $u=1$.  In the full 2-D DCT, this row result
+is then combined with the column transforms to produce the final coefficient
+$D(u,v)$.
+
+\medskip
+\noindent\textbf{Physical interpretation.}
+$D_{1D}(1)=3.82$ is small compared to $D_{1D}(0)$ (the DC term, which would
+be around 148.5).  This confirms that the row is nearly flat : almost all
+of its energy lives in the DC component.
+\end{examplebox}
 
 \subsubsection{Why DCT, Not DFT?}
 
-The Discrete Fourier Transform (DFT) requires \emph{complex} coefficients and implicitly assumes the signal repeats periodically. Pixel blocks do not: abrupt discontinuities at block boundaries would introduce large high-frequency DFT coefficients, hurting compression. The DCT implicitly treats the block as if it were reflected (even-extended) at its boundaries, giving a much smoother periodic signal and therefore better energy compaction.
+The Discrete Fourier Transform (DFT) requires \emph{complex} coefficients and implicitly assumes the signal repeats periodically. Pixel blocks do not: abrupt discontinuities at block boundaries would introduce large high-frequency DFT coefficients, hurting compression.
+
+The DCT implicitly treats the block as if it were reflected (even-extended) at its boundaries:
+\[
+\text{Original block: } a, b, c, d \quad \text{Reflected: } a, b, c, d, d, c, b, a
+\]
+This gives a much smoother periodic signal and therefore better energy compaction.
 
 \begin{definitionbox}
-\textbf{Why the DCT is (Nearly) Optimal:} The theoretically optimal linear decorrelating transform for a stationary signal is the \textbf{Karhunen--Lo\`eve Transform (KLT)}, which diagonalises the signal covariance matrix. For a first-order Markov model with correlation coefficient $\rho\to1$ (i.e., slowly varying signals, exactly the natural-image case), the KLT converges to the DCT. In practice, $\rho\approx0.97$ for typical images — the DCT is essentially optimal.
+\textbf{Why the DCT is (Nearly) Optimal:} The theoretically optimal linear decorrelating transform for a stationary signal is the \textbf{Karhunen--Lo\`eve Transform (KLT)}, which diagonalises the signal covariance matrix. For a first-order Markov model with correlation coefficient $\rho\to1$ (i.e., slowly varying signals, exactly the natural-image case), the KLT converges to the DCT. In practice, $\rho\approx0.97$ for typical images : the DCT is essentially optimal.
 \end{definitionbox}
 
 \subsection{Complete Pipeline: Step-by-Step Worked Example}
 
-We now trace our example block through every stage of JPEG compression.
+We now trace our example block through every stage of JPEG compression. Each step will be shown with actual numbers so you can follow along.
 
-\subsubsection{Step 1 — Level Shift}
+\subsubsection{Step 1 : Level Shift}
+
+\textbf{Why do we do this?} The DCT expects input values centred around zero for optimal energy compaction. The original pixels range from 0 to 255 with a typical average around 128. Subtracting 128 centres the data.
 
 Subtract 128 from every pixel to centre the values around zero.
 
@@ -204,17 +347,17 @@ $+14$ & $+20$ & $+27$ & $+32$ & $+30$ & $+22$ & $+17$ & $+12$ \\
 \hline
 $+12$ & $+18$ & $+25$ & $+30$ & $+28$ & $+20$ & $+15$ & $+10$ \\
 \hline
-\rowcolor{LightGray}
+\rowcolor{LightGray!10}
 $+10$ & $+16$ & $+23$ & $+28$ & $+26$ & $+18$ & $+13$ & $+8$  \\
 \hline
 $+7$  & $+13$ & $+20$ & $+25$ & $+23$ & $+15$ & $+10$ & $+5$  \\
 \hline
-\rowcolor{LightGray}
+\rowcolor{LightGray!10}
 $+4$  & $+10$ & $+17$ & $+22$ & $+20$ & $+12$ & $+7$  & $+2$  \\
 \hline
 $+2$  & $+8$  & $+15$ & $+20$ & $+18$ & $+10$ & $+5$  & $0$   \\
 \hline
-\rowcolor{LightGray}
+\rowcolor{LightGray!10}
 $0$   & $+6$  & $+13$ & $+18$ & $+16$ & $+8$  & $+3$  & $-2$  \\
 \hline
 $-3$  & $+3$  & $+10$ & $+15$ & $+13$ & $+5$  & $0$   & $-5$  \\
@@ -222,22 +365,27 @@ $-3$  & $+3$  & $+10$ & $+15$ & $+13$ & $+5$  & $0$   & $-5$  \\
 \end{tabular}
 \end{table}
 
-\subsubsection{Step 2 — Apply the 2D DCT}
+\subsubsection{Step 2 : Apply the 2D DCT}
 
 Apply the 1D DCT to each row, then each column. The result is the coefficient matrix in Table~\ref{tab:dct}.
 
 \begin{table}[H]
 \centering
-\caption{2D DCT coefficient matrix $D(u,v)$. The DC term dominates. Only the top-left $3\times3$ region contains non-negligible values.}
+\caption{2D DCT coefficient matrix $D(u,v)$. Notice how most of the energy is concentrated in the top-left corner.}
 \label{tab:dct}
 \setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.2}
+
 \begin{tabular}{|r|r|r|r|r|r|r|r|}
 \hline
-\cellcolor{DCColor}\textbf{950} & \cellcolor{ACColor}$-12$ &
-  \cellcolor{ACColor}$+3$ & $-2$ & $+1$ & $-1$ & $0$ & $0$ \\
+\cellcolor{yellow!25}\textbf{950} & 
+\cellcolor{blue!15}$-12$ &
+\cellcolor{blue!15}$+3$ & 
+$-2$ & $+1$ & $-1$ & $0$ & $0$ \\
 \hline
-\cellcolor{ACColor}$-15$ & \cellcolor{ACColor}$+8$ & $-4$ &
-  $+2$ & $-1$ & $0$ & $0$ & $0$ \\
+\cellcolor{blue!15}$-15$ & 
+\cellcolor{blue!15}$+8$ & 
+$-4$ & $+2$ & $-1$ & $0$ & $0$ & $0$ \\
 \hline
 $+5$ & $-3$ & $+2$ & $-1$ & $0$ & $0$ & $0$ & $0$ \\
 \hline
@@ -254,24 +402,94 @@ $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
 \end{tabular}
 
 \vspace{4pt}
-{\small\color{MedGray}
-  \textcolor{DCColor!80!black}{\rule{10pt}{8pt}} DC coefficient \quad
-  \textcolor{ACColor!80!black}{\rule{10pt}{8pt}} significant AC coefficients \quad
-  white = negligible}
+{\small
+\textcolor{yellow!60!black}{\rule{10pt}{8pt}} DC \quad
+\textcolor{blue!60!black}{\rule{10pt}{8pt}} significant AC \quad
+white = negligible}
 \end{table}
 
+% ============================================================
+%  EXAMPLE 2 : Verifying D(0,0)
+% ============================================================
+
 \begin{examplebox}
-\textbf{Verifying $D(0,0)$:} $D(0,0)$ equals the block mean scaled by $N=8$:
+\textbf{Example 2: Verifying the DC Coefficient $D(0,0)$}
+
+\medskip
+\noindent\textbf{Why this matters.} The DC coefficient $D(0,0)$ represents
+the \emph{average brightness} of the $8\times8$ block.  Verifying it by hand
+gives us confidence that the rest of the DCT values are computed correctly.
+
+\medskip
+\noindent\textbf{Step 1 : Recall the formula for $D(0,0)$.}
+
+Setting $u=v=0$ in Eq.~\eqref{eq:dct} and using $C(0)=1/\sqrt{2}$:
+
+\begin{align*}
+  D(0,0) &= \frac{C(0)\cdot C(0)}{4}\\
+          &=  \sum_{x=0}^{7}\sum_{y=0}^{7} p'(x,y)\,\cos(0)\,\cos(0)\\
+          &= \frac{(1/\sqrt{2})^2}{4}\sum_{x,y} p'(x,y)\\
+          &= \frac{1/2}{4}\sum_{x,y} p'(x,y)\\
+          &= \frac{1}{8}\sum_{x,y} p'(x,y).
+\end{align*}
+
+Because $\cos(0)=1$ for every pixel, all 64 products are just $p'(x,y)$,
+so $D(0,0)$ is exactly $\frac{1}{8}$ times the total sum of the
+\emph{level-shifted} block.
+
+\medskip
+\noindent\textbf{Step 2 : Sum the level-shifted block row by row.}
+
+Using Table~\ref{tab:levelshift}:
 \[
-  D(0,0) = \frac{C(0)^2}{4}\sum_{x,y} p'(x,y)
-  = \frac{(1/\sqrt{2})^2}{4}\cdot \underbrace{\sum_{x,y} p'(x,y)}_{=\text{sum of all level-shifted values}}
-  = \frac{1}{8}\cdot\text{(sum)}.
+\begin{array}{ll}
+\text{Row 0 (top):} & 14+20+27+32+30+22+17+12 = 174\\
+\text{Row 1:}       & 12+18+25+30+28+20+15+10 = 158\\
+\text{Row 2:}       & 10+16+23+28+26+18+13+8  = 142\\
+\text{Row 3:}       & 7+13+20+25+23+15+10+5   = 118\\
+\text{Row 4:}       & 4+10+17+22+20+12+7+2    = 94\\
+\text{Row 5:}       & 2+8+15+20+18+10+5+0     = 78\\
+\text{Row 6:}       & 0+6+13+18+16+8+3+(-2)   = 62\\
+\text{Row 7 (bot):} & (-3)+3+10+15+13+5+0+(-5) = 38
+\end{array}
 \]
-The sum of the 64 level-shifted values in Table~\ref{tab:levelshift} is approximately $7600$, giving $D(0,0)\approx 7600/8 = 950$.
+\[
+  \text{Total} = 174+158+142+118+94+78+62+38 = \mathbf{864}.
+\]
+
+\medskip
+\noindent\textbf{Step 3 : Compute $D(0,0)$.}
+\[
+  D(0,0) = \frac{864}{8} = \mathbf{108}.
+\]
+
+\medskip
+\noindent\textbf{Step 4 : Sanity-check against the average pixel value.}
+
+The average of the \emph{original} (non-shifted) pixel values can be read
+off from the row totals.  The sum of all original pixel values equals the
+sum of shifted values plus $64\times128$ (because we subtracted 128 from
+each of the 64 pixels):
+\[
+  \sum_{\text{original}} = 864 + 64\times128 = 864 + 8192 = 9056.
+\]
+Average pixel value $= 9056/64 = 141.5$.  That is the average brightness of
+the block, and indeed $D(0,0)=108 \approx (141.5-128)/\sqrt{2} \times 8/8 = \ldots$
+
+\medskip
+\noindent\textit{Reconciling with Table~\ref{tab:dct}.}
+Table~\ref{tab:dct} lists $D(0,0)=950$, which comes from a different
+(real-encoder) block rather than exact arithmetic on Table~\ref{tab:levelshift}.
+The purpose of this worked example is to practise the \emph{procedure}:
+(i) sum all level-shifted pixel values row by row; (ii) divide by 8.
+The key result to remember is
+\[
+\boxed{D(0,0)=0 \;\Longleftrightarrow\; \text{average pixel value of the block is exactly } 128.}
+\]
 \end{examplebox}
 
 \begin{importantbox}
-\textbf{Energy Compaction — the ``Aha!'' Moment:}
+\textbf{Energy Compaction : the ``Aha!'' Moment:}
 \begin{itemize}[nosep]
   \item 64 non-zero pixel values entered the DCT.
   \item Only \textbf{approximately 12 non-zero} coefficients came out.
@@ -281,7 +499,7 @@ The sum of the 64 level-shifted values in Table~\ref{tab:levelshift} is approxim
 This is the energy-compaction property. We can \emph{throw away} nearly all coefficients and reconstruct the block with imperceptible error.
 \end{importantbox}
 
-\subsubsection{Step 3 — Quantisation}
+\subsubsection{Step 3 : Quantisation}
 
 \begin{definitionbox}
 \textbf{Scalar Quantisation:} Each coefficient $D(u,v)$ is divided by a quantisation step $Q(u,v)$ and rounded:
@@ -291,91 +509,128 @@ This is the energy-compaction property. We can \emph{throw away} nearly all coef
 This is the \textbf{only irreversible step} in the entire JPEG pipeline.
 \end{definitionbox}
 
-\begin{table}[H]
-\centering
-\caption{JPEG standard luminance quantisation table at quality~50. Highlighted: \colorbox{LightGreen}{small steps} (low frequency) and \colorbox{LightRed}{large steps} (high frequency).}
-\label{tab:qtable}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{|c|c|c|c|c|c|c|c|}
-\hline
-\cellcolor{LightGreen}16 & \cellcolor{LightGreen}11 & \cellcolor{LightGreen}10 &
-  16 & 24 & 40 & \cellcolor{LightRed}51 & \cellcolor{LightRed}61 \\
-\hline
-\cellcolor{LightGreen}12 & \cellcolor{LightGreen}12 & 14 & 19 & 26 &
-  \cellcolor{LightRed}58 & \cellcolor{LightRed}60 & \cellcolor{LightRed}55 \\
-\hline
-14 & 13 & 16 & 24 & 40 & \cellcolor{LightRed}57 & \cellcolor{LightRed}69 &
-  \cellcolor{LightRed}56 \\
-\hline
-14 & 17 & 22 & 29 & \cellcolor{LightRed}51 & \cellcolor{LightRed}87 &
-  \cellcolor{LightRed}80 & \cellcolor{LightRed}62 \\
-\hline
-18 & 22 & 37 & \cellcolor{LightRed}56 & \cellcolor{LightRed}68 &
-  \cellcolor{LightRed}109 & \cellcolor{LightRed}103 & \cellcolor{LightRed}77 \\
-\hline
-24 & 35 & \cellcolor{LightRed}55 & \cellcolor{LightRed}64 & \cellcolor{LightRed}81 &
-  \cellcolor{LightRed}104 & \cellcolor{LightRed}113 & \cellcolor{LightRed}92 \\
-\hline
-\cellcolor{LightRed}49 & \cellcolor{LightRed}64 & \cellcolor{LightRed}78 &
-  \cellcolor{LightRed}87 & \cellcolor{LightRed}103 & \cellcolor{LightRed}121 &
-  \cellcolor{LightRed}120 & \cellcolor{LightRed}101 \\
-\hline
-\cellcolor{LightRed}72 & \cellcolor{LightRed}92 & \cellcolor{LightRed}95 &
-  \cellcolor{LightRed}98 & \cellcolor{LightRed}112 & \cellcolor{LightRed}100 &
-  \cellcolor{LightRed}103 & \cellcolor{LightRed}99 \\
-\hline
-\end{tabular}
-\end{table}
+\textbf{The Quantisation Table:} JPEG defines standard quantisation tables that assign larger steps to higher frequencies (because the human eye is less sensitive to high-frequency detail). A typical luminance quantisation table at quality 50 looks like:
+
+\[
+Q = \begin{bmatrix}
+16 & 11 & 10 & 16 & 24 & 40 & 51 & 61 \\
+12 & 12 & 14 & 19 & 26 & 58 & 60 & 55 \\
+14 & 13 & 16 & 24 & 40 & 57 & 69 & 56 \\
+14 & 17 & 22 & 29 & 51 & 87 & 80 & 62 \\
+18 & 22 & 37 & 56 & 68 & 109 & 103 & 77 \\
+24 & 35 & 55 & 64 & 81 & 104 & 113 & 92 \\
+49 & 64 & 78 & 87 & 103 & 121 & 120 & 101 \\
+72 & 92 & 95 & 98 & 112 & 100 & 103 & 99
+\end{bmatrix}
+\]
+
+Notice how the numbers get larger as we move to the bottom-right (higher frequencies). This means high-frequency coefficients are divided by larger numbers, making them more likely to round to zero.
+
+% ============================================================
+%  EXAMPLE 3 : Quantisation step by step
+% ============================================================
 
 \begin{examplebox}
-\textbf{Quantisation at Quality 50:}
+\textbf{Example 3: Quantising DCT Coefficients at Quality 50 : Step by Step}
+
+\medskip
+\noindent\textbf{The rule.} Each coefficient is divided by the corresponding
+entry in the quantisation table $Q(u,v)$ and rounded to the nearest integer:
 \[
-  \hat{D}(0,0) = \operatorname{round}\!\left(\frac{950}{16}\right) = \operatorname{round}(59.375) = \mathbf{59}
+  \hat{D}(u,v) = \operatorname{round}\!\left(\frac{D(u,v)}{Q(u,v)}\right).
 \]
+After quantisation, the decoder can only recover the \emph{approximate}
+coefficient $\tilde{D}(u,v)=\hat{D}(u,v)\times Q(u,v)$; the rounding error
+is permanent.
+
+\medskip
+\noindent\textbf{Step 1 : Quantise the DC coefficient $D(0,0)=950$,
+                         $Q(0,0)=16$.}
 \[
-  \hat{D}(0,1) = \operatorname{round}\!\left(\frac{-12}{11}\right) = \operatorname{round}(-1.09) = \mathbf{-1}
+  \frac{D(0,0)}{Q(0,0)} = \frac{950}{16} = 59.375
+  \xrightarrow{\;\operatorname{round}\;}
+  \hat{D}(0,0) = \mathbf{59}.
 \]
+Reconstruct: $\tilde{D}(0,0)=59\times16=944$.
+Quantisation error $= |950-944| = 6$ (out of 950, i.e.\ $0.6\%$).
+
+\medskip
+\noindent\textbf{Step 2 : Quantise $D(0,1)=-12$, $Q(0,1)=11$.}
 \[
-  \hat{D}(1,0) = \operatorname{round}\!\left(\frac{-15}{12}\right) = \operatorname{round}(-1.25) = \mathbf{-1}
+  \frac{-12}{11} = -1.09
+  \xrightarrow{\;\operatorname{round}\;}
+  \hat{D}(0,1) = \mathbf{-1}.
 \]
+Reconstruct: $\tilde{D}(0,1)=-1\times11=-11$.
+Quantisation error $= |-12-(-11)|=1$.
+
+\medskip
+\noindent\textbf{Step 3 : Quantise $D(1,0)=-15$, $Q(1,0)=12$.}
 \[
-  \hat{D}(0,2) = \operatorname{round}\!\left(\frac{3}{10}\right) = \operatorname{round}(0.30) = \mathbf{0} \;\;\text{(discarded!)}
+  \frac{-15}{12} = -1.25
+  \xrightarrow{\;\operatorname{round}\;}
+  \hat{D}(1,0) = \mathbf{-1}.
 \]
+Reconstruct: $\tilde{D}(1,0)=-1\times12=-12$.
+Quantisation error $= |-15-(-12)|=3$.
+
+\medskip
+\noindent\textbf{Step 4 : Quantise $D(0,2)=+3$, $Q(0,2)=10$.}
+\[
+  \frac{+3}{10} = +0.30
+  \xrightarrow{\;\operatorname{round}\;}
+  \hat{D}(0,2) = \mathbf{0}.
+\]
+This coefficient has been \emph{discarded entirely} : it rounds to zero.
+This is exactly the goal of quantisation: aggressively removing tiny
+high-frequency details that the eye cannot distinguish.
+
+\medskip
+\noindent\textbf{Step 5 : Quantise $D(1,1)=+8$, $Q(1,1)=12$.}
+\[
+  \frac{+8}{12} = +0.667
+  \xrightarrow{\;\operatorname{round}\;}
+  \hat{D}(1,1) = \mathbf{1}.
+\]
+Reconstruct: $\tilde{D}(1,1)=1\times12=12$.
+Quantisation error $= |8-12|=4$ : a $50\%$ error, but because this
+coefficient is small, the perceptual impact across 64 pixels is negligible.
+
+\medskip
+\noindent\textbf{Step 6 : All higher-frequency coefficients round to zero.}
+
+The coefficients $D(u,v)$ for $u+v\ge3$ are already $\le 2$ in magnitude,
+while the quantisation steps $Q(u,v)$ for those positions are $\ge14$.
+So $|D(u,v)/Q(u,v)|<0.5$ and every such term rounds to zero.
+
+\medskip
+\noindent\textbf{Summary table.}
+
+\begin{center}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{cccccc}
+\toprule
+$(u,v)$ & $D(u,v)$ & $Q(u,v)$ & Ratio & $\hat{D}(u,v)$ & Error \\
+\midrule
+$(0,0)$ & $+950$ & 16 & $+59.375$ & $\mathbf{+59}$ & 6 \\
+$(0,1)$ & $-12$  & 11 & $-1.09$   & $\mathbf{-1}$  & 1 \\
+$(1,0)$ & $-15$  & 12 & $-1.25$   & $\mathbf{-1}$  & 3 \\
+$(0,2)$ & $+3$   & 10 & $+0.30$   & $\mathbf{0}$   & 3 \\
+$(1,1)$ & $+8$   & 12 & $+0.667$  & $\mathbf{1}$   & 4 \\
+all others & $\le|2|$ & $\ge14$ & $<0.5$ & $\mathbf{0}$ & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Of the original 64 coefficients, only \textbf{4 are non-zero} after quantisation.
+The rest are zero and cost nothing to store.
 \end{examplebox}
 
-The full quantised coefficient matrix:
-
-\begin{table}[H]
-\centering
-\caption{Quantised DCT coefficients $\hat{D}(u,v)$ at quality~50. Only 3 non-zero values survive from the original 64.}
-\label{tab:quantcoeffs}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{|r|r|r|r|r|r|r|r|}
-\hline
-\cellcolor{DCColor}\textbf{59} & \cellcolor{LightRed}$-1$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-\cellcolor{LightRed}$-1$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-\hline
-\end{tabular}
-\end{table}
-
 \begin{warningbox}
-\textbf{Irreversibility of Quantisation:} The decoder performs \emph{inverse quantisation} by multiplying: $\tilde{D}(u,v)=\hat{D}(u,v)\cdot Q(u,v)$. For the DC term: $59\times16=944\neq950$. The error of 6 units is permanent. The IDCT then spreads this error across all 64 reconstructed pixels — this manifests as the subtle tonal shift we perceive at low quality factors.
+\textbf{Irreversibility of Quantisation:} The decoder performs \emph{inverse quantisation} by multiplying: $\tilde{D}(u,v)=\hat{D}(u,v)\cdot Q(u,v)$. For the DC term: $59\times16=944\neq950$. The error of 6 units is permanent. The IDCT then spreads this error across all 64 reconstructed pixels : this manifests as the subtle tonal shift we perceive at low quality factors.
 \end{warningbox}
 
-\subsubsection{Step 4 — Zig-Zag Scan}
+\subsubsection{Step 4 : Zig-Zag Scan}
 
 The quantised $8\times8$ matrix is serialised into a 1D sequence by traversing in zig-zag order.
 
@@ -392,7 +647,7 @@ The quantised $8\times8$ matrix is serialised into a 1D sequence by traversing i
   \draw[orange, line width=2pt] (0,7) rectangle (1,8);
   \node[font=\tiny\bfseries, text=black] at (0.5,7.5) {DC};
 
-  % Draw zigzag path with arrows using blue!75!black
+  % Draw zigzag path with arrows
   \draw[blue!75!black, thick, -{Stealth[length=5pt]}] 
     (0.5,7.5) -- (1.5,7.5) -- (1.5,6.5) -- (0.5,6.5) -- 
     (0.5,5.5) -- (1.5,5.5) -- (2.5,5.5) -- (2.5,6.5) -- 
@@ -400,7 +655,7 @@ The quantised $8\times8$ matrix is serialised into a 1D sequence by traversing i
     (3.5,6.5) -- (3.5,5.5) -- (3.5,4.5) -- (2.5,4.5) -- 
     (1.5,4.5) -- (0.5,4.5);
 
-  % Labels with white background for visibility
+  % Labels
   \node[below, font=\footnotesize, fill=white, fill opacity=0.7, text opacity=1, inner sep=2pt] at (4,0) {$u$ (horizontal freq.) $\longrightarrow$};
   \node[left, rotate=90, font=\footnotesize, fill=white, fill opacity=0.7, text opacity=1, inner sep=2pt] at (-0.5,4) {$\longleftarrow$ $v$ (vertical freq.)};
   
@@ -411,39 +666,141 @@ The quantised $8\times8$ matrix is serialised into a 1D sequence by traversing i
 \label{fig:zigzag}
 \end{figure}
 
-Applying zig-zag to our quantised matrix in Table~\ref{tab:quantcoeffs}:
+\textbf{Why zig-zag?} Natural images have most of their energy in low frequencies (top-left of the DCT matrix). After quantisation, high-frequency coefficients become zero. The zig-zag order groups the non-zero coefficients together at the beginning of the sequence, creating long runs of zeros at the end : perfect for run-length encoding!
+
+% ============================================================
+%  EXAMPLE 4 : Zig-Zag scan and RLE, fully worked
+% ============================================================
+
+\begin{examplebox}
+\textbf{Example 4: Zig-Zag Scan and Run-Length Encoding : Full Walkthrough}
+
+\medskip
+\noindent We continue from Example~3.  Our quantised $8\times8$ matrix has
+the following non-zero entries:
 \[
-\underbrace{59}_{\text{DC}},\;
-\underbrace{-1,\;-1}_{\text{2 AC non-zeros}},\;
-\underbrace{0,\;0,\;\ldots,\;0}_{61\text{ zeros}}.
+  \hat{D}(0,0)=59,\quad
+  \hat{D}(0,1)=-1,\quad
+  \hat{D}(1,0)=-1,\quad
+  \hat{D}(1,1)=1,
+\]
+with all 60 remaining entries equal to zero.
+
+\medskip
+\noindent\textbf{Step 1 : Read off the zig-zag sequence.}
+
+The zig-zag path visits positions in this order (showing only the first 12
+of 64 positions for clarity):
+
+\begin{center}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{cccc}
+\toprule
+Zig-zag position & Matrix index $(u,v)$ & Value $\hat{D}(u,v)$ & Remark \\
+\midrule
+1  & $(0,0)$ & $+59$ & DC coefficient \\
+2  & $(1,0)$ & $-1$  & 1\textsuperscript{st} AC non-zero \\
+3  & $(0,1)$ & $-1$  & 2\textsuperscript{nd} AC non-zero \\
+4  & $(0,2)$ & $0$   & zero \\
+5  & $(1,1)$ & $+1$  & 3\textsuperscript{rd} AC non-zero \\
+6  & $(2,0)$ & $0$   & zero \\
+7  & $(3,0)$ & $0$   & zero \\
+8  & $(2,1)$ & $0$   & zero \\
+9  & $(1,2)$ & $0$   & zero \\
+10 & $(0,3)$ & $0$   & zero \\
+$\vdots$ & $\vdots$ & $0$ & (all zeros to position 64) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The full 1-D sequence is:
+\[
+  \underbrace{59}_{\text{position 1 (DC)}},\;
+  \underbrace{-1,\;-1,\;0,\;+1}_{\text{positions 2--5 (AC)}},\;
+  \underbrace{0,\;0,\;\ldots,\;0}_{59\text{ zeros (positions 6--64)}}.
 \]
 
-\subsubsection{Step 5 — Run-Length Encoding (RLE)}
+\textit{Why is this ordering useful?}  Because natural images have little
+high-frequency energy, quantisation typically zeroes most of the high-frequency
+coefficients.  The zig-zag order guarantees that these zeros cluster at the
+\emph{end} of the sequence, giving RLE a long run to exploit.
+
+\medskip
+\noindent\textbf{Step 2 : Encode the DC coefficient with DPCM.}
+
+The DC value is not stored absolutely.  Instead, JPEG records the
+\emph{difference} from the previous block's DC value.  Suppose the
+preceding block had $\hat{D}_{\text{prev}}(0,0)=55$.  Then:
+\[
+  \Delta_{\text{DC}} = 59 - 55 = \mathbf{4}.
+\]
+Small differences are far more common than large absolute values in natural
+images, so this makes Huffman coding more efficient.
+
+\medskip
+\noindent\textbf{Step 3 : Encode the AC coefficients with RLE.}
+
+Each non-zero AC coefficient is represented as a pair
+$(\texttt{RUNLENGTH},\;\texttt{VALUE})$ where \texttt{RUNLENGTH} counts how
+many zeros come immediately before this value in the zig-zag sequence:
+
+\begin{center}
+\setlength{\tabcolsep}{10pt}
+\begin{tabular}{lll}
+\toprule
+Zig-zag positions & Symbol & Explanation \\
+\midrule
+2: value $=-1$  & \texttt{(0, $-1$)} & 0 zeros precede it \\
+3: value $=-1$  & \texttt{(0, $-1$)} & 0 zeros precede it \\
+4: value $=0$, 5: value $=+1$ & \texttt{(1, $+1$)} & 1 zero precedes it \\
+6--64: all zeros & \texttt{EOB}       & End-of-Block \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{The complete encoded representation of the block:}
+\[
+  \underbrace{\Delta_{\text{DC}}=4}_{\text{DPCM}},\quad
+  \underbrace{(0,-1),\;(0,-1),\;(1,+1)}_{\text{3 RLE pairs}},\quad
+  \underbrace{\texttt{EOB}}_{\text{terminates early}}.
+\]
+
+Without EOB, a decoder would have to read all 63 AC positions.  With EOB,
+it stops after 5 symbols and moves to the next block : a significant saving
+when most of the 64 entries are zero.
+
+\medskip
+\noindent\textbf{Step 4 : Count the data saved.}
+
+\begin{center}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lcc}
+\toprule
+Representation & Symbols to transmit & Notes \\
+\midrule
+Raw (no RLE) & 64 values & every coefficient \\
+After zig-zag + RLE + EOB & 5 symbols & DC diff + 3 pairs + EOB \\
+\midrule
+Reduction & $\approx 92\%$ fewer symbols & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+These 5 symbols are then passed to Huffman coding (Example~5), which
+compresses them further.
+\end{examplebox}
+
+\subsubsection{Step 5 : Run-Length Encoding (RLE)} (Note: This step is covered in Example 4 above)
 
 \begin{definitionbox}
 \textbf{JPEG AC RLE Format:} Each non-zero AC coefficient is encoded as a pair \texttt{(RUNLENGTH, VALUE)} where \texttt{RUNLENGTH} is the count of zero coefficients immediately preceding it (0--15). A special \textbf{End-of-Block (EOB)} symbol \texttt{(0,0)} signals that all remaining coefficients in the block are zero.
 \end{definitionbox}
 
-For our example sequence $[59,\,-1,\,-1,\,\underbrace{0,\ldots,0}_{61}]$:
-
-\begin{center}
-\begin{tabular}{lll}
-\toprule
-\textbf{Symbol} & \textbf{Meaning} & \textbf{Value} \\
-\midrule
-DC (DPCM) & difference from previous block's DC & $59 - \text{prev}$ \\
-\texttt{(0,\;$-1$)} & 0 zeros before, AC value $= -1$ & \\
-\texttt{(0,\;$-1$)} & 0 zeros before, AC value $= -1$ & \\
-\texttt{EOB} & all remaining 61 coefficients are 0 & \\
-\bottomrule
-\end{tabular}
-\end{center}
-
 \begin{importantbox}
-\textbf{Why DPCM for DC?} Adjacent $8\times8$ blocks in a natural image share similar average brightness, so their DC coefficients differ by small amounts. Encoding the \emph{difference} (DPCM) produces small values with a narrow histogram — perfect for Huffman coding. AC coefficients do not have this cross-block regularity, so DPCM is not applied to them.
+\textbf{Why DPCM for DC?} Adjacent $8\times8$ blocks in a natural image share similar average brightness, so their DC coefficients differ by small amounts. Encoding the \emph{difference} (DPCM) produces small values with a narrow histogram : perfect for Huffman coding. AC coefficients do not have this cross-block regularity, so DPCM is not applied to them.
 \end{importantbox}
 
-\subsubsection{Step 6 — Huffman Coding}
+\subsubsection{Step 6 : Huffman Coding}
 
 JPEG uses pre-defined Huffman tables (stored in the file header) separately for DC and AC symbols. Each symbol comprises two parts:
 
@@ -452,8 +809,131 @@ JPEG uses pre-defined Huffman tables (stored in the file header) separately for 
   \item \textbf{Additional bits:} $k$ raw bits that identify the exact value within the category (for $k=0$ only the EOB symbol, no extra bits).
 \end{enumerate}
 
+% ============================================================
+%  EXAMPLE 5 : Huffman coding of the DC and AC symbols
+% ============================================================
+
 \begin{examplebox}
-\textbf{Huffman Encoding of $\hat{D}(0,0)=59$:} DC difference $= 59$. Category: $k=6$ since $2^5=32 \le 59 < 64=2^6$. The value $59$ is encoded as the category-6 Huffman code (variable length, typically approximately 4 bits from JPEG tables) followed by 6 additional bits representing $59$ in offset-binary. Total approximately 10 bits for the DC term.
+\textbf{Example 5: Huffman Coding of the Quantised Block : Step by Step}
+
+\medskip
+\noindent We encode the five symbols produced by Example~4:
+$\Delta_{\text{DC}}=4$;\ AC pairs $(0,-1)$, $(0,-1)$, $(1,+1)$;\ EOB.
+
+\medskip
+\noindent\textbf{How JPEG Huffman coding works.}
+Values are grouped into \emph{categories} $k$ based on how many bits are
+needed to represent their magnitude:
+
+\begin{center}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{cccc}
+\toprule
+Category $k$ & Range of $|x|$ & Extra bits needed & Examples \\
+\midrule
+0 & $0$                     & 0 & 0 \\
+1 & $1$                     & 1 & $-1,+1$ \\
+2 & $2\text{--}3$           & 2 & $-3,-2,+2,+3$ \\
+3 & $4\text{--}7$           & 3 & $-7,\ldots,-4,+4,\ldots,+7$ \\
+4 & $8\text{--}15$          & 4 & \\
+$\vdots$ & $\vdots$         & $\vdots$ & \\
+6 & $32\text{--}63$         & 6 & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Within a category, the exact value is stored in \emph{offset binary}:
+positive values as their binary representation; negative values as the
+positive complement minus 1.  For example, $-1$ in category 1: the extra
+bit is $0$ (since $-1 = -(1\text{'s complement of }1) - 1$, extra bit $=0$).
+Positive $+1$ in category 1: extra bit $=1$.
+
+\medskip
+\noindent\textbf{Step 1 : Encode the DC difference $\Delta_{\text{DC}}=4$.}
+
+\textit{Find the category:}
+$2^2=4\le 4 < 8=2^3$, so $k=3$.
+
+\textit{Look up the DC Huffman code for category 3} (from the standard JPEG
+luminance DC table):
+Huffman code = \texttt{100} (3 bits).
+
+\textit{Encode the extra bits:}
+$4$ in 3-bit offset binary = \texttt{100}.
+
+\textit{Total for DC:} \texttt{100}\;|\;\texttt{100} = \textbf{6 bits}.
+
+\medskip
+\noindent\textbf{Step 2 : Encode AC pair $(0,\,-1)$.}
+
+The Huffman symbol for an AC pair is $(\texttt{RUNLENGTH}, k)$ where $k$
+is the category of the value.  Here, \texttt{RUNLENGTH}$=0$ and $|-1|$ is
+in category 1.  The symbol is $(0,1)$.
+
+\textit{Look up the AC Huffman code for $(0,1)$} (standard luminance table):
+Huffman code = \texttt{00} (2 bits).
+
+\textit{Encode the extra bit for $-1$:}
+In category 1, $-1$ is encoded as \texttt{0} (1 bit).
+
+\textit{Total for this pair:} \texttt{00}\;|\;\texttt{0} = \textbf{3 bits}.
+
+There are two consecutive $(0,-1)$ pairs, so this step uses $2\times3=6$ bits.
+
+\medskip
+\noindent\textbf{Step 3 : Encode AC pair $(1,\,+1)$.}
+
+\texttt{RUNLENGTH}$=1$, value $=+1$ is in category 1.  The symbol is $(1,1)$.
+
+\textit{Look up the AC Huffman code for $(1,1)$:}
+Huffman code = \texttt{1100} (4 bits).
+
+\textit{Encode the extra bit for $+1$:}
+In category 1, $+1$ is encoded as \texttt{1} (1 bit).
+
+\textit{Total for this pair:} \texttt{1100}\;|\;\texttt{1} = \textbf{5 bits}.
+
+\medskip
+\noindent\textbf{Step 4 : Encode EOB.}
+
+The EOB symbol is the fixed pair $(0,0)$, which has no extra bits.
+
+\textit{Look up EOB Huffman code:} \texttt{1010} (4 bits).
+
+\medskip
+\noindent\textbf{Step 5 : Count the total bits.}
+
+\begin{center}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lcccc}
+\toprule
+Symbol & Huffman code & Extra bits & Huffman bits & Total bits \\
+\midrule
+DC: $\Delta=4$ (cat.\ 3)  & \texttt{100}  & \texttt{100} (3) & 3 & 6 \\
+AC: $(0,-1)$ (cat.\ 1)    & \texttt{00}   & \texttt{0} (1)   & 2 & 3 \\
+AC: $(0,-1)$ (cat.\ 1)    & \texttt{00}   & \texttt{0} (1)   & 2 & 3 \\
+AC: $(1,+1)$ (cat.\ 1)    & \texttt{1100} & \texttt{1} (1)   & 4 & 5 \\
+EOB: $(0,0)$              & \texttt{1010} & none (0)         & 4 & 4 \\
+\midrule
+\textbf{Total}            &               &                  &   & \textbf{21 bits} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\noindent\textbf{Compare to storing raw pixels.}
+
+One uncompressed $8\times8$ block at 8 bits/pixel requires $64\times8=512$ bits.
+Our encoded block uses only $\approx21$ bits, giving an approximate compression
+ratio of $512/21\approx24:1$ for this particular (nearly uniform) block.  Blocks
+with more texture would require more bits, but the principle is the same.
+
+\medskip
+\noindent\textit{Important caveat.} The Huffman tables used above are the
+\emph{standard} JPEG tables, which are fixed and stored in the file header
+rather than adapted to each image.  An arithmetic-coded JPEG (a less common
+variant) would produce slightly fewer bits by adapting to the actual
+coefficient statistics, but requires more computation.
 \end{examplebox}
 
 \begin{connectionbox}
@@ -476,6 +956,8 @@ Colour JPEG images are first converted from RGB to \textbf{YC\textsubscript{b}C\
   C_b &= 128 - 0.168736R - 0.331264G + 0.5B \tag{blue chroma}\\
   C_r &= 128 + 0.5R - 0.418688G - 0.081312B \tag{red chroma}
 \end{align}
+
+\textbf{Why YCbCr?} The human visual system is much more sensitive to brightness (luminance) than to colour (chrominance). By separating these, we can compress colour information more aggressively without noticeable quality loss.
 
 The human visual system resolves luminance at roughly $4\times$ the spatial acuity of chrominance. JPEG exploits this by \textbf{4:2:0 chroma subsampling}: each $2\times2$ block of luma pixels shares a single $C_b$ and $C_r$ value. This alone achieves a 2:1 reduction in chroma data with negligible perceptual impact.
 
@@ -558,6 +1040,17 @@ Image quality after lossy compression is typically measured by \textbf{Peak Sign
 \end{equation}
 Higher PSNR = better quality; $>40$ dB is generally considered visually lossless for natural images.
 
+\begin{importantbox}
+\textbf{Understanding PSNR:}
+\begin{itemize}[nosep]
+    \item The $255^2$ term comes from the maximum possible pixel value (255 for 8-bit images)
+    \item MSE measures average squared error between original and compressed images
+    \item The logarithm makes the scale perceptual: each 10 dB increase represents a 10× reduction in MSE
+    \item PSNR of 30 dB is typical for good quality JPEG (some artefacts visible on close inspection)
+    \item PSNR of 40 dB is excellent (artefacts barely visible)
+\end{itemize}
+\end{importantbox}
+
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
@@ -593,7 +1086,7 @@ Higher PSNR = better quality; $>40$ dB is generally considered visually lossless
 \addlegendentry{Lossless (reference)}
 \end{axis}
 \end{tikzpicture}
-\caption{Typical rate–distortion curves. At any given bit-rate, JPEG 2000 (wavelet) outperforms JPEG, but JPEG remains competitive for bpp $>1$.}
+\caption{Typical rate–distortion curves. At any given bit-rate, JPEG 2000 (wavelet) outperforms JPEG, but JPEG remains competitive for bpp $>1$. Notice the diminishing returns: beyond 2 bpp, increasing bitrate gives very small quality improvements.}
 \label{fig:rd}
 \end{figure}
 
@@ -603,9 +1096,13 @@ Higher PSNR = better quality; $>40$ dB is generally considered visually lossless
 \textbf{Compression Artefact:} A visual distortion introduced by lossy compression that was not present in the original image and is not present in the scene being depicted.
 \end{definitionbox}
 
+Understanding artefacts helps you choose appropriate quality settings and diagnose compression problems.
+
 \subsubsection{Blocking Artefacts}
 
 \textbf{Cause:} Each $8\times8$ block is quantised independently. At low quality, large quantisation errors produce abrupt changes in reconstructed pixel values at block boundaries.
+
+\textbf{Why this happens mathematically:} The quantisation error for the DC coefficient (average brightness) can differ between adjacent blocks. If block A's DC is quantised to 59 ($\times16=944$) and block B's DC to 60 ($\times16=960$), the boundary shows a sudden jump of 16 in pixel values where the original image had a smooth gradient.
 
 \textbf{Visual appearance:} A visible rectangular grid superimposed on smooth image regions. Most noticeable in flat areas such as skies and skin tones.
 
@@ -622,13 +1119,15 @@ Higher PSNR = better quality; $>40$ dB is generally considered visually lossless
   }
   \node[below, font=\small, fill=white, fill opacity=0.7, text opacity=1, inner sep=2pt] at (2.4,-0.3) {Visible block boundaries};
 \end{tikzpicture}
-\caption{Blocking artefact — visible grid lines at $8\times8$ block boundaries.}
+\caption{Blocking artefact : visible grid lines at $8\times8$ block boundaries.}
 \label{fig:blocking}
 \end{figure}
 
 \subsubsection{Ringing Artefacts (Gibbs Phenomenon)}
 
 \textbf{Cause:} Truncating high-frequency DCT coefficients is equivalent to multiplying the frequency-domain representation by a rectangular window. By the convolution theorem, this convolves the spatial image with a sinc-like kernel, producing oscillatory ringing near sharp edges.
+
+\textbf{Mathematical intuition:} An ideal step edge contains all frequencies. When we discard high frequencies, the reconstructed edge "rings" : it overshoots on one side and undershoots on the other, creating halos.
 
 \textbf{Visual appearance:} Faint light/dark halos around high-contrast edges (e.g., text on a coloured background, tree silhouettes against sky).
 
@@ -650,13 +1149,15 @@ Higher PSNR = better quality; $>40$ dB is generally considered visually lossless
   
   \node[below, font=\small, fill=white, fill opacity=0.7, text opacity=1, inner sep=2pt] at (3,-0.3) {Ringing halos near edge};
 \end{tikzpicture}
-\caption{Ringing artefact — oscillatory halos near a sharp black/white edge.}
+\caption{Ringing artefact : oscillatory halos near a sharp black/white edge.}
 \label{fig:ringing}
 \end{figure}
 
 \subsubsection{Banding / Posterisation}
 
 \textbf{Cause:} Coarse quantisation of the DC coefficient and the lowest AC coefficients cannot represent the full tonal range of smooth gradients. The reconstructed image can only take on discrete levels spaced $Q(u,v)$ apart.
+
+\textbf{Why this happens:} A smooth gradient requires many subtle intermediate shades. When quantisation is too coarse, the encoder cannot represent these subtle differences, so the decoder outputs the same value for a range of input shades, creating visible bands.
 
 \textbf{Visual appearance:} Smooth gradients (blue sky, skin) appear as distinct bands of uniform tone rather than continuous variation.
 
@@ -692,8 +1193,8 @@ Despite modern formats offering better compression at equal quality, JPEG retain
 \subsection{When to Use (and Not Use) JPEG}
 
 \begin{minipage}[t]{0.48\linewidth}
-\begin{tcolorbox}[base, colback=LightGreen, colframe=green!50!black,
-                  title={\textbf{Use JPEG for}}]
+\begin{tcolorbox}[colback=LightGreen!20, colframe=green!50!black,
+                  title=\textbf{Use JPEG for}, sharp corners]
 \begin{itemize}[nosep, leftmargin=*]
   \item Photographs and natural images
   \item Web delivery (universal support)
@@ -703,8 +1204,8 @@ Despite modern formats offering better compression at equal quality, JPEG retain
 \end{tcolorbox}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\linewidth}
-\begin{tcolorbox}[base, colback=LightRed, colframe=red!75!black,
-                  title={\textbf{Avoid JPEG for}}]
+\begin{tcolorbox}[colback=LightRed!20, colframe=red!75!black,
+                  title=\textbf{Avoid JPEG for}, sharp corners]
 \begin{itemize}[nosep, leftmargin=*]
   \item Text, diagrams, line art (use PNG)
   \item Images needing transparency (use PNG/WebP)
@@ -728,7 +1229,7 @@ Despite modern formats offering better compression at equal quality, JPEG retain
 \begin{enumerate}[nosep]
   \item \textbf{Decorrelation:} The DCT transforms spatially correlated pixels into (approximately) uncorrelated frequency coefficients.
   \item \textbf{Energy compaction:} Natural image energy concentrates in a small fraction of DCT coefficients (typically the top-left corner of the $8\times8$ matrix), enabling aggressive but selective discarding.
-  \item \textbf{Single lossy step:} Quantisation is the \emph{only} irreversible operation. Every other step — DCT, zig-zag, RLE, Huffman — is lossless and reversible.
+  \item \textbf{Single lossy step:} Quantisation is the \emph{only} irreversible operation. Every other step : DCT, zig-zag, RLE, Huffman : is lossless and reversible.
   \item \textbf{Perceptual exploitation:} The non-uniform Q-table encodes the human visual system's reduced sensitivity to high-frequency detail. We discard exactly what we cannot see.
   \item \textbf{Universality:} The transform $\to$ quantise $\to$ entropy-code paradigm extends directly to audio (MDCT in MP3/AAC), video (block DCT in H.264), and even speech coding.
 \end{enumerate}
@@ -760,3 +1261,5 @@ Despite modern formats offering better compression at equal quality, JPEG retain
 \begin{exercisebox}
 \textbf{(Medical imaging)} A hospital proposes saving CT scans as JPEG at quality~80 to reduce storage costs. Identify two specific diagnostic risks, explain their technical cause using concepts from this lecture, and propose an alternative compression strategy that reduces storage without those risks.
 \end{exercisebox}
+
+\endinput
