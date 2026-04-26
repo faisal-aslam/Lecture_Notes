@@ -545,7 +545,7 @@ $\frac{C(u)C(v)}{4}$---identical to what we used above.
 Computing $D(0,0)$ directly:
 \[
 D(0,0) = 0.125 \times (100 + 120 + 140 + 160) \times 1 \times 1
-        = 0.125 \times 520 = 65 \checkmark
+        = 0.125 \times 520 = 65
 \]
 All four coefficients match exactly, confirming that the separable two-pass
 method and the direct formula are equivalent.
@@ -640,7 +640,14 @@ We now trace our example block through every stage of JPEG compression. Each ste
 
 \subsubsection{Step 1 : Level Shift}
 
-\textbf{Why do we do this?} The DCT expects input values centred around zero for optimal energy compaction. The original pixels range from 0 to 255 with a typical average around 128. Subtracting 128 centres the data.
+\textbf{Why do we do this?} The DCT achieves better energy compaction when
+the input data is centered around zero. Raw pixel values in an 8-bit image
+range from 0 to 255, with the midpoint at 128. Subtracting 128 shifts the
+range to approximately $-128$ to $+127$, centering the distribution around zero.
+This reduces the magnitude of the DC coefficient and improves compression
+efficiency. Note that the DCT does not assume any particular statistical
+distribution (e.g., Gaussian); the level shift is simply a convenient
+centering operation.
 
 Subtract 128 from every pixel to centre the values around zero.
 
