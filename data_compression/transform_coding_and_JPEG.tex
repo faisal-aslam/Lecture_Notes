@@ -173,7 +173,7 @@ For each output coefficient $D(u,v)$, we are:
     \item Scaling the result by $\frac{C(u)C(v)}{4}$
 \end{enumerate}
 
-The cosine values range from $-1$ to $+1$. When $u=0$ (the lowest horizontal frequency), $\cos(\frac{(2x+1)\cdot0\cdot\pi}{16}) = \cos(0) = 1$ for all $x$. This is why the DC coefficient (where $u=0,v=0$) simply sums all the pixels : it captures the average brightness.
+The cosine values range from $-1$ to $+1$. When $u=0$ (the lowest horizontal frequency), $\cos(\frac{(2x+1)\cdot0\cdot\pi}{16}) = \cos(0) = 1$ for all $x$. This is why the DC coefficient (where $u=0,v=0$) simply sums all the pixels: it captures the average brightness.
 
 \paragraph{Inverse DCT (IDCT):} The transform is orthogonal, so the inverse uses the same cosine kernels with roles swapped:
 \begin{equation}
@@ -188,21 +188,94 @@ After exact (unquantised) DCT$\to$IDCT, $\hat{p}=p$ to floating-point precision.
 
 \subsubsection{Separability and Computational Cost}
 
-Because the cosine kernel factorises as $\cos(\cdots u\cdots)\cos(\cdots v\cdots)$, the 2D DCT is \textbf{separable}:
+Because the cosine kernel factorises as $\cos(\cdots u\cdots)\cos(\cdots v\cdots)$, the 2D DCT is \textbf{separable}. We can rewrite Eq.~\eqref{eq:dct} as:
+
 \begin{equation}
-  \text{2D-DCT} = \underbrace{\text{1D-DCT}_{\text{cols}}}_{\text{second pass}}
-  \Bigl(\underbrace{\text{1D-DCT}_{\text{rows}}}_{\text{first pass}}(\mathbf{P})\Bigr).
+\boxed{
+  D(u,v) = \frac{C(u)C(v)}{4} \sum_{x=0}^{7} \left[
+    \cos\!\left(\frac{(2x+1)u\pi}{16}\right)
+    \underbrace{\left( \sum_{y=0}^{7} p(x,y) \cos\!\left(\frac{(2y+1)v\pi}{16}\right) \right)}_{T(x,v)}
+  \right]
+}
+\label{eq:separable}
 \end{equation}
 
-This means we can:
+where we define the \textbf{intermediate coefficient} $T(x,v)$ as the 1D DCT of row $x$ at vertical frequency $v$ (without scaling):
+
+\begin{equation}
+  T(x,v) \triangleq \sum_{y=0}^{7} p(x,y) \cos\!\left(\frac{(2y+1)v\pi}{16}\right), \qquad x,v \in \{0,\ldots,7\}
+\end{equation}
+
+This $T(x,v)$ is the raw sum-of-products before any scaling. The complete 1D row transform would be $\frac{C(v)}{2} T(x,v)$, but we delay scaling until the final step for efficiency.
+
+\paragraph{The two-pass separable algorithm:}
+
 \begin{enumerate}[nosep]
-    \item Apply a 1D DCT to each of the 8 rows of the block
-    \item Apply a 1D DCT to each of the 8 columns of the result
+    \item \textbf{Row pass (1D DCT on each row):} 
+    For each row index $x$ and each frequency $v$, compute $T(x,v)$ using the formula above. This produces an $8\times8$ intermediate block whose $x$-th row contains the unscaled 1D DCT of the $x$-th input row.
+    
+    \item \textbf{Column pass (1D DCT on each column of $T$):} 
+    For each frequency $v$ (which indexes columns of $T$) and each output frequency $u$, apply the 1D DCT to the column vector $T(0..7, v)$:
+    \begin{equation}
+      D(u,v) = \frac{C(u)C(v)}{4} \sum_{x=0}^{7} T(x,v) \cos\!\left(\frac{(2x+1)u\pi}{16}\right)
+    \end{equation}
+    The scaling factors $\frac{C(u)C(v)}{4}$ are applied only once at the end.
 \end{enumerate}
 
+\paragraph{Matrix formulation:}
+
+The separable nature is even clearer in matrix form:
+\begin{equation}
+  \mathbf{D} = \mathbf{C} \cdot \mathbf{P} \cdot \mathbf{C}^{\mathsf{T}}
+\end{equation}
+where:
+\begin{itemize}[nosep]
+    \item $\mathbf{P}$ is the $8\times8$ pixel block ($P_{x,y} = p(x,y)$)
+    \item $\mathbf{C}$ is the $8\times8$ DCT basis matrix with entries $C_{u,x} = \frac{C(u)}{2}\cos\!\left(\frac{(2x+1)u\pi}{16}\right)$
+    \item $\mathbf{D}$ is the $8\times8$ DCT coefficient matrix ($D_{u,v} = D(u,v)$)
+\end{itemize}
+The product $\mathbf{C} \cdot \mathbf{P}$ performs the row transforms (scaled), and multiplying by $\mathbf{C}^{\mathsf{T}}$ on the right performs the column transforms.
+
+\paragraph{Computational Complexity Comparison}
+
+Let $N=8$ for JPEG blocks. Count the number of multiply-add operations required:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|c|}
+\hline
+\textbf{Method} & \textbf{Operation count formula} & \textbf{For $N=8$} \\ \hline
+Naive 2D (Eq.~\ref{eq:dct}) & $N^2$ coefficients $\times$ $N^2$ terms & $4096$ \\ \hline
+Separable (Eq.~\ref{eq:separable}) & $2 \times (N \times N^2)$ & $1024$ \\ \hline
+Fast DCT (FFT-like) & $2 \times (N \times \frac{N}{2}\log_2 N)$ & $\approx 192$ \\ \hline
+\end{tabular}
+\caption{Operation counts and asymptotic complexity for one $8\times8$ block. Naive: $O(N^4)$, separable: $O(N^3)$, fast: $O(N^2\log N)$.}
+\label{tab:complexity}
+\end{table}
+
+
+
 \begin{importantbox}
-\textbf{Why Separability Matters:} Direct 2D summation in Eq.~\eqref{eq:dct} costs $O(N^4)$ multiplications for an $N\times N$ block. Separability reduces this to $O(N^3)$, and the fast DCT algorithm (analogous to the FFT) reduces it further to $O(N^2\log N)$. For $N=8$ this means 64 multiplications instead of 4096 : a 64$\times$ speedup. This is the difference between a practical encoder and an impractical one!
+\textbf{Why Separability Matters:} Direct 2D summation in Eq.~\eqref{eq:dct} costs $O(N^4)$ multiplications for an $N\times N$ block. Separability reduces this to $O(N^3)$, and the fast DCT algorithm (analogous to the FFT) reduces it further to $O(N^2\log N)$.
+
+For $N=8$:
+\begin{itemize}[nosep]
+    \item Naive 2D: $4096$ multiplications
+    \item Fast separable DCT: $\approx 64$ multiplications (using optimized algorithms)
+    \item Speedup: $4096 / 64 = \mathbf{64\times}$
+\end{itemize}
+This is the difference between a practical encoder and an impractical one!
 \end{importantbox}
+
+\paragraph{Where does the $64$ come from?}
+
+The fast 1D DCT of length 8 requires approximately $\frac{N}{2}\log_2 N = 4 \times 3 = 12$ multiplications by exploiting cosine symmetries (many basis functions share the same magnitude). For the full 2D transform:
+\begin{itemize}[nosep]
+    \item 8 row transforms: $8 \times 12 = 96$ multiplications
+    \item 8 column transforms: $8 \times 12 = 96$ multiplications
+    \item Total: $\approx 192$ multiplications
+\end{itemize}
+The $64\times$ speedup figure (4096 vs 64) assumes a highly optimized fast DCT that further prunes operations through combined row-column planning and coefficient precomputation. Even the conservative $192$ operations represent a $21\times$ speedup over naive $4096$ — both are massive gains that make real-time JPEG encoding feasible.
 
 % ============================================================
 %  EXAMPLE 1 : Computing a 1-D DCT coefficient step by step
@@ -306,6 +379,246 @@ $D_{1D}(1)=3.82$ is small compared to $D_{1D}(0)$ (the DC term, which would
 be around 148.5).  This confirms that the row is nearly flat : almost all
 of its energy lives in the DC component.
 \end{examplebox}
+
+
+\begin{examplebox}
+\textbf{A Complete Worked Example: 2$\times$2 DCT Using the Separable Formula}
+
+To truly understand the 2D DCT, we work through a \textbf{tiny $2\times2$ block}
+by hand using the \textbf{separable (two-pass) approach}. This matches how real
+JPEG encoders work: first transform all rows, then all columns.
+
+\medskip
+\noindent
+\textbf{Input pixel block $\mathbf{P}$ (a simple 2$\times$2 gradient):}
+\[
+\mathbf{P} = \begin{bmatrix}
+p(0,0) & p(0,1) \\
+p(1,0) & p(1,1)
+\end{bmatrix}
+= \begin{bmatrix}
+100 & 120 \\
+140 & 160
+\end{bmatrix}
+\]
+This block has a clear increasing gradient from top‑left to bottom‑right.
+
+\medskip
+\noindent
+\textbf{\large Step 1: Understand the 1D DCT Formula (Length 2)}
+
+For a single row of length $N=2$, the 1D DCT is:
+\[
+D_{1D}(v) = \frac{C(v)}{2} \sum_{y=0}^{1} p(y) \cos\!\left(\frac{(2y+1)v\pi}{4}\right)
+\]
+where $C(0)=1/\sqrt{2} \approx 0.7071$ and $C(1)=1$.
+
+Precompute the cosine values:
+\begin{center}
+\begin{tabular}{c|c|c}
+$y$ & $v=0$: $\cos(0)$ & $v=1$: $\cos\!\left(\frac{(2y+1)\pi}{4}\right)$ \\ \hline
+0 & $1$ & $\cos(45^\circ)=0.7071$ \\
+1 & $1$ & $\cos(135^\circ)=-0.7071$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+\noindent
+\textbf{\large Step 2: First Pass --- Apply 1D DCT to Each Row}
+
+We compute $T(x,v)$, the \emph{unscaled} 1D DCT of row $x$ at frequency $v$
+(the scaling factor $\frac{C(v)}{2}$ is deferred to the final step):
+\[
+T(x,v) = \sum_{y=0}^{1} p(x,y) \cos\!\left(\frac{(2y+1)v\pi}{4}\right)
+\]
+
+\noindent
+\textbf{Row 0:} $p(0,0)=100$, $p(0,1)=120$
+
+\begin{align*}
+T(0,0) &= 100(1) + 120(1) = 220 \\
+T(0,1) &= 100(0.7071) + 120(-0.7071) = 70.71 - 84.85 = -14.14
+\end{align*}
+
+\noindent
+\textbf{Row 1:} $p(1,0)=140$, $p(1,1)=160$
+
+\begin{align*}
+T(1,0) &= 140(1) + 160(1) = 300 \\
+T(1,1) &= 140(0.7071) + 160(-0.7071) = 98.99 - 113.14 = -14.14
+\end{align*}
+
+\noindent
+The intermediate block $T(x,v)$ (rows $x$, columns $v$) is:
+\[
+\mathbf{T} = \begin{bmatrix}
+220 & -14.14 \\
+300 & -14.14
+\end{bmatrix}
+\]
+Note that $T(0,1)$ and $T(1,1)$ are \emph{identical}: both rows have the same
+difference $160-140 = 140-120 = 20$, scaled by $0.7071$, so both yield
+$-14.14$.
+
+\medskip
+\noindent
+\textbf{\large Step 3: Second Pass --- Apply 1D DCT to Each Column of $\mathbf{T}$}
+
+For each column $v$, treat it as a vector and apply the unscaled 1D DCT again.
+The combined scaling factor $\frac{C(u)C(v)}{4}$ will be applied in Step~4.
+
+\[
+S(u,v) = \sum_{x=0}^{1} T(x,v) \cos\!\left(\frac{(2x+1)u\pi}{4}\right)
+\]
+
+\noindent
+\textbf{Column $v=0$:} $T(0,0)=220$, $T(1,0)=300$
+
+\begin{align*}
+S(0,0) &= 220(1) + 300(1) = 520 \\
+S(1,0) &= 220(0.7071) + 300(-0.7071) = 155.56 - 212.13 = -56.57
+\end{align*}
+
+\noindent
+\textbf{Column $v=1$:} $T(0,1)=-14.14$, $T(1,1)=-14.14$
+
+\begin{align*}
+S(0,1) &= (-14.14)(1) + (-14.14)(1) = -28.28 \\[4pt]
+S(1,1) &= (-14.14)(0.7071) + (-14.14)(-0.7071) \\
+       &= \underbrace{(-14.14)(0.7071)}_{-10.00} + \underbrace{(-14.14)(-0.7071)}_{+10.00} = 0
+\end{align*}
+
+$S(1,1)=0$ \emph{exactly} because $T(0,1)=T(1,1)$: the two terms cancel perfectly.
+
+The unscaled coefficient matrix is:
+\[
+\mathbf{S} = \begin{bmatrix}
+520 & -28.28 \\
+-56.57 & 0
+\end{bmatrix}
+\]
+
+\medskip
+\noindent
+\textbf{\large Step 4: Apply Final Scaling}
+
+The scaling factor for each coefficient is $\frac{C(u)C(v)}{4}$, combining the
+$\frac{C(u)}{2}$ from the column pass and $\frac{C(v)}{2}$ from the row pass.
+
+\[
+\frac{C(0)C(0)}{4} = \frac{0.7071 \times 0.7071}{4} = \frac{0.5}{4} = 0.125
+\qquad
+\frac{C(0)C(1)}{4} = \frac{C(1)C(0)}{4} = \frac{0.7071 \times 1}{4} \approx 0.17678
+\qquad
+\frac{C(1)C(1)}{4} = \frac{1}{4} = 0.25
+\]
+
+Applying to $\mathbf{S}$:
+
+\begin{align*}
+D(0,0) &= 0.125   \times 520   &&= 65 \\
+D(0,1) &= 0.17678 \times (-28.28) &&= -5.00 \\
+D(1,0) &= 0.17678 \times (-56.57) &&= -10.00 \\
+D(1,1) &= 0.25    \times 0      &&= 0
+\end{align*}
+
+Thus:
+\[
+\boxed{\mathbf{D} = \begin{bmatrix}
+65 & -5 \\
+-10 & 0
+\end{bmatrix}}
+\]
+
+\medskip
+\noindent
+\textbf{\large Verification Using the Direct 2D Summation Formula}
+
+The direct 2D formula is:
+\[
+D(u,v) = \frac{C(u)C(v)}{4} \sum_{x=0}^{1}\sum_{y=0}^{1}
+p(x,y)\cos\!\left(\frac{(2x+1)u\pi}{4}\right)\cos\!\left(\frac{(2y+1)v\pi}{4}\right)
+\]
+This is simply the separable formula written out in full, so the scaling is
+$\frac{C(u)C(v)}{4}$---identical to what we used above.
+
+Computing $D(0,0)$ directly:
+\[
+D(0,0) = 0.125 \times (100 + 120 + 140 + 160) \times 1 \times 1
+        = 0.125 \times 520 = 65 \checkmark
+\]
+All four coefficients match exactly, confirming that the separable two-pass
+method and the direct formula are equivalent.
+
+\medskip
+\noindent
+\textbf{\large Connection to Matrix Form}
+
+The separable two-pass algorithm is exactly equivalent to:
+\[
+\mathbf{D} = \mathbf{C} \cdot \mathbf{P} \cdot \mathbf{C}^{\mathsf{T}}
+\]
+where $\mathbf{C}$ is the DCT basis matrix with entries
+$C_{u,x} = \frac{C(u)}{2}\cos\!\left(\frac{(2x+1)u\pi}{4}\right)$.
+
+For the $2\times2$ case:
+\[
+\mathbf{C} = \begin{bmatrix}
+0.35355 & 0.35355 \\
+0.35355 & -0.35355
+\end{bmatrix}
+\]
+
+Then $\mathbf{C}\mathbf{P}\mathbf{C}^{\mathsf{T}}$ produces exactly the same $\mathbf{D}$:
+\[
+\begin{bmatrix}
+0.35355 & 0.35355 \\
+0.35355 & -0.35355
+\end{bmatrix}
+\begin{bmatrix}
+100 & 120 \\
+140 & 160
+\end{bmatrix}
+\begin{bmatrix}
+0.35355 & 0.35355 \\
+0.35355 & -0.35355
+\end{bmatrix}
+=
+\begin{bmatrix}
+65 & -5 \\
+-10 & 0
+\end{bmatrix}
+\]
+
+\medskip
+\noindent
+\textbf{\large What We Learned}
+
+\begin{enumerate}[nosep]
+    \item The \textbf{separable formula} reveals the true computational structure:
+          first transform all rows, then all columns.
+    \item The \textbf{matrix form} $\mathbf{D} = \mathbf{C}\mathbf{P}\mathbf{C}^{\mathsf{T}}$
+          is a compact representation of the same two-pass process.
+    \item The DC coefficient $D(0,0)$ captures the average brightness, scaled by
+          $\frac{C(0)^2}{4} \times N^2 = \frac{1}{2}$ in this $2\times2$ case.
+    \item AC coefficients are small when the block is smooth (our gradient gave
+          $D(0,1)=-5$, $D(1,0)=-10$).
+    \item $D(1,1)=0$ \emph{exactly} because the checkerboard cosine pattern
+          is orthogonal to the uniform gradient: the two rows of $\mathbf{T}$
+          have identical entries in column~1, so they cancel in the column pass.
+    \item The direct 2D formula and the separable formula use the \emph{same}
+          scaling $\frac{C(u)C(v)}{4}$ and always agree; they are two ways
+          of writing the same computation.
+\end{enumerate}
+
+\begin{center}
+\boxed{\text{2D DCT = 1D DCT on rows, then 1D DCT on columns}}
+\end{center}
+
+This concrete arithmetic removes the mystery of the DCT and makes the abstract
+formulas tangible.
+\end{examplebox}
+
 
 \subsubsection{Why DCT, Not DFT?}
 
