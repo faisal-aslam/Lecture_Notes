@@ -182,7 +182,7 @@ The cosine values range from $-1$ to $+1$. When $u=0$ (the lowest horizontal fre
   C(u)\,C(v)\,D(u,v)\,
   \cos\!\left(\frac{(2x+1)\,u\,\pi}{16}\right)
   \cos\!\left(\frac{(2y+1)\,v\,\pi}{16}\right).
-\label{eq:idct}
+  \label{eq:idct}
 \end{equation}
 After exact (unquantised) DCT$\to$IDCT, $\hat{p}=p$ to floating-point precision.
 
@@ -954,46 +954,122 @@ The rest are zero and cost nothing to store.
 
 The quantised $8\times8$ matrix is serialised into a 1D sequence by traversing in zig-zag order.
 
+\textbf{The rule for zig-zag ordering.}
+Every cell $(u,v)$ in the matrix has a \emph{diagonal index} $s = u + v$.
+The scan visits all diagonals in order $s = 0, 1, 2, \ldots, 14$.
+Within each diagonal, the direction of traversal \emph{alternates}:
+
+\begin{itemize}
+  \item \textbf{Even $s$}: travel \emph{upward-right}, i.e.\ $v$ decreases and $u$ increases.
+  \item \textbf{Odd $s$}: travel \emph{downward-left}, i.e.\ $v$ increases and $u$ decreases.
+\end{itemize}
+
+\noindent Table~\ref{tab:zigzag} lists the first 15 positions explicitly so the pattern is unambiguous.
+
+\begin{table}[H]
+\centering
+\caption{First 15 positions of the zig-zag scan. $s = u+v$ is the diagonal index; the arrow shows the direction of traversal within that diagonal.}
+\label{tab:zigzag}
+\setlength{\tabcolsep}{7pt}
+\begin{tabular}{cccccc}
+\toprule
+Position & $(u,\,v)$ & $s = u+v$ & $s$ even/odd & Direction within diagonal \\
+\midrule
+1  & $(0,0)$ & 0 & even & — (only one cell) \\
+2  & $(1,0)$ & 1 & odd  & $\downarrow$-left: $v{\uparrow},\,u{\downarrow}$ \\
+3  & $(0,1)$ & 1 & odd  & $\downarrow$-left (continued) \\
+4  & $(0,2)$ & 2 & even & $\uparrow$-right: $v{\downarrow},\,u{\uparrow}$ \\
+5  & $(1,1)$ & 2 & even & $\uparrow$-right (continued) \\
+6  & $(2,0)$ & 2 & even & $\uparrow$-right (continued) \\
+7  & $(3,0)$ & 3 & odd  & $\downarrow$-left: $v{\uparrow},\,u{\downarrow}$ \\
+8  & $(2,1)$ & 3 & odd  & $\downarrow$-left (continued) \\
+9  & $(1,2)$ & 3 & odd  & $\downarrow$-left (continued) \\
+10 & $(0,3)$ & 3 & odd  & $\downarrow$-left (continued) \\
+11 & $(0,4)$ & 4 & even & $\uparrow$-right: $v{\downarrow},\,u{\uparrow}$ \\
+12 & $(1,3)$ & 4 & even & $\uparrow$-right (continued) \\
+13 & $(2,2)$ & 4 & even & $\uparrow$-right (continued) \\
+14 & $(3,1)$ & 4 & even & $\uparrow$-right (continued) \\
+15 & $(4,0)$ & 4 & even & $\uparrow$-right (continued) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[scale=0.72]
-  % Draw the 8x8 grid with light gray lines
+\begin{tikzpicture}[scale=0.82]
+  % Draw the 8x8 grid
   \foreach \i in {0,...,7}
     \foreach \j in {0,...,7}
       \draw[gray!40, line width=0.5pt] (\i,\j) rectangle ++(1,1);
 
-  % Highlight DC cell with yellow fill and orange border
-  \fill[DCColor] (0,7) rectangle (1,8);
-  \draw[orange, line width=2pt] (0,7) rectangle (1,8);
-  \node[font=\tiny\bfseries, text=black] at (0.5,7.5) {DC};
+  % Colour cells by diagonal s = u + v  (u = col from left, v = row from top)
+  % In tikz coords: column i = u, row from bottom j, so v = 7-j
+  % s = i + (7-j)  ... we shade s=0..4 for clarity
+  \foreach \i/\j/\col in {
+    0/7/orange!30,          % s=0
+    1/7/blue!15, 0/6/blue!15,   % s=1
+    0/5/green!15,1/6/green!15,2/7/green!15, % s=2
+    3/7/purple!15,2/6/purple!15,1/5/purple!15,0/4/purple!15, % s=3
+    0/3/red!10,1/4/red!10,2/5/red!10,3/6/red!10,4/7/red!10  % s=4
+  }{
+    \fill[\col] (\i,\j) rectangle ++(1,1);
+  }
 
-  % Draw zigzag path with arrows
-  \draw[blue!75!black, thick, -{Stealth[length=5pt]}] 
-    (0.5,7.5) -- (1.5,7.5) -- (1.5,6.5) -- (0.5,6.5) -- 
-    (0.5,5.5) -- (1.5,5.5) -- (2.5,5.5) -- (2.5,6.5) -- 
-    (2.5,7.5) -- (3.5,7.5) -- (4.5,7.5) -- (4.5,6.5) -- 
-    (3.5,6.5) -- (3.5,5.5) -- (3.5,4.5) -- (2.5,4.5) -- 
-    (1.5,4.5) -- (0.5,4.5);
+  % Highlight DC cell
+  \fill[orange!60] (0,7) rectangle (1,8);
+  \draw[orange, line width=1.5pt] (0,7) rectangle (1,8);
+  \node[font=\tiny\bfseries] at (0.5,7.5) {DC};
 
-  % Labels
-  \node[below, font=\footnotesize, fill=white, fill opacity=0.7, text opacity=1, inner sep=2pt] at (4,0) {$u$ (horizontal freq.) $\longrightarrow$};
-  \node[left, rotate=90, font=\footnotesize, fill=white, fill opacity=0.7, text opacity=1, inner sep=2pt] at (-0.5,4) {$\longleftarrow$ $v$ (vertical freq.)};
-  
-  % Start marker
-  \node[font=\tiny, fill=white, fill opacity=0.7, text opacity=1, inner sep=1pt] at (0.5,8.2) {Start};
+  % Position numbers inside cells (first 15)
+  \foreach \i/\j/\num in {
+    0/7/1,
+    1/7/2, 0/6/3,
+    0/5/4, 1/6/5, 2/7/6,
+    3/7/7, 2/6/8, 1/5/9, 0/4/10,
+    0/3/11,1/4/12,2/5/13,3/6/14,4/7/15
+  }{
+    \node[font=\tiny, text=black!70] at (\i+0.5,\j+0.5) {\num};
+  }
+
+  % Zigzag path (positions 1–15)
+  \draw[blue!70!black, thick, -{Stealth[length=4pt]}, line width=1pt]
+    (0.5,7.5) --          % 1 -> 2  (s=1, odd: down-left means v up i.e. j down in tikz)
+    (1.5,7.5) --          % 2 -> 3
+    (0.5,6.5) --          % 3 -> 4  (s=2, even: up-right means v down i.e. j up in tikz)
+    (0.5,5.5) --          % 4 -> 5
+    (1.5,6.5) --          % 5 -> 6
+    (2.5,7.5) --          % 6 -> 7  (s=3, odd: down-left)
+    (3.5,7.5) --          % 7 -> 8
+    (2.5,6.5) --          % 8 -> 9
+    (1.5,5.5) --          % 9 -> 10
+    (0.5,4.5) --          % 10->11 (s=4, even: up-right)
+    (0.5,3.5) --          % 11->12
+    (1.5,4.5) --          % 12->13
+    (2.5,5.5) --          % 13->14
+    (3.5,6.5) --          % 14->15
+    (4.5,7.5);            % 15
+
+  % Diagonal labels (s values) along the top/right edges
+  \foreach \s/\x/\y in {0/0.5/8.35, 1/1.5/8.35, 2/2.5/8.35, 3/3.5/8.35, 4/4.5/8.35}{
+    \node[font=\tiny, text=gray!70] at (\x,\y) {$s{=}\s$};
+  }
+
+  % Axes
+  \node[below, font=\footnotesize] at (4,0) {$u$ (horizontal freq.) $\longrightarrow$};
+  \node[left, rotate=90, font=\footnotesize] at (-0.6,4) {$\longleftarrow$ $v$ (vertical freq.)};
 \end{tikzpicture}
-\caption{\textbf{Zig-zag scan order} on the $8\times8$ quantised coefficient matrix. The path begins at DC (top-left) and sweeps toward high frequencies (bottom-right), ensuring that the long run of trailing zeros appears at the \emph{end} of the 1D sequence.}
+\caption{Zig-zag scan order on the $8\times8$ quantised matrix. Cells are shaded by diagonal ($s=u+v$): \textcolor{orange!80!black}{$s=0$}, \textcolor{blue!60!black}{$s=1$}, \textcolor{green!60!black}{$s=2$}, \textcolor{purple!60!black}{$s=3$}, \textcolor{red!60!black}{$s=4$}, \ldots The scan visits all cells on diagonal $s$ before moving to $s+1$. Within each diagonal the direction alternates: \emph{even} $s \Rightarrow$ up-right ($v$ decreases, $u$ increases); \emph{odd} $s \Rightarrow$ down-left ($v$ increases, $u$ decreases). Numbers show the scan position of the first 15 cells.}
 \label{fig:zigzag}
 \end{figure}
 
-\textbf{Why zig-zag?} Natural images have most of their energy in low frequencies (top-left of the DCT matrix). After quantisation, high-frequency coefficients become zero. The zig-zag order groups the non-zero coefficients together at the beginning of the sequence, creating long runs of zeros at the end : perfect for run-length encoding!
+\textbf{Why zig-zag?} Natural images have most of their energy in low frequencies (top-left of the DCT matrix, small $s$). After quantisation, high-frequency coefficients (large $s$) become zero. The zig-zag order groups the non-zero coefficients together at the beginning of the 1D sequence, creating long runs of zeros at the end — perfect for run-length encoding.
 
 % ============================================================
 %  EXAMPLE 4 : Zig-Zag scan and RLE, fully worked
 % ============================================================
 
 \begin{examplebox}
-\textbf{Example 4: Zig-Zag Scan and Run-Length Encoding : Full Walkthrough}
+\textbf{Example 4: Zig-Zag Scan and Run-Length Encoding — Full Walkthrough}
 
 \medskip
 \noindent We continue from Example~3.  Our quantised $8\times8$ matrix has
@@ -1009,48 +1085,44 @@ with all 60 remaining entries equal to zero.
 \medskip
 \noindent\textbf{Step 1 : Read off the zig-zag sequence.}
 
-The zig-zag path visits positions in this order (showing only the first 12
-of 64 positions for clarity):
+\noindent Applying the rule from Table~\ref{tab:zigzag} — visit diagonals $s=0,1,2,\ldots$ and alternate direction within each — gives:
 
 \begin{center}
 \setlength{\tabcolsep}{5pt}
-\begin{tabular}{cccc}
+\begin{tabular}{ccccc}
 \toprule
-Zig-zag position & Matrix index $(u,v)$ & Value $\hat{D}(u,v)$ & Remark \\
+Position & $s{=}u{+}v$ & Direction & $(u,\,v)$ & $\hat{D}(u,v)$ \\
 \midrule
-1  & $(0,0)$ & $+59$ & DC coefficient \\
-2  & $(1,0)$ & $-1$  & 1\textsuperscript{st} AC non-zero \\
-3  & $(0,1)$ & $-1$  & 2\textsuperscript{nd} AC non-zero \\
-4  & $(0,2)$ & $0$   & zero \\
-5  & $(1,1)$ & $+1$  & 3\textsuperscript{rd} AC non-zero \\
-6  & $(2,0)$ & $0$   & zero \\
-7  & $(3,0)$ & $0$   & zero \\
-8  & $(2,1)$ & $0$   & zero \\
-9  & $(1,2)$ & $0$   & zero \\
-10 & $(0,3)$ & $0$   & zero \\
-$\vdots$ & $\vdots$ & $0$ & (all zeros to position 64) \\
+1 & 0 & — & $(0,0)$ & $+59$ \quad [DC coefficient] \\
+2 & 1 & $\downarrow$-left & $(1,0)$ & $-1$ \\
+3 & 1 & $\downarrow$-left & $(0,1)$ & $-1$ \\
+4 & 2 & $\uparrow$-right & $(0,2)$ & $0$ \\
+5 & 2 & $\uparrow$-right & $(1,1)$ & $+1$ \\
+6 & 2 & $\uparrow$-right & $(2,0)$ & $0$ \\
+7 & 3 & $\downarrow$-left & $(3,0)$ & $0$ \\
+8 & 3 & $\downarrow$-left & $(2,1)$ & $0$ \\
+9 & 3 & $\downarrow$-left & $(1,2)$ & $0$ \\
+10 & 3 & $\downarrow$-left & $(0,3)$ & $0$ \\
+$\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $0$ \quad (all zeros to position 64) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
+\noindent\textit{Check for position 5}: diagonal $s=2$ is \emph{even}, so we travel up-right ($v$ decreases, $u$ increases). Starting from $(0,2)$ at position 4, the next cell is $(1,1)$, then $(2,0)$ — exactly as shown. This is how you resolve the ambiguity within a diagonal: the direction rule tells you which end to start from and which way to walk.
+
 \noindent The full 1-D sequence is:
 \[
-  \underbrace{59}_{\text{position 1 (DC)}},\;
-  \underbrace{-1,\;-1,\;0,\;+1}_{\text{positions 2--5 (AC)}},\;
-  \underbrace{0,\;0,\;\ldots,\;0}_{59\text{ zeros (positions 6--64)}}.
+  \underbrace{59}_{\text{pos.\,1 (DC)}},\;
+  \underbrace{-1,\;-1,\;0,\;+1}_{\text{pos.\,2--5 (AC)}},\;
+  \underbrace{0,\;0,\;\ldots,\;0}_{59\text{ zeros (pos.\,6--64)}}.
 \]
-
-\textit{Why is this ordering useful?}  Because natural images have little
-high-frequency energy, quantisation typically zeroes most of the high-frequency
-coefficients.  The zig-zag order guarantees that these zeros cluster at the
-\emph{end} of the sequence, giving RLE a long run to exploit.
 
 \medskip
 \noindent\textbf{Step 2 : Encode the DC coefficient with DPCM.}
 
-The DC value is not stored absolutely.  Instead, JPEG records the
-\emph{difference} from the previous block's DC value.  Suppose the
-preceding block had $\hat{D}_{\text{prev}}(0,0)=55$.  Then:
+The DC value is not stored absolutely. Instead, JPEG records the
+\emph{difference} from the previous block's DC value. Suppose the
+preceding block had $\hat{D}_{\text{prev}}(0,0)=55$. Then:
 \[
   \Delta_{\text{DC}} = 59 - 55 = \mathbf{4}.
 \]
@@ -1110,7 +1182,9 @@ These 5 symbols are then passed to Huffman coding (Example~5), which
 compresses them further.
 \end{examplebox}
 
-\subsubsection{Step 5 : Run-Length Encoding (RLE)} (Note: This step is covered in Example 4 above)
+\subsubsection{Step 5 : Run-Length Encoding (RLE)}
+
+\noindent\textit{Note: The worked RLE example is covered in Example~4 above.}
 
 \begin{definitionbox}
 \textbf{JPEG AC RLE Format:} Each non-zero AC coefficient is encoded as a pair \texttt{(RUNLENGTH, VALUE)} where \texttt{RUNLENGTH} is the count of zero coefficients immediately preceding it (0--15). A special \textbf{End-of-Block (EOB)} symbol \texttt{(0,0)} signals that all remaining coefficients in the block are zero.
