@@ -838,7 +838,7 @@ two CNOT gates produce the encoded state:
   &\xrightarrow{\text{CNOT}_{1,2}}
     \alpha\ket{000} + \beta\ket{110}\\
   &\xrightarrow{\text{CNOT}_{1,3}}
-    \alpha\ket{000} + \beta\ket{111}. \checkmark
+    \alpha\ket{000} + \beta\ket{111}. 
 \end{align*}
 
 \subsubsection{Quantum Syndrome Measurement}
@@ -903,7 +903,7 @@ The measurement outcome is $g_2 = -1$.
 to an $X_2$ error.  We apply $X_2$ to correct:
 \[
   X_2\bigl(\alpha\ket{010}+\beta\ket{101}\bigr)
-  = \alpha\ket{000}+\beta\ket{111}. \checkmark
+  = \alpha\ket{000}+\beta\ket{111}. 
 \]
 The encoded state is perfectly restored.  Note that $\alpha$ and $\beta$
 were never measured and are unaffected.
@@ -1052,6 +1052,8 @@ introduces an additional error.
 \end{itemize}
 \end{summarybox}
 
+
+%%%
 % ======================================================================
 % SECTION 4: SHOR 9-QUBIT CODE
 % ======================================================================
@@ -1060,38 +1062,114 @@ introduces an additional error.
 \label{sec:shor}
 
 \begin{intuition}
-The 3-qubit bit-flip code fixes $X$ errors; the 3-qubit phase-flip code fixes
-$Z$ errors.  Shor's idea was beautifully simple: \emph{concatenate} the two.
-First encode the logical qubit into three qubits using the phase-flip code.
-Then encode each of those three qubits into three more qubits using the
-bit-flip code.  The result is a 9-qubit code that corrects any single-qubit
-error.
+The \textbf{3-qubit bit-flip code} can fix $X$ (bit-flip) errors but is
+helpless against $Z$ (phase-flip) errors.  Conversely, the \textbf{3-qubit
+phase-flip code} fixes $Z$ errors but not $X$ errors.  Peter Shor's key
+insight was to \emph{combine both codes by nesting one inside the other}
+--- a technique called \textbf{concatenation}:
+
+\begin{enumerate}
+  \item \textbf{Outer layer (phase-flip code):} Encode the single logical
+        qubit into \emph{three} qubits using the phase-flip code.  This
+        protects against $Z$ errors across the three groups.
+  \item \textbf{Inner layer (bit-flip code):} Take each of those three
+        qubits and encode \emph{it} into three more qubits using the
+        bit-flip code.  This protects against $X$ errors within each group.
+\end{enumerate}
+The result uses $3 \times 3 = 9$ physical qubits to store 1 logical qubit,
+and corrects \emph{any} single-qubit error ($X$, $Z$, or $Y$) on any one
+of the 9 qubits.
 \end{intuition}
 
-\subsection{Encoding}
+% ----------------------------------------------------------------------
+\subsection{Step-by-Step Encoding}
+\label{sec:shor-encoding}
 
-The logical codewords are:
+It is easiest to understand the encoding in two stages.
+
+\subsubsection*{Stage 1 --- Phase-flip code (outer layer)}
+
+Start with an arbitrary logical qubit
+$\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$.
+The 3-qubit phase-flip code maps:
+\[
+  \alpha\ket{0} + \beta\ket{1}
+  \;\xrightarrow{\text{phase-flip encode}}\;
+  \alpha\ket{+}\ket{+}\ket{+} + \beta\ket{-}\ket{-}\ket{-},
+\]
+where $\ket{+} = \tfrac{1}{\sqrt{2}}(\ket{0}+\ket{1})$ and
+$\ket{-} = \tfrac{1}{\sqrt{2}}(\ket{0}-\ket{1})$.
+
+\medskip
+Expanding $\ket{+}$ and $\ket{-}$ explicitly:
+\begin{align*}
+  \alpha\ket{+}\ket{+}\ket{+} + \beta\ket{-}\ket{-}\ket{-}
+  &= \frac{\alpha}{(\sqrt{2})^3}
+    \bigl(\ket{0}+\ket{1}\bigr)
+    \bigl(\ket{0}+\ket{1}\bigr)
+    \bigl(\ket{0}+\ket{1}\bigr)\\
+  &\quad+\frac{\beta}{(\sqrt{2})^3}
+    \bigl(\ket{0}-\ket{1}\bigr)
+    \bigl(\ket{0}-\ket{1}\bigr)
+    \bigl(\ket{0}-\ket{1}\bigr).
+\end{align*}
+At this point we have \textbf{3 qubits}, one per block.
+
+\subsubsection*{Stage 2 --- Bit-flip code (inner layer)}
+
+Now apply the 3-qubit bit-flip code independently to each of the 3 qubits
+from Stage~1:
+\[
+  \ket{0} \;\longrightarrow\; \ket{000}, \qquad
+  \ket{1} \;\longrightarrow\; \ket{111}.
+\]
+Replacing every $\ket{0}$ with $\ket{000}$ and every $\ket{1}$ with
+$\ket{111}$ inside the Stage-1 expression gives the final 9-qubit
+codewords. The logical codewords (subscript $L$ stands for \textbf{logical},
+distinguishing these 9-qubit encoded states from single physical qubits;
+$\ket{0}_L$ and $\ket{1}_L$ are \emph{not} individual qubits but entire
+9-qubit states that an algorithm treats as a single qubit) are:
+
 \begin{align}
   \ket{0}_L &= \frac{1}{2\sqrt{2}}
-    \bigl(\ket{000}+\ket{111}\bigr)^{\otimes 3}, \label{eq:shor-0}\\
+    \bigl(\ket{000}+\ket{111}\bigr)
+    \bigl(\ket{000}+\ket{111}\bigr)
+    \bigl(\ket{000}+\ket{111}\bigr), \label{eq:shor-0}\\[4pt]
   \ket{1}_L &= \frac{1}{2\sqrt{2}}
-    \bigl(\ket{000}-\ket{111}\bigr)^{\otimes 3}. \label{eq:shor-1}
+    \bigl(\ket{000}-\ket{111}\bigr)
+    \bigl(\ket{000}-\ket{111}\bigr)
+    \bigl(\ket{000}-\ket{111}\bigr). \label{eq:shor-1}
 \end{align}
-Written out:
-\begin{align*}
-  \ket{0}_L &= \frac{1}{2\sqrt{2}}
-    \bigl(\ket{000}+\ket{111}\bigr)
-    \bigl(\ket{000}+\ket{111}\bigr)
-    \bigl(\ket{000}+\ket{111}\bigr),\\
-  \ket{1}_L &= \frac{1}{2\sqrt{2}}
-    \bigl(\ket{000}-\ket{111}\bigr)
-    \bigl(\ket{000}-\ket{111}\bigr)
-    \bigl(\ket{000}-\ket{111}\bigr).
-\end{align*}
 
-\subsubsection{Structure of the Encoding}
 
-Figure~\ref{fig:shor-structure} shows the nested structure.
+\begin{keypoint}
+The normalisation factor $\tfrac{1}{2\sqrt{2}}$ comes from
+$\left(\tfrac{1}{\sqrt{2}}\right)^3 = \tfrac{1}{2\sqrt{2}}$.
+Each block $\bigl(\ket{000}\pm\ket{111}\bigr)$ is not individually
+normalised; the factor ensures the full 9-qubit state has unit norm.
+\end{keypoint}
+
+A general logical state $\ket{\psi}_L = \alpha\ket{0}_L + \beta\ket{1}_L$
+is therefore:
+\[
+  \ket{\psi}_L
+  = \frac{\alpha}{2\sqrt{2}}
+    \bigl(\ket{000}+\ket{111}\bigr)^{\otimes 3}
+  + \frac{\beta}{2\sqrt{2}}
+    \bigl(\ket{000}-\ket{111}\bigr)^{\otimes 3}.
+\]
+
+\subsubsection{Block structure}
+
+The 9 qubits are divided into \textbf{three blocks of three}:
+\[
+  \underbrace{q_1\,q_2\,q_3}_{\text{Block 1}},\quad
+  \underbrace{q_4\,q_5\,q_6}_{\text{Block 2}},\quad
+  \underbrace{q_7\,q_8\,q_9}_{\text{Block 3}}.
+\]
+Within each block a bit-flip code is active; across the three blocks a
+phase-flip code is active.  Figure~\ref{fig:shor-structure} shows this
+nested layout.
 
 \begin{figure}[H]
 \centering
@@ -1104,10 +1182,8 @@ Figure~\ref{fig:shor-structure} shows the nested structure.
                minimum width=0.6cm, minimum height=0.6cm, font=\scriptsize},
   label/.style={font=\small}
 ]
-  % Outer phase-flip structure
   \node[outer, label=above:{Phase-flip code block (3 blocks)}] (outer) {%
     \begin{tikzpicture}
-      % Block 1
       \node[inner, label=above:{\scriptsize Block 1}] (b1) {%
         \begin{tikzpicture}
           \node[qbox] (q1) {$q_1$};
@@ -1115,7 +1191,6 @@ Figure~\ref{fig:shor-structure} shows the nested structure.
           \node[qbox, right=0.1cm of q2] (q3) {$q_3$};
         \end{tikzpicture}
       };
-      % Block 2
       \node[inner, right=0.5cm of b1, label=above:{\scriptsize Block 2}] (b2) {%
         \begin{tikzpicture}
           \node[qbox] (q4) {$q_4$};
@@ -1123,7 +1198,6 @@ Figure~\ref{fig:shor-structure} shows the nested structure.
           \node[qbox, right=0.1cm of q5] (q6) {$q_6$};
         \end{tikzpicture}
       };
-      % Block 3
       \node[inner, right=0.5cm of b2, label=above:{\scriptsize Block 3}] (b3) {%
         \begin{tikzpicture}
           \node[qbox] (q7) {$q_7$};
@@ -1133,22 +1207,83 @@ Figure~\ref{fig:shor-structure} shows the nested structure.
       };
     \end{tikzpicture}
   };
-
-  % Annotations
-  \draw[<->, thick, orange!70!black] ($ (outer.south west) + (0.35,-0.3) $)
+  \draw[<->, thick, orange!70!black]
+    ($ (outer.south west) + (0.35,-0.3) $)
     -- node[below, font=\small] {bit-flip code within each block}
     ($ (outer.south east) + (-0.35,-0.3) $);
-  \draw[<->, thick, blue!70!black] ($ (outer.west) + (-0.1,0) $)
+  \draw[<->, thick, blue!70!black]
+    ($ (outer.west) + (-0.1,0) $)
     -- node[left, font=\small, align=right] {phase-flip\\code\\across\\blocks}
     ($ (outer.west) + (-0.1,-2.0) $);
 \end{tikzpicture}
-\caption{The nested structure of the Shor 9-qubit code.  Three groups of
-three qubits each form a bit-flip code.  Across the three groups, the overall
-structure forms a phase-flip code.}
+\caption{Nested structure of the Shor 9-qubit code.  The three inner green
+boxes each form a 3-qubit \emph{bit-flip} code protecting against $X$ errors.
+The outer blue box represents the 3-qubit \emph{phase-flip} code protecting
+against $Z$ errors across the three blocks.}
 \label{fig:shor-structure}
 \end{figure}
 
-\subsubsection{Encoding Circuit}
+% ----------------------------------------------------------------------
+\subsubsection{Encoding Circuit and What It Produces}
+\label{sec:shor-circuit}
+
+Figure~\ref{fig:shor-encoding} shows the encoding circuit.
+We trace through it step by step for input
+$\ket{\psi} = \alpha\ket{0}+\beta\ket{1}$.
+
+\paragraph{Initial state.}
+\[
+  \ket{\Psi_0}
+  = \bigl(\alpha\ket{0}+\beta\ket{1}\bigr)
+    \otimes\ket{0}^{\otimes 8}.
+\]
+
+\paragraph{Step 1 --- Two CNOTs copy $q_1$ to $q_4$ and $q_7$.}
+Qubits $q_4$ and $q_7$ become the ``leaders'' of blocks 2 and 3:
+\[
+  \ket{\Psi_1}
+  = \alpha\ket{0}\ket{00}\ket{0}\ket{00}\ket{0}\ket{00}
+  + \beta\ket{1}\ket{00}\ket{1}\ket{00}\ket{1}\ket{00}.
+\]
+(Within each block, only the leader qubit is set; the two ancillas are
+still $\ket{0}$.)
+
+\paragraph{Step 2 --- Hadamard on each block leader $q_1$, $q_4$, $q_7$.}
+Each leader transforms as $\ket{0}\to\ket{+}$ and $\ket{1}\to\ket{-}$:
+\begin{align*}
+  \ket{\Psi_2}
+  &= \alpha\ket{+}\ket{00}\ket{+}\ket{00}\ket{+}\ket{00}
+   + \beta\ket{-}\ket{00}\ket{-}\ket{00}\ket{-}\ket{00}\\[4pt]
+  &= \frac{\alpha}{2\sqrt{2}}
+    \bigl(\ket{0}+\ket{1}\bigr)\ket{00}\,
+    \bigl(\ket{0}+\ket{1}\bigr)\ket{00}\,
+    \bigl(\ket{0}+\ket{1}\bigr)\ket{00}\\
+  &\quad+\frac{\beta}{2\sqrt{2}}
+    \bigl(\ket{0}-\ket{1}\bigr)\ket{00}\,
+    \bigl(\ket{0}-\ket{1}\bigr)\ket{00}\,
+    \bigl(\ket{0}-\ket{1}\bigr)\ket{00}.
+\end{align*}
+
+\paragraph{Step 3 --- Two CNOTs within each block spread the leader to its
+two ancillas.}
+Inside each block: $\ket{0}\ket{00}\to\ket{000}$ and
+$\ket{1}\ket{00}\to\ket{111}$.
+The full 9-qubit output state is:
+\begin{equation}
+  \boxed{
+  \ket{\Psi_{\mathrm{enc}}}
+  = \frac{\alpha}{2\sqrt{2}}
+    \bigl(\ket{000}+\ket{111}\bigr)\!
+    \bigl(\ket{000}+\ket{111}\bigr)\!
+    \bigl(\ket{000}+\ket{111}\bigr)
+  + \frac{\beta}{2\sqrt{2}}
+    \bigl(\ket{000}-\ket{111}\bigr)\!
+    \bigl(\ket{000}-\ket{111}\bigr)\!
+    \bigl(\ket{000}-\ket{111}\bigr)
+  }
+\label{eq:shor-output}
+\end{equation}
+which is exactly $\alpha\ket{0}_L + \beta\ket{1}_L$ as required.
 
 \begin{figure}[H]
 \centering
@@ -1156,31 +1291,40 @@ structure forms a phase-flip code.}
 \begin{quantikz}[row sep=0.35cm, column sep=0.5cm]
   \lstick{$\ket{\psi}$}
     & \ctrl{3} & \ctrl{6}
-    & \gate{H} & \ctrl{1} & \ctrl{2} & \qw\\
-  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \qw & \qw\\
-  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \qw & \qw\\
+    & \gate{H} & \ctrl{1} & \ctrl{2} & \qw & \rstick{$q_1$}\\
+  \lstick{$\ket{0}$} & \qw & \qw & \qw & \targ{} & \qw & \qw & \rstick{$q_2$}\\
+  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \targ{} & \qw & \rstick{$q_3$}\\
   \lstick{$\ket{0}$} & \targ{} & \qw
-    & \gate{H} & \ctrl{1} & \ctrl{2} & \qw\\
-  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \qw & \qw\\
-  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \qw & \qw\\
+    & \gate{H} & \ctrl{1} & \ctrl{2} & \qw & \rstick{$q_4$}\\
+  \lstick{$\ket{0}$} & \qw & \qw & \qw & \targ{} & \qw & \qw & \rstick{$q_5$}\\
+  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \targ{} & \qw & \rstick{$q_6$}\\
   \lstick{$\ket{0}$} & \qw & \targ{}
-    & \gate{H} & \ctrl{1} & \ctrl{2} & \qw\\
-  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \qw & \qw\\
-  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \qw & \qw
+    & \gate{H} & \ctrl{1} & \ctrl{2} & \qw & \rstick{$q_7$}\\
+  \lstick{$\ket{0}$} & \qw & \qw & \qw & \targ{} & \qw & \qw & \rstick{$q_8$}\\
+  \lstick{$\ket{0}$} & \qw & \qw & \qw & \qw & \targ{} & \qw & \rstick{$q_9$}
 \end{quantikz}}
-\caption{Shor code encoding circuit (simplified).  First two CNOTs copy the
-logical qubit to qubits 4 and 7 (phase-flip structure).  Then Hadamards
-create superpositions.  Finally CNOTs within each block of three create the
-bit-flip structure.  Rows 2--3, 5--6, 8--9 receive the CNOT targets from
-their respective block leaders.}
+\caption{Shor code encoding circuit.
+\textbf{Step 1} (columns 1--2): two CNOTs copy the logical qubit to
+$q_4$ and $q_7$, forming the phase-flip backbone across the three blocks.
+\textbf{Step 2} (column 3): Hadamards on $q_1$, $q_4$, $q_7$ create
+$(\pm)$-basis superpositions in each block leader.
+\textbf{Step 3} (columns 4--5): CNOTs within each block spread the leader
+to its two ancillas, producing the $\ket{000}\pm\ket{111}$ structure.
+Output state: Eq.~\eqref{eq:shor-output}.}
 \label{fig:shor-encoding}
 \end{figure}
 
+% ----------------------------------------------------------------------
 \subsection{Stabilizer Generators}
 \label{sec:shor-stabilizers}
 
-The Shor code is a stabilizer code (see Section~\ref{sec:stabilizer}).
-Its 8 independent generators are:
+The Shor code is a \textbf{stabilizer code} (see Section~\ref{sec:stabilizer}).
+A stabilizer is an operator $g$ such that $g\ket{\psi_L} = +\ket{\psi_L}$
+for every valid codeword.  Errors are detected because an error $E$ on a
+single qubit will \emph{anticommute} with some stabilizer generators,
+flipping their eigenvalue from $+1$ to $-1$.
+
+The 8 independent generators divide into two families.
 
 \subsubsection{Bit-flip stabilizers (within each 3-qubit block)}
 
@@ -1190,8 +1334,15 @@ Its 8 independent generators are:
   g_5 = Z_7 Z_8,\quad g_6 = Z_8 Z_9.
 \]
 
-Each $Z_i Z_j$ detects an $X$ error on qubit $i$ or $j$ within its block
-(a ``parity check'' in the computational basis).
+\begin{intuition}
+Within block~1 the valid states are $\ket{000}$ and $\ket{111}$.  Both
+satisfy $Z_1 Z_2\ket{000} = (+1)(+1)\ket{000} = +\ket{000}$ and
+$Z_1 Z_2\ket{111} = (-1)(-1)\ket{111} = +\ket{111}$.
+If an $X$ error flips qubit~2, the state becomes $\ket{010}$ or $\ket{101}$,
+and $Z_1 Z_2$ gives eigenvalue $-1$, signalling the error.
+Each $Z_i Z_j$ acts as a \emph{parity check} in the computational basis
+within its block.
+\end{intuition}
 
 \subsubsection{Phase-flip stabilizers (across blocks)}
 
@@ -1200,79 +1351,175 @@ Each $Z_i Z_j$ detects an $X$ error on qubit $i$ or $j$ within its block
   g_8 = X_1 X_2 X_3 X_7 X_8 X_9.
 \]
 
-These 6-qubit operators detect relative phase errors \emph{between} the
-three blocks.
+\begin{intuition}
+These 6-qubit operators compare the \emph{relative phase} between blocks.
+In $\ket{0}_L$ all three blocks have a $+$ sign, so both $g_7$ and $g_8$
+give $+1$.  A $Z$ error on any qubit in block~1 flips the relative
+sign between block~1 and the others, causing $g_7$ and $g_8$ to return
+$-1$.
+\end{intuition}
 
 \begin{keypoint}
-Eight generators for 9 qubits leave $2^{9-8} = 2$ code states --- encoding
-exactly 1 logical qubit.  All 8 generators commute pairwise (necessary for
-a valid stabilizer code).
+Eight generators for 9 physical qubits $\Rightarrow$ $2^{9-8} = 2$
+code states, encoding exactly \textbf{1 logical qubit}.
+All 8 generators commute pairwise --- a necessary condition for a valid
+stabilizer code.
 \end{keypoint}
 
-\subsection{Error Correction Capability}
+% ----------------------------------------------------------------------
+\subsection{Error Correction: How It Works}
 
-\begin{workedexample}[Correcting a bit-flip on qubit 5]
-Suppose $X_5$ occurs.  State after error:
-$X_5\ket{\psi_L}$ (some modified encoded state).
+When a physical error occurs, we measure all 8 stabilizers without
+disturbing the logical information.  The pattern of $\pm 1$ outcomes ---
+the \textbf{syndrome} --- uniquely identifies the error, which we then undo
+with a correction gate.
 
-\textbf{Bit-flip stabilizers for block 2:}
-\begin{align*}
-  g_3 = Z_4 Z_5: &\quad Z_4 \text{ commutes with } X_5,\;
-    Z_5 \text{ anticommutes with } X_5 \Rightarrow g_3 = -1.\\
-  g_4 = Z_5 Z_6: &\quad Z_5 \text{ anticommutes with } X_5,\;
-    Z_6 \text{ commutes} \Rightarrow g_4 = -1.
-\end{align*}
-All other generators commute with $X_5$ (they act on different qubits or
-commute position-by-position), giving $+1$.
+\begin{workedexample}[Correcting a bit-flip ($X_5$) on qubit~5]
+Suppose qubit~5 suffers an $X$ error.
 
-\textbf{Syndrome:} $g_3 = -1$, $g_4 = -1$, all others $= +1$.  This
-uniquely identifies qubit 5 in block 2.  Apply $X_5$ to correct.
+\medskip\noindent
+\textbf{Why do generators in block~2 fire?}
+Qubit~5 belongs to block~2.  The bit-flip stabilizers for block~2 are
+$g_3 = Z_4 Z_5$ and $g_4 = Z_5 Z_6$.  Since $Z$ and $X$ anticommute
+($ZX = -XZ$), measuring $g_3$ or $g_4$ after the error on qubit~5
+flips their sign.
+
+\medskip\noindent
+\textbf{Syndrome computation:}
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{clc}
+\hline
+Generator & Relation to $X_5$ & Outcome \\
+\hline
+$g_1 = Z_1 Z_2$ & acts on qubits 1,2 only --- commutes & $+1$ \\
+$g_2 = Z_2 Z_3$ & acts on qubits 2,3 only --- commutes & $+1$ \\
+$g_3 = Z_4 Z_5$ & $Z_5$ anticommutes with $X_5$ & $\mathbf{-1}$ \\
+$g_4 = Z_5 Z_6$ & $Z_5$ anticommutes with $X_5$ & $\mathbf{-1}$ \\
+$g_5 = Z_7 Z_8$ & acts on qubits 7,8 only --- commutes & $+1$ \\
+$g_6 = Z_8 Z_9$ & acts on qubits 8,9 only --- commutes & $+1$ \\
+$g_7 = X_1 X_2 X_3 X_4 X_5 X_6$ & $X_5$ commutes with $X_5$ & $+1$ \\
+$g_8 = X_1 X_2 X_3 X_7 X_8 X_9$ & does not act on qubit~5 & $+1$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\medskip\noindent
+\textbf{Syndrome:} $(g_1,\ldots,g_8) = (+,+,-,-,+,+,+,+)$.
+
+\medskip\noindent
+\textbf{Interpretation:} Only $g_3$ and $g_4$ flipped --- both share
+qubit~5.  Within block~2 both parity checks failed, pointing to the
+middle qubit.
+
+\medskip\noindent
+\textbf{Correction:} Apply $X_5$.
 \end{workedexample}
 
-\begin{workedexample}[Correcting a phase-flip on qubit 2]
-Suppose $Z_2$ occurs.  We check the phase stabilizers:
+\begin{workedexample}[Correcting a phase-flip ($Z_2$) on qubit~2]
+Suppose qubit~2 suffers a $Z$ error.
 
-$Z_2$ anticommutes with $X_2$ (a factor in both $g_7$ and $g_8$), so
-both $g_7$ and $g_8$ flip sign: $g_7 = -1$, $g_8 = -1$.
+\medskip\noindent
+\textbf{Why do phase stabilizers fire?}
+$Z_2$ anticommutes with $X_2$.  Qubit~2 appears as an $X_2$ factor in
+both $g_7$ and $g_8$.
 
-The bit-flip stabilizers $g_1 = Z_1 Z_2$ and $g_2 = Z_2 Z_3$: does $Z_2$
-commute with $Z_1 Z_2$?  Yes: $Z_2 \cdot Z_1 Z_2 = Z_1 Z_2^2 = Z_1$, but
-since we are checking whether $Z_2$ commutes with $g_1$ as an \emph{operator},
-note that $Z_2$ and $Z_j$ always commute (both are $Z$-type).  So the
-bit-flip stabilizers all give $+1$.
+\medskip\noindent
+\textbf{Syndrome computation:}
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{clc}
+\hline
+Generator & Relation to $Z_2$ & Outcome \\
+\hline
+$g_1 = Z_1 Z_2$ & $Z_2$ commutes with $Z_2$ ($ZZ = ZZ$) & $+1$ \\
+$g_2 = Z_2 Z_3$ & $Z_2$ commutes with $Z_2$ & $+1$ \\
+$g_3,g_4,g_5,g_6$ & act on blocks 2 and 3 only & $+1$ \\
+$g_7 = X_1 X_2 X_3 X_4 X_5 X_6$ & $X_2$ anticommutes with $Z_2$ & $\mathbf{-1}$ \\
+$g_8 = X_1 X_2 X_3 X_7 X_8 X_9$ & $X_2$ anticommutes with $Z_2$ & $\mathbf{-1}$ \\
+\hline
+\end{tabular}
+\end{center}
 
-\textbf{Syndrome:} $g_7 = g_8 = -1$, others $+1$.  This indicates a
-phase flip in block 1 (blocks 1 and 2 relative to block 3).  We apply a
-correction operator to fix the phase.
+\medskip\noindent
+\textbf{Syndrome:} $(g_1,\ldots,g_8) = (+,+,+,+,+,+,-,-)$.
+
+\medskip\noindent
+\textbf{Interpretation:} Both $g_7$ and $g_8$ flipped.  $g_7$ involves
+blocks 1\&2 vs.\ block~3; $g_8$ involves blocks 1\&2 vs.\ block~3.
+Both firing indicates a phase error in \textbf{block~1}.
+The bit-flip stabilizers all gave $+1$, confirming there is no
+bit-flip --- the error is a pure phase flip.
+
+\medskip\noindent
+\textbf{Correction:} Apply $Z$ to any one qubit in block~1
+(e.g.\ $Z_1$, $Z_2$, or $Z_3$) to restore the correct phase.
+
+\medskip
+\textit{Note:} The syndrome identifies \emph{which block} has the phase
+error but not \emph{which specific qubit} within the block.  This is
+fine: a $Z$ error on any qubit within a block has the same effect on
+the encoded state, so applying $Z$ to any qubit in that block corrects
+it.
 \end{workedexample}
 
+% ----------------------------------------------------------------------
 \subsection{Correcting Arbitrary Single-Qubit Errors}
 
-Any single-qubit error $E = c_0 I + c_1 X + c_2 Y + c_3 Z$ on any one of
-the 9 qubits can be corrected:
+Any single-qubit error on any of the 9 qubits can be written as
+$E = c_0 I + c_1 X + c_2 Y + c_3 Z$.  Because error correction is
+linear, it suffices to show we can correct each Pauli separately.
 
 \begin{enumerate}
-  \item $I$: trivial (no error).
-  \item $X$ on qubit $j$: identified by bit-flip stabilizers of the block
-        containing $j$.
-  \item $Z$ on qubit $j$: identified by phase stabilizers $g_7, g_8$
-        (relative signs between blocks tell us which block, bit-flip
-        stabilizers within the block locate the qubit).
-  \item $Y = iXZ$: produces both $X$- and $Z$-type syndrome outcomes
-        simultaneously; both are corrected.
+  \item \textbf{$I$ (no error):} Syndrome is all $+1$; no correction needed.
+
+  \item \textbf{$X_j$ (bit-flip on qubit $j$):}
+        The two bit-flip stabilizers within the block containing $j$ both
+        return $-1$; all others return $+1$.  The syndrome uniquely
+        identifies the block and the position of $j$ within it.
+        Apply $X_j$ to correct.
+
+  \item \textbf{$Z_j$ (phase-flip on qubit $j$):}
+        $Z_j$ commutes with all $Z$-type bit-flip stabilizers, so
+        $g_1$--$g_6$ return $+1$.  $Z_j$ anticommutes with the $X_j$
+        factor in $g_7$ and/or $g_8$, flipping those outcomes.  The
+        pattern of $g_7, g_8$ identifies which block is affected.
+        Apply $Z$ to any qubit in that block.
+
+  \item \textbf{$Y_j = iX_j Z_j$ (combined error on qubit $j$):}
+        $Y$ triggers \emph{both} the bit-flip and the phase-flip syndromes
+        simultaneously.  Apply $X_j$ to fix the bit-flip and $Z_j$ to fix
+        the phase-flip (or equivalently apply $Y_j$).
 \end{enumerate}
 
+\begin{keypoint}
+The syndromes for $X$, $Z$, and $Y$ errors on every qubit are all
+\textbf{distinct}, covering every non-trivial syndrome pattern.  The Shor
+code therefore corrects \textbf{any single-qubit error on any of the 9
+qubits} while preserving the logical qubit perfectly.
+\end{keypoint}
+
+% ----------------------------------------------------------------------
 \subsection{Logical Operators}
 
-The logical operators acting on the encoded qubit are:
+The operators that act \emph{logically} on the encoded qubit without being
+detected by the stabilizers are:
 \[
-  \bar{X} = X_1 X_2 X_3 X_4 X_5 X_6 X_7 X_8 X_9
-          = X^{\otimes 9},
+  \bar{X} = X_1 X_2 X_3 X_4 X_5 X_6 X_7 X_8 X_9 = X^{\otimes 9},
 \]
 \[
   \bar{Z} = Z_1 Z_2 Z_3.
 \]
-(Any $Z_j Z_k Z_l$ with one qubit from each block also works for $\bar{Z}$.)
+
+\begin{intuition}
+$\bar{X} = X^{\otimes 9}$ commutes with all 8 stabilizer generators and
+flips the logical bit: $\ket{0}_L \leftrightarrow \ket{1}_L$.
+
+$\bar{Z} = Z_1 Z_2 Z_3$ commutes with all stabilizers and introduces a
+relative phase between $\ket{0}_L$ and $\ket{1}_L$.  Any product of one
+$Z$ from each block works equally well, e.g.\ $Z_1 Z_4 Z_7$ or
+$Z_2 Z_5 Z_8$.
+\end{intuition}
 
 \begin{exercise}
 Verify that $g_7$ and $g_8$ commute.  (\emph{Hint:} they share 3 common
@@ -1564,10 +1811,10 @@ $k$ logical qubits into $n$ physical qubits.
 The 3-qubit bit-flip code has stabilizer $S = \langle Z_1Z_2, Z_2Z_3 \rangle$.
 We check that $\ket{000}$ and $\ket{111}$ are in the code space:
 \begin{align*}
-  Z_1 Z_2 \ket{000} &= (+1)(+1)\ket{000} = +\ket{000}, \checkmark\\
-  Z_2 Z_3 \ket{000} &= (+1)(+1)\ket{000} = +\ket{000}, \checkmark\\
-  Z_1 Z_2 \ket{111} &= (-1)(-1)\ket{111} = +\ket{111}, \checkmark\\
-  Z_2 Z_3 \ket{111} &= (-1)(-1)\ket{111} = +\ket{111}. \checkmark
+  Z_1 Z_2 \ket{000} &= (+1)(+1)\ket{000} = +\ket{000}, \\
+  Z_2 Z_3 \ket{000} &= (+1)(+1)\ket{000} = +\ket{000}, \\
+  Z_1 Z_2 \ket{111} &= (-1)(-1)\ket{111} = +\ket{111}, \\
+  Z_2 Z_3 \ket{111} &= (-1)(-1)\ket{111} = +\ket{111}. 
 \end{align*}
 Any superposition $\alpha\ket{000}+\beta\ket{111}$ is therefore also in the
 code space.  We have $n=3$, 2 generators, so $k = 3-2 = 1$ logical qubit
@@ -1901,7 +2148,7 @@ For distance $d$:
 Number of $Z$-stabilizers: $5\times4 = 20$.\\
 Number of $X$-stabilizers: $5\times4 = 20$.\\
 Total stabilizer measurements: $20 + 20 = 40$.\\
-Logical qubits: $41 - 40 = 1$. \checkmark\\
+Logical qubits: $41 - 40 = 1$. \\
 Code distance: $d = 5$, so we can correct up to
 $\lfloor(5-1)/2\rfloor = 2$ errors.
 \end{workedexample}
