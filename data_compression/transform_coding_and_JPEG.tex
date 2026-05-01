@@ -277,109 +277,6 @@ The fast 1D DCT of length 8 requires approximately $\frac{N}{2}\log_2 N = 4 \tim
 \end{itemize}
 The $64\times$ speedup figure (4096 vs 64) assumes a highly optimized fast DCT that further prunes operations through combined row-column planning and coefficient precomputation. Even the conservative $192$ operations represent a $21\times$ speedup over naive $4096$ — both are massive gains that make real-time JPEG encoding feasible.
 
-% ============================================================
-%  EXAMPLE 1 : Computing a 1-D DCT coefficient step by step
-% ============================================================
-
-\begin{examplebox}
-\textbf{Example 1: Computing a 1-D DCT Coefficient Step by Step}
-
-\medskip
-\noindent\textbf{Goal.} Compute the first-frequency AC coefficient $D_{1D}(1)$ for the top row
-of our sky block: $[142,\;148,\;155,\;160,\;158,\;150,\;145,\;140]$.
-
-\medskip
-\noindent\textbf{The 1-D DCT formula.}
-\begin{equation}
-  D_{1D}(u) = \frac{C(u)}{2}\sum_{x=0}^{7} p(x)\,
-              \cos\!\left(\frac{(2x+1)\,u\,\pi}{16}\right),
-  \qquad
-  C(u)=\begin{cases}1/\sqrt{2} & u=0\\1 & u>0\end{cases}
-\end{equation}
-
-For $u=1$ we have $C(1)=1$, so the formula simplifies to
-\[
-  D_{1D}(1) = \frac{1}{2}\sum_{x=0}^{7} p(x)\,
-              \cos\!\left(\frac{(2x+1)\,\pi}{16}\right).
-\]
-
-\medskip
-\noindent\textbf{Step 1 : Evaluate the cosine values.}
-
-Substitute $x=0,1,\ldots,7$ one at a time.  The argument of the cosine is
-$\theta_x = \frac{(2x+1)\pi}{16}$:
-
-\begin{center}
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{ccccc}
-\toprule
-$x$ & Argument $\theta_x$ & Exact form & Decimal & $p(x)$ \\
-\midrule
-0 & $\dfrac{1\cdot\pi}{16}$ & $\cos(11.25°)$ & $+0.9808$ & 142 \\[6pt]
-1 & $\dfrac{3\cdot\pi}{16}$ & $\cos(33.75°)$ & $+0.8315$ & 148 \\[6pt]
-2 & $\dfrac{5\cdot\pi}{16}$ & $\cos(56.25°)$ & $+0.5556$ & 155 \\[6pt]
-3 & $\dfrac{7\cdot\pi}{16}$ & $\cos(78.75°)$ & $+0.1951$ & 160 \\[6pt]
-4 & $\dfrac{9\cdot\pi}{16}$ & $\cos(101.25°)$ & $-0.1951$ & 158 \\[6pt]
-5 & $\dfrac{11\cdot\pi}{16}$ & $\cos(123.75°)$ & $-0.5556$ & 150 \\[6pt]
-6 & $\dfrac{13\cdot\pi}{16}$ & $\cos(146.25°)$ & $-0.8315$ & 145 \\[6pt]
-7 & $\dfrac{15\cdot\pi}{16}$ & $\cos(168.75°)$ & $-0.9808$ & 140 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent\textit{Notice the symmetry:} the cosines for $x=0$ and $x=7$ have
-equal magnitude but the sign of the $x=7$ term is negative.  Cosines
-beyond $90°$ are negative because those pixels are ``out of phase'' with the
-frequency-1 pattern.
-
-\medskip
-\noindent\textbf{Step 2 : Multiply each pixel by its cosine weight.}
-
-\begin{center}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{cccc}
-\toprule
-$x$ & $p(x)$ & Cosine weight & Product $p(x)\times\cos(\theta_x)$ \\
-\midrule
-0 & 142 & $+0.9808$ & $142\times(+0.9808)=+139.27$ \\
-1 & 148 & $+0.8315$ & $148\times(+0.8315)=+123.06$ \\
-2 & 155 & $+0.5556$ & $155\times(+0.5556)=+86.12$  \\
-3 & 160 & $+0.1951$ & $160\times(+0.1951)=+31.22$  \\
-4 & 158 & $-0.1951$ & $158\times(-0.1951)=-30.82$  \\
-5 & 150 & $-0.5556$ & $150\times(-0.5556)=-83.34$  \\
-6 & 145 & $-0.8315$ & $145\times(-0.8315)=-120.57$ \\
-7 & 140 & $-0.9808$ & $140\times(-0.9808)=-137.31$ \\
-\midrule
-  &     & \textbf{Sum} & $+139.27+123.06+86.12+31.22$\\
-  &     &              & $\quad -30.82-83.34-120.57-137.31$ \\
-  &     &              & $= \mathbf{+7.63}$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent\textit{Why is the sum so small?}  The positive and negative products
-nearly cancel.  This makes intuitive sense: the top row changes slowly (values
-142--160--140), so there is very little frequency-1 content.
-
-\medskip
-\noindent\textbf{Step 3 : Apply the scaling factor.}
-
-\[
-  D_{1D}(1) = \frac{C(1)}{2}\times 7.63 = \frac{1}{2}\times 7.63
-            = \boxed{3.82}
-\]
-
-This is the 1-D DCT output for $u=1$.  In the full 2-D DCT, this row result
-is then combined with the column transforms to produce the final coefficient
-$D(u,v)$.
-
-\medskip
-\noindent\textbf{Physical interpretation.}
-$D_{1D}(1)=3.82$ is small compared to $D_{1D}(0)$ (the DC term, which would
-be around 148.5).  This confirms that the row is nearly flat : almost all
-of its energy lives in the DC component.
-\end{examplebox}
-
 
 \begin{examplebox}
 \textbf{A Complete Worked Example: 2$\times$2 DCT Using the Separable Formula}
@@ -505,13 +402,11 @@ The unscaled coefficient matrix is:
 The scaling factor for each coefficient is $\frac{C(u)C(v)}{4}$, combining the
 $\frac{C(u)}{2}$ from the column pass and $\frac{C(v)}{2}$ from the row pass.
 
-\[
-\frac{C(0)C(0)}{4} = \frac{0.7071 \times 0.7071}{4} = \frac{0.5}{4} = 0.125
-\qquad
-\frac{C(0)C(1)}{4} = \frac{C(1)C(0)}{4} = \frac{0.7071 \times 1}{4} \approx 0.17678
-\qquad
-\frac{C(1)C(1)}{4} = \frac{1}{4} = 0.25
-\]
+\begin{align*}
+\frac{C(0)C(0)}{4} &= \frac{0.7071 \times 0.7071}{4} = \frac{0.5}{4} = 0.125\\
+\frac{C(0)C(1)}{4} &= \frac{C(1)C(0)}{4} = \frac{0.7071 \times 1}{4} \approx 0.17678\\
+\frac{C(1)C(1)}{4} &= \frac{1}{4} = 0.25
+\end{align*}
 
 Applying to $\mathbf{S}$:
 
