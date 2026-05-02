@@ -1689,115 +1689,78 @@ For a single-bit error on bit $j$, the error vector $\mathbf{e}$ has
 a 1 in position $j$ and 0s elsewhere.  Then
 $H\,\mathbf{e}^T$ is exactly the $j$-th column of $H$.
 
-\medskip
-\noindent
-\textbf{Here is the magic of the Hamming code:} the columns of $H$
-are the binary representations of the numbers $1$ through $7$:
-\begin{center}
-\begin{tabular}{@{}ccccccc@{}}
-  \toprule
-  Bit position & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
-  \midrule
-  Column of $H$ (binary) & 100 & 010 & 001 & 110 & 011 & 101 & 111 \\
-  \bottomrule
-\end{tabular}
-\end{center}
-So the syndrome is the binary representation of the \emph{position of
-the flipped bit}.  To correct the error, simply flip that bit back.
+\medskip\noindent
+\textbf{The key property of the Hamming code:} the 7 columns of $H$
+are all 7 possible nonzero 3-bit strings --- each one distinct.
+Because every single-bit error vector $\mathbf{e}$ selects exactly one
+column, every single-bit error produces a \emph{unique} syndrome.
+The syndrome tells you precisely which bit was flipped; to correct
+the error, simply flip that bit back.
 
 \begin{workedexample}[Full walk-through of error detection and correction]
-\textbf{Setup.}  Suppose we send codeword
-$\mathbf{c} = (1,0,1,0,1,0,0)$ but \textbf{bit 3 gets flipped}, so
-the receiver gets $\mathbf{r} = (1,0,\mathbf{0},0,1,0,0)$.
+
+\textbf{Setup.}
+Consider the codeword $\mathbf{c} = (1,1,0,1,0,0,0)$.
+We can verify it satisfies all three parity checks:
+\begin{itemize}
+  \item Check 1 (bits 1,4,6,7): $1+1+0+0 = 2 \equiv 0$.
+  \item Check 2 (bits 2,4,5,7): $1+1+0+0 = 2 \equiv 0$.
+  \item Check 3 (bits 3,5,6,7): $0+0+0+0 = 0 \equiv 0$.
+\end{itemize}
+All checks pass, so $\mathbf{c}$ is a valid codeword.
+Now suppose \textbf{bit 4 gets flipped} during transmission.
+The receiver gets $\mathbf{r} = (1,1,0,\mathbf{0},0,0,0)$.
 
 \medskip\noindent
 \textbf{Step 1: Compute the syndrome.}
-Multiply $H\,\mathbf{r}^T$ over $\mathbb{F}_2$:
-
+The syndrome is $\mathbf{s} = H\mathbf{r}^T \pmod{2}$.
+We only need to add the columns of $H$ corresponding to the
+\emph{non-zero} entries of $\mathbf{r}$.  In $\mathbf{r}$, bits 1 and
+2 are 1 (bit 4 is now 0), so:
 \[
-  H\,\mathbf{r}^T
-  = 1\!\cdot\!\begin{pmatrix}1\\0\\0\end{pmatrix}
-  + 0\!\cdot\!\begin{pmatrix}0\\1\\0\end{pmatrix}
-  + 0\!\cdot\!\begin{pmatrix}0\\0\\1\end{pmatrix}
-  + 0\!\cdot\!\begin{pmatrix}1\\1\\0\end{pmatrix}
-  + 1\!\cdot\!\begin{pmatrix}0\\1\\1\end{pmatrix}
-  + 0\!\cdot\!\begin{pmatrix}1\\0\\1\end{pmatrix}
-  + 0\!\cdot\!\begin{pmatrix}1\\1\\1\end{pmatrix}
-  = \begin{pmatrix}1\\0\\0\end{pmatrix}
-  + \begin{pmatrix}0\\1\\1\end{pmatrix}
-  = \begin{pmatrix}1\\1\\1\end{pmatrix}
-  \pmod{2}.
+  \mathbf{s}
+  = \underbrace{\begin{pmatrix}1\\0\\0\end{pmatrix}}_{\text{column 1}}
+  +\; \underbrace{\begin{pmatrix}0\\1\\0\end{pmatrix}}_{\text{column 2}}
+  = \begin{pmatrix}1\\1\\0\end{pmatrix} \pmod{2}.
 \]
 
 \medskip\noindent
-\textbf{Wait --- that gives $(1,1,1)$, not $(0,0,1)$!}
+\textbf{Step 2: Identify the flipped bit.}
+Each column of $H$ is a distinct nonzero 3-bit string.
+We look up which column equals the syndrome $(1,1,0)^T$:
 
-Let us recheck: only bit 1 (value 1) and bit 5 (value 1) are 1 in
-$\mathbf{r}$.
-
-\[
-  H\,\mathbf{r}^T
-  = 1\!\cdot\!\begin{pmatrix}1\\0\\0\end{pmatrix}
-  + 1\!\cdot\!\begin{pmatrix}0\\1\\1\end{pmatrix}
-  = \begin{pmatrix}1\\1\\1\end{pmatrix} \pmod 2.
-\]
-Interpreting $(1,1,1)_2 = 7$ would be wrong for a single error.
-The issue is that $\mathbf{c} = (1,0,1,0,1,0,0)$ must itself be a
-valid codeword (it satisfies $H\,\mathbf{c}^T = \mathbf{0}$).  Let us
-verify:
-\[
-  H\,\mathbf{c}^T
-  = 1\!\cdot\!\mathrm{col}_1 + 1\!\cdot\!\mathrm{col}_3
-    + 1\!\cdot\!\mathrm{col}_5
-  = \begin{pmatrix}1\\0\\0\end{pmatrix}
-  + \begin{pmatrix}0\\0\\1\end{pmatrix}
-  + \begin{pmatrix}0\\1\\1\end{pmatrix}
-  = \begin{pmatrix}1\\1\\0\end{pmatrix} \neq \mathbf{0}.
-\]
-So $(1,0,1,0,1,0,0)$ is \emph{not} a valid Hamming codeword.  Let us
-use a proper codeword instead.
-
-\medskip\noindent
-\textbf{Corrected example.}  Take the all-zeros codeword
-$\mathbf{c} = (0,0,0,0,0,0,0)$ with an error on \textbf{bit 5},
-giving $\mathbf{r} = (0,0,0,0,1,0,0)$.
-
-\[
-  H\,\mathbf{r}^T
-  = 1\!\cdot\!\begin{pmatrix}0\\1\\1\end{pmatrix}
-  = \begin{pmatrix}0\\1\\1\end{pmatrix}.
-\]
-Read this in binary: $(0,1,1)_2 = 3$... but our error was on bit 5.
-The discrepancy is because the rows of $H$ read top-to-bottom give
-\textbf{big-endian} binary: the top row is the \emph{most} significant
-bit.
-So $(0,1,1)$ means $0\cdot4 + 1\cdot2 + 1\cdot1 = 3$.  Let us
-re-examine the columns more carefully:
-
-\medskip
 \begin{center}
-\begin{tabular}{@{}cccccccc@{}}
+\begin{tabular}{@{}lccccccc@{}}
   \toprule
-  Bit position $j$ & 1 & 2 & 3 & 4 & 5 & 6 & 7\\
+  Bit position $j$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
   \midrule
-  Column $j$ of $H$ & $\begin{pmatrix}1\\0\\0\end{pmatrix}$
-                    & $\begin{pmatrix}0\\1\\0\end{pmatrix}$
-                    & $\begin{pmatrix}0\\0\\1\end{pmatrix}$
-                    & $\begin{pmatrix}1\\1\\0\end{pmatrix}$
-                    & $\begin{pmatrix}0\\1\\1\end{pmatrix}$
-                    & $\begin{pmatrix}1\\0\\1\end{pmatrix}$
-                    & $\begin{pmatrix}1\\1\\1\end{pmatrix}$\\
-  As a decimal number & 4 & 2 & 1 & 6 & 3 & 5 & 7\\
+  Column $j$ of $H$ &
+    $\begin{pmatrix}1\\0\\0\end{pmatrix}$ &
+    $\begin{pmatrix}0\\1\\0\end{pmatrix}$ &
+    $\begin{pmatrix}0\\0\\1\end{pmatrix}$ &
+    $\begin{pmatrix}1\\1\\0\end{pmatrix}$ &
+    $\begin{pmatrix}0\\1\\1\end{pmatrix}$ &
+    $\begin{pmatrix}1\\0\\1\end{pmatrix}$ &
+    $\begin{pmatrix}1\\1\\1\end{pmatrix}$ \\
   \bottomrule
 \end{tabular}
 \end{center}
-\medskip
-The columns of $H$ are \emph{not} in numerical order; they do not have
-to be.  What matters is that all 7 nonzero 3-bit strings appear, so
-every single-bit error gives a \emph{unique} syndrome.
 
-For our error on bit 5, the syndrome $(0,1,1)$ matches column 5
-of $H$.  We flip bit 5 back and recover $\mathbf{c} = (0,0,0,0,0,0,0)$.
+\noindent
+The syndrome $(1,1,0)^T$ matches \textbf{column 4}, so the error is
+on \textbf{bit 4}.
+
+\medskip\noindent
+\textbf{Step 3: Correct the error.}
+Flip bit 4 of $\mathbf{r}$ back from 0 to 1, recovering
+$\mathbf{c} = (1,1,0,1,0,0,0)$.
+
+\medskip\noindent
+\textbf{Why does this always work?}
+The 7 columns of $H$ are all 7 possible nonzero 3-bit strings,
+each one different.  Therefore, every single-bit error produces a
+\emph{unique} syndrome that points directly to the flipped bit.
+
 \end{workedexample}
 
 \begin{keypoint}
