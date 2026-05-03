@@ -1557,9 +1557,6 @@ single-qubit error.
 \section{The Steane $[7,1,3]$ Code}
 \label{sec:steane}
 
-% ------------------------------------------------------------------
-% MOTIVATING PARAGRAPH
-% ------------------------------------------------------------------
 \begin{intuition}
 The Shor code encodes 1 logical qubit using 9 physical qubits.  That
 works, but it feels wasteful.  Can we do better?  The \textbf{Steane
@@ -1579,8 +1576,8 @@ world.
 
 Imagine you want to send 4 bits of information over a noisy channel
 that might flip one of your bits.  If you send the 4 bits raw, a
-single flip gives you wrong information and you cannot tell where the
-error occurred.
+single flip gives you wrong information and you cannot even tell
+where the error occurred.
 
 A \textbf{classical error-correcting code} solves this by adding
 \emph{redundant} bits (called \textbf{parity bits}) before sending.
@@ -1594,25 +1591,151 @@ receiver can figure out \emph{which} bit was flipped and correct it.''}
 \end{tabular}
 \end{center}
 
-The parameters of the code are written $[n, k, d] = [7, 4, 3]$:
+The parameters of the code are written $[n,k,d] = [7,4,3]$:
 \begin{itemize}
-  \item $n = 7$: total number of bits in a codeword,
-  \item $k = 4$: number of data (information) bits,
+  \item $n = 7$: total bits in a codeword,
+  \item $k = 4$: data (information) bits,
   \item $d = 3$: minimum distance --- any two valid codewords differ in
-        at least 3 positions.  A distance of 3 means we can
-        \emph{correct} up to $\lfloor(3-1)/2\rfloor = 1$ error.
+        at least 3 positions, so $\lfloor(3-1)/2\rfloor = 1$ error can
+        always be corrected.
 \end{itemize}
 
-\subsubsection{Parity checks and the parity-check matrix}
+% ----------------------------------------------------------------------
+\subsubsection{Two complementary tools: $G$ and $H$}
+% ----------------------------------------------------------------------
 
-A \textbf{parity bit} is defined so that the number of 1s in a chosen
-subset of bits is always even (i.e., the XOR of that subset is 0).
-Think of it as a ``checksum'': if a bit in the group flips, the XOR
-changes to 1, telling you something went wrong.
+The Hamming code is described by two matrices that work as a pair.
 
-The Hamming code monitors three overlapping groups of bits using three
-parity checks.  These checks are conveniently summarised in a
-$3 \times 7$ matrix called the \textbf{parity-check matrix} $H$:
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{@{} l p{3.8cm} p{6cm} @{}}
+  \toprule
+  \textbf{Matrix} & \textbf{Role} & \textbf{How you use it}\\
+  \midrule
+  Generator matrix $G$ \newline ($4\times7$)
+    & \textbf{Encoding}: turns your message into a valid codeword.
+    & Input: 4-bit message $\mathbf{m}$.
+      Compute $\mathbf{c} = \mathbf{m}G \pmod{2}$.
+      Output: valid 7-bit codeword $\mathbf{c}$.\\[4pt]
+  Parity-check matrix $H$ \newline ($3\times7$)
+    & \textbf{Checking/decoding}: detects and locates errors.
+    & Input: received 7-bit word $\mathbf{r}$.
+      Compute syndrome $\mathbf{s} = H\mathbf{r}^T \pmod{2}$.
+      If $\mathbf{s}=\mathbf{0}$: no error.
+      Otherwise: $\mathbf{s}$ identifies the flipped bit.\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\medskip\noindent
+Think of $G$ as the \textbf{sender's tool} and $H$ as the
+\textbf{receiver's tool}.  They are designed together so that every
+codeword produced by $G$ is automatically accepted by $H$:
+\[
+  H G^T = 0 \pmod{2}.
+\]
+This guarantees that if no error occurs, the syndrome is always zero.
+
+% ----------------------------------------------------------------------
+\subsubsection{Valid codewords: not every 7-bit string qualifies}
+% ----------------------------------------------------------------------
+
+Out of $2^7 = 128$ possible 7-bit strings, only $2^4 = 16$ are valid
+codewords.  Those 16 are precisely the strings that pass all three
+parity checks imposed by $H$.
+
+The parity-check constraints are \emph{not} automatically satisfied
+by arbitrary bit strings --- they are conditions that the encoder
+deliberately builds into the codeword using $G$.  This is the
+foundation of the whole scheme:
+\begin{itemize}
+  \item The \textbf{sender} uses $G$ to construct one of the 16 valid
+        codewords from the 4-bit message.
+  \item The \textbf{receiver} uses $H$ to check whether the received
+        string is still one of those 16.  If it is not, at least one
+        bit was flipped in transit.
+\end{itemize}
+
+% ----------------------------------------------------------------------
+\subsubsection{The generator matrix: constructing a codeword}
+% ----------------------------------------------------------------------
+
+The generator matrix for this Hamming code is:
+\[
+  G = \begin{pmatrix}
+    1 & 1 & 0 & 1 & 0 & 0 & 0 \\
+    0 & 1 & 1 & 0 & 1 & 0 & 0 \\
+    1 & 0 & 1 & 0 & 0 & 1 & 0 \\
+    1 & 1 & 1 & 0 & 0 & 0 & 1
+  \end{pmatrix}.
+\]
+
+The last four columns of $G$ form a $4\times4$ identity block.  This
+means bits 4--7 of every codeword are exactly your 4 original data
+bits, and the first three bits are the parity bits that $G$ computes
+for you.
+
+To encode a message $\mathbf{m} = (m_1, m_2, m_3, m_4)$, XOR together
+the rows of $G$ wherever the corresponding message bit is 1:
+\[
+  \mathbf{c}
+  = \mathbf{m}\,G \pmod{2}
+  = m_1\,(\text{row}_1) \;\oplus\;
+    m_2\,(\text{row}_2) \;\oplus\;
+    m_3\,(\text{row}_3) \;\oplus\;
+    m_4\,(\text{row}_4).
+\]
+
+\begin{workedexample}[Encoding $\mathbf{m}=(0,0,0,0)$ and
+$\mathbf{m}=(1,1,1,1)$]
+
+\textbf{Message $\mathbf{m} = (0,0,0,0)$.}
+All message bits are 0, so no rows are selected.
+\[
+  \mathbf{c} = (0,0,0,0,0,0,0).
+\]
+The all-zeros message gives the all-zeros codeword.
+
+\medskip\noindent
+\textbf{Message $\mathbf{m} = (1,1,1,1)$.}
+All message bits are 1, so XOR all four rows of $G$:
+\[
+  \begin{array}{r@{\;}l}
+    \text{row}_1 &= (1,1,0,1,0,0,0)\\
+    \text{row}_2 &= (0,1,1,0,1,0,0)\\
+    \text{row}_3 &= (1,0,1,0,0,1,0)\\
+    \text{row}_4 &= (1,1,1,0,0,0,1)\\
+    \hline
+    \mathbf{c}   &= (1,1,1,1,1,1,1) \pmod{2}.
+  \end{array}
+\]
+Notice that bits 4--7 are $(1,1,1,1)$, which are the original data
+bits, and bits 1--3 are the computed parity bits $(1,1,1)$.
+
+\medskip\noindent
+\textbf{Verify using $H$:}
+\[
+  H = \begin{pmatrix}
+    1 & 0 & 0 & 1 & 0 & 1 & 1 \\
+    0 & 1 & 0 & 1 & 1 & 0 & 1 \\
+    0 & 0 & 1 & 0 & 1 & 1 & 1
+  \end{pmatrix}.
+\]
+For $\mathbf{c} = (1,1,1,1,1,1,1)$, every entry is 1, so we sum all
+7 columns of $H$:
+\begin{align*}
+  \text{Row 1 check:}&\quad 1+0+0+1+0+1+1 = 4 \equiv 0 \pmod{2}.\\
+  \text{Row 2 check:}&\quad 0+1+0+1+1+0+1 = 4 \equiv 0 \pmod{2}.\\
+  \text{Row 3 check:}&\quad 0+0+1+0+1+1+1 = 4 \equiv 0 \pmod{2}.
+\end{align*}
+All three checks pass, confirming $(1,1,1,1,1,1,1)$ is a valid
+codeword. $\checkmark$
+
+\end{workedexample}
+
+% ----------------------------------------------------------------------
+\subsubsection{The parity-check matrix $H$ in detail}
+% ----------------------------------------------------------------------
 
 \[
   H \;=\;
@@ -1623,111 +1746,99 @@ $3 \times 7$ matrix called the \textbf{parity-check matrix} $H$:
   \end{pmatrix}.
 \]
 
-\paragraph{How to read $H$.}
 Each \textbf{row} specifies one parity check.  The 1s in a row tell
-you which bit positions are included in that check.
+you which bit positions are included in that check.  Row $i$ of
+$H\mathbf{c}^T$ computes the XOR of the bits at those positions; a
+valid codeword must give 0 on every row.
+
 \begin{itemize}
-  \item \textbf{Row 1}: bits 1, 4, 6, 7 must have even parity
-        (their XOR equals 0).
-  \item \textbf{Row 2}: bits 2, 4, 5, 7 must have even parity.
-  \item \textbf{Row 3}: bits 3, 5, 6, 7 must have even parity.
+  \item \textbf{Row 1} checks bits 1, 4, 6, 7:\quad
+        $c_1 \oplus c_4 \oplus c_6 \oplus c_7 = 0$.
+  \item \textbf{Row 2} checks bits 2, 4, 5, 7:\quad
+        $c_2 \oplus c_4 \oplus c_5 \oplus c_7 = 0$.
+  \item \textbf{Row 3} checks bits 3, 5, 6, 7:\quad
+        $c_3 \oplus c_5 \oplus c_6 \oplus c_7 = 0$.
 \end{itemize}
-A vector $\mathbf{c} \in \{0,1\}^7$ is a valid codeword if and only
-if all three parity checks pass, which we write compactly as:
-\[
-  H\,\mathbf{c}^T = \mathbf{0} \pmod{2}.
-\]
+
+These three equations are the constraints that $G$ builds into every
+codeword it produces.  A random 7-bit string will almost certainly
+violate at least one of them.
 
 \begin{figure}[h]
 \centering
-% Venn-diagram-like picture showing the three parity groups
 \begin{tikzpicture}[scale=0.85]
-  % Three overlapping circles
-  \draw[thick,blue!60,fill=blue!8] (0,0) circle (1.6cm);
-  \draw[thick,red!60,fill=red!8]   (2.2,0) circle (1.6cm);
+  \draw[thick,blue!60,fill=blue!8]         (0,0)     circle (1.6cm);
+  \draw[thick,red!60,fill=red!8]           (2.2,0)   circle (1.6cm);
   \draw[thick,green!60!black,fill=green!8] (1.1,1.9) circle (1.6cm);
-
-  % Bit labels (placed in the relevant regions)
-  \node[font=\bfseries] at (-0.7, 0)   {1};   % row1 only
-  \node[font=\bfseries] at (2.9,  0)   {2};   % row2 only
-  \node[font=\bfseries] at (1.1,  2.7) {3};   % row3 only
-  \node[font=\bfseries] at (1.1, -0.3) {4};   % rows 1&2
-  \node[font=\bfseries] at (1.9,  1.1) {5};   % rows 2&3
-  \node[font=\bfseries] at (0.3,  1.1) {6};   % rows 1&3
-  \node[font=\bfseries] at (1.1,  0.7) {7};   % all three
-
-  % Labels
-  \node[blue!70,font=\small]          at (-1.2,  1.5)  {Check 1};
-  \node[red!70,font=\small]           at (3.4,   1.5)  {Check 2};
-  \node[green!60!black,font=\small]   at (1.1,   4.0)  {Check 3};
+  \node[font=\bfseries] at (-0.7, 0)   {1};
+  \node[font=\bfseries] at (2.9,  0)   {2};
+  \node[font=\bfseries] at (1.1,  2.7) {3};
+  \node[font=\bfseries] at (1.1, -0.3) {4};
+  \node[font=\bfseries] at (1.9,  1.1) {5};
+  \node[font=\bfseries] at (0.3,  1.1) {6};
+  \node[font=\bfseries] at (1.1,  0.7) {7};
+  \node[blue!70,font=\small]          at (-1.2, 1.5)  {Check 1};
+  \node[red!70,font=\small]           at ( 3.4, 1.5)  {Check 2};
+  \node[green!60!black,font=\small]   at ( 1.1, 4.0)  {Check 3};
 \end{tikzpicture}
 \caption{The three parity-check groups of the Hamming code.  Each
-circle shows which bit positions belong to a given check.  Bit 7 is
-in the centre because it participates in all three checks.}
+circle shows which bit positions participate in that check.  Bit 7
+sits in the centre because it is included in all three checks.}
 \label{fig:hamming_venn}
 \end{figure}
 
+% ----------------------------------------------------------------------
 \subsubsection{The syndrome: pinpointing the error}
+% ----------------------------------------------------------------------
 
-Suppose a codeword $\mathbf{c}$ is sent but an error $\mathbf{e}$
-occurs (a bit-flip vector, e.g.\ $\mathbf{e} = 0010000$ means bit 3
-was flipped).  The receiver gets $\mathbf{r} = \mathbf{c} + \mathbf{e}
-\pmod 2$.
-
-The receiver computes the \textbf{syndrome}:
+Suppose a valid codeword $\mathbf{c}$ is sent but a single bit
+(bit $j$) is flipped in transit.  The receiver gets
+$\mathbf{r} = \mathbf{c} \oplus \mathbf{e}$,
+where $\mathbf{e}$ is the all-zero vector except for a 1 in position
+$j$.  The receiver computes the \textbf{syndrome}:
 \[
-  \mathbf{s} = H\,\mathbf{r}^T = H(\mathbf{c}+\mathbf{e})^T
-             = \underbrace{H\,\mathbf{c}^T}_{=\,\mathbf{0}}
-               + H\,\mathbf{e}^T
-             = H\,\mathbf{e}^T \pmod{2}.
+  \mathbf{s}
+  = H\mathbf{r}^T
+  = H(\mathbf{c} \oplus \mathbf{e})^T
+  = \underbrace{H\mathbf{c}^T}_{=\,\mathbf{0}}
+    \oplus\, H\mathbf{e}^T
+  = H\mathbf{e}^T \pmod{2}.
 \]
-Because $H\,\mathbf{c}^T = \mathbf{0}$ for any valid codeword, the
+Because $H\mathbf{c}^T = \mathbf{0}$ for any valid codeword, the
 syndrome depends \emph{only on the error}, not on which message was
-sent.
+sent.  This is what makes decoding unambiguous.
 
-For a single-bit error on bit $j$, the error vector $\mathbf{e}$ has
-a 1 in position $j$ and 0s elsewhere.  Then
-$H\,\mathbf{e}^T$ is exactly the $j$-th column of $H$.
+Since $\mathbf{e}$ has exactly one 1 (at position $j$), the product
+$H\mathbf{e}^T$ picks out exactly the $j$-th column of $H$.
 
 \medskip\noindent
-\textbf{The key property of the Hamming code:} the 7 columns of $H$
-are all 7 possible nonzero 3-bit strings --- each one distinct.
-Because every single-bit error vector $\mathbf{e}$ selects exactly one
-column, every single-bit error produces a \emph{unique} syndrome.
-The syndrome tells you precisely which bit was flipped; to correct
-the error, simply flip that bit back.
+\textbf{The key property:} the 7 columns of $H$ are all 7 possible
+nonzero 3-bit strings, each one different.  So every single-bit error
+produces a \emph{unique} syndrome, and the syndrome tells the receiver
+exactly which bit was flipped.
 
-\begin{workedexample}[Full walk-through of error detection and correction]
+\begin{workedexample}[Error detection and correction]
 
 \textbf{Setup.}
-Consider the codeword $\mathbf{c} = (1,1,0,1,0,0,0)$.
-We can verify it satisfies all three parity checks:
-\begin{itemize}
-  \item Check 1 (bits 1,4,6,7): $1+1+0+0 = 2 \equiv 0$.
-  \item Check 2 (bits 2,4,5,7): $1+1+0+0 = 2 \equiv 0$.
-  \item Check 3 (bits 3,5,6,7): $0+0+0+0 = 0 \equiv 0$.
-\end{itemize}
-All checks pass, so $\mathbf{c}$ is a valid codeword.
-Now suppose \textbf{bit 4 gets flipped} during transmission.
-The receiver gets $\mathbf{r} = (1,1,0,\mathbf{0},0,0,0)$.
+The sender transmits the all-zeros codeword
+$\mathbf{c} = (0,0,0,0,0,0,0)$ (message $\mathbf{m} = (0,0,0,0)$).
+During transmission, \textbf{bit 4 is flipped}.
+The receiver gets $\mathbf{r} = (0,0,0,\mathbf{1},0,0,0)$.
 
 \medskip\noindent
 \textbf{Step 1: Compute the syndrome.}
-The syndrome is $\mathbf{s} = H\mathbf{r}^T \pmod{2}$.
-We only need to add the columns of $H$ corresponding to the
-\emph{non-zero} entries of $\mathbf{r}$.  In $\mathbf{r}$, bits 1 and
-2 are 1 (bit 4 is now 0), so:
+Only bit 4 of $\mathbf{r}$ is 1, so the syndrome is just column 4
+of $H$:
 \[
   \mathbf{s}
-  = \underbrace{\begin{pmatrix}1\\0\\0\end{pmatrix}}_{\text{column 1}}
-  +\; \underbrace{\begin{pmatrix}0\\1\\0\end{pmatrix}}_{\text{column 2}}
-  = \begin{pmatrix}1\\1\\0\end{pmatrix} \pmod{2}.
+  = H\mathbf{r}^T
+  = 1 \cdot \underbrace{\begin{pmatrix}1\\1\\0\end{pmatrix}}_{\text{column 4 of }H}
+  = \begin{pmatrix}1\\1\\0\end{pmatrix}.
 \]
 
 \medskip\noindent
 \textbf{Step 2: Identify the flipped bit.}
-Each column of $H$ is a distinct nonzero 3-bit string.
-We look up which column equals the syndrome $(1,1,0)^T$:
+We look up which column of $H$ equals the syndrome $(1,1,0)^T$:
 
 \begin{center}
 \begin{tabular}{@{}lccccccc@{}}
@@ -1747,28 +1858,22 @@ We look up which column equals the syndrome $(1,1,0)^T$:
 \end{center}
 
 \noindent
-The syndrome $(1,1,0)^T$ matches \textbf{column 4}, so the error is
-on \textbf{bit 4}.
+The syndrome $(1,1,0)^T$ matches \textbf{column 4}.
+The error is on \textbf{bit 4}.
 
 \medskip\noindent
 \textbf{Step 3: Correct the error.}
-Flip bit 4 of $\mathbf{r}$ back from 0 to 1, recovering
-$\mathbf{c} = (1,1,0,1,0,0,0)$.
+Flip bit 4 of $\mathbf{r}$ back to 0, recovering
+$\mathbf{c} = (0,0,0,0,0,0,0)$ and therefore message
+$\mathbf{m} = (0,0,0,0)$.
 
 \medskip\noindent
 \textbf{Why does this always work?}
-The 7 columns of $H$ are all 7 possible nonzero 3-bit strings,
-each one different.  Therefore, every single-bit error produces a
-\emph{unique} syndrome that points directly to the flipped bit.
+The 7 columns of $H$ are all 7 nonzero 3-bit strings, each distinct.
+Every single-bit error therefore produces a unique syndrome, and the
+syndrome unambiguously identifies the flipped bit.
 
 \end{workedexample}
-
-\begin{keypoint}
-The syndrome of a single-bit error equals the column of $H$
-corresponding to the flipped bit.  Because all 7 columns of $H$ are
-distinct (and nonzero), the code can uniquely identify which bit was
-flipped, so 1 error can always be corrected.
-\end{keypoint}
 
 % ======================================================================
 \subsection{Step 2 --- The CSS Construction: Going Quantum}
@@ -1776,97 +1881,81 @@ flipped, so 1 error can always be corrected.
 
 \subsubsection{Why can't we just use the classical code directly?}
 
-In quantum computing, information is stored in qubits.  Unlike
-classical bits, qubits can suffer two independent kinds of single-qubit
-errors:
+In quantum computing, qubits can suffer two independent kinds of
+single-qubit error:
 \begin{itemize}
-  \item \textbf{$X$ errors} (bit-flip): $|0\rangle \leftrightarrow
-        |1\rangle$.  These are analogous to classical bit-flips.
-  \item \textbf{$Z$ errors} (phase-flip): $|+\rangle \leftrightarrow
-        |-\rangle$.  These have no classical analogue.
+  \item \textbf{$X$ errors} (bit-flip):
+        $|0\rangle \leftrightarrow |1\rangle$.  Analogous to classical
+        bit-flips.
+  \item \textbf{$Z$ errors} (phase-flip):
+        $|{+}\rangle \leftrightarrow |{-}\rangle$.  No classical
+        analogue.
 \end{itemize}
 We need a code that detects \emph{both} types simultaneously without
-disturbing the encoded quantum information (we cannot measure the
-logical qubit directly without collapsing it).
+collapsing the encoded quantum state.
 
 \subsubsection{The CSS idea: two codes in one}
 
 Calderbank, Shor, and Steane discovered that if a classical code
-satisfies a certain self-compatibility condition, it can be ``doubled
-up'' to protect against both kinds of quantum errors at once.
+satisfies a certain self-compatibility condition, it can be doubled up
+to protect against both kinds of quantum errors at once.
 
 \begin{definition}[CSS code]
-Let $C_1$ and $C_2$ be classical binary linear codes with
-parity-check matrices $H_1$ and $H_2$ respectively, and suppose
-$C_2 \subseteq C_1$ (every codeword of $C_2$ is also a codeword of
-$C_1$).  The \textbf{CSS code} $\mathrm{CSS}(C_1, C_2)$ is the
-quantum code with stabiliser generators:
+Given classical linear codes $C_1 \supseteq C_2$ with parity-check
+matrices $H_1$ and $H_2$, the \textbf{CSS code}
+$\mathrm{CSS}(C_1, C_2)$ has stabiliser generators:
 \begin{align*}
-  &\text{$X$-type generators:} \quad
-    \text{one generator per row of } H_2, \text{ placing } X
-    \text{ on qubits where the row has a 1},\\
-  &\text{$Z$-type generators:} \quad
-    \text{one generator per row of } H_1, \text{ placing } Z
-    \text{ on qubits where the row has a 1}.
+  &\text{$X$-type:} \quad
+    \text{one generator per row of } H_2\text{, placing }X
+    \text{ on each qubit where the row has a 1,}\\
+  &\text{$Z$-type:} \quad
+    \text{one generator per row of } H_1\text{, placing }Z
+    \text{ on each qubit where the row has a 1.}
 \end{align*}
-The construction is consistent (all generators commute) if and only if
-\[
-  H_1 H_2^T = 0 \pmod{2}.
-\]
+All generators commute if and only if $H_1 H_2^T = 0 \pmod{2}$.
 \end{definition}
 
 \paragraph{Why does $H_1 H_2^T = 0$ guarantee commutativity?}
-An $X$-type generator and a $Z$-type generator commute if and only
-if they act on an \emph{even} number of qubits in common (because
-$XZ = -ZX$ on a single qubit, so two anticommutations cancel).  The
-$(i,j)$-entry of $H_1 H_2^T$ counts (mod 2) how many qubits are in
-both the $i$-th $Z$-check and the $j$-th $X$-check.  Setting this to
-0 means every such pair overlaps evenly --- so they commute.
-
-\paragraph{Why do we want $C_2 \subseteq C_1$?}
-This is equivalent to saying that every row of $H_2$ lies in the
-code of $H_1$, which (after some algebra) is precisely the condition
-$H_1 H_2^T = 0$.  The two conditions are the same thing stated
-differently.
+An $X$-generator and a $Z$-generator commute if and only if they
+share an \emph{even} number of qubits (two anticommutations on the
+same qubit cancel each other, restoring a $+1$ sign).  The
+$(i,j)$-entry of $H_1 H_2^T$ counts (mod 2) how many qubits are
+shared by the $i$-th $Z$-generator and the $j$-th $X$-generator.
+Setting this to 0 forces every such pair to overlap evenly, and
+hence to commute.
 
 % ======================================================================
 \subsection{Step 3 --- Building the Steane Code}
 % ======================================================================
 
-The Steane code is the simplest and most elegant CSS code.  The trick
-is to use $H_1 = H_2 = H$ (the \emph{same} Hamming parity-check
-matrix for both $X$- and $Z$-checks).
+The Steane code uses $H_1 = H_2 = H$ (the same Hamming parity-check
+matrix for both $X$- and $Z$-type generators).
 
 \subsubsection{Checking the CSS condition}
 
-We need $H H^T = 0 \pmod 2$.  Let us verify one entry.  The $(1,1)$
-entry of $H H^T$ is row 1 of $H$ dotted with itself:
-\[
-  (1,0,0,1,0,1,1)\cdot(1,0,0,1,0,1,1)^T
-  = 1+0+0+1+0+1+1 = 4 \equiv 0 \pmod 2.
-\]
-The $(1,2)$ entry is row 1 dotted with row 2:
+We need $HH^T = 0 \pmod{2}$.  As a spot-check, row 1 dotted with
+row 2:
 \[
   (1,0,0,1,0,1,1)\cdot(0,1,0,1,1,0,1)^T
-  = 0+0+0+1+0+0+1 = 2 \equiv 0 \pmod 2.
+  = 0+0+0+1+0+0+1 = 2 \equiv 0 \pmod{2}.
 \]
-All nine entries work out to $0 \pmod 2$, so the CSS condition is
-satisfied.  (This is a special property of the Hamming code: it is
-\textbf{self-orthogonal}, meaning $H H^T = 0$.)
+All nine entries work out to $0 \pmod{2}$ (a special property of the
+Hamming code called \textbf{self-orthogonality}), so the CSS
+condition is satisfied.
 
 \subsubsection{The six stabiliser generators}
 
 Each of the 3 rows of $H$ gives one $X$-generator and one
-$Z$-generator (6 generators in total).  We read off which qubits they
-act on from the positions of the 1s in each row:
+$Z$-generator, for 6 generators in total:
 
 \medskip
 \begin{center}
 \renewcommand{\arraystretch}{1.6}
 \begin{tabular}{@{} c l l l @{}}
   \toprule
-  \textbf{Row} & \textbf{Positions of 1s} & \textbf{$X$-generator}
-                & \textbf{$Z$-generator}\\
+  \textbf{Row} & \textbf{Positions of 1s}
+               & \textbf{$X$-generator}
+               & \textbf{$Z$-generator}\\
   \midrule
   1 & 1, 4, 6, 7 & $g_1 = X_1 X_4 X_6 X_7$ & $g_4 = Z_1 Z_4 Z_6 Z_7$\\
   2 & 2, 4, 5, 7 & $g_2 = X_2 X_4 X_5 X_7$ & $g_5 = Z_2 Z_4 Z_5 Z_7$\\
@@ -1875,70 +1964,159 @@ act on from the positions of the 1s in each row:
 \end{tabular}
 \end{center}
 
-\medskip
-\noindent
-These 6 stabilisers reduce the 7-qubit Hilbert space from $2^7 = 128$
-dimensions down to $2^{7-6} = 2$ dimensions --- just enough room for
-one logical qubit.
+\medskip\noindent
+These 6 stabilisers reduce the 7-qubit Hilbert space from
+$2^7 = 128$ dimensions to $2^{7-6} = 2$ dimensions --- just enough
+room for one logical qubit.
 
+% ----------------------------------------------------------------------
+\subsubsection{Commutation, anticommutation, and why they matter}
+% ----------------------------------------------------------------------
+
+Before explaining how errors are detected, we need to understand one
+crucial point: what it means for two operators to \textbf{commute} or
+\textbf{anticommute}, and why that determines the measurement outcome.
+
+\paragraph{The basic Pauli anticommutation relation.}
+The single-qubit Pauli operators $X$ and $Z$ satisfy:
+\[
+  XZ = -ZX.
+\]
+Applying $X$ then $Z$ gives the \emph{opposite sign} to applying $Z$
+then $X$.  We say $X$ and $Z$ \textbf{anticommute}.  By contrast,
+$ZZ = ZZ$ and $XX = XX$, so same-type pairs \textbf{commute}.
+
+\paragraph{Stabilisers and measurement outcomes.}
+The encoded state $|\psi\rangle$ is defined to be a $+1$ eigenstate
+of every stabiliser generator $g$:
+\[
+  g\,|\psi\rangle = +1\cdot|\psi\rangle.
+\]
+Measuring $g$ on the error-free state always gives $+1$ --- the
+``all clear'' signal.
+
+\paragraph{How an error changes the measurement outcome.}
+Suppose error $E$ has occurred, so the state is now $E|\psi\rangle$.
+Measuring $g$ on this state gives:
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{@{} l c l @{}}
+  \toprule
+  \textbf{Relationship between $E$ and $g$}
+    & \textbf{Outcome} & \textbf{Why}\\
+  \midrule
+  $gE = Eg$ \quad (commute)
+    & $+1$
+    & $g(E|\psi\rangle) = E(g|\psi\rangle) = E(+1|\psi\rangle)
+      = +1\cdot(E|\psi\rangle)$\\[4pt]
+  $gE = -Eg$ \quad (anticommute)
+    & $-1$
+    & $g(E|\psi\rangle) = -E(g|\psi\rangle) = -E(+1|\psi\rangle)
+      = -1\cdot(E|\psi\rangle)$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\medskip\noindent
+A $-1$ outcome is the flag that an error has occurred.  Crucially,
+this measurement does \emph{not} collapse or disturb the encoded
+logical information --- it only reveals which error happened.
+
+\paragraph{The rule for multi-qubit stabilisers.}
+On a single qubit, $X$ and $Z$ anticommute; operators on
+\emph{different} qubits always commute.  Therefore, for a multi-qubit
+error $E$ and stabiliser $g$:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} p{6cm} l @{}}
+  \toprule
+  \textbf{Situation} & \textbf{Outcome of measuring $g$}\\
+  \midrule
+  $E$ and $g$ share no qubit
+    & $+1$ (commute)\\
+  $E$ and $g$ share qubits, but same Pauli type ($X$ with $X$, or $Z$ with $Z$)
+    & $+1$ (commute)\\
+  $E$ and $g$ share an \emph{odd} number of qubits where their Pauli
+  types differ ($X$ vs $Z$)
+    & $-1$ (anticommute)\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\medskip\noindent
+\textbf{The punchline:} a stabiliser flips to $-1$ precisely when
+it ``sees'' the error on an odd number of qubits.  By recording which
+generators give $-1$, we obtain a binary syndrome --- exactly like the
+Hamming syndrome, but now operating on quantum operators.
+
+% ----------------------------------------------------------------------
 \subsubsection{How errors are detected}
+% ----------------------------------------------------------------------
 
 \paragraph{Detecting a $Z$ error (phase-flip).}
-If a $Z$ error occurs on qubit $j$, it commutes with all $Z$-type
-generators (same Pauli type) but \emph{anticommutes} with any
-$X$-generator that acts on qubit $j$.  So we measure the $X$-type
-generators and record which ones give $-1$.  This \textbf{$X$-syndrome}
-is exactly the Hamming syndrome for a classical bit-flip error on bit
-$j$, so the Hamming decoder tells us which qubit suffered a $Z$ error.
+A $Z$ error on qubit $j$ behaves as follows against each generator:
+\begin{itemize}
+  \item An $X$-generator that \emph{includes} qubit $j$ has an $X$ on
+        qubit $j$.  Since $ZX = -XZ$, they anticommute there
+        $\Rightarrow$ outcome $-1$.
+  \item An $X$-generator that \emph{excludes} qubit $j$ has no $X$
+        on qubit $j$, so it commutes with $Z_j$
+        $\Rightarrow$ outcome $+1$.
+  \item All $Z$-generators commute with $Z_j$ (same type everywhere)
+        $\Rightarrow$ outcome $+1$ always.
+\end{itemize}
+The pattern of $-1$ outcomes among $g_1, g_2, g_3$ is precisely the
+Hamming syndrome for an error on bit $j$.  The Hamming decoder
+identifies $j$.
 
 \paragraph{Detecting an $X$ error (bit-flip).}
-By the same logic (with $X$ and $Z$ swapped), an $X$ error on qubit
-$j$ anticommutes with the $Z$-generators that act on qubit $j$.  The
-\textbf{$Z$-syndrome} is again the Hamming syndrome, now identifying
-an $X$ error.
+By symmetry (swap $X$ and $Z$ throughout): an $X$ error on qubit $j$
+anticommutes with every $Z$-generator that includes qubit $j$, and
+commutes with everything else.  The $Z$-syndrome identifies $j$.
 
-\begin{workedexample}[Detecting a $Z$-error on qubit 3, step by step]
+\begin{workedexample}[Detecting a $Z$-error on qubit 3]
 
 \textbf{The error.}  A phase-flip $Z_3$ occurs on qubit 3.
 
 \medskip\noindent
-\textbf{Measure the $X$-type stabilisers.}  We use the rule:
-\[
-  Z_3 \text{ anticommutes with } X_j \iff j = 3.
-\]
+\textbf{Measure the $X$-type generators.}
+$Z_3$ anticommutes with $X$ only on qubit 3.
 \begin{align*}
   g_1 = X_1 X_4 X_6 X_7:&\quad
-    \text{qubit 3 not in } \{1,4,6,7\} \Rightarrow \text{commutes}
-    \Rightarrow \text{outcome } +1.\\
+    3 \notin \{1,4,6,7\} \Rightarrow \text{commutes}
+    \Rightarrow \text{outcome } {+1}.\\
   g_2 = X_2 X_4 X_5 X_7:&\quad
-    \text{qubit 3 not in } \{2,4,5,7\} \Rightarrow \text{commutes}
-    \Rightarrow \text{outcome } +1.\\
+    3 \notin \{2,4,5,7\} \Rightarrow \text{commutes}
+    \Rightarrow \text{outcome } {+1}.\\
   g_3 = X_3 X_5 X_6 X_7:&\quad
-    \text{qubit 3 \textbf{is} in } \{3,5,6,7\} \Rightarrow
-    \text{anticommutes} \Rightarrow \text{outcome } -1.
+    3 \in \{3,5,6,7\} \Rightarrow \text{anticommutes}
+    \Rightarrow \text{outcome } {-1}.
 \end{align*}
 
-\textbf{Measure the $Z$-type stabilisers.}  $Z_3$ commutes with all
-$Z$-type generators (same Pauli type), so all give $+1$.
+\textbf{Measure the $Z$-type generators.}  $Z_3$ commutes with all
+$Z$-generators (same Pauli type), so all give $+1$.
 
 \medskip\noindent
-\textbf{Decode the $X$-syndrome.}  Write $+1 \to 0$ and $-1 \to 1$:
+\textbf{Decode the syndrome.}  Map $+1\to0$ and $-1\to1$:
 \[
-  (g_1, g_2, g_3) = (+1,+1,-1) \longrightarrow (0, 0, 1).
+  (g_1,g_2,g_3) = (+1,+1,-1) \;\longrightarrow\; (0,0,1).
 \]
-Row 3 of $H$ is $(0,0,1,0,1,1,1)$, which has a 1 in column 3.
-The syndrome $(0,0,1)$ is the binary representation telling us the
-error is on \textbf{qubit 3}.
+Column 3 of $H$ is $(0,0,1)^T$, which matches exactly.
+The error is on \textbf{qubit 3}.
 
-\textbf{Correction.}  Apply $Z_3$.  The encoded quantum state is
-restored without ever being measured.
+\medskip\noindent
+\textbf{Correction.}  Apply $Z_3$.  The encoded state is restored
+without ever measuring the logical qubit directly.
+
 \end{workedexample}
 
 \begin{keypoint}
-The Steane code uses the Hamming syndrome decoder \emph{twice}
-simultaneously --- once to find $Z$ errors (via $X$-generators) and
-once to find $X$ errors (via $Z$-generators).  The two syndromes are
-completely independent and do not interfere with each other.
+The Steane code runs the Hamming syndrome decoder \emph{twice in
+parallel} --- once to find $Z$ errors (using $X$-generator outcomes)
+and once to find $X$ errors (using $Z$-generator outcomes).  The two
+syndromes are completely independent and do not interfere with each
+other.
 \end{keypoint}
 
 % ======================================================================
@@ -1954,9 +2132,9 @@ completely independent and do not interfere with each other.
   \textbf{Parameter} & \textbf{Value} & \textbf{What it means}\\
   \midrule
   $n$ & 7 & Total physical qubits used.\\
-  $k$ & 1 & Logical qubits encoded.  Formula: $k = n - \text{(no. of generators)} = 7 - 6 = 1$.\\
-  $d$ & 3 & Code distance.  Any undetectable error must act on at
-            least 3 qubits.  Since $d=3$, we can correct
+  $k$ & 1 & Logical qubits encoded.
+            $k = n - \text{(no.\ of generators)} = 7 - 6 = 1$.\\
+  $d$ & 3 & Code distance.  We can correct
             $\lfloor(d-1)/2\rfloor = 1$ arbitrary single-qubit error.\\
   \bottomrule
 \end{tabular}
@@ -1965,47 +2143,23 @@ completely independent and do not interfere with each other.
 \subsubsection{Logical operators}
 
 Every quantum code must have \textbf{logical operators} that act on
-the encoded qubit without being detectable by any stabiliser (they
-must commute with all generators, but not be \emph{in} the stabiliser
-group itself).
-
-For the Steane code:
+the encoded qubit without being detected by any stabiliser.  For the
+Steane code:
 \[
-  \bar{X} = X_1 X_2 X_3 X_4 X_5 X_6 X_7 = X^{\otimes 7},
+  \bar{X} = X^{\otimes 7}, \qquad \bar{Z} = Z^{\otimes 7}.
 \]
-\[
-  \bar{Z} = Z_1 Z_2 Z_3 Z_4 Z_5 Z_6 Z_7 = Z^{\otimes 7}.
-\]
-Both act on all 7 qubits (weight 7).  This is consistent with
-$d = 3$: to fool the code into thinking a logical operation was just
-noise, an adversary would need to corrupt at least 3 qubits
-simultaneously (since any weight-3 Pauli is detectable; only
-weight-$\geq 3$ \emph{undetectable} operators can implement a logical
-operation).
-
-\medskip
-\begin{caution}
-You might wonder: why weight 7 and not weight 3 (the minimum
-distance)?  The answer is that $\bar{X}$ and $\bar{Z}$ as defined
-above are the \emph{simplest} representatives of their equivalence
-class.  Any logical $\bar{X}$ can be multiplied by any stabiliser to
-get another valid logical $\bar{X}$; the minimum-weight representative
-has weight equal to the code distance $d = 3$.  The all-qubit version
-$X^{\otimes 7}$ is chosen here for symmetry.
-\end{caution}
+Both act on all 7 qubits, consistent with $d=3$: an adversary must
+corrupt at least 3 qubits simultaneously to implement an undetectable
+logical operation.
 
 % ======================================================================
 \subsection{Transversal Gates: A Major Advantage}
 % ======================================================================
 
-One of the most important practical properties of a quantum error
-correcting code is whether logical gates can be implemented
-\textbf{transversally} --- that is, by applying the same single-qubit
-(or two-qubit) gate to each physical qubit independently.
-
-Transversal gates are desirable because errors cannot spread between
-qubits during the gate: if one qubit has a fault, it stays on that
-qubit and the code can still correct it.
+A logical gate is \textbf{transversal} if it is implemented by
+applying the same operation independently to each physical qubit.
+Transversal gates cannot spread errors between qubits during the
+gate, making them inherently fault-tolerant.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.4}
@@ -2015,37 +2169,28 @@ qubit and the code can still correct it.
   & \textbf{Why it works}\\
   \midrule
   $\bar{H}$ (Hadamard) & $H^{\otimes 7}$
-    & The Steane code is \emph{self-dual}: $H_X = H_Z = H$.
-      Applying $H$ to every qubit swaps $X$-generators with
-      $Z$-generators, which maps the code back to itself.\\[6pt]
-  $\bar{S}$ (Phase gate, $S = \mathrm{diag}(1,i)$) & $S^{\otimes 7}$
-    & The CSS structure is preserved: $S$ maps $X \to Y = iXZ$
-      and $Z \to Z$, so the stabiliser group is mapped
-      consistently.\\[6pt]
+    & The Steane code is self-dual ($H_X = H_Z = H$), so $H$ on every
+      qubit swaps $X$-generators with $Z$-generators, mapping the code
+      back to itself.\\[6pt]
+  $\bar{S}$ (Phase, $S=\mathrm{diag}(1,i)$) & $S^{\otimes 7}$
+    & $S$ maps $X\to Y=iXZ$ and $Z\to Z$, preserving the CSS
+      stabiliser structure.\\[6pt]
   $\overline{\mathrm{CNOT}}$ & $\mathrm{CNOT}^{\otimes 7}$
-    & Apply bit-wise CNOT between two separate 7-qubit Steane
-      code blocks (one as control, one as target).\\
+    & Bitwise CNOT between two 7-qubit Steane code blocks.\\
   \bottomrule
 \end{tabular}
 \end{center}
 
 \medskip\noindent
-Together, $\bar{H}$, $\bar{S}$, and $\overline{\mathrm{CNOT}}$ generate
-the \textbf{Clifford group} --- a powerful set of quantum operations,
-but not by itself universal for quantum computation.
+Together, $\bar{H}$, $\bar{S}$, $\overline{\mathrm{CNOT}}$ generate
+the \textbf{Clifford group} --- powerful but not universal.
 
 \begin{caution}
-The $T$ gate ($T = \mathrm{diag}(1, e^{i\pi/4})$), which is needed
-for universal quantum computation, is \emph{not} transversal in the
-Steane code.  Applying $T^{\otimes 7}$ to the 7 physical qubits does
-not implement a logical $\bar{T}$ --- it produces a messy state
-outside the code space.
-
-To implement a fault-tolerant $\bar{T}$, one must use a technique
-called \textbf{magic state distillation} (Section~\ref{sec:magic}),
-which requires many additional physical qubits and rounds of
-purification.  This is currently the single biggest overhead cost in
-fault-tolerant quantum computing.
+The $T$ gate ($T = \mathrm{diag}(1, e^{i\pi/4})$) is \emph{not}
+transversal in the Steane code: $T^{\otimes 7}$ does not implement
+a logical $\bar{T}$.  A fault-tolerant $\bar{T}$ requires
+\textbf{magic state distillation} (Section~\ref{sec:magic}), the
+single largest overhead cost in fault-tolerant quantum computing.
 \end{caution}
 
 % ======================================================================
@@ -2058,10 +2203,10 @@ fault-tolerant quantum computing.
   \toprule
   & \textbf{Shor code} & \textbf{Steane code}\\
   \midrule
-  Physical qubits $n$ & 9 & 7\\
-  Logical qubits $k$ & 1 & 1\\
-  Code distance $d$ & 3 & 3\\
-  Errors correctable & 1 & 1\\
+  Physical qubits $n$         & 9 & 7\\
+  Logical qubits $k$          & 1 & 1\\
+  Code distance $d$           & 3 & 3\\
+  Errors correctable          & 1 & 1\\
   Transversal Clifford gates? & Partial & Yes (full Clifford group)\\
   Key idea & Concatenation & CSS + Hamming code\\
   \bottomrule
@@ -2069,10 +2214,11 @@ fault-tolerant quantum computing.
 \end{center}
 
 \noindent
-Both codes correct any single-qubit error, but the Steane code does so
-with fewer qubits and with a richer set of transversal gates, making it
+Both codes correct any single-qubit error, but the Steane code does
+so with fewer qubits and a richer set of transversal gates, making it
 the more practical choice and a foundational building block for modern
 fault-tolerant architectures.
+
 
 \begin{exercise}
 Verify that $H H^T = 0 \pmod{2}$ for the Hamming matrix $H$ given above.
