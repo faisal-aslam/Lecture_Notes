@@ -750,31 +750,67 @@ classical and quantum error correction.
 
 \subsection{Classical 3-Bit Repetition Code}
 
-The classical 3-bit code is:
+The classical 3-bit repetition code is:
 \[
   0 \longrightarrow 000, \qquad 1 \longrightarrow 111.
 \]
 
 \paragraph{Decoding by majority vote.}
-If one bit flips, two of the three bits still agree, and majority voting
-recovers the original bit.  If two or more bits flip, majority voting fails.
+If one bit flips, the other two still agree, so majority voting
+recovers the original bit. A logical error occurs only if two
+or more bits flip.
+
 Assuming each bit flips independently with probability $p$:
 \[
-  P(\text{logical error}) = \binom{3}{2}p^2(1-p) + \binom{3}{3}p^3
-                           = 3p^2(1-p) + p^3 = 3p^2 - 2p^3.
+  P(\text{logical error})
+  =
+  \binom{3}{2}p^2(1-p)+\binom{3}{3}p^3
 \]
-For small $p$, $P(\text{logical error}) \approx 3p^2$, which is much smaller
-than the uncoded error rate $p$ when $p \ll 1/3$.
+
+\[
+  =
+  3p^2(1-p)+p^3
+  =
+  3p^2-2p^3.
+\]
+
+For small $p$, this is approximately:
+\[
+  P(\text{logical error}) \approx 3p^2.
+\]
 
 \begin{workedexample}[Classical code improvement]
-For $p = 0.05$, the uncoded bit error rate is $0.05 = 5\%$.  With the
-3-bit repetition code:
+Suppose the physical bit-flip probability is
 \[
-  P(\text{logical error}) = 3(0.05)^2 - 2(0.05)^3
-  = 3(0.0025) - 2(0.000125)
-  \approx 0.00725 \approx 0.73\%.
+  p = 0.01\% = 0.0001.
 \]
-A 7-fold improvement in error rate!
+
+Without encoding, the bit error rate is simply:
+\[
+  P(\text{error}) = 0.01\%.
+\]
+
+With the 3-bit repetition code:
+\[
+  P(\text{logical error})
+  =
+  3(0.0001)^2-2(0.0001)^3
+\]
+
+\[
+  =
+  3\times10^{-8}-2\times10^{-12}
+  \approx 2.9998\times10^{-8}.
+\]
+
+Expressed as a percentage:
+\[
+  P(\text{logical error})
+  \approx 0.000003\%.
+\]
+
+So the 3-bit repetition code reduces the error rate by
+approximately $3333\times$.
 \end{workedexample}
 
 \paragraph{Syndrome table for the classical code.}
