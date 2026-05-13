@@ -426,6 +426,7 @@ information without copying it?
 \end{itemize}
 \end{summarybox}
 
+
 % ======================================================================
 % SECTION 2: QUANTUM ERRORS AND THE PAULI FRAMEWORK
 % ======================================================================
@@ -763,59 +764,128 @@ points from first principles.
 
 \subsubsection{Why tensor products?}
 
-For $n$ qubits the Hilbert space is $(\mathbb{C}^2)^{\otimes n}$, with
-dimension $2^n$.  Operators on this space are $2^n \times 2^n$ matrices,
-forming a vector space of dimension $4^n$.  A natural basis for this
-operator space is the set of all $n$-fold tensor products of single-qubit
-Paulis:
+Start with the physical picture.  For $n$ qubits, a tensor product
 \[
-  \sigma_{i_1} \otimes \sigma_{i_2} \otimes \cdots \otimes \sigma_{i_n},
-  \qquad \sigma_{i_j} \in \{I, X, Y, Z\}.
+  P^{(1)} \otimes P^{(2)} \otimes \cdots \otimes P^{(n)},
+  \qquad P^{(j)} \in \{I, X, Y, Z\},
 \]
-There are exactly $4^n$ such products --- matching the dimension of the
-space --- so they form a complete basis.  By the same argument as
-Theorem~\ref{thm:discretisation}, any $n$-qubit error operator can be
-expanded in this basis.
+is a \textbf{specific error operator}: it says qubit $1$ experiences error
+$P^{(1)}$, qubit $2$ experiences error $P^{(2)}$, and so on independently.
+The superscript $(j)$ is simply the qubit label.  For example,
+$X \otimes I \otimes Z$ means qubit 1 suffers a bit-flip, qubit 2 is
+untouched, and qubit 3 suffers a phase-flip --- all simultaneously and
+independently.
+
+\medskip
+Now the linear algebra observation.  By choosing $P^{(j)}$ from
+$\{I, X, Y, Z\}$ independently at each of the $n$ qubit positions, we
+obtain $4^n$ distinct such operators in total.  The Hilbert space of $n$
+qubits has dimension $2^n$, so operators on it are $2^n \times 2^n$
+matrices, which form a vector space of dimension $(2^n)^2 = 4^n$.  Since
+we have exactly $4^n$ tensor-product operators and they are linearly
+independent, they \textbf{span the entire operator space} --- they are a
+basis.
+
+\medskip
+The practical consequence is the same as in the single-qubit case
+(Theorem~\ref{thm:discretisation}): any $n$-qubit error, no matter how
+complicated, can be written as a \emph{linear combination} of these
+tensor-product operators --- each multiplied by a complex coefficient,
+exactly as $E = c_0 I + c_1 X + c_2 Y + c_3 Z$ for one qubit.
+The next subsection makes this parallel explicit.
 
 \subsubsection{Why a linear combination, not just one tensor product?}
 
-A \textbf{single} tensor product like $X \otimes Z \otimes I$ describes a
-very specific, ``clean'' error: an $X$ on qubit 1, a $Z$ on qubit 2, and
-nothing on qubit 3.  But a general noise process acting on $n$ qubits is an
-\emph{arbitrary} $2^n \times 2^n$ matrix.  Just as an arbitrary vector in
-$\mathbb{R}^3$ is not just $\hat{x}$, $\hat{y}$, or $\hat{z}$, but a
-\emph{sum} of basis vectors, an arbitrary multi-qubit error is a
-\emph{sum} of tensor-product Pauli terms:
+Recall the single-qubit error decomposition:
 \[
-  E = \sum_{\mathbf{k}} c_{\mathbf{k}} \, P_{\mathbf{k}},
-  \qquad P_{\mathbf{k}} = \sigma_{k_1}\otimes\cdots\otimes\sigma_{k_n},
-  \quad c_{\mathbf{k}} \in \mathbb{C}.
+  E = c_0\, I \;+\; c_1\, X \;+\; c_2\, Y \;+\; c_3\, Z, \qquad c_i \in \mathbb{C}.
 \]
-The discretisation theorem then says: syndrome measurement collapses this
-sum onto a single $P_\mathbf{k}$, turning the continuous error into a
-discrete Pauli error that the code can correct.
+Every basis element ($I$, $X$, $Y$, $Z$) is multiplied by its own complex
+coefficient.  The multi-qubit case is \emph{structurally identical} ---
+the only difference is that the basis elements are now tensor products
+instead of single Paulis, and there are $4^n$ of them instead of $4$.
+The general $n$-qubit error is:
+\[
+  E \;=\; \sum_{\mathbf{k}}\; c_{\mathbf{k}}\;
+          \underbrace{P^{(1)}_{k_1} \otimes P^{(2)}_{k_2}
+                      \otimes \cdots \otimes P^{(n)}_{k_n}}_{\text{one specific
+          tensor-product error operator}},
+  \qquad c_{\mathbf{k}} \in \mathbb{C}.
+\]
+Here the multi-index $\mathbf{k} = (k_1, k_2, \ldots, k_n)$ selects one
+Pauli for each qubit ($k_j \in \{I,X,Y,Z\}$), and $c_\mathbf{k}$ is the
+complex coefficient for that particular combination --- exactly analogous
+to $c_0, c_1, c_2, c_3$ in the single-qubit case.
+
+\medskip
+A \textbf{single} tensor product (one term with coefficient 1) like
+$X \otimes Z \otimes I$ describes a specific, ``clean'' error: qubit 1
+flipped, qubit 2 phase-flipped, qubit 3 untouched.  A \emph{general}
+noise process is an arbitrary $2^n \times 2^n$ matrix, which requires a
+full weighted sum of all $4^n$ such terms.  The coefficients $c_\mathbf{k}$
+capture how much of each specific error pattern is present.
+
+\medskip
+Syndrome measurement then collapses this weighted sum onto a single term
+$P_\mathbf{k}$, turning the continuous error (with arbitrary $c_\mathbf{k}$)
+into one discrete Pauli tensor product that the code can correct.
 
 \subsubsection{Why phases $\{+1,-1,+i,-i\}$ appear}
 
-This is the crucial subtlety.  Consider the set of all $n$-qubit tensor
-products of Paulis:
+Before asking what the phases are, we should ask a more basic question:
+\emph{why do we need the Pauli operators to form a group at all?}  The
+answer comes entirely from how syndrome decoding works.
+
+\paragraph{Why a multiplicative group is necessary.}
+Syndrome decoding works by checking, for each stabilizer generator $g_i$,
+whether the error $E$ commutes or anticommutes with it:
+\[
+  g_i E = +E g_i \;\Rightarrow\; \text{syndrome bit } {+1}, \qquad
+  g_i E = -E g_i \;\Rightarrow\; \text{syndrome bit } {-1}.
+\]
+This check involves \emph{multiplying} Pauli operators together.  For the
+syndrome machinery to be well-defined, the result of every such
+multiplication must stay inside the set we are working with.  This is
+exactly the \textbf{closure} property of a group.  Without it, $g_i E$
+might fall outside the set, and the commutation check would be undefined.
+
+Beyond closure, the other group axioms are equally unavoidable:
+\begin{itemize}
+  \item \textbf{Identity} ($I \otimes \cdots \otimes I$): the ``no error''
+        case must be in the set, otherwise the code cannot handle a
+        perfectly transmitted qubit.
+  \item \textbf{Inverses}: every Pauli satisfies $P^2 = I$, so each
+        element is its own inverse --- this comes for free from the
+        algebra, but it is essential for composing corrections.
+  \item \textbf{Associativity}: matrix multiplication is always
+        associative, so this costs nothing.
+\end{itemize}
+The group structure is therefore not imposed by choice --- it is the
+\emph{minimum algebraic requirement} for syndrome decoding to function.
+The only question is: does the set of tensor-product Paulis already form
+a group, or do we need to enlarge it?
+
+\paragraph{The closure problem and its fix.}
+Consider the set of all $n$-qubit tensor products of Paulis
+\emph{without} any phases:
 \[
   \widetilde{\mathcal{P}}_n
   = \bigl\{ P_1 \otimes P_2 \otimes \cdots \otimes P_n
     \;\big|\; P_j \in \{I,X,Y,Z\} \bigr\}.
 \]
-Is this a group under matrix multiplication?  Let us check closure.
 Take two elements $A = X \otimes I$ and $B = Y \otimes I$ in
-$\widetilde{\mathcal{P}}_2$.  Their product is:
+$\widetilde{\mathcal{P}}_2$ and multiply them:
 \[
   AB = (X\otimes I)(Y\otimes I) = XY \otimes I = iZ \otimes I.
 \]
 But $iZ \otimes I \notin \widetilde{\mathcal{P}}_2$ because $iZ$ is not
-one of $\{I, X, Y, Z\}$.  The set is \textbf{not closed under multiplication}!
+one of $\{I, X, Y, Z\}$.  \textbf{Closure fails.}  The set is not a
+group, so syndrome decoding would be undefined over it.
 
-The source of the problem is the single-qubit relation $XY = iZ$.  Products
-of Pauli matrices generate phases $\{+1, -1, +i, -i\}$.  To make the set
-closed (i.e.\ to form a group), we must include all four phases:
+The source is the single-qubit relation $XY = iZ$: products of distinct
+Paulis produce phases $\{+1, -1, +i, -i\}$.  The minimal fix is to
+include all four phases explicitly, giving a set that \emph{is} closed
+under multiplication:
 
 \begin{definition}[$n$-qubit Pauli group]
 \[
@@ -835,6 +905,35 @@ bookkeeping device that keeps the set closed under multiplication, making
 it a proper group.  This group structure is what powers the stabilizer
 formalism and makes syndrome decoding work cleanly.
 \end{keypoint}
+
+\begin{caution}[Phases do not replace coefficients]
+It is tempting to think that because the Pauli group now includes phases,
+we no longer need the linear combination $E = \sum_\mathbf{k} c_\mathbf{k}
+P_\mathbf{k}$ to represent errors.  This is not correct.  The two things
+solve entirely different problems:
+
+\begin{itemize}
+  \item The \textbf{linear combination with coefficients $c_\mathbf{k}$}
+        answers: \emph{how do we represent an arbitrary error operator?}
+        A general noise process is a continuous object --- an arbitrary
+        $2^n \times 2^n$ complex matrix.  It requires $4^n$ continuous
+        complex parameters to describe, which is exactly what the
+        coefficients $c_\mathbf{k}$ provide.
+
+  \item The \textbf{phases $\{\pm1, \pm i\}$} answer a completely separate
+        question: \emph{how do we keep tensor-product Paulis closed under
+        multiplication?}  When two Pauli group elements are multiplied
+        during a syndrome calculation, the result must stay inside the
+        group.  Without phases it does not; with them it does.
+\end{itemize}
+
+Even after attaching phases, $\mathcal{P}_n$ is still a \emph{discrete}
+set of $4^{n+1}$ elements.  A discrete set can never represent a
+continuous error operator on its own --- you still need the continuous
+coefficients $c_\mathbf{k}$.  The phases and the coefficients live at
+completely different levels: the coefficients are for \emph{decomposing
+errors}, the phases are for \emph{multiplying group elements}.
+\end{caution}
 
 To see concretely why the phases arise, recall the single-qubit products:
 \[
