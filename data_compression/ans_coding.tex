@@ -50,22 +50,33 @@ mirroring the entropy formula $-\log_2 p$.
 % -----------------------------------------------------------
 
 \begin{definitionbox}
-\textbf{Setup.}  Let the source alphabet be
-$\mathcal{A} = \{s_1, s_2, \ldots, s_k\}$ with probabilities
+\textbf{Setup.}  Let the source alphabet be  
+$\mathcal{A} = \{s_1, s_2, \ldots, s_k\}$ with probabilities  
 $\{p_1, p_2, \ldots, p_k\}$, $\sum_i p_i = 1$.
 
-ANS works with \emph{quantised} probabilities.  Choose a table size
-$L = 2^R$ (a power of~2).  Each symbol $s_i$ is assigned a frequency
-$f_i$ (a positive integer) such that $\sum_i f_i = L$.  The quantised
-probability is $\tilde{p}_i = f_i / L$.
+ANS works with \emph{quantised} probabilities.  
+Choose a table size \(L = 2^R\). Here:
+
+\begin{itemize}
+  \item \(L\) is the total “width” of a probability table.
+  \item \(R\) is an integer (e.g., 8, 12, 16) that determines \(L\) as a power of two.
+  \item “Table” means a small array of length \(L\) used internally by ANS to map between symbols and states.
+\end{itemize}
+
+Each symbol \(s_i\) is assigned a frequency \(f_i\) (a positive integer) such that \(\sum_i f_i = L\).  
+The quantised probability is \(\tilde{p}_i = f_i / L\).
 \end{definitionbox}
 
 \begin{importantbox}
-\textbf{Why a power-of-two table size?}  With $L = 2^R$, normalisation and
-range checks reduce to fast bit-shift and bit-mask operations
-($x \bmod L = x\ \&\ (L{-}1)$), making ANS extremely cache-friendly and
+\textbf{Why a power-of-two table size?}  With \(L = 2^R\), normalisation and
+range checks reduce to fast bit-shift and bit-mask operations  
+(\(x \bmod L = x\ \&\ (L{-}1)\) on computers). This makes ANS extremely cache-friendly and
 branch-free on modern CPUs.
 \end{importantbox}
+
+\textbf{What does this mean in simple terms?}  
+Instead of using exact probabilities (like 0.3 or 0.15159), ANS approximates them with small integers \(f_i\) that sum to a power of two. The “table” is just a precomputed list of length \(L\) that tells ANS, for each possible position in that list, which symbol to encode or decode next. \(R\) controls how accurate the approximation is: larger \(R\) means larger \(L\) and more precise probabilities, but also a bigger table.
+
 
 % -----------------------------------------------------------
 \subsection{Two Flavours of ANS}
