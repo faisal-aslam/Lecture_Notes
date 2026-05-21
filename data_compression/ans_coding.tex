@@ -150,8 +150,9 @@ just before $c_i + f_i$.  Because the blocks are contiguous
 and non-overlapping, the decoder can identify any symbol
 simply by checking which block a number falls into.
 
+
 \begin{examplebox}
-\textbf{Example: assigning slot ranges.}
+\textbf{Example: assigning slot ranges (with explicit pigeonholes).}
 Suppose $\mathcal{A} = \{A, B, C\}$, $L = 8$, and the
 frequencies are $f_A = 4$, $f_B = 2$, $f_C = 2$
 (so $4+2+2=8=L$, as required).
@@ -161,22 +162,41 @@ frequencies are $f_A = 4$, $f_B = 2$, $f_C = 2$
 \begin{tabular}{@{}lllll@{}}
 \toprule
 Symbol & Frequency $f$ & Cumulative $c$ & Prob.\ $\tilde{p}=f/L$
-  & Slot range $[c,\;c+f)$ \\
+  & Pigeonhole numbers \\
 \midrule
-$A$ & 4 & $c_A=0$         & 0.50 & $[0,4)$ \\
-$B$ & 2 & $c_B=0+4=4$     & 0.25 & $[4,6)$ \\
-$C$ & 2 & $c_C=0+4+2=6$   & 0.25 & $[6,8)$ \\
+$A$ & 4 & $c_A=0$         & 0.50 & $0, 1, 2, 3$ \\
+$B$ & 2 & $c_B=0+4=4$     & 0.25 & $4, 5$ \\
+$C$ & 2 & $c_C=0+4+2=6$   & 0.25 & $6, 7$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \medskip
 \noindent
-The slot ranges tile $[0,8)$ perfectly.  If we compute
-$x \bmod 8$ for some state $x$ and get the value 5, it falls
-in $[4,6)$, so the symbol is $B$.  This is exactly how the
-decoder identifies symbols.
+The pigeonholes tile $[0,8)$ perfectly, with each symbol
+occupying a contiguous block:
+
+\medskip
+\begin{center}
+\ttfamily
+\begin{tabular}{ccccccccc}
+\toprule
+Pigeonhole \#: & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+\midrule
+Symbol owner:  & A & A & A & A & B & B & C & C \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\noindent
+The decoder computes $r = x \bmod 8$.  
+If $r = 5$, it falls in pigeonhole $5$ $\rightarrow$ symbol $B$.  
+If $r = 2$, it falls in pigeonhole $2$ $\rightarrow$ symbol $A$.  
+If $r = 7$, it falls in pigeonhole $7$ $\rightarrow$ symbol $C$.  
+This is exactly how the decoder identifies symbols from the state $x$.
 \end{examplebox}
+
 
 % -----------------------------------------------------------
 \subsection{Two Variants: rANS and tANS}
@@ -219,6 +239,7 @@ from below (this is called \textbf{renormalising upward}).
 These bits are the compressed output; the final value of $x$
 is appended at the end so the decoder knows where to start.
 
+
 \subsubsection{The rANS Encoding Step}
 \label{sec:rans_encode}
 
@@ -240,58 +261,88 @@ The formula that achieves all three goals is:
           \;+\; c_s \;+\; (x \bmod f_s)
 \end{equation}
 where $f_s$ is the frequency of $s$ and $c_s$ is its
-cumulative frequency (both defined in the notation table
-above).
+cumulative frequency.
 
-\paragraph{Why does goal 1 hold? (Information content.)}
-The term $\lfloor x/f_s \rfloor \cdot L$ scales $x$ up by a
-factor of approximately $L/f_s = 1/\tilde{p}_s$.  Scaling
-by $1/\tilde{p}_s$ increases the binary length of $x$ by
-$\log_2(1/\tilde{p}_s) = -\log_2 \tilde{p}_s$ bits — exactly
-the information content of symbol $s$.  Common symbols
-(large $f_s$) cause a small increase; rare symbols (small
-$f_s$) cause a large increase.
+Let's break down why this formula works.
 
-\paragraph{Why does goal 2 hold? (Decodability.)}
-The decoder needs to identify $s$ from $x'$.  Notice that:
+\paragraph{Why goal 1 holds (information content).}
+The term $\lfloor x/f_s \rfloor \cdot L$ multiplies $x$ by
+approximately $L/f_s$.  Since $L/f_s = 1/\tilde{p}_s$, this
+increases the size of $x$ by a factor of $1/\tilde{p}_s$.
+In bit terms, we add $\log_2(1/\tilde{p}_s) = -\log_2 \tilde{p}_s$
+bits — exactly the ideal information content of symbol $s$.
+
+Common symbols (large $f_s$) cause a small increase; rare
+symbols (small $f_s$) cause a large increase.
+
+\paragraph{Why goal 2 holds (decodability).}
+The decoder will identify $s$ by looking at $x' \bmod L$.
+Let's compute it:
 \[
-  x' \bmod L \;=\; c_s + (x \bmod f_s)
+x' \bmod L \;=\; c_s + (x \bmod f_s)
 \]
-Because $0 \le x \bmod f_s < f_s$, this value always lies in
-$[c_s,\; c_s + f_s)$, which is symbol $s$'s slot range.  So
-the decoder computes $x' \bmod L$ and checks which symbol's
-slot range it falls in — that uniquely identifies $s$.  Once
-$s$ is known, the decoder can also recover $x$ by inverting
-the formula (see Section~\ref{sec:rans_decode}).
 
-\paragraph{Why does goal 3 hold? (Staying in $[L,2L)$.)}
-The formula by itself may produce $x'$ outside $[L, 2L)$.
-We fix this by \textbf{pre-normalising} $x$ into the smaller
-range $[f_s, 2f_s)$ \emph{before} applying the formula.
-Pre-normalisation works by repeatedly right-shifting $x$ by
-one bit (i.e.\ dividing by 2) and emitting the discarded
-bit, until $x < 2f_s$.
+Two key facts about the right-hand side:
+\begin{itemize}
+  \item $0 \le x \bmod f_s < f_s$
+  \item Therefore $c_s \le x' \bmod L < c_s + f_s$
+\end{itemize}
 
-Once $x \in [f_s, 2f_s)$, the floor division simplifies:
-$\lfloor x / f_s \rfloor = 1$ exactly.  Formula
-\eqref{eq:rans_enc} then becomes:
+But $[c_s,\; c_s+f_s)$ is precisely the slot range that
+belongs to symbol $s$!  So:
+
+\begin{center}
+\boxed{x' \bmod L \text{ always falls inside } s\text{'s pigeonhole block.}}
+\end{center}
+
+The decoder simply computes $r = x' \bmod L$, finds which
+symbol owns that pigeonhole, and recovers $s$ instantly.
+
+\paragraph{Why goal 3 holds (staying in $[L, 2L)$).}
+The formula above might produce an $x'$ that is too large.
+To prevent this, we \textbf{pre-normalise} $x$ before applying
+the formula.
+
+\textbf{The trick:} Before encoding, we repeatedly shrink $x$
+by shifting out its lowest bits (and writing those bits to the
+output) until:
 \[
-  x' = L + c_s + (x \bmod f_s)
+f_s \;\le\; x \;<\; 2f_s
 \]
-Since $0 \le x \bmod f_s < f_s$, we have
-$x' \in [L + c_s,\; L + c_s + f_s)$.  Because
-$c_s + f_s \le L$ (all cumulative frequencies fit inside
-$[0, L)$), this range is a subset of $[L, 2L)$.  Goal 3 is
-guaranteed.
+
+Why $[f_s, 2f_s)$?  Because when $x$ is in this range, we have
+$\lfloor x/f_s \rfloor = 1$.  Then the encoding formula
+simplifies dramatically:
+\[
+x' = 1 \cdot L + c_s + (x \bmod f_s) = L + c_s + (x \bmod f_s)
+\]
+
+Now check the range of $x'$:
+\begin{itemize}
+  \item Minimum: when $x \bmod f_s = 0$ → $x' = L + c_s \ge L$
+  \item Maximum: when $x \bmod f_s = f_s-1$ → $x' = L + c_s + (f_s-1) < L + c_s + f_s$
+\end{itemize}
+
+Since $c_s + f_s \le L$ (the pigeonhole blocks fit exactly in
+$[0, L)$), we get $x' < L + L = 2L$.  Thus $x' \in [L, 2L)$.
+
+\paragraph{Why pre-normalise before, not after?}
+The low bits of $x'$ (specifically $x' \bmod L$) contain the
+symbol tag that the decoder needs.  If we applied the formula
+first and then tried to shrink $x'$ by shifting, we would
+destroy that tag.  By shrinking $x$ \emph{before} the formula,
+the tag is freshly created in the correct position and never
+needs to be modified.
 
 \begin{importantbox}
-\textbf{Why pre-normalise \emph{before} the formula, not
-after?}  After applying the formula, the low bits of $x'$
-encode $s$'s slot tag.  If we right-shifted $x'$ to shrink
-it, we would destroy that tag and make $x'$ undecodable.
-By emitting bits from $x$ \emph{before} the formula, we
-guarantee $x'$ is already in range — no post-formula
-adjustment is ever needed.
+\textbf{Analogy: a water tank.}
+Think of $x$ as a water tank.  Encoding a symbol adds an
+amount of water proportional to $-\log_2 p_s$ (rare symbols
+add more).  When the tank gets too full ($x \ge 2f_s$), we
+pour out the excess (emit bits) \emph{before} adding more
+water.  This keeps the tank level between $f_s$ and $2f_s$
+before each addition, ensuring the final level stays between
+$L$ and $2L$.
 \end{importantbox}
 
 \begin{definitionbox}
@@ -300,20 +351,19 @@ adjustment is ever needed.
 into the current state $x$:
 
 \medskip
-\textbf{Step 1 — Pre-normalise} (emit bits until
-$x \in [f_s, 2f_s)$):
+\textbf{Step 1 — Pre-normalise (shrink $x$ until it fits):}
 \begin{algorithmic}[1]
 \While{$x \ge 2f_s$}
     \State $\text{emit}(x \mathrel{\&} 1)$
-           \Comment{write the lowest bit of $x$ to the output stream}
+           \Comment{write the lowest bit of $x$ to the output}
     \State $x \leftarrow x \gg 1$
-           \Comment{discard that bit (integer divide by 2)}
+           \Comment{right-shift (divide by 2)}
 \EndWhile
-\Comment{Now $f_s \le x < 2f_s$, so $\lfloor x/f_s \rfloor = 1$}
+\Comment{Now $f_s \le x < 2f_s$}
 \end{algorithmic}
 
 \medskip
-\textbf{Step 2 — Encode} (apply the formula):
+\textbf{Step 2 — Encode (apply the simplified formula):}
 \begin{algorithmic}[1]
 \State $x \leftarrow L + c_s + (x \bmod f_s)$
        \Comment{new state, guaranteed in $[L, 2L)$}
@@ -321,16 +371,17 @@ $x \in [f_s, 2f_s)$):
 \end{definitionbox}
 
 \begin{importantbox}
-\textbf{Encoding order and reversal.}  The encoder emits
-bits during pre-normalisation \emph{before} applying the
-formula, so the bits for the \emph{last} symbol encoded
-appear first in the bitstream.  This means the decoder must
-read bits in \emph{reverse} order and recovers symbols in
-reverse: if we encode $s_1, s_2, \ldots, s_n$, the decoder
-produces $s_n, \ldots, s_2, s_1$.  Practical implementations
-handle this by encoding the input block \emph{right-to-left},
-so the decoded output automatically comes out left-to-right.
+\textbf{Encoding order and reversal.}
+Notice that bits are emitted \emph{before} the formula is
+applied.  This means the bits corresponding to the \emph{last}
+symbol encoded appear first in the output stream.  Consequently,
+the decoder will recover symbols in reverse order.
+
+Practical implementations handle this by simply encoding the
+input block \emph{right-to-left}.  Then the decoder, running
+left-to-right, produces the original order automatically.
 \end{importantbox}
+
 
 \subsubsection{The rANS Decoding Step}
 \label{sec:rans_decode}
