@@ -469,10 +469,9 @@ formula step can be verified concretely.
 
 \smallskip
 \begin{center}
-\begin{tabular}{@{}lllll@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-Symbol & Freq.\ $f$ & Cumul.\ $c$ & $\tilde{p}=f/L$
-  & Slot range $[c,\;c+f)$ \\
+Symbol & Freq.\ $f$ & Cumul.\ $c$ & $\tilde{p}=f/L$ & Slot range $[c,\;c+f)$ \\
 \midrule
 $A$ & 4 & 0 & 0.50 & $[0,4)$ \\
 $B$ & 2 & 4 & 0.25 & $[4,6)$ \\
@@ -609,14 +608,13 @@ $x = 10 = (1010)_2$ to the bitstream:
 
 \smallskip
 \begin{center}
-\begin{tabular}{@{}clccccc@{}}
+\begin{tabular}{@{}cclccc@{}}
 \toprule
-Step & Symbol & $x$ in & Bits emitted & $x$ after pre-norm
-  & Formula $L + c_s + (x \bmod f_s)$ & $x$ out \\
+Step & Symbol & $x$ in & Bits emitted & $x$ after pre-norm & $x$ out \\
 \midrule
-1 & $A$ & 8  & \texttt{0}    & 4 & $8+0+0=8$  & 8  \\
-2 & $B$ & 8  & \texttt{0\;0} & 2 & $8+4+0=12$ & 12 \\
-3 & $A$ & 12 & \texttt{0}    & 6 & $8+0+2=10$ & 10 \\
+1 & $A$ & 8  & \texttt{0}    & 4 & 8  \\
+2 & $B$ & 8  & \texttt{0\;0} & 2 & 12 \\
+3 & $A$ & 12 & \texttt{0}    & 6 & 10 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -630,53 +628,73 @@ fixed per-block overhead that becomes negligible for long
 sequences.
 \end{examplebox}
 
+
 % -----------------------------------------------------------
 \subsection{Worked Example: rANS Decoding}
 % -----------------------------------------------------------
 
-We now decode the bitstream produced above, step by step,
-verifying we recover \texttt{A B A}.
+We now decode the bitstream produced in the previous encoding
+example, step by step, verifying that we recover \texttt{A B A}.
 
 \begin{examplebox}
-\textbf{What the decoder has:}
+\textbf{What the decoder knows:}
 \begin{itemize}
-  \item The stored final state: $(1010)_2 = 10$.
-        Set $x = 10$.
-  \item The pre-norm bits in \emph{reversed} order.  The
-        encoder emitted \texttt{0, 0, 0, 0} (left-to-right);
-        reversed, this is also \texttt{0, 0, 0, 0} (all zeros
-        here, but in general reversal matters).
+  \item The final state written by the encoder: $x = 10$ (binary $1010_2$).
+  \item The pre-normalisation bits emitted during encoding:
+        \texttt{0, 0, 0, 0} (in the order they were emitted).
   \item The symbol table (same as encoding):
-        $A \to [0,4)$, $B \to [4,6)$, $C \to [6,8)$.
+        \[
+        A \to [0,4),\qquad B \to [4,6),\qquad C \to [6,8)
+        \]
+  \item $L = 8$, $R = 3$.
 \end{itemize}
+
+\medskip
+\textbf{Critical note:} The decoder reads pre-normalisation bits
+in \textbf{reverse order} (because the encoder emitted bits for the
+last symbol first).  In this example all bits are zero, so reversal
+doesn't change them, but the principle matters.
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
   Initial state $x$:  & $10$ \\
-  Bit queue:          & \texttt{0, 0, 0, 0}
-                        \quad(read left-to-right) \\
+  Bit queue (reversed): & \texttt{0, 0, 0, 0} (read left-to-right) \\
 \end{tabular}
 \end{center}
 
-\medskip
-\noindent\textbf{Decode Step 1} — recovers the last encoded
-symbol (position 3, which is \texttt{A}):
+\medskip\hrule\medskip
+
+\noindent\textbf{Decode Step 1 — Recover the last encoded symbol (position 3)}:
 
 \medskip
-$r = x \bmod L = 10 \bmod 8 = 2$.
-
-$r = 2$ falls in $A$'s slot range $[0, 4)$, so $s = A$.
-
-Recover previous state:
+\noindent\emph{Step 1a: Identify the symbol.}
 \[
-  x_{\text{prev}} = f_A + r - c_A = 4 + 2 - 0 = 6
+r = x \bmod L = 10 \bmod 8 = 2
+\]
+Check which symbol owns slot $2$:
+\begin{itemize}
+  \item $A$ owns $[0,4)$ → $2$ is in $A$'s range.
+  \item $B$ owns $[4,6)$ → no.
+  \item $C$ owns $[6,8)$ → no.
+\end{itemize}
+Thus $s = A$.
+
+\medskip
+\noindent\emph{Step 1b: Recover the previous state before encoding this $A$.}
+\[
+x_{\text{prev}} = f_A + r - c_A = 4 + 2 - 0 = 6
 \]
 
-Renormalise upward ($6 < L = 8$, so read one bit):
+\noindent\emph{Step 1c: Renormalise upward.}
+The encoder had pre-normalised $x$ into $[f_A, 2f_A) = [4,8)$
+before encoding.  Our $x_{\text{prev}} = 6$ is already in that range,
+but it may be below $L = 8$.  We need to restore it to $[L, 2L) = [8,16)$
+by reading bits from the stream and appending them to the bottom:
+
 \begin{algorithmic}[1]
 \While{$x_{\text{prev}} < 8$}
-    \State $6 < 8$: read bit $\mathbf{0}$;\enspace
-           $x_{\text{prev}} \leftarrow (6 \ll 1)\mid 0 = 12$
+    \State $6 < 8$: read next bit $b = \mathbf{0}$
+    \State $x_{\text{prev}} \leftarrow (6 \ll 1) \mid 0 = 12$
 \EndWhile
 \Comment{$12 \ge 8$: stop}
 \end{algorithmic}
@@ -689,28 +707,38 @@ Renormalise upward ($6 < L = 8$, so read one bit):
 \end{tabular}
 \end{center}
 
+\noindent\textit{Why this works:} The encoder had emitted bits
+until $x$ fell into $[4,8)$.  By reading those same bits back
+in reverse (here just one zero) and shifting them in from below,
+we reconstruct the encoder's state \emph{before} it started
+pre-normalising.
+
 \medskip\hrule\medskip
 
-\noindent\textbf{Decode Step 2} — recovers position 2:
-\texttt{B}:
+\noindent\textbf{Decode Step 2 — Recover the second-last encoded symbol (position 2)}:
 
 \medskip
-$r = 12 \bmod 8 = 4$.
-
-$r = 4$ falls in $B$'s slot range $[4, 6)$, so $s = B$.
-
-Recover previous state:
+\noindent\emph{Step 2a: Identify the symbol.}
 \[
-  x_{\text{prev}} = f_B + r - c_B = 2 + 4 - 4 = 2
+r = x \bmod L = 12 \bmod 8 = 4
+\]
+Slot $4$ belongs to $B$ (since $B$ owns $[4,6)$).  Thus $s = B$.
+
+\medskip
+\noindent\emph{Step 2b: Recover the previous state.}
+\[
+x_{\text{prev}} = f_B + r - c_B = 2 + 4 - 4 = 2
 \]
 
-Renormalise upward ($2 < 8$, so read two bits):
+\noindent\emph{Step 2c: Renormalise upward.}
+We need $x_{\text{prev}} \ge L = 8$:
+
 \begin{algorithmic}[1]
 \While{$x_{\text{prev}} < 8$}
-    \State $2 < 8$: read bit $\mathbf{0}$;\enspace
-           $x_{\text{prev}} \leftarrow (2 \ll 1)\mid 0 = 4$
-    \State $4 < 8$: read bit $\mathbf{0}$;\enspace
-           $x_{\text{prev}} \leftarrow (4 \ll 1)\mid 0 = 8$
+    \State $2 < 8$: read next bit $b = \mathbf{0}$
+    \State $x_{\text{prev}} \leftarrow (2 \ll 1) \mid 0 = 4$
+    \State $4 < 8$: read next bit $b = \mathbf{0}$
+    \State $x_{\text{prev}} \leftarrow (4 \ll 1) \mid 0 = 8$
 \EndWhile
 \Comment{$8 \ge 8$: stop}
 \end{algorithmic}
@@ -723,26 +751,34 @@ Renormalise upward ($2 < 8$, so read two bits):
 \end{tabular}
 \end{center}
 
+\noindent\textit{Why 2 bits?}  $B$ has probability $0.25$,
+so it should add $-\log_2(0.25)=2$ bits of information.
+The encoder emitted exactly 2 bits for this symbol, and the
+decoder now consumes them.
+
 \medskip\hrule\medskip
 
-\noindent\textbf{Decode Step 3} — recovers position 1:
-\texttt{A}:
+\noindent\textbf{Decode Step 3 — Recover the first encoded symbol (position 1)}:
 
 \medskip
-$r = 8 \bmod 8 = 0$.
-
-$r = 0$ falls in $A$'s slot range $[0, 4)$, so $s = A$.
-
-Recover previous state:
+\noindent\emph{Step 3a: Identify the symbol.}
 \[
-  x_{\text{prev}} = 4 + 0 - 0 = 4
+r = x \bmod L = 8 \bmod 8 = 0
+\]
+Slot $0$ belongs to $A$.  Thus $s = A$.
+
+\medskip
+\noindent\emph{Step 3b: Recover the previous state.}
+\[
+x_{\text{prev}} = f_A + r - c_A = 4 + 0 - 0 = 4
 \]
 
-Renormalise upward ($4 < 8$):
+\noindent\emph{Step 3c: Renormalise upward.}
+
 \begin{algorithmic}[1]
 \While{$x_{\text{prev}} < 8$}
-    \State $4 < 8$: read bit $\mathbf{0}$;\enspace
-           $x_{\text{prev}} \leftarrow (4 \ll 1)\mid 0 = 8$
+    \State $4 < 8$: read next bit $b = \mathbf{0}$
+    \State $x_{\text{prev}} \leftarrow (4 \ll 1) \mid 0 = 8$
 \EndWhile
 \Comment{$8 \ge 8$: stop}
 \end{algorithmic}
@@ -750,24 +786,27 @@ Renormalise upward ($4 < 8$):
 \begin{center}
 \begin{tabular}{@{}ll@{}}
   Decoded symbol: & $A$ \\
-  New state $x$:  & $8 = L$ (the encoder's original start) \\
+  New state $x$:  & $8$ (the encoder's initial state $L$) \\
   Bits remaining: & (empty) \\
 \end{tabular}
 \end{center}
 
 \medskip\hrule\medskip
 
-\noindent\textbf{Decoded sequence: \texttt{A B A}} ---
-identical to the input. \checkmark
+\noindent\textbf{Decoding complete.}  The decoded symbols in order
+(by the order we output them) are:
+\[
+\text{Step 1: } A,\quad \text{Step 2: } B,\quad \text{Step 3: } A
+\]
+Thus we recover \texttt{A B A} — identical to the input. \checkmark
 
 \medskip
-\noindent\textbf{Summary table:}
+\noindent\textbf{Summary table for all decoding steps:}
 
 \begin{center}
-\begin{tabular}{@{}clclcll@{}}
+\begin{tabular}{@{}cclclcl@{}}
 \toprule
-Step & $x$ in & $r = x \bmod 8$ & Symbol & $x_{\text{prev}}$ (raw)
-  & Bits read & $x$ out \\
+Step & $x$ (in) & $r = x \bmod 8$ & Symbol & $x_{\text{prev}}$ (raw) & Bits read & $x$ (out) \\
 \midrule
 1 & 10 & 2 & $A$ & 6 & \texttt{0}    & 12 \\
 2 & 12 & 4 & $B$ & 2 & \texttt{0\;0} & 8  \\
@@ -777,11 +816,15 @@ Step & $x$ in & $r = x \bmod 8$ & Symbol & $x_{\text{prev}}$ (raw)
 \end{center}
 
 \medskip
-\noindent\textit{Notice:} the decoder consumed exactly 4
-bits — one for each \texttt{A} ($-\log_2 0.5=1$ bit) and
-two for \texttt{B} ($-\log_2 0.25=2$ bits).  No bits are
-wasted.
+\noindent\textbf{Verification of information content:}
+\begin{itemize}
+  \item The decoder consumed exactly 4 bits from the stream.
+  \item Shannon entropy of \texttt{A B A} is $1 + 1 + 2 = 4$ bits.
+  \item No bits are wasted — the decoder recovers the exact
+        original symbols with perfect efficiency.
+\end{itemize}
 \end{examplebox}
+
 
 % -----------------------------------------------------------
 \subsection{Why the Encoding Formula Works: A Visual Summary}
