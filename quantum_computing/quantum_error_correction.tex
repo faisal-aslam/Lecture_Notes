@@ -1630,44 +1630,304 @@ $\alpha\ket{0}_L - \beta\ket{1}_L$.  The error is \emph{undetected}.
 \end{workedexample}
 
 \subsection{Quantum Phase-Flip Code}
+\label{sec:phase-flip}
 
-To correct phase errors, we move to the \emph{Hadamard basis}
-$\{\ket{+}, \ket{-}\}$:
+\begin{intuition}
+The bit-flip code failed against $Z$ errors because those errors
+commute with the stabilisers $Z_1Z_2$ and $Z_2Z_3$ --- they leave no
+fingerprint.
+The fix is to rotate our viewpoint: move into a basis where $Z$ errors
+\emph{look like} bit-flip errors, and then apply exactly the same
+strategy as before.
+\end{intuition}
+
+% ------------------------------------------------------------------
+\subsubsection{The Key Observation: $Z$ Errors Flip $\ket{\pm}$ States}
+% ------------------------------------------------------------------
+
+Recall the Hadamard basis states:
 \[
   \ket{+} = \frac{\ket{0}+\ket{1}}{\sqrt{2}}, \qquad
   \ket{-} = \frac{\ket{0}-\ket{1}}{\sqrt{2}}.
 \]
-In this basis, $Z$ errors become $X$ errors: $Z\ket{+} = \ket{-}$ and
-$Z\ket{-} = \ket{+}$.
+Apply $Z$ to each:
+\[
+  Z\ket{+} = \frac{Z\ket{0}+Z\ket{1}}{\sqrt{2}}
+           = \frac{\ket{0}-\ket{1}}{\sqrt{2}} = \ket{-},
+  \qquad
+  Z\ket{-} = \frac{Z\ket{0}-Z\ket{1}}{\sqrt{2}}
+           = \frac{\ket{0}+\ket{1}}{\sqrt{2}} = \ket{+}.
+\]
+So a $Z$ error \textbf{swaps} $\ket{+}\leftrightarrow\ket{-}$ --- it
+is a bit-flip in the Hadamard basis.
+If we encode in $\ket{+}$ and $\ket{-}$ instead of $\ket{0}$ and
+$\ket{1}$, a $Z$ error becomes something we already know how to catch.
 
-Encode the logical qubit as:
+% ------------------------------------------------------------------
+\subsubsection{Encoding}
+% ------------------------------------------------------------------
+
+Define the logical codewords in the Hadamard basis:
 \[
   \ket{0}_L = \ket{+++}, \qquad \ket{1}_L = \ket{---},
 \]
-so $\ket{\psi}_L = \alpha\ket{+++}+\beta\ket{---}$.
+so the encoded state is:
+\[
+  \ket{\psi}_L = \alpha\ket{+++} + \beta\ket{---}.
+\]
+
+\textbf{Encoding circuit.}
+Start from $(\alpha\ket{0}+\beta\ket{1})\ket{0}\ket{0}$, apply two
+CNOTs exactly as in the bit-flip code, then apply a Hadamard gate to
+every qubit:
 
 \begin{figure}[H]
 \centering
 \begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
-  \lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \gate{H} & \qw\\
+  \lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \gate{H} & \qw
+    & \rstick[3]{$\alpha\ket{+++}+\beta\ket{---}$}\\
   \lstick{$\ket{0}$}    & \targ{}  & \qw      & \gate{H} & \qw\\
   \lstick{$\ket{0}$}    & \qw      & \targ{}  & \gate{H} & \qw
 \end{quantikz}
-\caption{Phase-flip code encoding: first encode with CNOTs (as in the bit-flip
-code), then apply Hadamard to each qubit.}
+\caption{Phase-flip code encoding.  CNOTs spread the information across
+three qubits (as in the bit-flip code); Hadamard gates then rotate each
+qubit from the $Z$ basis into the $X$ basis.}
 \label{fig:phase-flip-encoding}
 \end{figure}
 
-The stabilizers are now $X_1 X_2$ and $X_2 X_3$ (parity in the Hadamard
-basis), detecting $Z$ errors.  The decoding applies $H^{\otimes 3}$ to
-convert back, then corrects as before.
+\textbf{Trace through:}
+\begin{align*}
+  (\alpha\ket{0}+\beta\ket{1})\ket{00}
+  &\xrightarrow{\text{CNOT}_{1,2}}
+    \alpha\ket{000}+\beta\ket{110}\\
+  &\xrightarrow{\text{CNOT}_{1,3}}
+    \alpha\ket{000}+\beta\ket{111}\\
+  &\xrightarrow{H^{\otimes 3}}
+    \alpha\ket{+++}+\beta\ket{---}.
+\end{align*}
+
+% ------------------------------------------------------------------
+\subsubsection{What Can Go Wrong}
+% ------------------------------------------------------------------
+
+A phase-flip error $Z$ on any one qubit swaps
+$\ket{+}\leftrightarrow\ket{-}$ on that qubit.
+The four possibilities are:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l l @{}}
+  \toprule
+  \textbf{Situation} & \textbf{State after error}\\
+  \midrule
+  No error         & $\alpha\ket{+++}+\beta\ket{---}$\\
+  $Z_1$ on qubit 1 & $\alpha\ket{-++}+\beta\ket{+--}$\\
+  $Z_2$ on qubit 2 & $\alpha\ket{+-+}+\beta\ket{-+-}$\\
+  $Z_3$ on qubit 3 & $\alpha\ket{++-}+\beta\ket{--+}$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+Compare this with the bit-flip code error table: the structure is
+identical --- one qubit disagrees with the other two --- except that
+``disagreement'' now means $\ket{-}$ instead of $\ket{1}$.
+
+% ------------------------------------------------------------------
+\subsubsection{Stabilisers and the Golden Rule}
+% ------------------------------------------------------------------
+
+The stabilisers of this code are:
+\[
+  g_1 = X_1 X_2, \qquad g_2 = X_2 X_3.
+\]
+These measure parity in the Hadamard basis, because $X$ is the
+``$Z$ gate of the $\ket{\pm}$ world'':
+\[
+  X\ket{+} = +1\cdot\ket{+}, \qquad X\ket{-} = -1\cdot\ket{-}.
+\]
+So $X_1X_2 = +1$ when qubits 1 and 2 agree (both $\ket{+}$ or both
+$\ket{-}$), and $X_1X_2 = -1$ when they disagree --- exactly the role
+$Z_1Z_2$ played in the bit-flip code, just in a different basis.
+
+\begin{keypoint}[The golden rule applies here too]
+\begin{itemize}
+  \item If a $Z$ error \textbf{anticommutes} with a stabiliser, the
+        syndrome bit \textbf{flips} $\Rightarrow$ error \textbf{detected}.
+  \item If a $Z$ error \textbf{commutes} with a stabiliser, the
+        syndrome bit \textbf{stays 0} $\Rightarrow$ error \textbf{invisible}.
+\end{itemize}
+\end{keypoint}
+
+We need the Pauli anticommutation relation for $X$ and $Z$ on the
+\emph{same} qubit:
+\[
+  ZX = -XZ \quad\text{(anticommute)}, \qquad ZZ = ZZ\quad\text{(commute)}.
+\]
+
+\textbf{Check $Z_1$ against $g_1 = X_1X_2$:}
+$Z_1$ and $X_1$ act on the same qubit and anticommute:
+\[
+  Z_1\cdot(X_1X_2) = (Z_1X_1)X_2 = -(X_1Z_1)X_2 = -(X_1X_2)\cdot Z_1.
+\]
+$Z_1$ \textbf{anticommutes} with $g_1$ $\Rightarrow$ $s_1$ flips. \checkmark
+
+\textbf{Check $Z_1$ against $g_2 = X_2X_3$:}
+$Z_1$ acts on qubit 1; $X_2X_3$ acts on qubits 2 and 3.
+Different qubits $\Rightarrow$ they commute:
+\[
+  Z_1\cdot(X_2X_3) = (X_2X_3)\cdot Z_1.
+\]
+$Z_1$ \textbf{commutes} with $g_2$ $\Rightarrow$ $s_2$ unchanged.
+
+By the same logic applied to $Z_2$ and $Z_3$, we get the full syndrome
+table below.
+
+% ------------------------------------------------------------------
+\subsubsection{Syndrome Circuit}
+% ------------------------------------------------------------------
+
+Because the stabilisers are $X$-type, we use the dual ancilla
+preparation: ancilla in $\ket{+}$, CNOTs with ancilla as \emph{control}
+and data as target, then a Hadamard on the ancilla before measuring.
+
+\begin{figure}[H]
+\centering
+\begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
+  \lstick[3]{$\alpha\ket{+++}+\beta\ket{---}$}
+  & \targ{}  & \qw      & \qw      & \qw      & \qw\\
+  & \qw      & \targ{}  & \targ{}  & \qw      & \qw\\
+  & \qw      & \qw      & \qw      & \targ{}  & \qw\\
+  \lstick{$\ket{0}$} & \gate{H} & \ctrl{-3} & \ctrl{-2} & \qw & \gate{H}
+    & \meter{$s_1$}\\
+  \lstick{$\ket{0}$} & \gate{H} & \qw & \qw & \ctrl{-2} & \gate{H}
+    & \meter{$s_2$}
+\end{quantikz}
+\caption{Syndrome measurement circuit for the phase-flip code.
+Each ancilla is prepared in $\ket{+}$ (via $H\ket{0}$), acts as the
+control of CNOTs onto the data qubits, then is rotated back by $H$
+before a standard 0/1 measurement.
+This measures the $X$-parity stabilisers $X_1X_2$ (giving $s_1$) and
+$X_2X_3$ (giving $s_2$).}
+\label{fig:phase-flip-syndrome-circuit}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsubsection{Syndrome Table}
+% ------------------------------------------------------------------
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  every node/.style={font=\small}
+]
+  \matrix (m) [matrix of nodes, row sep=0.7cm, column sep=0.5cm,
+               nodes={align=center}] {
+    \textbf{Error} & \textbf{State after error} &
+    \textbf{$g_1 = X_1X_2$} & \textbf{$g_2 = X_2X_3$} &
+    \textbf{Correction}\\[-2pt]
+    None & $\alpha\ket{+++}+\beta\ket{---}$ & $+1$ & $+1$ & None\\
+    $Z_1$ & $\alpha\ket{-++}+\beta\ket{+--}$ & $-1$ & $+1$ & Apply $Z_1$\\
+    $Z_2$ & $\alpha\ket{+-+}+\beta\ket{-+-}$ & $-1$ & $-1$ & Apply $Z_2$\\
+    $Z_3$ & $\alpha\ket{++-}+\beta\ket{--+}$ & $+1$ & $-1$ & Apply $Z_3$\\
+  };
+  \draw[thick] (m-1-1.south west) -- (m-1-5.south east);
+  \draw[thick] (m-1-1.north west) -- (m-1-5.north east);
+  \draw[thick] (m-6-1.south west) -- (m-6-5.south east);
+\end{tikzpicture}
+\caption{Syndrome table for the 3-qubit phase-flip code.
+The syndrome $(g_1,g_2)$ uniquely identifies single-qubit phase-flip
+errors.
+Measurement outcomes: $s_i=0 \leftrightarrow g_i=+1$;\;
+$s_i=1 \leftrightarrow g_i=-1$.}
+\label{tab:phase-flip-syndrome}
+\end{figure}
+
+The syndrome pattern is \textbf{identical} to the bit-flip code --- the
+only difference is which errors are caught ($Z$ instead of $X$) and
+which stabilisers do the catching ($X_1X_2$ instead of $Z_1Z_2$).
+
+% ------------------------------------------------------------------
+\subsubsection{Worked Example}
+% ------------------------------------------------------------------
+
+\begin{workedexample}[Full syndrome computation for $Z_2$]
+Suppose qubit 2 suffers a phase flip.  The error $Z_2$ gives:
+\[
+  Z_2\bigl(\alpha\ket{+++}+\beta\ket{---}\bigr)
+  = \alpha\ket{+-+} + \beta\ket{-+-}.
+\]
+
+\textbf{Measuring $g_1 = X_1 X_2$:}
+
+Recall $X\ket{+}=+\ket{+}$ and $X\ket{-}=-\ket{-}$.
+\begin{align*}
+  X_1 X_2\ket{+-+} &= (X\ket{+})(X\ket{-})(I\ket{+})
+                    = (+1)(-1)\ket{+-+} = -\ket{+-+},\\
+  X_1 X_2\ket{-+-} &= (X\ket{-})(X\ket{+})(I\ket{-})
+                    = (-1)(+1)\ket{-+-} = -\ket{-+-}.
+\end{align*}
+Both terms give eigenvalue $-1$, so $g_1 = -1$ (i.e.\ $s_1 = 1$).
+
+\textbf{Measuring $g_2 = X_2 X_3$:}
+\begin{align*}
+  X_2 X_3\ket{+-+} &= (X\ket{-})(X\ket{+}) = (-1)(+1) = -1,\\
+  X_2 X_3\ket{-+-} &= (X\ket{+})(X\ket{-}) = (+1)(-1) = -1.
+\end{align*}
+So $g_2 = -1$ (i.e.\ $s_2 = 1$).
+
+\textbf{Syndrome: $(g_1,g_2)=(-1,-1)$, i.e.\ $(s_1,s_2)=(1,1)$.}
+From the table, this is a $Z_2$ error.  Apply $Z_2$ to correct:
+\[
+  Z_2\bigl(\alpha\ket{+-+}+\beta\ket{-+-}\bigr)
+  = \alpha\ket{+++}+\beta\ket{---}. \quad\checkmark
+\]
+The encoded state is perfectly restored, and $\alpha,\beta$ were
+never disturbed.
+\end{workedexample}
+
+% ------------------------------------------------------------------
+\subsubsection{What This Code Cannot Detect}
+% ------------------------------------------------------------------
+
+Just as the bit-flip code was blind to $Z$ errors, the phase-flip code
+is blind to $X$ (bit-flip) errors.
+An $X$ error on any qubit commutes with both $X$-type stabilisers
+($XX = I$ on the same qubit), so it leaves both syndrome bits unchanged
+and goes completely undetected.
 
 \begin{caution}
 The phase-flip code corrects $Z$ errors only; the bit-flip code corrects
-$X$ errors only.  Neither code corrects both types simultaneously.  For
-complete single-qubit error correction, we need a code that handles both ---
-this is the \textbf{Shor 9-qubit code} (Section~\ref{sec:shor}).
+$X$ errors only.  Neither code corrects both types simultaneously.
+For complete single-qubit error correction --- catching $X$, $Z$, and
+$Y$ errors all at once --- we need a code that combines both strategies.
+This is the \textbf{Shor 9-qubit code} (Section~\ref{sec:shor}).
 \end{caution}
+
+% ------------------------------------------------------------------
+\subsubsection{Side-by-Side Comparison}
+% ------------------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} l l l @{}}
+  \toprule
+  & \textbf{Bit-flip code} & \textbf{Phase-flip code}\\
+  \midrule
+  Codewords           & $\alpha\ket{000}+\beta\ket{111}$
+                      & $\alpha\ket{+++}+\beta\ket{---}$\\
+  Stabilisers         & $Z_1Z_2,\; Z_2Z_3$
+                      & $X_1X_2,\; X_2X_3$\\
+  Detects             & $X$ errors (bit flips)
+                      & $Z$ errors (phase flips)\\
+  Blind to            & $Z$ errors
+                      & $X$ errors\\
+  Ancilla prepared in & $\ket{0}$
+                      & $\ket{+}$ (i.e.\ $H\ket{0}$)\\
+  CNOT direction      & Data $\to$ Ancilla
+                      & Ancilla $\to$ Data\\
+  \bottomrule
+\end{tabular}
+\end{center}
 
 \subsection{Why This Works Despite No-Cloning}
 
