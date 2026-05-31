@@ -1630,304 +1630,44 @@ $\alpha\ket{0}_L - \beta\ket{1}_L$.  The error is \emph{undetected}.
 \end{workedexample}
 
 \subsection{Quantum Phase-Flip Code}
-\label{sec:phase-flip}
 
-\begin{intuition}
-The bit-flip code failed against $Z$ errors because those errors
-commute with the stabilisers $Z_1Z_2$ and $Z_2Z_3$ --- they leave no
-fingerprint.
-The fix is to rotate our viewpoint: move into a basis where $Z$ errors
-\emph{look like} bit-flip errors, and then apply exactly the same
-strategy as before.
-\end{intuition}
-
-% ------------------------------------------------------------------
-\subsubsection{The Key Observation: $Z$ Errors Flip $\ket{\pm}$ States}
-% ------------------------------------------------------------------
-
-Recall the Hadamard basis states:
+To correct phase errors, we move to the \emph{Hadamard basis}
+$\{\ket{+}, \ket{-}\}$:
 \[
   \ket{+} = \frac{\ket{0}+\ket{1}}{\sqrt{2}}, \qquad
   \ket{-} = \frac{\ket{0}-\ket{1}}{\sqrt{2}}.
 \]
-Apply $Z$ to each:
-\[
-  Z\ket{+} = \frac{Z\ket{0}+Z\ket{1}}{\sqrt{2}}
-           = \frac{\ket{0}-\ket{1}}{\sqrt{2}} = \ket{-},
-  \qquad
-  Z\ket{-} = \frac{Z\ket{0}-Z\ket{1}}{\sqrt{2}}
-           = \frac{\ket{0}+\ket{1}}{\sqrt{2}} = \ket{+}.
-\]
-So a $Z$ error \textbf{swaps} $\ket{+}\leftrightarrow\ket{-}$ --- it
-is a bit-flip in the Hadamard basis.
-If we encode in $\ket{+}$ and $\ket{-}$ instead of $\ket{0}$ and
-$\ket{1}$, a $Z$ error becomes something we already know how to catch.
+In this basis, $Z$ errors become $X$ errors: $Z\ket{+} = \ket{-}$ and
+$Z\ket{-} = \ket{+}$.
 
-% ------------------------------------------------------------------
-\subsubsection{Encoding}
-% ------------------------------------------------------------------
-
-Define the logical codewords in the Hadamard basis:
+Encode the logical qubit as:
 \[
   \ket{0}_L = \ket{+++}, \qquad \ket{1}_L = \ket{---},
 \]
-so the encoded state is:
-\[
-  \ket{\psi}_L = \alpha\ket{+++} + \beta\ket{---}.
-\]
-
-\textbf{Encoding circuit.}
-Start from $(\alpha\ket{0}+\beta\ket{1})\ket{0}\ket{0}$, apply two
-CNOTs exactly as in the bit-flip code, then apply a Hadamard gate to
-every qubit:
+so $\ket{\psi}_L = \alpha\ket{+++}+\beta\ket{---}$.
 
 \begin{figure}[H]
 \centering
 \begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
-  \lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \gate{H} & \qw
-    & \rstick[3]{$\alpha\ket{+++}+\beta\ket{---}$}\\
+  \lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \gate{H} & \qw\\
   \lstick{$\ket{0}$}    & \targ{}  & \qw      & \gate{H} & \qw\\
   \lstick{$\ket{0}$}    & \qw      & \targ{}  & \gate{H} & \qw
 \end{quantikz}
-\caption{Phase-flip code encoding.  CNOTs spread the information across
-three qubits (as in the bit-flip code); Hadamard gates then rotate each
-qubit from the $Z$ basis into the $X$ basis.}
+\caption{Phase-flip code encoding: first encode with CNOTs (as in the bit-flip
+code), then apply Hadamard to each qubit.}
 \label{fig:phase-flip-encoding}
 \end{figure}
 
-\textbf{Trace through:}
-\begin{align*}
-  (\alpha\ket{0}+\beta\ket{1})\ket{00}
-  &\xrightarrow{\text{CNOT}_{1,2}}
-    \alpha\ket{000}+\beta\ket{110}\\
-  &\xrightarrow{\text{CNOT}_{1,3}}
-    \alpha\ket{000}+\beta\ket{111}\\
-  &\xrightarrow{H^{\otimes 3}}
-    \alpha\ket{+++}+\beta\ket{---}.
-\end{align*}
-
-% ------------------------------------------------------------------
-\subsubsection{What Can Go Wrong}
-% ------------------------------------------------------------------
-
-A phase-flip error $Z$ on any one qubit swaps
-$\ket{+}\leftrightarrow\ket{-}$ on that qubit.
-The four possibilities are:
-
-\begin{center}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{@{} l l @{}}
-  \toprule
-  \textbf{Situation} & \textbf{State after error}\\
-  \midrule
-  No error         & $\alpha\ket{+++}+\beta\ket{---}$\\
-  $Z_1$ on qubit 1 & $\alpha\ket{-++}+\beta\ket{+--}$\\
-  $Z_2$ on qubit 2 & $\alpha\ket{+-+}+\beta\ket{-+-}$\\
-  $Z_3$ on qubit 3 & $\alpha\ket{++-}+\beta\ket{--+}$\\
-  \bottomrule
-\end{tabular}
-\end{center}
-
-Compare this with the bit-flip code error table: the structure is
-identical --- one qubit disagrees with the other two --- except that
-``disagreement'' now means $\ket{-}$ instead of $\ket{1}$.
-
-% ------------------------------------------------------------------
-\subsubsection{Stabilisers and the Golden Rule}
-% ------------------------------------------------------------------
-
-The stabilisers of this code are:
-\[
-  g_1 = X_1 X_2, \qquad g_2 = X_2 X_3.
-\]
-These measure parity in the Hadamard basis, because $X$ is the
-``$Z$ gate of the $\ket{\pm}$ world'':
-\[
-  X\ket{+} = +1\cdot\ket{+}, \qquad X\ket{-} = -1\cdot\ket{-}.
-\]
-So $X_1X_2 = +1$ when qubits 1 and 2 agree (both $\ket{+}$ or both
-$\ket{-}$), and $X_1X_2 = -1$ when they disagree --- exactly the role
-$Z_1Z_2$ played in the bit-flip code, just in a different basis.
-
-\begin{keypoint}[The golden rule applies here too]
-\begin{itemize}
-  \item If a $Z$ error \textbf{anticommutes} with a stabiliser, the
-        syndrome bit \textbf{flips} $\Rightarrow$ error \textbf{detected}.
-  \item If a $Z$ error \textbf{commutes} with a stabiliser, the
-        syndrome bit \textbf{stays 0} $\Rightarrow$ error \textbf{invisible}.
-\end{itemize}
-\end{keypoint}
-
-We need the Pauli anticommutation relation for $X$ and $Z$ on the
-\emph{same} qubit:
-\[
-  ZX = -XZ \quad\text{(anticommute)}, \qquad ZZ = ZZ\quad\text{(commute)}.
-\]
-
-\textbf{Check $Z_1$ against $g_1 = X_1X_2$:}
-$Z_1$ and $X_1$ act on the same qubit and anticommute:
-\[
-  Z_1\cdot(X_1X_2) = (Z_1X_1)X_2 = -(X_1Z_1)X_2 = -(X_1X_2)\cdot Z_1.
-\]
-$Z_1$ \textbf{anticommutes} with $g_1$ $\Rightarrow$ $s_1$ flips. \checkmark
-
-\textbf{Check $Z_1$ against $g_2 = X_2X_3$:}
-$Z_1$ acts on qubit 1; $X_2X_3$ acts on qubits 2 and 3.
-Different qubits $\Rightarrow$ they commute:
-\[
-  Z_1\cdot(X_2X_3) = (X_2X_3)\cdot Z_1.
-\]
-$Z_1$ \textbf{commutes} with $g_2$ $\Rightarrow$ $s_2$ unchanged.
-
-By the same logic applied to $Z_2$ and $Z_3$, we get the full syndrome
-table below.
-
-% ------------------------------------------------------------------
-\subsubsection{Syndrome Circuit}
-% ------------------------------------------------------------------
-
-Because the stabilisers are $X$-type, we use the dual ancilla
-preparation: ancilla in $\ket{+}$, CNOTs with ancilla as \emph{control}
-and data as target, then a Hadamard on the ancilla before measuring.
-
-\begin{figure}[H]
-\centering
-\begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
-  \lstick[3]{$\alpha\ket{+++}+\beta\ket{---}$}
-  & \targ{}  & \qw      & \qw      & \qw      & \qw\\
-  & \qw      & \targ{}  & \targ{}  & \qw      & \qw\\
-  & \qw      & \qw      & \qw      & \targ{}  & \qw\\
-  \lstick{$\ket{0}$} & \gate{H} & \ctrl{-3} & \ctrl{-2} & \qw & \gate{H}
-    & \meter{$s_1$}\\
-  \lstick{$\ket{0}$} & \gate{H} & \qw & \qw & \ctrl{-2} & \gate{H}
-    & \meter{$s_2$}
-\end{quantikz}
-\caption{Syndrome measurement circuit for the phase-flip code.
-Each ancilla is prepared in $\ket{+}$ (via $H\ket{0}$), acts as the
-control of CNOTs onto the data qubits, then is rotated back by $H$
-before a standard 0/1 measurement.
-This measures the $X$-parity stabilisers $X_1X_2$ (giving $s_1$) and
-$X_2X_3$ (giving $s_2$).}
-\label{fig:phase-flip-syndrome-circuit}
-\end{figure}
-
-% ------------------------------------------------------------------
-\subsubsection{Syndrome Table}
-% ------------------------------------------------------------------
-
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[
-  every node/.style={font=\small}
-]
-  \matrix (m) [matrix of nodes, row sep=0.7cm, column sep=0.5cm,
-               nodes={align=center}] {
-    \textbf{Error} & \textbf{State after error} &
-    \textbf{$g_1 = X_1X_2$} & \textbf{$g_2 = X_2X_3$} &
-    \textbf{Correction}\\[-2pt]
-    None & $\alpha\ket{+++}+\beta\ket{---}$ & $+1$ & $+1$ & None\\
-    $Z_1$ & $\alpha\ket{-++}+\beta\ket{+--}$ & $-1$ & $+1$ & Apply $Z_1$\\
-    $Z_2$ & $\alpha\ket{+-+}+\beta\ket{-+-}$ & $-1$ & $-1$ & Apply $Z_2$\\
-    $Z_3$ & $\alpha\ket{++-}+\beta\ket{--+}$ & $+1$ & $-1$ & Apply $Z_3$\\
-  };
-  \draw[thick] (m-1-1.south west) -- (m-1-5.south east);
-  \draw[thick] (m-1-1.north west) -- (m-1-5.north east);
-  \draw[thick] (m-6-1.south west) -- (m-6-5.south east);
-\end{tikzpicture}
-\caption{Syndrome table for the 3-qubit phase-flip code.
-The syndrome $(g_1,g_2)$ uniquely identifies single-qubit phase-flip
-errors.
-Measurement outcomes: $s_i=0 \leftrightarrow g_i=+1$;\;
-$s_i=1 \leftrightarrow g_i=-1$.}
-\label{tab:phase-flip-syndrome}
-\end{figure}
-
-The syndrome pattern is \textbf{identical} to the bit-flip code --- the
-only difference is which errors are caught ($Z$ instead of $X$) and
-which stabilisers do the catching ($X_1X_2$ instead of $Z_1Z_2$).
-
-% ------------------------------------------------------------------
-\subsubsection{Worked Example}
-% ------------------------------------------------------------------
-
-\begin{workedexample}[Full syndrome computation for $Z_2$]
-Suppose qubit 2 suffers a phase flip.  The error $Z_2$ gives:
-\[
-  Z_2\bigl(\alpha\ket{+++}+\beta\ket{---}\bigr)
-  = \alpha\ket{+-+} + \beta\ket{-+-}.
-\]
-
-\textbf{Measuring $g_1 = X_1 X_2$:}
-
-Recall $X\ket{+}=+\ket{+}$ and $X\ket{-}=-\ket{-}$.
-\begin{align*}
-  X_1 X_2\ket{+-+} &= (X\ket{+})(X\ket{-})(I\ket{+})
-                    = (+1)(-1)\ket{+-+} = -\ket{+-+},\\
-  X_1 X_2\ket{-+-} &= (X\ket{-})(X\ket{+})(I\ket{-})
-                    = (-1)(+1)\ket{-+-} = -\ket{-+-}.
-\end{align*}
-Both terms give eigenvalue $-1$, so $g_1 = -1$ (i.e.\ $s_1 = 1$).
-
-\textbf{Measuring $g_2 = X_2 X_3$:}
-\begin{align*}
-  X_2 X_3\ket{+-+} &= (X\ket{-})(X\ket{+}) = (-1)(+1) = -1,\\
-  X_2 X_3\ket{-+-} &= (X\ket{+})(X\ket{-}) = (+1)(-1) = -1.
-\end{align*}
-So $g_2 = -1$ (i.e.\ $s_2 = 1$).
-
-\textbf{Syndrome: $(g_1,g_2)=(-1,-1)$, i.e.\ $(s_1,s_2)=(1,1)$.}
-From the table, this is a $Z_2$ error.  Apply $Z_2$ to correct:
-\[
-  Z_2\bigl(\alpha\ket{+-+}+\beta\ket{-+-}\bigr)
-  = \alpha\ket{+++}+\beta\ket{---}. \quad\checkmark
-\]
-The encoded state is perfectly restored, and $\alpha,\beta$ were
-never disturbed.
-\end{workedexample}
-
-% ------------------------------------------------------------------
-\subsubsection{What This Code Cannot Detect}
-% ------------------------------------------------------------------
-
-Just as the bit-flip code was blind to $Z$ errors, the phase-flip code
-is blind to $X$ (bit-flip) errors.
-An $X$ error on any qubit commutes with both $X$-type stabilisers
-($XX = I$ on the same qubit), so it leaves both syndrome bits unchanged
-and goes completely undetected.
+The stabilizers are now $X_1 X_2$ and $X_2 X_3$ (parity in the Hadamard
+basis), detecting $Z$ errors.  The decoding applies $H^{\otimes 3}$ to
+convert back, then corrects as before.
 
 \begin{caution}
 The phase-flip code corrects $Z$ errors only; the bit-flip code corrects
-$X$ errors only.  Neither code corrects both types simultaneously.
-For complete single-qubit error correction --- catching $X$, $Z$, and
-$Y$ errors all at once --- we need a code that combines both strategies.
-This is the \textbf{Shor 9-qubit code} (Section~\ref{sec:shor}).
+$X$ errors only.  Neither code corrects both types simultaneously.  For
+complete single-qubit error correction, we need a code that handles both ---
+this is the \textbf{Shor 9-qubit code} (Section~\ref{sec:shor}).
 \end{caution}
-
-% ------------------------------------------------------------------
-\subsubsection{Side-by-Side Comparison}
-% ------------------------------------------------------------------
-
-\begin{center}
-\renewcommand{\arraystretch}{1.4}
-\begin{tabular}{@{} l l l @{}}
-  \toprule
-  & \textbf{Bit-flip code} & \textbf{Phase-flip code}\\
-  \midrule
-  Codewords           & $\alpha\ket{000}+\beta\ket{111}$
-                      & $\alpha\ket{+++}+\beta\ket{---}$\\
-  Stabilisers         & $Z_1Z_2,\; Z_2Z_3$
-                      & $X_1X_2,\; X_2X_3$\\
-  Detects             & $X$ errors (bit flips)
-                      & $Z$ errors (phase flips)\\
-  Blind to            & $Z$ errors
-                      & $X$ errors\\
-  Ancilla prepared in & $\ket{0}$
-                      & $\ket{+}$ (i.e.\ $H\ket{0}$)\\
-  CNOT direction      & Data $\to$ Ancilla
-                      & Ancilla $\to$ Data\\
-  \bottomrule
-\end{tabular}
-\end{center}
 
 \subsection{Why This Works Despite No-Cloning}
 
@@ -2250,6 +1990,8 @@ Output state: Eq.~\eqref{eq:shor-output}.}
 \label{fig:shor-encoding}
 \end{figure}
 
+
+
 % ----------------------------------------------------------------------
 \subsection{Stabilizer Generators}
 \label{sec:shor-stabilizers}
@@ -2262,37 +2004,56 @@ flipping their eigenvalue from $+1$ to $-1$.
 
 The 8 independent generators divide into two families.
 
-\subsubsection{Bit-flip stabilizers (within each 3-qubit block)}
+% ------------------------------------------------------------------
+\subsubsection{Bit-flip stabilizers (within each block)}
+% ------------------------------------------------------------------
 
-\[
-  g_1 = Z_1 Z_2,\quad g_2 = Z_2 Z_3,\quad
-  g_3 = Z_4 Z_5,\quad g_4 = Z_5 Z_6,\quad
-  g_5 = Z_7 Z_8,\quad g_6 = Z_8 Z_9.
-\]
+Each block of three qubits has exactly \textbf{two} bit-flip stabilizers
+--- one for each adjacent pair:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l l l @{}}
+  \toprule
+  \textbf{Block} & \textbf{Qubits} & \textbf{Stabilizers}\\
+  \midrule
+  Block 1 & $q_1, q_2, q_3$ & $g_1 = Z_1Z_2,\quad g_2 = Z_2Z_3$\\
+  Block 2 & $q_4, q_5, q_6$ & $g_3 = Z_4Z_5,\quad g_4 = Z_5Z_6$\\
+  Block 3 & $q_7, q_8, q_9$ & $g_5 = Z_7Z_8,\quad g_6 = Z_8Z_9$\\
+  \bottomrule
+\end{tabular}
+\end{center}
 
 \begin{intuition}
-Within block~1 the valid states are $\ket{000}$ and $\ket{111}$.  Both
-satisfy $Z_1 Z_2\ket{000} = (+1)(+1)\ket{000} = +\ket{000}$ and
-$Z_1 Z_2\ket{111} = (-1)(-1)\ket{111} = +\ket{111}$.
-If an $X$ error flips qubit~2, the state becomes $\ket{010}$ or $\ket{101}$,
-and $Z_1 Z_2$ gives eigenvalue $-1$, signalling the error.
-Each $Z_i Z_j$ acts as a \emph{parity check} in the computational basis
-within its block.
+Within each block the valid states are $\ket{000}$ and $\ket{111}$.
+Both satisfy $Z_iZ_j = +1$ (the two qubits always agree).
+An $X$ error on any qubit breaks that agreement and flips the
+eigenvalue to $-1$ for the stabilizers that include that qubit.
+Each pair of stabilizers within a block behaves exactly like the
+3-qubit bit-flip code from Section~\ref{sec:3qubit-bitflip}.
 \end{intuition}
 
+% ------------------------------------------------------------------
 \subsubsection{Phase-flip stabilizers (across blocks)}
+% ------------------------------------------------------------------
 
+Two stabilizers compare the \emph{relative phase} between blocks:
 \[
   g_7 = X_1 X_2 X_3 X_4 X_5 X_6,\qquad
   g_8 = X_1 X_2 X_3 X_7 X_8 X_9.
 \]
 
 \begin{intuition}
-These 6-qubit operators compare the \emph{relative phase} between blocks.
-In $\ket{0}_L$ all three blocks have a $+$ sign, so both $g_7$ and $g_8$
-give $+1$.  A $Z$ error on any qubit in block~1 flips the relative
-sign between block~1 and the others, causing $g_7$ and $g_8$ to return
-$-1$.
+Think of $g_7$ as asking: ``does block~1 have the same phase as
+block~2?''\ and $g_8$ as asking: ``does block~1 have the same phase
+as block~3?''\ In a valid codeword all three blocks agree, so both
+give $+1$.  A $Z$ error anywhere in a block flips that block's phase,
+which shows up as a $-1$ in whichever of $g_7, g_8$ involves that
+block.
+
+Note that $g_7$ and $g_8$ act on all six and six qubits respectively,
+but they only care about the \emph{block-level} phase --- the same job
+$X_1X_2$ did in the 3-qubit phase-flip code, now scaled up.
 \end{intuition}
 
 \begin{keypoint}
@@ -2303,129 +2064,355 @@ stabilizer code.
 \end{keypoint}
 
 % ----------------------------------------------------------------------
-\subsection{Error Correction: How It Works}
+\subsection{Error Correction: The Key Shortcut}
+\label{sec:shor-correction}
 
-When a physical error occurs, we measure all 8 stabilizers without
-disturbing the logical information.  The pattern of $\pm 1$ outcomes ---
-the \textbf{syndrome} --- uniquely identifies the error, which we then undo
-with a correction gate.
+\begin{keypoint}[You never need to look at all 8 stabilizers at once]
+The 8 stabilizers split into two completely independent jobs:
+\begin{itemize}
+  \item $g_1, g_2$ tell you about bit-flip errors \textbf{in block~1 only}.
+  \item $g_3, g_4$ tell you about bit-flip errors \textbf{in block~2 only}.
+  \item $g_5, g_6$ tell you about bit-flip errors \textbf{in block~3 only}.
+  \item $g_7, g_8$ tell you about phase-flip errors \textbf{across blocks}.
+\end{itemize}
+In practice you read the two phase stabilizers first to find out
+\emph{which block} (if any) has a phase error, and the two bit-flip
+stabilizers for \emph{each block} to find out which qubit (if any) was
+bit-flipped.  Each pair of stabilizers is decoded exactly like the
+3-qubit syndrome tables you already know.
+\end{keypoint}
+
+% ------------------------------------------------------------------
+\subsubsection{Step 1 — Find bit-flip errors using the block tables}
+% ------------------------------------------------------------------
+
+Each block is decoded using the same table as the 3-qubit bit-flip code.
+You read $g_{2k-1}$ and $g_{2k}$ for block $k$ and look up the result:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} c c l l @{}}
+  \toprule
+  \textbf{$g_{2k-1}$} & \textbf{$g_{2k}$} & \textbf{Meaning} & \textbf{Correction}\\
+  \midrule
+  $+1$ & $+1$ & No bit-flip in this block & None\\
+  $-1$ & $+1$ & First qubit of block flipped  & Apply $X$ to qubit 1 of block\\
+  $-1$ & $-1$ & Middle qubit of block flipped & Apply $X$ to qubit 2 of block\\
+  $+1$ & $-1$ & Last qubit of block flipped   & Apply $X$ to qubit 3 of block\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+Applied to the three blocks explicitly:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} c c l l @{}}
+  \toprule
+  \textbf{$g_1$} & \textbf{$g_2$} & \textbf{Error in Block 1} & \textbf{Fix}\\
+  \midrule
+  $+1$ & $+1$ & None & ---\\
+  $-1$ & $+1$ & $X_1$ & Apply $X_1$\\
+  $-1$ & $-1$ & $X_2$ & Apply $X_2$\\
+  $+1$ & $-1$ & $X_3$ & Apply $X_3$\\
+  \bottomrule
+\end{tabular}
+\quad
+\begin{tabular}{@{} c c l l @{}}
+  \toprule
+  \textbf{$g_3$} & \textbf{$g_4$} & \textbf{Error in Block 2} & \textbf{Fix}\\
+  \midrule
+  $+1$ & $+1$ & None & ---\\
+  $-1$ & $+1$ & $X_4$ & Apply $X_4$\\
+  $-1$ & $-1$ & $X_5$ & Apply $X_5$\\
+  $+1$ & $-1$ & $X_6$ & Apply $X_6$\\
+  \bottomrule
+\end{tabular}
+\quad
+\begin{tabular}{@{} c c l l @{}}
+  \toprule
+  \textbf{$g_5$} & \textbf{$g_6$} & \textbf{Error in Block 3} & \textbf{Fix}\\
+  \midrule
+  $+1$ & $+1$ & None & ---\\
+  $-1$ & $+1$ & $X_7$ & Apply $X_7$\\
+  $-1$ & $-1$ & $X_8$ & Apply $X_8$\\
+  $+1$ & $-1$ & $X_9$ & Apply $X_9$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{intuition}
+Each table is literally the same table as Section~\ref{sec:3qubit-bitflip}.
+You have just run the same small 3-qubit syndrome decoder three times,
+once per block, completely independently.
+\end{intuition}
+
+% ------------------------------------------------------------------
+\subsubsection{Step 2 — Find phase-flip errors using the outer table}
+% ------------------------------------------------------------------
+
+The two phase stabilizers $g_7$ and $g_8$ play exactly the same role
+as the two stabilizers of the 3-qubit phase-flip code, but now acting
+on whole blocks rather than individual qubits.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} c c l l @{}}
+  \toprule
+  \textbf{$g_7$} & \textbf{$g_8$} & \textbf{Block with phase error} & \textbf{Fix}\\
+  \midrule
+  $+1$ & $+1$ & None & ---\\
+  $-1$ & $-1$ & Block 1 ($q_1,q_2,q_3$) & Apply $Z$ to any qubit in block~1\\
+  $-1$ & $+1$ & Block 2 ($q_4,q_5,q_6$) & Apply $Z$ to any qubit in block~2\\
+  $+1$ & $-1$ & Block 3 ($q_7,q_8,q_9$) & Apply $Z$ to any qubit in block~3\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{intuition}
+A $Z$ error on \emph{any} qubit within a block flips that entire block's
+phase relative to the others.  The syndrome only tells you \emph{which block}
+is affected, not which specific qubit within it --- but that is fine, because
+$Z$ errors on different qubits within the same block all have the same effect
+on the encoded state.  Applying $Z$ to any one qubit of that block undoes the
+damage.
+\end{intuition}
+
+% ------------------------------------------------------------------
+\subsubsection{Worked Example: $X_5$ bit-flip on qubit 5}
+% ------------------------------------------------------------------
 
 \begin{workedexample}[Correcting a bit-flip ($X_5$) on qubit~5]
-Suppose qubit~5 suffers an $X$ error.
+Qubit~5 is the middle qubit of block~2.
 
 \medskip\noindent
-\textbf{Why do generators in block~2 fire?}
-Qubit~5 belongs to block~2.  The bit-flip stabilizers for block~2 are
-$g_3 = Z_4 Z_5$ and $g_4 = Z_5 Z_6$.  Since $Z$ and $X$ anticommute
-($ZX = -XZ$), measuring $g_3$ or $g_4$ after the error on qubit~5
-flips their sign.
+\textbf{Block tables (bit-flip check):}
 
-\medskip\noindent
-\textbf{Syndrome computation:}
 \begin{center}
-\renewcommand{\arraystretch}{1.4}
-\begin{tabular}{clc}
-\hline
-Generator & Relation to $X_5$ & Outcome \\
-\hline
-$g_1 = Z_1 Z_2$ & acts on qubits 1,2 only --- commutes & $+1$ \\
-$g_2 = Z_2 Z_3$ & acts on qubits 2,3 only --- commutes & $+1$ \\
-$g_3 = Z_4 Z_5$ & $Z_5$ anticommutes with $X_5$ & $\mathbf{-1}$ \\
-$g_4 = Z_5 Z_6$ & $Z_5$ anticommutes with $X_5$ & $\mathbf{-1}$ \\
-$g_5 = Z_7 Z_8$ & acts on qubits 7,8 only --- commutes & $+1$ \\
-$g_6 = Z_8 Z_9$ & acts on qubits 8,9 only --- commutes & $+1$ \\
-$g_7 = X_1 X_2 X_3 X_4 X_5 X_6$ & $X_5$ commutes with $X_5$ & $+1$ \\
-$g_8 = X_1 X_2 X_3 X_7 X_8 X_9$ & does not act on qubit~5 & $+1$ \\
-\hline
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l c c @{}}
+  \toprule
+  \textbf{Stabilizer} & \textbf{Shares qubit with $X_5$?} & \textbf{Outcome}\\
+  \midrule
+  $g_1 = Z_1Z_2$ & No  (block 1) & $+1$\\
+  $g_2 = Z_2Z_3$ & No  (block 1) & $+1$\\
+  $g_3 = Z_4Z_5$ & Yes ($Z_5$ anticommutes with $X_5$) & $-1$\\
+  $g_4 = Z_5Z_6$ & Yes ($Z_5$ anticommutes with $X_5$) & $-1$\\
+  $g_5 = Z_7Z_8$ & No  (block 3) & $+1$\\
+  $g_6 = Z_8Z_9$ & No  (block 3) & $+1$\\
+  \bottomrule
 \end{tabular}
 \end{center}
 
-\medskip\noindent
-\textbf{Syndrome:} $(g_1,\ldots,g_8) = (+,+,-,-,+,+,+,+)$.
+Only block~2 fired.  Look up $(g_3, g_4) = (-1,-1)$ in the block~2
+table $\Rightarrow$ middle qubit of block~2 $\Rightarrow$ \textbf{qubit~5}.
 
 \medskip\noindent
-\textbf{Interpretation:} Only $g_3$ and $g_4$ flipped --- both share
-qubit~5.  Within block~2 both parity checks failed, pointing to the
-middle qubit.
+\textbf{Phase check:}
+
+$X_5$ commutes with every $X$ in $g_7$ and $g_8$ ($X_5 \cdot X_5 = I$,
+same qubit; $X_5$ does not appear in $g_8$ at all).
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l c @{}}
+  \toprule
+  \textbf{Stabilizer} & \textbf{Outcome}\\
+  \midrule
+  $g_7 = X_1X_2X_3X_4X_5X_6$ & $+1$\\
+  $g_8 = X_1X_2X_3X_7X_8X_9$ & $+1$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+$(g_7, g_8) = (+1,+1)$ $\Rightarrow$ no phase error.
 
 \medskip\noindent
-\textbf{Correction:} Apply $X_5$.
+\textbf{Full syndrome:} $(g_1,\ldots,g_8) = (+,+,-,-,+,+,+,+)$.
+
+\medskip\noindent
+\textbf{Correction:} Apply $X_5$. \checkmark
 \end{workedexample}
+
+% ------------------------------------------------------------------
+\subsubsection{Worked Example: $Z_2$ phase-flip on qubit 2}
+% ------------------------------------------------------------------
 
 \begin{workedexample}[Correcting a phase-flip ($Z_2$) on qubit~2]
-Suppose qubit~2 suffers a $Z$ error.
+Qubit~2 is inside block~1.
 
 \medskip\noindent
-\textbf{Why do phase stabilizers fire?}
-$Z_2$ anticommutes with $X_2$.  Qubit~2 appears as an $X_2$ factor in
-both $g_7$ and $g_8$.
+\textbf{Block tables (bit-flip check):}
 
-\medskip\noindent
-\textbf{Syndrome computation:}
+$Z$ errors commute with $Z$-type stabilizers ($ZZ = ZZ$ on the same qubit).
+So all six bit-flip stabilizers give $+1$:
+
 \begin{center}
-\renewcommand{\arraystretch}{1.4}
-\begin{tabular}{clc}
-\hline
-Generator & Relation to $Z_2$ & Outcome \\
-\hline
-$g_1 = Z_1 Z_2$ & $Z_2$ commutes with $Z_2$ ($ZZ = ZZ$) & $+1$ \\
-$g_2 = Z_2 Z_3$ & $Z_2$ commutes with $Z_2$ & $+1$ \\
-$g_3,g_4,g_5,g_6$ & act on blocks 2 and 3 only & $+1$ \\
-$g_7 = X_1 X_2 X_3 X_4 X_5 X_6$ & $X_2$ anticommutes with $Z_2$ & $\mathbf{-1}$ \\
-$g_8 = X_1 X_2 X_3 X_7 X_8 X_9$ & $X_2$ anticommutes with $Z_2$ & $\mathbf{-1}$ \\
-\hline
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l c @{}}
+  \toprule
+  \textbf{Stabilizer} & \textbf{Outcome}\\
+  \midrule
+  $g_1 = Z_1Z_2$ & $+1$ ($Z_2$ commutes with $Z_2$)\\
+  $g_2 = Z_2Z_3$ & $+1$ ($Z_2$ commutes with $Z_2$)\\
+  $g_3,g_4,g_5,g_6$ & $+1$ (different block entirely)\\
+  \bottomrule
 \end{tabular}
 \end{center}
 
-\medskip\noindent
-\textbf{Syndrome:} $(g_1,\ldots,g_8) = (+,+,+,+,+,+,-,-)$.
+No bit-flip anywhere.
 
 \medskip\noindent
-\textbf{Interpretation:} Both $g_7$ and $g_8$ flipped.  $g_7$ involves
-blocks 1\&2 vs.\ block~3; $g_8$ involves blocks 1\&2 vs.\ block~3.
-Both firing indicates a phase error in \textbf{block~1}.
-The bit-flip stabilizers all gave $+1$, confirming there is no
-bit-flip --- the error is a pure phase flip.
+\textbf{Phase check:}
+
+$Z_2$ anticommutes with $X_2$.  Qubit~2 appears in both $g_7$ and
+$g_8$:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l c c @{}}
+  \toprule
+  \textbf{Stabilizer} & \textbf{Contains $X_2$?} & \textbf{Outcome}\\
+  \midrule
+  $g_7 = X_1X_2X_3X_4X_5X_6$ & Yes $\Rightarrow$ anticommutes & $-1$\\
+  $g_8 = X_1X_2X_3X_7X_8X_9$ & Yes $\Rightarrow$ anticommutes & $-1$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+Look up $(g_7, g_8) = (-1,-1)$ in the outer table $\Rightarrow$
+\textbf{block~1} has a phase error.
 
 \medskip\noindent
-\textbf{Correction:} Apply $Z$ to any one qubit in block~1
-(e.g.\ $Z_1$, $Z_2$, or $Z_3$) to restore the correct phase.
+\textbf{Full syndrome:} $(g_1,\ldots,g_8) = (+,+,+,+,+,+,-,-)$.
+
+\medskip\noindent
+\textbf{Correction:} Apply $Z$ to any qubit in block~1, e.g.\ $Z_1$.
 
 \medskip
-\textit{Note:} The syndrome identifies \emph{which block} has the phase
-error but not \emph{which specific qubit} within the block.  This is
-fine: a $Z$ error on any qubit within a block has the same effect on
-the encoded state, so applying $Z$ to any qubit in that block corrects
-it.
+\textit{Note:} The syndrome tells us block~1 has a phase error but
+not which specific qubit caused it.  This is fine --- a $Z$ error on
+$q_1$, $q_2$, or $q_3$ all produce the same block-level syndrome and
+all require the same fix ($Z$ on any qubit of block~1). \checkmark
 \end{workedexample}
+
+% ------------------------------------------------------------------
+\subsubsection{Correcting $Y$ errors}
+% ------------------------------------------------------------------
+
+A $Y$ error is just $X$ and $Z$ happening simultaneously ($Y = iXZ$).
+It fires \emph{both} the bit-flip and the phase-flip syndromes at once.
+
+\begin{workedexample}[Correcting $Y_5$ on qubit~5]
+$Y_5 = iX_5Z_5$.
+
+$X_5$ fires the block~2 bit-flip syndrome: $(g_3, g_4) = (-1,-1)$
+$\Rightarrow$ qubit~5 bit-flipped.
+
+$Z_5$ is inside block~2, so it fires $g_7$ (which contains $X_5$) but
+not $g_8$ (which does not): $(g_7, g_8) = (-1, +1)$
+$\Rightarrow$ block~2 phase-flipped.
+
+\textbf{Correction:} Apply $X_5$ (fix the bit-flip) and $Z_5$ (fix the
+phase-flip), which is equivalent to applying $Y_5$. \checkmark
+\end{workedexample}
+
+% ------------------------------------------------------------------
+\subsubsection{Complete Syndrome Reference Table}
+% ------------------------------------------------------------------
+
+The table below lists the syndrome for every possible single-qubit
+Pauli error.  Reading it confirms that all $3 \times 9 = 27$ non-trivial
+error syndromes are distinct.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{} l c c c c c c c c l @{}}
+  \toprule
+  \textbf{Error}
+    & $g_1$ & $g_2$ & $g_3$ & $g_4$ & $g_5$ & $g_6$
+    & $g_7$ & $g_8$
+    & \textbf{Correction}\\
+  \midrule
+  None
+    & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & ---\\
+  \midrule
+  $X_1$ & $-$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & Apply $X_1$\\
+  $X_2$ & $-$ & $-$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & Apply $X_2$\\
+  $X_3$ & $+$ & $-$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & Apply $X_3$\\
+  \midrule
+  $X_4$ & $+$ & $+$ & $-$ & $+$ & $+$ & $+$ & $+$ & $+$ & Apply $X_4$\\
+  $X_5$ & $+$ & $+$ & $-$ & $-$ & $+$ & $+$ & $+$ & $+$ & Apply $X_5$\\
+  $X_6$ & $+$ & $+$ & $+$ & $-$ & $+$ & $+$ & $+$ & $+$ & Apply $X_6$\\
+  \midrule
+  $X_7$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & $+$ & $+$ & Apply $X_7$\\
+  $X_8$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & $+$ & $+$ & Apply $X_8$\\
+  $X_9$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & $+$ & Apply $X_9$\\
+  \midrule
+  $Z_1$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & Apply $Z_1$\\
+  $Z_2$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & Apply $Z_1$\\
+  $Z_3$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & Apply $Z_1$\\
+  \midrule
+  $Z_4$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & Apply $Z_4$\\
+  $Z_5$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & Apply $Z_4$\\
+  $Z_6$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & Apply $Z_4$\\
+  \midrule
+  $Z_7$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & Apply $Z_7$\\
+  $Z_8$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & Apply $Z_7$\\
+  $Z_9$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & Apply $Z_7$\\
+  \midrule
+  $Y_1$ & $-$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & Apply $Y_1$\\
+  $Y_2$ & $-$ & $-$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & Apply $Y_2$\\
+  $Y_3$ & $+$ & $-$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & Apply $Y_3$\\
+  \midrule
+  $Y_4$ & $+$ & $+$ & $-$ & $+$ & $+$ & $+$ & $-$ & $+$ & Apply $Y_4$\\
+  $Y_5$ & $+$ & $+$ & $-$ & $-$ & $+$ & $+$ & $-$ & $+$ & Apply $Y_5$\\
+  $Y_6$ & $+$ & $+$ & $+$ & $-$ & $+$ & $+$ & $-$ & $+$ & Apply $Y_6$\\
+  \midrule
+  $Y_7$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & $+$ & $-$ & Apply $Y_7$\\
+  $Y_8$ & $+$ & $+$ & $+$ & $+$ & $-$ & $-$ & $+$ & $-$ & Apply $Y_8$\\
+  $Y_9$ & $+$ & $+$ & $+$ & $+$ & $+$ & $-$ & $+$ & $-$ & Apply $Y_9$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{keypoint}
+Notice that $Z_1$, $Z_2$, and $Z_3$ all give the same syndrome
+$(g_7,g_8)=(-1,-1)$ with all bit-flip stabilizers at $+1$.  This is
+expected and fine: all three errors have the same effect on the
+encoded state, and applying $Z$ to any one qubit in block~1 corrects
+all of them.  The same applies within block~2 and block~3.
+
+Every $Y$ error produces a syndrome that is exactly the
+\emph{combination} of the corresponding $X$ and $Z$ syndromes ---
+confirming the two layers of the code work completely independently.
+\end{keypoint}
 
 % ----------------------------------------------------------------------
 \subsection{Correcting Arbitrary Single-Qubit Errors}
 
 Any single-qubit error on any of the 9 qubits can be written as
 $E = c_0 I + c_1 X + c_2 Y + c_3 Z$.  Because error correction is
-linear, it suffices to show we can correct each Pauli separately.
+linear, it suffices to show we can correct each Pauli separately,
+which the syndrome table above does exhaustively.
 
 \begin{enumerate}
   \item \textbf{$I$ (no error):} Syndrome is all $+1$; no correction needed.
 
   \item \textbf{$X_j$ (bit-flip on qubit $j$):}
-        The two bit-flip stabilizers within the block containing $j$ both
-        return $-1$; all others return $+1$.  The syndrome uniquely
-        identifies the block and the position of $j$ within it.
-        Apply $X_j$ to correct.
+        Only the two bit-flip stabilizers of the block containing $j$
+        fire.  Look up the pair in the block table to identify $j$
+        exactly.  Apply $X_j$.
 
   \item \textbf{$Z_j$ (phase-flip on qubit $j$):}
-        $Z_j$ commutes with all $Z$-type bit-flip stabilizers, so
-        $g_1$--$g_6$ return $+1$.  $Z_j$ anticommutes with the $X_j$
-        factor in $g_7$ and/or $g_8$, flipping those outcomes.  The
-        pattern of $g_7, g_8$ identifies which block is affected.
-        Apply $Z$ to any qubit in that block.
+        All six bit-flip stabilizers stay at $+1$.  Look up $(g_7,g_8)$
+        in the outer table to identify the block.  Apply $Z$ to any
+        qubit in that block.
 
-  \item \textbf{$Y_j = iX_j Z_j$ (combined error on qubit $j$):}
-        $Y$ triggers \emph{both} the bit-flip and the phase-flip syndromes
-        simultaneously.  Apply $X_j$ to fix the bit-flip and $Z_j$ to fix
-        the phase-flip (or equivalently apply $Y_j$).
+  \item \textbf{$Y_j = iX_jZ_j$ (combined error on qubit $j$):}
+        Both syndromes fire simultaneously.  Identify the qubit from the
+        bit-flip syndrome, identify the block from the phase syndrome,
+        apply $X_j$ and $Z_j$ (equivalently $Y_j$).
 \end{enumerate}
 
 \begin{keypoint}
