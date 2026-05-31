@@ -1198,30 +1198,50 @@ The syndrome $(s_1, s_2)$ tells us exactly which bit (if any) flipped:
 \end{tabular}
 \end{center}
 
+
+
+% ======================================================================
+% REPLACEMENT FOR \subsection{Quantum 3-Qubit Bit-Flip Code} (line 1201)
+% Replace everything from line 1201 down to (but NOT including) line 1329
+% i.e. replace up to and not including \subsection{Limitations: Phase Errors Are Not Corrected}
+% ======================================================================
+
 \subsection{Quantum 3-Qubit Bit-Flip Code}
+\label{sec:3qubit-bitflip}
 
-We now lift this idea to the quantum world.  The key difference is that we
-must protect a \emph{superposition}:
+\begin{intuition}
+We want to protect the quantum state
+$\alpha\ket{000}+\beta\ket{111}$
+from bit-flip errors.
+The secret is $\alpha$ and $\beta$ --- they must never be revealed or
+disturbed.
+Our job is to figure out \emph{which qubit was flipped} without ever
+peeking at $\alpha$ or $\beta$.
 
-\begin{align}
-  \ket{0}_L &= \ket{000}, \label{eq:3qubit-0}\\
-  \ket{1}_L &= \ket{111}, \label{eq:3qubit-1}\\
-  \ket{\psi_L} &= \alpha\ket{000} + \beta\ket{111}. \label{eq:3qubit-encoded}
-\end{align}
+We do this by asking two yes/no questions:
+\begin{enumerate}
+  \item Do qubits 1 and 2 agree?
+  \item Do qubits 2 and 3 agree?
+\end{enumerate}
+The answers together pinpoint the error exactly.
+Everything else --- stabilisers, eigenvalues, commutation rules --- is the
+mathematical language that makes this precise and generalisable.
+\end{intuition}
 
-This is \emph{not} three copies of $\ket{\psi}$ (which the no-cloning theorem
-forbids).  It is an entangled superposition in which $\alpha$ and $\beta$
-live in the global correlations, not in any single qubit.
+% ------------------------------------------------------------------
+\subsubsection{Encoding}
+% ------------------------------------------------------------------
 
-\subsubsection{Encoding Circuit}
-
-Starting from $\ket{\psi}\ket{0}\ket{0} = (\alpha\ket{0}+\beta\ket{1})\ket{0}\ket{0}$,
+Starting from
+$\ket{\psi}\ket{0}\ket{0}
+ = (\alpha\ket{0}+\beta\ket{1})\ket{0}\ket{0}$,
 two CNOT gates produce the encoded state:
 
 \begin{figure}[H]
 \centering
 \begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
-  \lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \qw & \rstick[3]{$\alpha\ket{000}+\beta\ket{111}$}\\
+  \lstick{$\ket{\psi}$} & \ctrl{1} & \ctrl{2} & \qw
+    & \rstick[3]{$\alpha\ket{000}+\beta\ket{111}$}\\
   \lstick{$\ket{0}$}    & \targ{}  & \qw      & \qw\\
   \lstick{$\ket{0}$}    & \qw      & \targ{}  & \qw
 \end{quantikz}
@@ -1235,14 +1255,245 @@ two CNOT gates produce the encoded state:
   &\xrightarrow{\text{CNOT}_{1,2}}
     \alpha\ket{000} + \beta\ket{110}\\
   &\xrightarrow{\text{CNOT}_{1,3}}
-    \alpha\ket{000} + \beta\ket{111}. 
+    \alpha\ket{000} + \beta\ket{111}.
 \end{align*}
 
-\subsubsection{Quantum Syndrome Measurement}
+\begin{caution}
+This is \textbf{not} three copies of $\ket{\psi}$ --- the no-cloning
+theorem forbids that.
+The values $\alpha$ and $\beta$ live in the \emph{correlations} between
+the three qubits, not in any single qubit.
+This is precisely why we can probe the qubits without disturbing
+$\alpha$ and $\beta$.
+\end{caution}
 
-We measure the \textbf{stabilizers} $g_1 = Z_1 Z_2$ and $g_2 = Z_2 Z_3$
-using ancilla qubits.  These operators measure the \emph{parity} of pairs of
-data qubits without touching $\alpha$ or $\beta$.
+% ------------------------------------------------------------------
+\subsubsection{What Can Go Wrong}
+% ------------------------------------------------------------------
+
+A bit-flip error $X$ on any one qubit changes $\ket{0}\leftrightarrow\ket{1}$.
+The four possible situations are:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} l l @{}}
+  \toprule
+  \textbf{Situation} & \textbf{State after error}\\
+  \midrule
+  No error  & $\alpha\ket{000}+\beta\ket{111}$\\
+  $X_1$ flipped qubit 1 & $\alpha\ket{100}+\beta\ket{011}$\\
+  $X_2$ flipped qubit 2 & $\alpha\ket{010}+\beta\ket{101}$\\
+  $X_3$ flipped qubit 3 & $\alpha\ket{001}+\beta\ket{110}$\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+In every case the three qubits are either all the same (no error) or
+one of them disagrees with the other two (error).
+The two yes/no questions above perfectly distinguish all four cases.
+
+% ------------------------------------------------------------------
+\subsubsection{The Syndrome Circuit}
+% ------------------------------------------------------------------
+
+We use two ancilla qubits, each starting in $\ket{0}$, to record the
+answers to our two questions.
+
+\begin{keypoint}
+A CNOT gate with a \textbf{data qubit as control} and the ancilla as
+target copies the bit value of the data qubit into the ancilla.
+Two CNOTs in a row leave the ancilla holding the
+\textbf{XOR (parity)} of the two data qubits.
+That parity is exactly the answer to our yes/no question.
+\end{keypoint}
+
+\begin{figure}[H]
+\centering
+\begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
+  \lstick[3]{$\alpha\ket{000}+\beta\ket{111}$}
+  & \qw & \ctrl{3} & \qw      & \qw      & \qw\\
+  & \qw & \qw      & \ctrl{2} & \ctrl{3} & \qw\\
+  & \qw & \qw      & \qw      & \qw      & \ctrl{2}\\
+  \lstick{$\ket{0}$} & \qw & \targ{}  & \targ{}  & \qw      & \qw
+    & \meter{$s_1$}\\
+  \lstick{$\ket{0}$} & \qw & \qw      & \qw      & \targ{}  & \targ{}
+    & \meter{$s_2$}
+\end{quantikz}
+\caption{Syndrome measurement circuit for the 3-qubit bit-flip code.
+Ancilla 1 measures the parity of qubits 1 and 2 (giving $s_1$);
+ancilla 2 measures the parity of qubits 2 and 3 (giving $s_2$).
+The measurement is completely standard --- just read out 0 or 1.
+The values $\alpha$ and $\beta$ are never disturbed.}
+\label{fig:3qubit-syndrome-circuit}
+\end{figure}
+
+The measurement outcomes $s_1, s_2 \in \{0, 1\}$ are read by the
+following table:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, thick, minimum width=1.4cm,
+              minimum height=0.6cm, align=center, font=\small},
+  every node/.style={font=\small}
+]
+  \matrix (m) [matrix of nodes, row sep=0.7cm, column sep=0.5cm,
+               nodes={align=center}] {
+    \textbf{Error} & \textbf{State after error} &
+    \textbf{$s_1$} & \textbf{$s_2$} &
+    \textbf{Correction}\\[-2pt]
+    None & $\alpha\ket{000}+\beta\ket{111}$ & $0$ & $0$ & None\\
+    $X_1$ & $\alpha\ket{100}+\beta\ket{011}$ & $1$ & $0$ & Apply $X_1$\\
+    $X_2$ & $\alpha\ket{010}+\beta\ket{101}$ & $1$ & $1$ & Apply $X_2$\\
+    $X_3$ & $\alpha\ket{001}+\beta\ket{110}$ & $0$ & $1$ & Apply $X_3$\\
+  };
+  \draw[thick] (m-1-1.south west) -- (m-1-5.south east);
+  \draw[thick] (m-1-1.north west) -- (m-1-5.north east);
+  \draw[thick] (m-6-1.south west) -- (m-6-5.south east);
+\end{tikzpicture}
+\caption{Syndrome table using measurement outcomes $s_1, s_2 \in \{0,1\}$.
+An outcome of 0 means the two qubits agree; 1 means they disagree.}
+\label{tab:3qubit-syndrome-01}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsubsection{The Stabiliser Language: $Z_1Z_2$ and Eigenvalues}
+% ------------------------------------------------------------------
+
+The circuit above is complete and correct on its own.
+But physicists write the same information using the operator $Z_1Z_2$
+and speak of eigenvalues $+1$ and $-1$.
+Here is exactly what that means.
+
+Recall that the $Z$ gate has eigenstates $\ket{0}$ and $\ket{1}$:
+\[
+  Z\ket{0} = +1\cdot\ket{0}, \qquad Z\ket{1} = -1\cdot\ket{1}.
+\]
+So measuring whether a qubit is $\ket{0}$ or $\ket{1}$ is the same as
+asking: is the $Z$ eigenvalue $+1$ or $-1$?
+
+The operator $Z_1Z_2$ applies $Z$ to qubit 1 and $Z$ to qubit 2, and
+multiplies the two eigenvalues together:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} c c c c c @{}}
+  \toprule
+  \textbf{Qubits 1,2} & $Z_1$ eigenvalue & $Z_2$ eigenvalue
+    & $Z_1Z_2$ eigenvalue & Measurement $s_1$\\
+  \midrule
+  $\ket{00}$ & $+1$ & $+1$ & $\mathbf{+1}$ (agree)    & 0\\
+  $\ket{11}$ & $-1$ & $-1$ & $\mathbf{+1}$ (agree)    & 0\\
+  $\ket{01}$ & $+1$ & $-1$ & $\mathbf{-1}$ (disagree) & 1\\
+  $\ket{10}$ & $-1$ & $+1$ & $\mathbf{-1}$ (disagree) & 1\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The mapping is simply:
+\[
+  s_1 = 0 \;\longleftrightarrow\; Z_1Z_2 \text{ eigenvalue} = +1,
+  \qquad
+  s_1 = 1 \;\longleftrightarrow\; Z_1Z_2 \text{ eigenvalue} = -1.
+\]
+
+The operators $g_1 = Z_1Z_2$ and $g_2 = Z_2Z_3$ are called
+\textbf{stabilisers} of the code: they both give eigenvalue $+1$ on
+every error-free codeword, and flip to $-1$ when the right error occurs.
+
+% ------------------------------------------------------------------
+\subsubsection{Commutation and Anticommutation: Will an Error Be Caught?}
+% ------------------------------------------------------------------
+
+The stabiliser language gives us a powerful shortcut.
+Instead of tracing through the circuit every time, we can answer the
+question \emph{``will this error be detected?''} with a single algebraic
+check.
+
+\begin{keypoint}[The golden rule of error detection]
+\begin{itemize}
+  \item If an error $E$ \textbf{anticommutes} with a stabiliser $g$
+        (i.e.\ $Eg = -gE$), then the syndrome bit for $g$
+        \textbf{flips} from 0 to 1 $\Rightarrow$ error \textbf{detected}.
+  \item If an error $E$ \textbf{commutes} with a stabiliser $g$
+        (i.e.\ $Eg = gE$), then the syndrome bit for $g$
+        \textbf{stays 0} $\Rightarrow$ error \textbf{invisible} to $g$.
+\end{itemize}
+\end{keypoint}
+
+We already know how Pauli gates interact on the \emph{same} qubit:
+\[
+  XZ = -ZX \quad \text{(anticommute)},
+  \qquad
+  ZZ = ZZ  \quad \text{(commute)}.
+\]
+Operators acting on \emph{different} qubits always commute --- they do
+not interact.
+
+\begin{workedexample}[$X_1$ error: will it be caught?]
+
+\textbf{Check against $g_1 = Z_1Z_2$:}
+$X_1$ acts on qubit 1; $Z_1Z_2$ also acts on qubit 1 via $Z_1$.
+Since $X$ and $Z$ anticommute on the same qubit:
+\[
+  X_1\cdot(Z_1Z_2) = (X_1Z_1)Z_2 = -(Z_1X_1)Z_2 = -(Z_1Z_2)\cdot X_1.
+\]
+$X_1$ \textbf{anticommutes} with $g_1$ $\Rightarrow$ $s_1$ flips to 1.
+
+\textbf{Check against $g_2 = Z_2Z_3$:}
+$X_1$ acts on qubit 1 only; $Z_2Z_3$ acts on qubits 2 and 3 only.
+Different qubits $\Rightarrow$ they commute:
+\[
+  X_1\cdot(Z_2Z_3) = (Z_2Z_3)\cdot X_1.
+\]
+$X_1$ \textbf{commutes} with $g_2$ $\Rightarrow$ $s_2$ stays 0.
+
+\textbf{Result:} $(s_1, s_2) = (1, 0)$ $\Rightarrow$ qubit 1 is
+identified and corrected. \checkmark
+\end{workedexample}
+
+\begin{workedexample}[$X_2$ error: will it be caught?]
+$X_2$ shares qubit 2 with both $g_1 = Z_1Z_2$ and $g_2 = Z_2Z_3$.
+It anticommutes with both:
+\begin{align*}
+  X_2\cdot(Z_1Z_2) &= Z_1(X_2Z_2) = Z_1(-Z_2X_2) = -(Z_1Z_2)\cdot X_2,\\
+  X_2\cdot(Z_2Z_3) &= (X_2Z_2)Z_3 = (-Z_2X_2)Z_3 = -(Z_2Z_3)\cdot X_2.
+\end{align*}
+Both syndrome bits flip.
+
+\textbf{Result:} $(s_1, s_2) = (1, 1)$ $\Rightarrow$ qubit 2 is
+identified and corrected. \checkmark
+\end{workedexample}
+
+\begin{workedexample}[$Z_1$ error: will it be caught?]
+This is the revealing case.
+Does $Z_1$ commute or anticommute with $g_1 = Z_1Z_2$?
+$Z$ commutes with itself on the same qubit ($ZZ = I$):
+\[
+  Z_1\cdot(Z_1Z_2) = (Z_1Z_1)Z_2 = IZ_2 = Z_2 = (Z_1Z_2)\cdot Z_1.
+\]
+$Z_1$ \textbf{commutes} with $g_1$ $\Rightarrow$ $s_1$ stays 0.
+
+$Z_1$ also commutes with $g_2 = Z_2Z_3$ (they act on different qubits)
+$\Rightarrow$ $s_2$ stays 0.
+
+\textbf{Result:} $(s_1, s_2) = (0, 0)$ --- the syndrome says
+``no error,'' but the phase-flip $Z_1$ \emph{did} happen and is
+completely \textbf{undetected}.
+\end{workedexample}
+
+\begin{caution}
+The 3-qubit bit-flip code is \textbf{blind to all $Z$ (phase-flip)
+errors}.
+This is not a bug in the circuit --- it is a fundamental consequence of
+the algebra: every $Z$ error commutes with every stabiliser
+$Z_iZ_j$, so no syndrome bit ever flips.
+Detecting phase errors requires a different code with different
+stabilisers.
+\end{caution}
+
+The complete picture, combining both the 0/1 measurement language and
+the eigenvalue language, is shown below.
 
 \begin{figure}[H]
 \centering
@@ -1263,19 +1514,23 @@ data qubits without touching $\alpha$ or $\beta$.
   };
   \draw[thick] (m-1-1.south west) -- (m-1-5.south east);
   \draw[thick] (m-1-1.north west) -- (m-1-5.north east);
-  \draw[thick] (m-5-1.south west) -- (m-5-5.south east);
+  \draw[thick] (m-6-1.south west) -- (m-6-5.south east);
 \end{tikzpicture}
-\caption{Syndrome table for the 3-qubit bit-flip code.  The syndrome
-$(g_1, g_2)$ uniquely identifies single-qubit bit-flip errors.  Crucially,
-$\alpha$ and $\beta$ never appear in the syndrome.}
+\caption{Syndrome table in the eigenvalue language.
+$g_i = +1$ corresponds to measurement outcome $s_i = 0$ (qubits agree);
+$g_i = -1$ corresponds to $s_i = 1$ (qubits disagree).
+The syndrome uniquely identifies single-qubit bit-flip errors.
+$\alpha$ and $\beta$ never appear.}
 \label{tab:3qubit-syndrome}
 \end{figure}
 
+% ------------------------------------------------------------------
+\subsubsection{Full Syndrome Computation: Worked Example}
+% ------------------------------------------------------------------
+
 \begin{workedexample}[Full syndrome computation for $X_2$]
-Suppose qubit 2 suffers a bit-flip.  After encoding, the state is
-$\alpha\ket{000} + \beta\ket{111}$.  The error $X_2$ (acting on qubit 2) gives:
+Suppose qubit 2 suffers a bit-flip.  The error $X_2$ gives:
 \[
-  \text{State after error: }
   X_2\bigl(\alpha\ket{000}+\beta\ket{111}\bigr)
   = \alpha\ket{010} + \beta\ket{101}.
 \]
@@ -1287,44 +1542,68 @@ $\alpha\ket{000} + \beta\ket{111}$.  The error $X_2$ (acting on qubit 2) gives:
   Z_1 Z_2 \ket{101} &= Z\ket{1} \otimes Z\ket{0} \otimes I\ket{1}
                     = (-1)(+1)\ket{101} = -\ket{101}.
 \end{align*}
-Both terms give eigenvalue $-1$, so the measurement outcome is $g_1 = -1$.
+Both terms give eigenvalue $-1$, so $g_1 = -1$ (i.e.\ $s_1 = 1$).
 
 \textbf{Measuring $g_2 = Z_2 Z_3$:}
 \begin{align*}
-  Z_2 Z_3 \ket{010} &= Z\ket{1} \otimes Z\ket{0} = (-1)(+1) = -1,\\
-  Z_2 Z_3 \ket{101} &= Z\ket{0} \otimes Z\ket{1} = (+1)(-1) = -1.
+  Z_2 Z_3 \ket{010} &= Z\ket{1}\otimes Z\ket{0} = (-1)(+1) = -1,\\
+  Z_2 Z_3 \ket{101} &= Z\ket{0}\otimes Z\ket{1} = (+1)(-1) = -1.
 \end{align*}
-The measurement outcome is $g_2 = -1$.
+So $g_2 = -1$ (i.e.\ $s_2 = 1$).
 
-\textbf{Syndrome: $(g_1, g_2) = (-1, -1)$.}  From the table, this corresponds
-to an $X_2$ error.  We apply $X_2$ to correct:
+\textbf{Syndrome: $(g_1, g_2) = (-1,-1)$, equivalently $(s_1,s_2)=(1,1)$.}
+From the table, this is an $X_2$ error.  Apply $X_2$ to correct:
 \[
   X_2\bigl(\alpha\ket{010}+\beta\ket{101}\bigr)
-  = \alpha\ket{000}+\beta\ket{111}. 
+  = \alpha\ket{000}+\beta\ket{111}. \quad\checkmark
 \]
-The encoded state is perfectly restored.  Note that $\alpha$ and $\beta$
-were never measured and are unaffected.
+The encoded state is perfectly restored.
+Note that $\alpha$ and $\beta$ were never measured and are unaffected.
 \end{workedexample}
 
-\subsubsection{Full Syndrome Circuit}
+% ------------------------------------------------------------------
+\subsubsection{Why Write $Z_1Z_2$ at All?}
+% ------------------------------------------------------------------
 
-\begin{figure}[H]
-\centering
-\begin{quantikz}[row sep=0.5cm, column sep=0.6cm]
-  \lstick[3]{$\alpha\ket{000}+\beta\ket{111}$}
-  & \qw & \ctrl{3} & \qw      & \qw      & \qw\\
-  & \qw & \qw      & \ctrl{2} & \ctrl{3} & \qw\\
-  & \qw & \qw      & \qw      & \qw      & \ctrl{2}\\
-  \lstick{$\ket{0}$} & \qw & \targ{}  & \targ{}  & \qw      & \qw
-    & \meter{$s_1$}\\
-  \lstick{$\ket{0}$} & \qw & \qw      & \qw      & \targ{}  & \targ{}
-    & \meter{$s_2$}
-\end{quantikz}
-\caption{Syndrome measurement circuit for the 3-qubit bit-flip code.
-Ancilla qubits measure $Z_1Z_2$ (giving $s_1$) and $Z_2Z_3$ (giving $s_2$)
-without disturbing $\alpha\ket{000}+\beta\ket{111}$.}
-\label{fig:3qubit-syndrome-circuit}
-\end{figure}
+For this simple three-qubit code you can just use the 0/1 table and
+never think about $Z_1Z_2$.
+The operator notation pays off when codes grow large.
+For a surface code with 1000 qubits and 500 stabilisers, tracing through
+every circuit is impractical.
+With the commutation algebra you can instantly answer:
+\begin{itemize}
+  \item \emph{Will this error be detected?}
+        Check whether it anticommutes with any stabiliser.
+  \item \emph{Will measuring this stabiliser disturb the data?}
+        Check whether the stabiliser commutes with the logical operators.
+  \item \emph{Can two stabilisers be measured independently?}
+        Check whether they commute with each other.
+\end{itemize}
+Two symbols and a sign give you all of that without drawing a single
+circuit.
+
+\begin{summarybox}
+\textbf{Section 3.2 key points:}
+\begin{itemize}
+  \item The 3-qubit bit-flip code encodes
+        $\alpha\ket{0}+\beta\ket{1}$ as $\alpha\ket{000}+\beta\ket{111}$.
+        This is \emph{not} cloning; $\alpha,\beta$ live in correlations.
+  \item Two ancilla qubits measure the parities of adjacent qubit pairs
+        via CNOT gates and standard 0/1 measurements --- nothing exotic.
+  \item The measurement outcomes $s_1, s_2 \in \{0,1\}$ are equivalent
+        to the stabiliser eigenvalues:
+        $s_i=0 \leftrightarrow g_i=+1$,\; $s_i=1 \leftrightarrow g_i=-1$.
+  \item \textbf{Golden rule:} an error is detected if and only if it
+        \emph{anticommutes} with at least one stabiliser.
+  \item $X$ errors anticommute with $Z_1Z_2$ or $Z_2Z_3$ (or both)
+        $\Rightarrow$ always detected and corrected.
+  \item $Z$ errors commute with both stabilisers $\Rightarrow$ completely
+        invisible to this code.
+  \item A code that corrects both $X$ and $Z$ errors requires new
+        stabilisers --- this is the Shor 9-qubit code
+        (Section~\ref{sec:shor}).
+\end{itemize}
+\end{summarybox}
 
 \subsection{Limitations: Phase Errors Are Not Corrected}
 
