@@ -1,0 +1,1502 @@
+\documentclass[12pt,a4paper]{article}
+
+% ─────────────────────────────────────────────
+%  PACKAGES
+% ─────────────────────────────────────────────
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,shapes,positioning,fit,backgrounds,decorations.pathreplacing,calc}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable,theorems}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{mdframed}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{multicol}
+\usepackage{float}
+
+% ─────────────────────────────────────────────
+%  COLORS
+% ─────────────────────────────────────────────
+\definecolor{darkblue}{RGB}{0,51,102}
+\definecolor{midblue}{RGB}{0,102,204}
+\definecolor{lightblue}{RGB}{220,235,252}
+\definecolor{darkgreen}{RGB}{0,100,0}
+\definecolor{lightgreen}{RGB}{220,255,220}
+\definecolor{darkred}{RGB}{150,0,0}
+\definecolor{lightred}{RGB}{255,230,230}
+\definecolor{lightyellow}{RGB}{255,255,220}
+\definecolor{orange}{RGB}{200,100,0}
+\definecolor{purple}{RGB}{100,0,150}
+\definecolor{lightgray}{RGB}{245,245,245}
+\definecolor{darkgray}{RGB}{80,80,80}
+\definecolor{teal}{RGB}{0,128,128}
+
+% ─────────────────────────────────────────────
+%  THEOREM ENVIRONMENTS
+% ─────────────────────────────────────────────
+\tcbuselibrary{most}
+
+\newtcbtheorem[number within=section]{theorem}{Theorem}{
+  enhanced, breakable,
+  colback=lightblue, colframe=darkblue, fonttitle=\bfseries,
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=darkblue,colframe=darkblue}
+}{thm}
+
+\newtcbtheorem[number within=section]{definition}{Definition}{
+  enhanced, breakable,
+  colback=lightgreen, colframe=darkgreen, fonttitle=\bfseries,
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=darkgreen,colframe=darkgreen}
+}{def}
+
+\newtcbtheorem[number within=section]{example}{Example}{
+  enhanced, breakable,
+  colback=lightyellow, colframe=orange, fonttitle=\bfseries,
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=orange,colframe=orange}
+}{ex}
+
+\newtcbtheorem[number within=section]{exercise}{Exercise}{
+  enhanced, breakable,
+  colback=lightred, colframe=darkred, fonttitle=\bfseries,
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=darkred,colframe=darkred}
+}{exc}
+
+\newtcolorbox{keyidea}{
+  enhanced, breakable,
+  colback=lightyellow, colframe=purple, fonttitle=\bfseries,
+  title=Key Idea, attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=purple,colframe=purple}
+}
+
+\newtcolorbox{intuition}{
+  enhanced, breakable,
+  colback=lightgray, colframe=teal, fonttitle=\bfseries,
+  title=Intuition, attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=teal,colframe=teal}
+}
+
+\newtcolorbox{warning}{
+  enhanced, breakable,
+  colback=lightred, colframe=darkred, fonttitle=\bfseries,
+  title={$\blacktriangleright$ Common Pitfall}, 
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=darkred,colframe=darkred}
+}
+
+% ─────────────────────────────────────────────
+%  HEADERS / FOOTERS
+% ─────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{darkblue}{\textbf{Cook--Levin Theorem}}}
+\fancyhead[R]{\small\textcolor{darkblue}{Theory of Computation}}
+\fancyfoot[C]{\small\textcolor{darkgray}{\thepage}}
+\renewcommand{\headrulewidth}{0.6pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% ─────────────────────────────────────────────
+%  SECTION STYLING
+% ─────────────────────────────────────────────
+\titleformat{\section}[block]
+  {\Large\bfseries\color{darkblue}}
+  {\thesection.}{0.5em}{}
+  [\vspace{-0.3em}\textcolor{midblue}{\rule{\linewidth}{1pt}}]
+
+\titleformat{\subsection}[block]
+  {\large\bfseries\color{darkblue!80}}
+  {\thesubsection.}{0.5em}{}
+
+\titleformat{\subsubsection}[block]
+  {\normalsize\bfseries\color{darkblue!60}}
+  {\thesubsubsection.}{0.5em}{}
+
+% ─────────────────────────────────────────────
+%  MATH MACROS
+% ─────────────────────────────────────────────
+\newcommand{\P}{\mathbf{P}}
+\newcommand{\NP}{\mathbf{NP}}
+\newcommand{\SAT}{\textsc{Sat}}
+\newcommand{\TSAT}{\textsc{3-Sat}}
+\newcommand{\CLIQUE}{\textsc{Clique}}
+\newcommand{\VERTEX}{\textsc{Vertex-Cover}}
+\newcommand{\HAMPATH}{\textsc{Ham-Path}}
+\newcommand{\SUBSET}{\textsc{Subset-Sum}}
+\newcommand{\enc}[1]{\langle #1 \rangle}
+\newcommand{\poly}{\mathrm{poly}}
+\newcommand{\leqp}{\leq_p}
+
+% ─────────────────────────────────────────────
+%  DOCUMENT
+% ─────────────────────────────────────────────
+\begin{document}
+
+% ══════════════════════════════════════════════
+%  TITLE PAGE
+% ══════════════════════════════════════════════
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  % Top banner
+  \fill[darkblue] (current page.north west) rectangle +(\paperwidth, -3.5cm);
+  % Bottom accent
+  \fill[midblue] (current page.south west) rectangle +(\paperwidth, 1.2cm);
+  % Side stripe
+  \fill[midblue!60] ([xshift=13.5cm]current page.south west) 
+                    rectangle ++(1cm, \paperheight);
+\end{tikzpicture}
+
+\vspace*{2cm}
+\begin{center}
+  {\color{white}\Huge\bfseries Cook--Levin Theorem}\\[0.6em]
+  {\color{white!80}\Large A Comprehensive Undergraduate Lecture}
+\end{center}
+
+\vspace{2cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+  % NP bubble
+  \fill[midblue!30,rounded corners=18pt] (-3.5,-3) rectangle (3.5,3);
+  \node[font=\large\bfseries,color=darkblue] at (0,2.2) {\NP};
+  % P bubble inside
+  \fill[lightblue,rounded corners=10pt] (-1.5,-1.5) rectangle (1.5,1.5);
+  \node[font=\bfseries,color=darkblue] at (0,0.6) {\P};
+  % SAT star
+  \node[draw=darkred,fill=lightred,star,star points=5,star point ratio=2.2,
+        minimum size=1.2cm,font=\small\bfseries,color=darkred] at (0,-0.3) {\SAT};
+  % Arrows from other problems to SAT
+  \node[font=\small\bfseries,color=purple] at (-2.5, 0.5) {\CLIQUE};
+  \draw[-{Stealth[scale=1.2]},purple,thick] (-1.8,0.5) -- (-0.8,-0.1);
+  \node[font=\small\bfseries,color=darkgreen] at (2.5, 0.5) {\HAMPATH};
+  \draw[-{Stealth[scale=1.2]},darkgreen,thick] (1.75,0.5) -- (0.8,-0.1);
+  \node[font=\small\bfseries,color=orange] at (0,-2.2) {\SUBSET};
+  \draw[-{Stealth[scale=1.2]},orange,thick] (0,-1.75) -- (0,-0.75);
+  % label
+  \node[font=\itshape\small,color=darkgray] at (0,-3.5) 
+    {Every \NP\ problem reduces to \SAT};
+\end{tikzpicture}
+\end{center}
+
+\vspace{1.5cm}
+\begin{center}
+  \textcolor{darkgray}{\large Theory of Computation $\cdot$ Complexity Theory}\\[1em]
+  \textcolor{darkgray}{\normalsize 
+  \begin{tabular}{ll}
+    \textbf{Topics:} & Turing Machines, Complexity Classes, Polynomial Reduction,\\
+    & Boolean Satisfiability, NP-Completeness\\[0.4em]
+    \textbf{Level:} & Undergraduate (2nd--3rd Year)\\[0.4em]
+    \textbf{Prerequisites:} & Automata Theory, Basic Logic, Algorithms\\
+  \end{tabular}
+  }
+\end{center}
+\end{titlepage}
+
+% ══════════════════════════════════════════════
+%  TABLE OF CONTENTS
+% ══════════════════════════════════════════════
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Motivation and Big Picture}
+% ══════════════════════════════════════════════
+
+\begin{intuition}
+Imagine you have thousands of hard computational problems---scheduling flights, 
+packing bags optimally, finding the shortest route through 50 cities. 
+Is each problem \emph{independently} hard, or is there some deep structure 
+they all share? The Cook--Levin theorem reveals a stunning answer:
+\textbf{there is one single problem to which all of them reduce.}
+\end{intuition}
+
+\subsection{The Central Question of Computer Science}
+
+The most famous open problem in all of mathematics and computer science is:
+
+\begin{center}
+\begin{tikzpicture}
+  \node[draw=darkblue,fill=lightblue,rounded corners=8pt,
+        inner sep=14pt,font=\Large\bfseries,color=darkblue,
+        drop shadow] 
+    {\textbf{Does $\P = \NP$?}};
+\end{tikzpicture}
+\end{center}
+
+\medskip
+In plain English:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{P} = problems whose solutions can be \emph{found} quickly (in polynomial time).
+  \item \textbf{NP} = problems whose solutions can be \emph{verified} quickly (in polynomial time).
+  \item The question asks: does ``verifiable quickly'' imply ``solvable quickly''?
+\end{itemize}
+
+\subsection{Why the Cook--Levin Theorem Matters}
+
+The Cook--Levin theorem (1971--1973) does two things:
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Defines NP-completeness}: it gives us a formal notion of the ``hardest'' problems in NP.
+  \item \textbf{Shows \SAT\ is the first NP-complete problem}: every NP problem can be translated into SAT in polynomial time.
+\end{enumerate}
+
+If someone found a polynomial-time algorithm for SAT, \emph{every} NP problem 
+would become tractable overnight. This is why SAT is called the ``master'' 
+or ``canonical'' hard problem.
+
+\bigskip
+\begin{center}
+\begin{tikzpicture}[node distance=1.5cm, every node/.style={font=\small}]
+  \node[draw=darkblue,fill=lightblue,rounded corners,minimum width=3cm,
+        minimum height=0.8cm,align=center] (SAT) {\textbf{SAT}\\(NP-complete)};
+  \foreach \prob/\angle/\col in {
+      Clique/135/purple,
+      {3-Coloring}/100/teal,
+      {Vertex Cover}/65/darkgreen,
+      {Hamiltonian Path}/30/orange,
+      {Subset Sum}/330/darkred,
+      {Traveling Salesman}/295/midblue,
+      {Integer Programming}/250/brown,
+      {Circuit SAT}/215/darkgray}{
+    \node[draw=\col,fill=\col!15,rounded corners,
+          minimum width=2.3cm,minimum height=0.7cm,align=center,
+          xshift={3.5cm*cos(\angle)},yshift={3.5cm*sin(\angle)}]
+      (\prob) {\prob};
+    \draw[-{Stealth},\col,thick] (\prob) -- (SAT);
+  }
+  \node[below=0.4cm of SAT,font=\itshape\small,color=darkgray] 
+    {All arrows are polynomial-time reductions};
+\end{tikzpicture}
+\end{center}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Prerequisite Background}
+% ══════════════════════════════════════════════
+
+\subsection{Turing Machines: The Universal Computational Model}
+
+\begin{definition}{Turing Machine (TM)}{tm}
+A \textbf{Turing Machine} $M$ is a 7-tuple 
+$M = (Q, \Sigma, \Gamma, \delta, q_0, q_\mathrm{accept}, q_\mathrm{reject})$ where:
+\begin{itemize}[leftmargin=2em]
+  \item $Q$ = finite set of states
+  \item $\Sigma$ = input alphabet ($\sqcup \notin \Sigma$)
+  \item $\Gamma \supseteq \Sigma \cup \{\sqcup\}$ = tape alphabet ($\sqcup$ is blank)
+  \item $\delta: Q \times \Gamma \to Q \times \Gamma \times \{L, R\}$ = transition function
+  \item $q_0 \in Q$ = start state
+  \item $q_\mathrm{accept}, q_\mathrm{reject} \in Q$ = halting states
+\end{itemize}
+\end{definition}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1]
+  % Tape cells
+  \foreach \i/\sym in {0/1,1/0,2/1,3/1,4/\sqcup,5/\sqcup,6/\sqcup}{
+    \draw[thick,darkblue] (\i*1.1,0) rectangle ++(1.1,0.8);
+    \node[font=\large] at (\i*1.1+0.55,0.4) {$\sym$};
+  }
+  \node[font=\small,color=darkgray] at (-0.5,0.4) {\ldots};
+  \node[font=\small,color=darkgray] at (7.8,0.4) {\ldots};
+  
+  % Read/Write head
+  \draw[darkred,very thick,-{Stealth[scale=1.5]}] (2.75,-0.5) -- (2.75,0);
+  \node[draw=darkred,fill=lightred,rounded corners=4pt,
+        minimum width=1.5cm,minimum height=0.6cm,
+        font=\small\bfseries,color=darkred] at (2.75,-1.1) {Head ($q_i$)};
+  
+  % Labels
+  \node[font=\small\itshape,color=darkgray] at (3.85,1.2) {Infinite Tape};
+  \draw[darkgray,->] (3.2,1.1) -- (1.5,0.9);
+  \draw[darkgray,->] (4.2,1.1) -- (5.5,0.9);
+  
+  % Control unit
+  \node[draw=darkblue,fill=lightblue,rounded corners=8pt,
+        minimum width=2.8cm,minimum height=1cm,
+        font=\small\bfseries,align=center] at (8.5,-0.2)
+    {Finite\\Control Unit};
+  \draw[darkblue,<->,thick] (7.1,-0.2) -- (6.1,-0.2);
+  \node[font=\tiny,color=darkgray] at (6.6,0.1) {state};
+\end{tikzpicture}
+\caption{Structure of a Turing Machine: an infinite tape, a read/write head, and a finite control.}
+\end{figure}
+
+\subsection{Computational Complexity Classes}
+
+\begin{definition}{The Class P}{class_p}
+$\P$ is the class of decision problems (yes/no problems) solvable by a 
+\emph{deterministic} Turing machine in time $O(n^k)$ for some constant $k$, 
+where $n$ is the input size.
+\[
+  \P = \bigcup_{k \geq 1} \mathbf{DTIME}(n^k)
+\]
+\end{definition}
+
+\begin{example}{Problems in P}{p_examples}
+\begin{itemize}[leftmargin=2em]
+  \item Sorting $n$ numbers: $O(n \log n)$ --- in \P
+  \item Shortest path (Dijkstra): $O(n^2)$ --- in \P
+  \item Primality testing (AKS algorithm): $O(\log^{6} n)$ --- in \P
+  \item Matrix multiplication: $O(n^{2.37})$ --- in \P
+\end{itemize}
+\end{example}
+
+\begin{definition}{The Class NP}{class_np}
+$\NP$ is the class of decision problems where every ``yes'' instance has a 
+\emph{polynomial-length certificate} (proof/witness) that can be verified 
+in polynomial time by a deterministic TM.
+\[
+  L \in \NP \iff \exists \text{ verifier } V \text{ s.t. } 
+  \forall x \in L,\; \exists w,\; |w| \leq |x|^k,\; V(x,w) \text{ accepts in poly time}
+\]
+\end{definition}
+
+\begin{intuition}
+Think of \NP\ problems like a \textbf{crossword puzzle}:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Solving} it from scratch might take a very long time.
+  \item \textbf{Checking} someone else's completed solution is easy---you just verify each word fits.
+\end{itemize}
+\end{intuition}
+
+\begin{example}{Problems in NP}{np_examples}
+\begin{center}
+\begin{tabular}{>{\bfseries}p{3.5cm} p{4.5cm} p{4cm}}
+\toprule
+Problem & Question & Certificate \\
+\midrule
+Graph Coloring & Can graph $G$ be 3-colored? & The coloring assignment \\
+Hamiltonian Path & Does $G$ have a Ham.\ path? & The path itself \\
+Subset Sum & Does a subset sum to $t$? & The subset \\
+SAT & Is formula $\phi$ satisfiable? & The satisfying assignment \\
+Clique & Does $G$ have a $k$-clique? & The $k$ vertices \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.1]
+  % EXPTIME
+  \fill[gray!20,rounded corners=20pt] (-5,-3.3) rectangle (5,3.3);
+  \node[font=\bfseries\small,color=darkgray] at (0,3.0) {\textbf{EXPTIME}};
+  % NP
+  \fill[midblue!25,rounded corners=14pt] (-3.8,-2.2) rectangle (3.8,2.2);
+  \node[font=\bfseries,color=darkblue] at (2.8,1.8) {\NP};
+  % co-NP  
+  \fill[orange!25,rounded corners=14pt] (-3.6,-2.0) rectangle (3.6,-0.2);
+  \node[font=\bfseries\small,color=orange] at (2.5,-0.6) {co-\NP};
+  % P
+  \fill[lightblue,rounded corners=10pt] (-2,-1.5) rectangle (2,1.5);
+  \node[font=\bfseries,color=darkblue] at (0,0) {\Large$\P$};
+  % labels
+  \node[font=\small,color=purple,align=center] at (-3.0,1.5) 
+    {NP-complete\\problems};
+  \draw[purple,->] (-2.2,1.4) -- (-0.5,0.7);
+\end{tikzpicture}
+\caption{The complexity class landscape. Whether $\P = \NP$, whether $\NP = \text{co-NP}$, etc.,\ are all open questions.}
+\end{figure}
+
+\subsection{Boolean Logic: Building Blocks of SAT}
+
+\begin{definition}{Boolean Formula}{bool_formula}
+A \textbf{Boolean formula} is built from:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Variables}: $x_1, x_2, \ldots, x_n \in \{0,1\}$ (false/true)
+  \item \textbf{Literals}: $x_i$ or $\neg x_i$
+  \item \textbf{Connectives}: AND ($\land$), OR ($\lor$), NOT ($\neg$)
+\end{itemize}
+A \textbf{clause} is a disjunction (OR) of literals: $(x_1 \lor \neg x_2 \lor x_3)$.\\
+A formula is in \textbf{Conjunctive Normal Form (CNF)} if it is an AND of clauses.
+\end{definition}
+
+\begin{example}{CNF Formula}{cnf_ex}
+\[
+  \phi = \underbrace{(x_1 \lor \neg x_2)}_{\text{clause 1}} 
+       \;\land\; 
+       \underbrace{(\neg x_1 \lor x_3 \lor x_2)}_{\text{clause 2}} 
+       \;\land\;
+       \underbrace{(\neg x_3)}_{\text{clause 3}}
+\]
+Assignment $x_1 = 1,\, x_2 = 1,\, x_3 = 0$: evaluate each clause:
+\begin{itemize}[leftmargin=2em]
+  \item Clause 1: $(1 \lor 0) = 1$ \checkmark
+  \item Clause 2: $(0 \lor 0 \lor 1) = 1$ \checkmark
+  \item Clause 3: $(1) = 1$ \checkmark
+\end{itemize}
+So $\phi$ is \textbf{satisfiable} (SAT).
+\end{example}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Boolean Satisfiability (SAT)}
+% ══════════════════════════════════════════════
+
+\begin{definition}{SAT Problem}{sat_def}
+\[
+  \SAT = \{ \enc{\phi} \mid \phi \text{ is a satisfiable Boolean formula in CNF} \}
+\]
+\textbf{Input:} A Boolean formula $\phi$ in CNF over variables $x_1, \ldots, x_n$.\\
+\textbf{Question:} Does there exist an assignment $\alpha: \{x_1,\ldots,x_n\} \to \{0,1\}$ 
+such that $\phi(\alpha) = 1$?
+\end{definition}
+
+\subsection{Naive Algorithm for SAT}
+
+The brute-force approach tries all $2^n$ assignments:
+
+\begin{algorithm}[H]
+\caption{Brute-Force SAT Solver}
+\begin{algorithmic}[1]
+\Require CNF formula $\phi$ with variables $x_1, \ldots, x_n$
+\Ensure \textbf{SAT} if satisfiable, \textbf{UNSAT} otherwise
+\For{each assignment $\alpha \in \{0,1\}^n$}   \Comment{$2^n$ iterations}
+  \If{$\phi(\alpha) = 1$}
+    \State \Return \textbf{SAT} (with witness $\alpha$)
+  \EndIf
+\EndFor
+\State \Return \textbf{UNSAT}
+\end{algorithmic}
+\end{algorithm}
+
+\medskip
+This runs in $O(2^n \cdot |\phi|)$ time --- \textbf{exponential}. No polynomial algorithm is known!
+
+\subsection{SAT is in NP}
+
+\begin{theorem}{SAT $\in$ NP}{sat_in_np}
+The Boolean Satisfiability problem is in NP.
+\end{theorem}
+
+\begin{proof}
+Given a formula $\phi$ and a proposed certificate (assignment) $\alpha$:
+\begin{enumerate}[leftmargin=2em]
+  \item The certificate $\alpha$ has length $n$ bits --- polynomial in $|\phi|$.
+  \item Evaluating $\phi(\alpha)$: substitute each variable and check each clause.
+    This takes $O(|\phi|)$ time --- polynomial.
+\end{enumerate}
+Therefore SAT has an efficient verifier, so SAT $\in$ NP. \qed
+\end{proof}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.95, node distance=1.4cm and 2cm,
+  box/.style={draw,rounded corners=5pt,minimum height=0.9cm,
+              minimum width=2.5cm,align=center,font=\small}]
+  % Input
+  \node[box,fill=lightblue,draw=darkblue] (input) 
+    {Input $\phi$\\(CNF formula)};
+  % Certificate  
+  \node[box,fill=lightgreen,draw=darkgreen,below=of input] (cert) 
+    {Certificate $\alpha$\\(assignment, $n$ bits)};
+  % Verifier
+  \node[box,fill=lightyellow,draw=orange,right=2.5cm of input,
+        yshift=-0.7cm,minimum height=2.2cm] (verifier) 
+    {Poly-Time\\Verifier $V$};
+  % Output yes/no
+  \node[box,fill=lightred,draw=darkred,right=2cm of verifier] (out)
+    {Accept / Reject};
+  
+  \draw[-{Stealth},thick,darkblue] (input) -- (verifier);
+  \draw[-{Stealth},thick,darkgreen] (cert) -- (verifier);
+  \draw[-{Stealth},thick,darkred] (verifier) -- (out);
+  
+  % Annotation
+  \node[font=\small\itshape,color=darkgray,below=0.2cm of verifier]
+    {runs in $O(|\phi|)$ time};
+\end{tikzpicture}
+\caption{The NP verification procedure for SAT.}
+\end{figure}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Polynomial-Time Reductions}
+% ══════════════════════════════════════════════
+
+\subsection{What is a Reduction?}
+
+\begin{definition}{Polynomial-Time Reduction}{poly_reduce}
+A \textbf{polynomial-time many-one reduction} from language $A$ to language $B$, 
+written $A \leqp B$, is a function $f: \Sigma^* \to \Sigma^*$ such that:
+\begin{enumerate}[leftmargin=2em]
+  \item $f$ is computable in polynomial time.
+  \item For all $x$: $x \in A \iff f(x) \in B$.
+\end{enumerate}
+\end{definition}
+
+\begin{intuition}
+A reduction $A \leqp B$ says: ``If I could solve $B$ quickly, I could solve $A$ quickly.''
+Equivalently: $B$ is \emph{at least as hard} as $A$.
+
+\medskip
+Think of it like a \textbf{translation service}: any instance of problem $A$ can be 
+``translated'' into an instance of problem $B$ in polynomial time, without changing 
+the yes/no answer.
+\end{intuition}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.95]
+  % Problem A box
+  \node[draw=darkblue,fill=lightblue,rounded corners,
+        minimum width=2.5cm,minimum height=1.5cm,align=center,
+        font=\bfseries] (A) at (0,0) {Problem $A$\\instance $x$};
+  % Arrow with reduction function
+  \draw[-{Stealth[scale=1.5]},midblue,very thick] (2,0) -- (5,0)
+    node[midway,above,font=\small\bfseries,color=midblue] {$f$ (poly time)}
+    node[midway,below,font=\small\itshape,color=darkgray] {transformation};
+  % Problem B box
+  \node[draw=darkred,fill=lightred,rounded corners,
+        minimum width=2.5cm,minimum height=1.5cm,align=center,
+        font=\bfseries] (B) at (6.5,0) {Problem $B$\\instance $f(x)$};
+  % Oracle for B
+  \node[draw=purple,fill=purple!15,rounded corners,
+        minimum width=2cm,minimum height=1cm,
+        font=\small\bfseries] (oracle) at (10,0) {Oracle\\for $B$};
+  \draw[-{Stealth},thick,purple] (B) -- (oracle);
+  % Answer
+  \node[font=\bfseries] (ans) at (12.5,0) {Yes/No};
+  \draw[-{Stealth},thick] (oracle) -- (ans);
+  % Answer flows back to A
+  \draw[-{Stealth},thick,darkgray,dashed,bend left=30] 
+    (12.5,-0.5) to node[midway,below,font=\small\itshape] 
+    {same answer for $A$} (0,-0.5);
+  
+  % Condition
+  \node[font=\small\bfseries,color=darkgreen] at (6.5,-2) 
+    {$x \in A \iff f(x) \in B$};
+\end{tikzpicture}
+\caption{Polynomial-time reduction: an oracle for $B$ gives us a solver for $A$.}
+\end{figure}
+
+\subsection{Properties of Reductions}
+
+\begin{theorem}{Transitivity of Reductions}{trans}
+If $A \leqp B$ and $B \leqp C$, then $A \leqp C$.
+\end{theorem}
+
+\begin{proof}
+Let $f$ be the poly-time reduction from $A$ to $B$, and $g$ the poly-time reduction from $B$ to $C$.
+Define $h(x) = g(f(x))$.
+\begin{itemize}[leftmargin=2em]
+  \item $h$ is computable in polynomial time (composition of two poly-time functions).
+  \item $x \in A \iff f(x) \in B \iff g(f(x)) \in C$. \qed
+\end{itemize}
+\end{proof}
+
+\begin{theorem}{Reduction Transfers Tractability}{tractability}
+If $A \leqp B$ and $B \in \P$, then $A \in \P$.
+\end{theorem}
+
+\begin{proof}
+Given input $x$ for $A$:
+\begin{enumerate}[leftmargin=2em]
+  \item Compute $f(x)$ in poly time $p_f(|x|)$.
+  \item Run the poly-time algorithm for $B$ on $f(x)$. Time: $p_B(|f(x)|) \leq p_B(p_f(|x|))$.
+\end{enumerate}
+The composition is a polynomial (poly of poly), so $A \in \P$. \qed
+\end{proof}
+
+\subsection{NP-Hardness and NP-Completeness}
+
+\begin{definition}{NP-Hard and NP-Complete}{npc}
+\begin{itemize}[leftmargin=2em]
+  \item A problem $B$ is \textbf{NP-hard} if for every $A \in \NP$: $A \leqp B$.
+  \item A problem $B$ is \textbf{NP-complete} if $B \in \NP$ \emph{and} $B$ is NP-hard.
+\end{itemize}
+\end{definition}
+
+\begin{keyidea}
+\textbf{NP-complete problems are the hardest problems in NP.} If any NP-complete problem 
+is in P, then $\P = \NP$. If any NP-complete problem is not in P, then $\P \neq \NP$.
+\end{keyidea}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{The Cook--Levin Theorem}
+% ══════════════════════════════════════════════
+
+\subsection{Statement}
+
+\begin{theorem}{Cook--Levin Theorem (1971, 1973)}{cook_levin}
+\textbf{SAT is NP-complete.} That is:
+\begin{enumerate}[leftmargin=2em]
+  \item $\SAT \in \NP$, and
+  \item For every $L \in \NP$: $L \leqp \SAT$.
+\end{enumerate}
+\end{theorem}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[draw=darkblue,fill=lightblue,rounded corners=10pt,
+        inner sep=16pt,align=center,font=\large,
+        drop shadow={shadow xshift=2pt,shadow yshift=-2pt}]
+    {\textbf{SAT is the first NP-complete problem.}\\[4pt]
+     Every problem in NP ``hides inside'' SAT.};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Historical Context}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+  % Timeline
+  \draw[darkblue,very thick,->] (0,0) -- (12,0);
+  % Ticks
+  \foreach \x/\yr/\lbl/\col in {
+    1/1936/{Turing Machine\\invented (Turing)}/darkgray,
+    3.5/1965/{\P\ class\\defined}/darkblue,
+    6/1971/{Cook proves\\SAT NP-complete}/darkred,
+    8.5/1972/{Karp's 21 NP-\\complete problems}/purple,
+    10.5/1973/{Levin's\\independent proof}/teal}{
+    \draw[\col,thick] (\x,-0.2) -- (\x,0.2);
+    \node[\col,above,font=\tiny\bfseries,align=center,yshift=2pt] at (\x,0.2) {\yr};
+    \node[\col,below,font=\tiny,align=center,yshift=-2pt] at (\x,-0.2) {\lbl};
+  }
+\end{tikzpicture}
+\end{center}
+
+\medskip
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Stephen Cook} (University of Toronto, 1971): proved SAT is NP-complete in his landmark paper.
+  \item \textbf{Richard Karp} (UC Berkeley, 1972): reduced 21 major combinatorial problems to SAT, founding NP-completeness theory.
+  \item \textbf{Leonid Levin} (Soviet Union, 1973): independently proved essentially the same result.
+\end{itemize}
+
+\subsection{High-Level Proof Idea}
+
+\begin{intuition}
+Any NP problem $L$ has a polynomial-time verifier $V$. Given input $x$:
+\begin{enumerate}[leftmargin=2em]
+  \item The verifier $V(x, w)$ runs on a Turing machine.
+  \item A TM computation is a sequence of configurations (``snapshots'').
+  \item We can encode ``does $V$ accept?'' as a Boolean formula $\phi_{x}$.
+  \item $V$ accepts iff $\phi_x$ is satisfiable --- with the satisfying assignment encoding the certificate $w$.
+\end{enumerate}
+\end{intuition}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.9, node distance=1.5cm and 0.5cm]
+  \node[draw=darkblue,fill=lightblue,rounded corners,minimum width=3cm,
+        minimum height=0.9cm,align=center,font=\bfseries] (prob) 
+    {$L \in \NP$\\instance $x$};
+  \node[draw=darkgreen,fill=lightgreen,rounded corners,minimum width=3cm,
+        minimum height=0.9cm,align=center,font=\bfseries,right=2cm of prob] (ver)
+    {Poly-Time\\Verifier $V$};
+  \node[draw=purple,fill=purple!15,rounded corners,minimum width=3cm,
+        minimum height=0.9cm,align=center,font=\bfseries,right=2cm of ver] (tm)
+    {TM Tableau\\(computation table)};
+  \node[draw=darkred,fill=lightred,rounded corners,minimum width=3cm,
+        minimum height=0.9cm,align=center,font=\bfseries,right=2cm of tm] (phi)
+    {CNF Formula $\phi_x$};
+  
+  \draw[-{Stealth},thick,darkblue] (prob) -- (ver) 
+    node[midway,above,font=\tiny] {has};
+  \draw[-{Stealth},thick,darkgreen] (ver) -- (tm) 
+    node[midway,above,font=\tiny] {encoded as};
+  \draw[-{Stealth},thick,purple] (tm) -- (phi)
+    node[midway,above,font=\tiny] {encoded as};
+  
+  \node[font=\small\itshape,color=darkgray,below=0.4cm of ver] 
+    {``$V(x,w)$ accepts''};
+  \node[font=\small\itshape,color=darkgray,below=0.4cm of phi]
+    {satisfiable $\iff x \in L$};
+\end{tikzpicture}
+\caption{The chain of encodings in the Cook--Levin proof.}
+\end{figure}
+
+\newpage
+\subsection{Detailed Proof of Cook--Levin}
+
+We prove that for any $L \in \NP$, there is a poly-time reduction $L \leqp \SAT$.
+
+\subsubsection{Step 1: The Verifier}
+
+Since $L \in \NP$, there exists a poly-time verifier $V$ and a polynomial $p$ such that:
+\[
+  x \in L \iff \exists w,\; |w| \leq p(|x|),\; V(x,w) \text{ accepts}
+\]
+Say $V$ runs in time $\leq q(n)$ for polynomial $q$, where $n = |x|$.
+
+\subsubsection{Step 2: The Tableau}
+
+A TM \textbf{tableau} is a grid recording the entire computation:
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+  \def\rows{5}
+  \def\cols{8}
+  % Grid
+  \foreach \r in {0,...,\rows}{
+    \foreach \c in {0,...,\cols}{
+      \draw[darkblue!30] (\c*1.1, \r*0.8) rectangle ++(1.1,0.8);
+    }
+  }
+  % Labels
+  \node[rotate=90,font=\small\bfseries,color=darkblue] at (-0.5, 2.4) {Time steps};
+  \node[font=\small\bfseries,color=darkblue] at (4.95, -0.5) {Tape cells};
+  
+  % Row labels
+  \foreach \r/\lbl in {0/t=0,1/t=1,2/t=2,3/\vdots,4/{t=q(n)}}{
+    \node[font=\small,color=darkgray] at (-1.0, \r*0.8+0.4) {\lbl};
+  }
+  % Initial config
+  \foreach \c/\sym in {0/q_0,1/x_1,2/x_2,3/\cdots,4/x_n,5/w_1,6/\cdots,7/\sqcup}{
+    \node[font=\scriptsize] at (\c*1.1+0.55, 0.4) {$\sym$};
+  }
+  % Accept state
+  \node[draw=darkgreen,fill=lightgreen,rounded corners=3pt,
+        font=\scriptsize\bfseries,minimum width=1.0cm] 
+    at (2.75, 4.4) {$q_\mathrm{acc}$};
+  
+  % Highlight head movement
+  \draw[darkred,very thick,rounded corners=4pt] 
+    (0,0) rectangle (1.1,0.8);
+  \draw[darkred,very thick,rounded corners=4pt] 
+    (1.1,0.8) rectangle (2.2,1.6);
+  \draw[darkred,very thick,rounded corners=4pt] 
+    (2.2,1.6) rectangle (3.3,2.4);
+  
+  % Legend
+  \node[font=\tiny\itshape,color=darkred] at (10,1.2) 
+    {red box = head position};
+\end{tikzpicture}
+\end{center}
+
+The tableau has dimensions $q(n) \times q(n)$ (time steps $\times$ tape width).
+Each cell $(i,j)$ contains a symbol from $\Gamma \cup Q$ (the tape symbol and possibly the state if the head is at column $j$ at time $i$).
+
+\subsubsection{Step 3: Variables}
+
+For each cell $(i,j)$ with $0 \leq i \leq q(n)$ and $0 \leq j \leq q(n)$, 
+and for each symbol $s \in C = \Gamma \cup (Q \times \Gamma)$ (an alphabet of size $|C|$):
+\[
+  x_{i,j,s} = 
+  \begin{cases} 
+    1 & \text{if cell $(i,j)$ of the tableau contains symbol $s$} \\
+    0 & \text{otherwise}
+  \end{cases}
+\]
+Total variables: $O(q(n)^2 \cdot |C|) = O(n^{2k})$ --- polynomial.
+
+\subsubsection{Step 4: The Four Groups of Clauses}
+
+We write the formula $\phi_x = \phi_{\text{cell}} \land \phi_{\text{start}} \land \phi_{\text{move}} \land \phi_{\text{accept}}$.
+
+\medskip
+\noindent\textbf{(a) Cell Constraints} $\phi_{\text{cell}}$: Each cell contains exactly one symbol.
+\[
+  \phi_{\text{cell}} = \bigwedge_{i,j} \left( 
+    \underbrace{\bigvee_{s \in C} x_{i,j,s}}_{\text{at least one}} 
+    \;\land\; 
+    \underbrace{\bigwedge_{s \neq t} (\neg x_{i,j,s} \lor \neg x_{i,j,t})}_{\text{at most one}}
+  \right)
+\]
+
+\medskip
+\noindent\textbf{(b) Start Constraints} $\phi_{\text{start}}$: The first row matches initial config.
+\[
+  \phi_{\text{start}} = x_{0,0,q_0} \land x_{0,1,x_1} \land \cdots \land x_{0,n,x_n} \land 
+  x_{0,n+1,w_1} \land \cdots \land x_{0,n+p(n),w_{p(n)}} \land \cdots
+\]
+(The $w_i$ variables become the ``free'' variables encoding the certificate.)
+
+\medskip
+\noindent\textbf{(c) Move Constraints} $\phi_{\text{move}}$: Each row follows from the previous via $\delta$.
+For every position $(i,j)$, a $2 \times 3$ window of cells must be legal:
+
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+  % Window
+  \foreach \c in {0,1,2}{
+    \draw[darkblue,thick] (\c*1.2,0.8) rectangle ++(1.2,0.8);
+    \draw[darkred,thick] (\c*1.2,0) rectangle ++(1.2,0.8);
+  }
+  \node[font=\small] at (0.6,1.2) {$j{-}1$};
+  \node[font=\small] at (1.8,1.2) {$j$};
+  \node[font=\small] at (3.0,1.2) {$j{+}1$};
+  \node[rotate=90,font=\small,color=darkblue] at (-0.5,1.2) {row $i$};
+  \node[rotate=90,font=\small,color=darkred] at (-0.5,0.4) {row $i+1$};
+  
+  % Arrow
+  \draw[-{Stealth},thick] (4.5,0.9) -- (6,0.9) 
+    node[midway,above,font=\tiny] {legal by $\delta$};
+  
+  % Legal window notation
+  \node[font=\small] at (7.5,0.9) 
+    {$\in \mathcal{W}$ (set of legal windows)};
+\end{tikzpicture}
+\end{center}
+
+$\phi_{\text{move}} = \bigwedge_{i,j} \bigvee_{(a,b,c,a',b',c') \in \mathcal{W}} 
+  (x_{i,j-1,a} \land x_{i,j,b} \land x_{i,j+1,c} \land x_{i+1,j-1,a'} \land x_{i+1,j,b'} \land x_{i+1,j+1,c'})$
+
+Each 6-literal conjunction can be converted to CNF in $O(1)$ clauses (standard conversion).
+
+\medskip
+\noindent\textbf{(d) Accept Constraints} $\phi_{\text{accept}}$: The accepting state appears.
+\[
+  \phi_{\text{accept}} = \bigvee_{0 \leq j \leq q(n)} x_{q(n), j, q_\mathrm{accept}}
+\]
+
+\subsubsection{Step 5: Correctness}
+
+\begin{theorem}{Correctness of the Reduction}{correct}
+$x \in L \iff \phi_x$ is satisfiable.
+\end{theorem}
+
+\begin{proof}
+\textbf{($\Rightarrow$)} If $x \in L$, then $\exists w$ such that $V(x,w)$ accepts in $\leq q(n)$ steps.
+The resulting tableau is a valid accepting computation. Set $x_{i,j,s} = 1$ iff cell $(i,j)$ 
+contains symbol $s$ in this tableau. This assignment satisfies all four groups of clauses.
+
+\medskip
+\noindent\textbf{($\Leftarrow$)} If $\phi_x$ is satisfiable with assignment $\alpha$:
+\begin{itemize}[leftmargin=2em]
+  \item $\phi_{\text{cell}}$ ensures each cell has exactly one symbol.
+  \item $\phi_{\text{start}}$ ensures the first row is the correct start config.
+  \item $\phi_{\text{move}}$ ensures each row is a valid TM transition.
+  \item $\phi_{\text{accept}}$ ensures the last row contains $q_\mathrm{accept}$.
+\end{itemize}
+So the tableau describes a valid accepting computation of $V(x, w)$ where 
+$w$ is extracted from columns $n+1$ to $n+p(n)$ of row 0. Thus $x \in L$. \qed
+\end{proof}
+
+\subsubsection{Step 6: Polynomial Size}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Variables:} $O(q(n)^2 \cdot |C|) = O(n^{2k})$
+  \item \textbf{Clauses:} 
+    \begin{itemize}
+      \item $\phi_{\text{cell}}$: $O(q(n)^2 \cdot |C|^2) = O(n^{2k})$ clauses
+      \item $\phi_{\text{start}}$: $O(q(n))$ unit clauses
+      \item $\phi_{\text{move}}$: $O(q(n)^2 \cdot |\mathcal{W}| \cdot |C|)$ clauses --- polynomial since $|\mathcal{W}|$ and $|C|$ are constants
+      \item $\phi_{\text{accept}}$: $O(q(n))$ clauses
+    \end{itemize}
+  \item \textbf{Construction time:} $O(n^{2k})$ --- polynomial.
+\end{itemize}
+
+\medskip
+\begin{center}
+\begin{tikzpicture}
+  \node[draw=darkgreen,fill=lightgreen,rounded corners=8pt,
+        inner sep=12pt,align=center,font=\normalsize]
+    {$L \leqp \SAT$ via a polynomial-time computable function $x \mapsto \phi_x$\\
+     with $|\phi_x| = O(n^{2k})$. \textbf{QED.}};
+\end{tikzpicture}
+\end{center}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Worked Examples}
+% ══════════════════════════════════════════════
+
+\subsection{Example 1: Encoding a Tiny TM Computation as SAT}
+
+\begin{example}{Encoding a 2-Step Computation}{tiny_enc}
+Consider a TM $M$ that accepts $\{0\}$ (strings equal to ``0'').
+States: $Q = \{q_0, q_\text{acc}, q_\text{rej}\}$.
+Tape alphabet: $\Gamma = \{0, 1, \sqcup\}$.
+
+\medskip
+Transition (simplified): $\delta(q_0, 0) = (q_\text{acc}, 0, R)$.
+
+\medskip
+\noindent\textbf{Input:} $x = 0$ (so $n = 1$). Take time bound $q(n) = 2$.
+
+\medskip
+\noindent\textbf{Tableau} ($3$ rows $\times$ $3$ columns):
+\begin{center}
+\begin{tabular}{c|ccc}
+\toprule
+Time & Cell 0 & Cell 1 & Cell 2 \\
+\midrule
+$t=0$ & $(q_0, 0)$ & $\sqcup$ & $\sqcup$ \\
+$t=1$ & $0$ & $(q_\text{acc}, \sqcup)$ & $\sqcup$ \\
+$t=2$ & $0$ & $(q_\text{acc}, \sqcup)$ & $\sqcup$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\noindent\textbf{Some variables (partial list):}
+\begin{itemize}[leftmargin=2em]
+  \item $x_{0,0,(q_0,0)} = 1$: at time 0, cell 0 has symbol $(q_0, 0)$
+  \item $x_{0,1,\sqcup} = 1$: at time 0, cell 1 is blank
+  \item $x_{1,1,(q_\text{acc},\sqcup)} = 1$: at time 1, head at cell 1 in accept state
+\end{itemize}
+
+\medskip
+\noindent\textbf{The SAT formula} $\phi_x$ is satisfied by exactly the assignment 
+corresponding to this tableau, confirming $x = 0$ is accepted.
+\end{example}
+
+\subsection{Example 2: A Simple SAT Instance from Graph Coloring}
+
+\begin{example}{Reducing 3-Coloring to SAT}{coloring_sat}
+\textbf{Problem:} Can we 3-color the triangle graph $K_3$?
+
+\medskip
+\noindent\textbf{Variables:} For each vertex $v \in \{A,B,C\}$ and color $c \in \{R,G,B\}$:
+$x_{v,c}$ = ``vertex $v$ has color $c$''.
+
+\medskip
+\noindent\textbf{Clauses:}
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textit{Each vertex has at least one color:}
+    \[(x_{A,R} \lor x_{A,G} \lor x_{A,B}) \land (x_{B,R} \lor x_{B,G} \lor x_{B,B}) \land (x_{C,R} \lor x_{C,G} \lor x_{C,B})\]
+  \item \textit{Each vertex has at most one color (no two colors simultaneously):}
+    \[(\neg x_{A,R} \lor \neg x_{A,G}) \land (\neg x_{A,R} \lor \neg x_{A,B}) \land (\neg x_{A,G} \lor \neg x_{A,B}) \land \cdots\]
+  \item \textit{Adjacent vertices have different colors (edge $AB$):}
+    \[(\neg x_{A,R} \lor \neg x_{B,R}) \land (\neg x_{A,G} \lor \neg x_{B,G}) \land (\neg x_{A,B} \lor \neg x_{B,B})\]
+    (Similarly for edges $BC$ and $AC$.)
+\end{enumerate}
+
+\medskip
+\noindent\textbf{Satisfying assignment:} $x_{A,R}=1,\; x_{B,G}=1,\; x_{C,B}=1$ (all others 0).
+This encodes the coloring $A \mapsto R,\; B \mapsto G,\; C \mapsto B$, which is valid since $K_3$ can be 3-colored.
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+  \node[circle,draw=darkred,fill=red!60,minimum size=0.9cm,font=\bfseries] (A) at (0,1.5) {A};
+  \node[circle,draw=darkgreen,fill=green!60,minimum size=0.9cm,font=\bfseries] (B) at (-1.3,-0.8) {B};
+  \node[circle,draw=blue!80,fill=blue!40,minimum size=0.9cm,font=\bfseries\color{white}] (C) at (1.3,-0.8) {C};
+  \draw[very thick] (A)--(B)--(C)--(A);
+  \node[font=\small\itshape,color=darkgray] at (0,-1.8) {Valid 3-coloring of $K_3$};
+\end{tikzpicture}
+\end{center}
+\end{example}
+
+\subsection{Example 3: Unsatisfiable Formula}
+
+\begin{example}{UNSAT Instance}{unsat_ex}
+Consider:
+\[
+  \phi = (x_1) \land (\neg x_1)
+\]
+\begin{itemize}[leftmargin=2em]
+  \item If $x_1 = 1$: clause 1 satisfied, clause 2 = $\neg 1 = 0$. \textbf{FAIL.}
+  \item If $x_1 = 0$: clause 1 = $0$. \textbf{FAIL.}
+\end{itemize}
+$\phi$ is \textbf{unsatisfiable}. The corresponding decision problem instance would be a ``No'' instance.
+
+\medskip
+In the Cook--Levin reduction, $\phi_x$ is unsatisfiable iff $x \notin L$ (no accepting computation exists).
+\end{example}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Consequences and Further NP-Complete Problems}
+% ══════════════════════════════════════════════
+
+\subsection{The Cascade of NP-Complete Problems}
+
+Once Cook--Levin gave us SAT, Karp (1972) proved 21 more problems NP-complete 
+by chaining polynomial reductions:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=1.3cm and 1.8cm,
+  box/.style={draw,rounded corners=5pt,minimum width=2.5cm,
+              minimum height=0.7cm,align=center,font=\small\bfseries},
+  arr/.style={-{Stealth},thick}
+]
+  \node[box,fill=lightred,draw=darkred] (sat) {\SAT};
+  \node[box,fill=lightblue,draw=darkblue,below left=of sat] (3sat) {\TSAT};
+  \node[box,fill=lightblue,draw=darkblue,below right=of sat] (csat) {\textsc{Circuit-SAT}};
+  \node[box,fill=lightgreen,draw=darkgreen,below=of 3sat] (clique) {\CLIQUE};
+  \node[box,fill=lightgreen,draw=darkgreen,below left=of clique] (vc) {\VERTEX};
+  \node[box,fill=lightgreen,draw=darkgreen,below right=of clique] (is) {\textsc{Ind.-Set}};
+  \node[box,fill=purple!20,draw=purple,below=of 3sat,xshift=-3cm] (hp) {\HAMPATH};
+  \node[box,fill=purple!20,draw=purple,below=of hp] (hc) {\textsc{Ham-Cycle}};
+  \node[box,fill=purple!20,draw=purple,below=of hc] (tsp) {\textsc{TSP}};
+  \node[box,fill=orange!20,draw=orange,below right=of 3sat] (ss) {\SUBSET};
+  \node[box,fill=orange!20,draw=orange,below=of ss] (part) {\textsc{Partition}};
+  \node[box,fill=orange!20,draw=orange,below=of part] (knap) {\textsc{Knapsack}};
+
+  \draw[arr,darkred] (sat) -- (3sat);
+  \draw[arr,darkred] (sat) -- (csat);
+  \draw[arr,darkblue] (3sat) -- (clique);
+  \draw[arr,darkblue] (clique) -- (vc);
+  \draw[arr,darkblue] (clique) -- (is);
+  \draw[arr,darkblue] (3sat) -- (hp);
+  \draw[arr,purple] (hp) -- (hc);
+  \draw[arr,purple] (hc) -- (tsp);
+  \draw[arr,darkblue] (3sat) -- (ss);
+  \draw[arr,orange] (ss) -- (part);
+  \draw[arr,orange] (part) -- (knap);
+  
+  \node[font=\tiny\itshape,color=darkgray] at (0,-7) 
+    {Each arrow is a polynomial-time reduction};
+\end{tikzpicture}
+\caption{A reduction tree rooted at SAT, showing how NP-completeness propagates.}
+\end{figure}
+
+\subsection{3-SAT: The Most Useful Variant}
+
+\begin{definition}{3-SAT}{tsat_def}
+\[
+  \TSAT = \{ \enc{\phi} \mid \phi \text{ is a satisfiable CNF formula with exactly 3 literals per clause} \}
+\]
+\end{definition}
+
+\begin{theorem}{3-SAT is NP-complete}{tsat_npc}
+$\TSAT$ is NP-complete, i.e., $\SAT \leqp \TSAT$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Given a clause $(l_1 \lor l_2 \lor l_3 \lor \cdots \lor l_k)$ with $k \neq 3$:
+
+\medskip
+\noindent\textbf{Case $k < 3$:} Pad with a fresh variable $y$:
+\begin{itemize}[leftmargin=2em]
+  \item $k=1$: $(l_1) \to (l_1 \lor y \lor \neg y)$ --- always satisfies the extra literals, forces $l_1$.
+  \item $k=2$: $(l_1 \lor l_2) \to (l_1 \lor l_2 \lor y) \land (l_1 \lor l_2 \lor \neg y)$.
+\end{itemize}
+
+\noindent\textbf{Case $k > 3$:} Introduce helper variables $y_1, \ldots, y_{k-3}$:
+\[
+  (l_1 \lor l_2 \lor y_1) \land (\neg y_1 \lor l_3 \lor y_2) \land \cdots 
+  \land (\neg y_{k-4} \lor l_{k-2} \lor y_{k-3}) \land (\neg y_{k-3} \lor l_{k-1} \lor l_k)
+\]
+One can verify this is satisfiable iff the original clause is satisfiable. \qed
+\end{proof}
+
+\begin{example}{Long Clause to 3-SAT}{longclause}
+Convert $(x_1 \lor x_2 \lor x_3 \lor x_4 \lor x_5)$ (5 literals) to 3-SAT:
+\begin{align*}
+  &(x_1 \lor x_2 \lor y_1) \\
+  &(\neg y_1 \lor x_3 \lor y_2) \\
+  &(\neg y_2 \lor x_4 \lor x_5)
+\end{align*}
+with fresh variables $y_1, y_2$. This is a 3-CNF formula equivalent to the original clause.
+\end{example}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Implications for Computer Science}
+% ══════════════════════════════════════════════
+
+\subsection{What NP-Completeness Tells Us}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.95]
+  \node[draw=darkblue,fill=lightblue,rounded corners=8pt,
+        inner sep=10pt,align=center,font=\small] (center) 
+    at (0,0) {\textbf{Problem is NP-complete}};
+  
+  % Consequence nodes
+  \node[draw=darkred,fill=lightred,rounded corners=5pt,
+        minimum width=3.5cm,minimum height=1.2cm,align=center,font=\small] 
+    at (-4.5, 2) {\textbf{No known poly-time algorithm}\\ likely needs exponential time};
+  \node[draw=darkgreen,fill=lightgreen,rounded corners=5pt,
+        minimum width=3.5cm,minimum height=1.2cm,align=center,font=\small] 
+    at (4.5, 2) {\textbf{Solutions verifiable in poly time}\\ certificates exist};
+  \node[draw=purple,fill=purple!15,rounded corners=5pt,
+        minimum width=3.5cm,minimum height=1.2cm,align=center,font=\small] 
+    at (-4.5, -2) {\textbf{All NP problems reduce to it}\\ hardest in NP};
+  \node[draw=orange,fill=orange!15,rounded corners=5pt,
+        minimum width=3.5cm,minimum height=1.2cm,align=center,font=\small] 
+    at (4.5, -2) {\textbf{Solving it solves all NP}\\ $\P = \NP$ if in P};
+  
+  \draw[-{Stealth},thick,darkred] (-1.5,0.3) -- (-3,1.5);
+  \draw[-{Stealth},thick,darkgreen] (1.5,0.3) -- (3,1.5);
+  \draw[-{Stealth},thick,purple] (-1.5,-0.3) -- (-3,-1.5);
+  \draw[-{Stealth},thick,orange] (1.5,-0.3) -- (3,-1.5);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Practical Strategies for NP-Hard Problems}
+
+When you encounter an NP-complete problem in practice:
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{3.5cm} p{5cm} p{4cm}}
+\toprule
+Strategy & Idea & Example \\
+\midrule
+Approximation Algorithms & Find near-optimal solutions in poly time & $2$-approx for Vertex Cover \\
+Heuristics & Good practical performance, no guarantee & Simulated annealing \\
+Parameterized Algorithms & Poly in $n$, exponential only in a small parameter & FPT for treewidth \\
+Special Cases & Exploit structure for poly algorithms & 2-SAT, planar graphs \\
+Randomized Algorithms & Probabilistic guarantees & Random restart SAT \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Real-World Applications of SAT}
+
+Modern SAT solvers (DPLL, CDCL) can handle industrial instances with millions of variables:
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Hardware verification}: Intel, AMD use SAT to verify chip designs.
+  \item \textbf{Software model checking}: Checking program correctness.
+  \item \textbf{Cryptanalysis}: Finding weaknesses in cryptographic protocols.
+  \item \textbf{Planning}: AI planning in robotics and scheduling.
+  \item \textbf{Bioinformatics}: Haplotype phasing, protein folding.
+\end{itemize}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Summary and Key Takeaways}
+% ══════════════════════════════════════════════
+
+\begin{tcolorbox}[
+  enhanced, breakable,
+  colback=lightblue, colframe=darkblue, fonttitle=\bfseries\large,
+  title={The Cook--Levin Theorem: Complete Summary},
+  attach boxed title to top left={yshift=-3mm,xshift=4mm},
+  boxed title style={colback=darkblue}
+]
+\begin{enumerate}[leftmargin=1.5em, itemsep=0.8em]
+  \item \textbf{P vs NP}: The central question --- can every efficiently-verifiable problem 
+    be efficiently solved?
+
+  \item \textbf{NP Definition}: A problem is in NP if ``yes'' instances have short, 
+    efficiently-verifiable certificates.
+
+  \item \textbf{Polynomial Reduction} ($A \leqp B$): A poly-time translation preserving 
+    yes/no answers. Used to compare difficulty.
+
+  \item \textbf{NP-Completeness}: A problem is NP-complete if it is in NP \emph{and} 
+    every NP problem reduces to it.
+
+  \item \textbf{SAT is NP-complete} (Cook--Levin):
+    \begin{itemize}
+      \item[$\bullet$] SAT $\in$ NP: assignments are poly-size certificates.
+      \item[$\bullet$] Every NP problem reduces to SAT: encode the TM's computation 
+        as a CNF formula via the tableau construction.
+    \end{itemize}
+
+  \item \textbf{Proof key steps}: 
+    NP problem $\Rightarrow$ poly-time verifier $\Rightarrow$ TM tableau 
+    $\Rightarrow$ four groups of clauses $\Rightarrow$ poly-size CNF formula.
+
+  \item \textbf{Implication}: If SAT $\in$ P, then P $=$ NP.
+    If SAT $\notin$ P, then P $\neq$ NP.
+
+  \item \textbf{Cascade}: Once SAT is NP-complete, we can prove hundreds of 
+    other problems NP-complete via chain reductions.
+\end{enumerate}
+\end{tcolorbox}
+
+\bigskip
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.85, every node/.style={font=\small}]
+  % Main concept map
+  \node[draw=darkblue,fill=lightblue,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (TM) at (0,5) 
+    {Turing Machine};
+  \node[draw=darkgreen,fill=lightgreen,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (NP) at (0,3.2) 
+    {\NP\ class};
+  \node[draw=purple,fill=purple!15,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (red) at (-3.5,1.5) 
+    {Poly-Time Reduction};
+  \node[draw=orange,fill=orange!15,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (tab) at (3.5,1.5) 
+    {TM Tableau};
+  \node[draw=darkred,fill=lightred,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (SAT) at (0,0) 
+    {\SAT\ (NP-complete)};
+  \node[draw=teal,fill=teal!15,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (chain) at (0,-1.8)
+    {Chain Reductions};
+  \node[draw=darkgray,fill=lightgray,rounded corners,minimum width=2.5cm,
+        minimum height=0.8cm,align=center,font=\bfseries] (nph) at (0,-3.5)
+    {NP-Hard Problems};
+
+  \draw[-{Stealth},thick,darkblue] (TM) -- (NP) node[midway,right] {defines};
+  \draw[-{Stealth},thick,darkgreen] (NP) -- (red) node[midway,left,sloped] {uses};
+  \draw[-{Stealth},thick,darkgreen] (NP) -- (tab) node[midway,right,sloped] {encodes to};
+  \draw[-{Stealth},thick,purple] (red) -- (SAT) node[midway,left,sloped] {proves};
+  \draw[-{Stealth},thick,orange] (tab) -- (SAT) node[midway,right,sloped] {gives};
+  \draw[-{Stealth},thick,darkred] (SAT) -- (chain) node[midway,right] {enables};
+  \draw[-{Stealth},thick,teal] (chain) -- (nph) node[midway,right] {classifies};
+\end{tikzpicture}
+\caption{Concept map of the Cook--Levin theorem and its connections.}
+\end{figure}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Practice Questions}
+% ══════════════════════════════════════════════
+
+\subsection{Conceptual Questions}
+
+\begin{exercise}{P vs NP Understanding}{pnp1}
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item Explain in your own words why NP is defined in terms of \emph{verification}, not computation.
+  \item Give an example of a problem that is:
+    \begin{enumerate}[label=(\roman*)]
+      \item In P (and hence in NP), and
+      \item In NP but (as far as we know) not in P.
+    \end{enumerate}
+  \item If someone proves that $\P = \NP$, what would be the consequence for cryptography (e.g., RSA encryption)?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Reduction Mechanics}{red1}
+Let $A \leqp B$ and $B \leqp A$.
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item Does this imply $A = B$? Explain.
+  \item Does this imply $A$ and $B$ have the same complexity? Explain.
+  \item If $A \in \P$, does it follow that $B \in \P$? Why or why not?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{NP-Completeness Definition}{npc1}
+For each statement, decide if it is \textbf{True} or \textbf{False} and justify your answer.
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item Every NP-complete problem is in NP.
+  \item If problem $A$ is NP-complete and $A \leqp B$, then $B$ is NP-hard.
+  \item If $\P \neq \NP$, then no NP-complete problem is in P.
+  \item SAT is the only NP-complete problem.
+  \item Showing a problem is NP-hard is sufficient to show it is NP-complete.
+\end{enumerate}
+\end{exercise}
+
+\subsection{SAT and Formula Questions}
+
+\begin{exercise}{SAT Evaluation}{sat_eval}
+For each formula, determine if it is satisfiable, and if so, give a satisfying assignment:
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item $\phi_1 = (x \lor y) \land (\neg x \lor y) \land (\neg y)$
+  \item $\phi_2 = (x \lor y \lor z) \land (\neg x \lor \neg y) \land (\neg y \lor \neg z) \land (\neg x \lor \neg z)$
+  \item $\phi_3 = (x_1 \lor \neg x_2) \land (\neg x_1 \lor x_2) \land (x_1 \lor x_2) \land (\neg x_1 \lor \neg x_2)$
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{CNF Conversion}{cnf1}
+Convert the following formula to CNF (and then check if it is satisfiable):
+\[
+  \phi = (x_1 \Rightarrow x_2) \land (x_2 \Rightarrow x_3) \land \neg x_3
+\]
+\textit{Hint: $a \Rightarrow b \equiv \neg a \lor b$.}
+\end{exercise}
+
+\begin{exercise}{Long Clause to 3-SAT}{3sat1}
+Convert the clause $(x_1 \lor x_2 \lor x_3 \lor x_4 \lor x_5 \lor x_6)$ to an 
+equivalent 3-CNF formula using the method from Section 6.2.
+How many new variables and clauses do you introduce?
+\end{exercise}
+
+\subsection{Proof-Oriented Questions}
+
+\begin{exercise}{Tableau Construction}{tableau1}
+Consider the TM $M$ with states $\{q_0, q_1, q_\text{acc}\}$, alphabet $\{0,1,\sqcup\}$,
+and transitions:
+\[
+  \delta(q_0, 0) = (q_1, 1, R),\quad \delta(q_1, \sqcup) = (q_\text{acc}, \sqcup, R)
+\]
+Input: $x = 0$. Take time bound $T = 3$, tape width $W = 3$.
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item Draw the complete $4 \times 3$ tableau.
+  \item Write out all variables $x_{i,j,s}$ that are set to 1.
+  \item Write the $\phi_\text{start}$ clauses for this instance.
+  \item Write the $\phi_\text{accept}$ clause.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Cook--Levin Key Steps}{cl_steps}
+Answer the following about the Cook--Levin proof:
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item What is the purpose of the four groups of clauses 
+    ($\phi_\text{cell}$, $\phi_\text{start}$, $\phi_\text{move}$, $\phi_\text{accept}$)?
+  \item Why is the tableau size $q(n) \times q(n)$ (not $q(n) \times n$)?
+  \item What does the satisfying assignment of $\phi_x$ ``encode''?
+  \item If the input $x \notin L$, why is $\phi_x$ unsatisfiable?
+  \item Why is the reduction computable in polynomial time?
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Show NP-Completeness}{show_npc}
+Suppose you are given a new problem $\Pi$. To show $\Pi$ is NP-complete, 
+what two things must you prove? For each, describe the general approach:
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item Show $\Pi \in \NP$.
+  \item Show $\Pi$ is NP-hard (i.e., show $\SAT \leqp \Pi$ or some known NP-complete problem $\leqp \Pi$).
+\end{enumerate}
+\end{exercise}
+
+\subsection{Challenging Problems}
+
+\begin{exercise}{2-SAT is in P}{twosat}
+\textbf{2-SAT} is the restriction of SAT to clauses with exactly 2 literals.
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item Show 2-SAT $\in$ NP.
+  \item Is 2-SAT NP-complete? (No, it is actually in P.) 
+    Describe intuitively why having only 2 literals per clause makes the problem easier.
+  \item The polynomial-time algorithm for 2-SAT uses \textbf{strongly connected components}. 
+    Look this up and write a 3--5 sentence explanation.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}{Clique is NP-Complete}{clique_npc}
+Show that \CLIQUE\ is NP-complete by proving $\TSAT \leqp \CLIQUE$.
+
+\medskip
+\textit{Hint:} Given a 3-CNF formula $\phi$ with $k$ clauses, construct a graph $G$ 
+with $3k$ vertices (one per literal per clause). Add an edge between $u$ and $v$ if 
+they are in different clauses and are not contradictory ($u \neq \neg v$).
+
+Show: $\phi$ is satisfiable $\iff$ $G$ has a clique of size $k$.
+\end{exercise}
+
+\begin{exercise}{Reflection and Application}{reflect}
+\begin{enumerate}[label=(\alph*),leftmargin=2em]
+  \item A company tells you ``we have a polynomial-time algorithm for solving any 
+    Boolean formula in 3-CNF form.'' What would this imply about P vs NP?
+  \item You are designing a scheduling system for 1000 employees and discover 
+    your problem is NP-complete. What practical strategies would you recommend? 
+    List at least three.
+  \item The Clay Mathematics Institute offers \$1,000,000 for solving P vs NP. 
+    Why do most researchers believe $\P \neq \NP$? What evidence supports this?
+\end{enumerate}
+\end{exercise}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\section{Selected Answers and Hints}
+% ══════════════════════════════════════════════
+
+\subsection*{Exercise 7.2.1 (SAT Evaluation)}
+
+\noindent\textbf{(a)} $\phi_1 = (x \lor y) \land (\neg x \lor y) \land (\neg y)$
+\begin{itemize}[leftmargin=2em]
+  \item Clause 3 forces $y = 0$.
+  \item Then clause 1: $(x \lor 0) = x$ forces $x = 1$.
+  \item Check clause 2: $(\neg 1 \lor 0) = (0 \lor 0) = 0$. \textbf{UNSAT.}
+\end{itemize}
+
+\noindent\textbf{(b)} $\phi_2$: try $x = 1, y = 0, z = 0$:
+Clause 1: $(1 \lor 0 \lor 0)=1$. Clause 2: $(0 \lor 1)=1$. Clause 3: $(1 \lor 1)=1$. 
+Clause 4: $(0 \lor 1)=1$. \textbf{SAT.}
+
+\subsection*{Exercise 7.2.2 (CNF Conversion)}
+$\phi = (\neg x_1 \lor x_2) \land (\neg x_2 \lor x_3) \land \neg x_3$
+
+Clause 3 forces $x_3 = 0$. Clause 2 forces $x_2 = 0$ (since $\neg 0 = 1$, actually: 
+$(\neg x_2 \lor 0)$ forces $x_2 = 0$). Clause 1: $(\neg x_1 \lor 0)$ forces $x_1 = 0$. 
+Assignment $x_1=0, x_2=0, x_3=0$ satisfies all clauses. \textbf{SAT.}
+
+\subsection*{Exercise 7.3.1 (Tableau Construction)}
+The 4$\times$3 tableau:
+\begin{center}
+\begin{tabular}{c|ccc}
+\toprule
+$t$ & Cell 0 & Cell 1 & Cell 2 \\
+\midrule
+0 & $(q_0,0)$ & $\sqcup$ & $\sqcup$ \\
+1 & $1$ & $(q_1,\sqcup)$ & $\sqcup$ \\
+2 & $1$ & $\sqcup$ & $(q_\text{acc},\sqcup)$ \\
+3 & $1$ & $\sqcup$ & $(q_\text{acc},\sqcup)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Hints for Challenging Problems}
+
+\textbf{Exercise 7.4.2 (Clique):}
+\begin{itemize}[leftmargin=2em]
+  \item \textit{NP part:} A clique of $k$ vertices is a certificate of size $O(k)$.
+  \item \textit{Forward direction:} If $\phi$ is satisfied by assignment $\alpha$, each clause 
+    has at least one true literal. Pick one true literal per clause. These $k$ literal-nodes 
+    form a clique (they're in different clauses, and non-contradictory since $\alpha$ is consistent).
+  \item \textit{Backward direction:} A $k$-clique has one node per clause (pigeonhole: $k$ clauses, 
+    $k$ nodes, all different clauses). Setting each chosen literal to true gives a consistent 
+    satisfying assignment.
+\end{itemize}
+
+\newpage
+
+% ══════════════════════════════════════════════
+\appendix
+\section{Quick Reference Card}
+% ══════════════════════════════════════════════
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\bfseries\color{darkblue}}p{3.5cm} p{8cm}}
+\toprule
+\textcolor{darkblue}{Concept} & \textcolor{darkblue}{Definition / Key Fact} \\
+\midrule
+$\P$ & Poly-time decidable by a deterministic TM \\
+$\NP$ & Poly-time verifiable; equivalently, decidable by a nondeterministic TM in poly time \\
+$\P \subseteq \NP$ & Every poly-time algorithm is also a poly-time verifier \\
+$A \leqp B$ & $A$ poly-time reduces to $B$; if $B \in \P$ then $A \in \P$ \\
+NP-hard & Every NP problem reduces to it \\
+NP-complete & NP-hard AND in NP \\
+Cook--Levin & SAT is NP-complete \\
+3-SAT & SAT restricted to 3 literals/clause; also NP-complete \\
+Tableau & $q(n) \times q(n)$ grid encoding a TM computation \\
+$\phi_\text{cell}$ & Each tableau cell has exactly one symbol \\
+$\phi_\text{start}$ & First row = initial configuration \\
+$\phi_\text{move}$ & Each row = legal TM transition from previous \\
+$\phi_\text{accept}$ & Final row contains accept state \\
+Certificate size & At most polynomial in input length \\
+If $\P = \NP$ & All NP-complete problems are in P \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1cm}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+  \fill[gray!15,rounded corners=20pt] (-5.2,-3.5) rectangle (5.2,3.5);
+  \node[font=\small\bfseries,color=darkgray] at (0,3.1) {EXPTIME};
+  
+  \fill[midblue!30,rounded corners=14pt] (-4.5,-2.8) rectangle (4.5,2.8);
+  \node[font=\bfseries,color=darkblue] at (0,2.4) {\textbf{NP}};
+  
+  % NP-complete region
+  \fill[lightred,rounded corners=8pt] (-4.3,-2.6) rectangle (-0.5,2.6);
+  \node[font=\small\bfseries,color=darkred,align=center] at (-2.4,0) 
+    {NP-complete\\SAT, 3-SAT,\\Clique, Ham-Path,\\\ldots};
+  
+  \fill[lightblue,rounded corners=10pt] (0,-2.4) rectangle (4.3,2.4);
+  \node[font=\bfseries,color=darkblue] at (2.2,1.8) {\P};
+  \node[font=\small,color=darkblue,align=center] at (2.2,0)
+    {Sorting, Shortest\\Path, 2-SAT,\\Primality,\ldots};
+  
+  \draw[darkred,very thick,dashed] (-0.5,-2.5) -- (-0.5,2.5);
+  \node[font=\tiny\bfseries,color=darkred,rotate=90] at (-0.7,0) {P=NP boundary?};
+\end{tikzpicture}
+\end{center}
+
+\vspace{1cm}
+
+\begin{tcolorbox}[colback=lightyellow,colframe=orange,fonttitle=\bfseries,
+  title={The One-Sentence Takeaway}]
+\centering\large
+\textit{The Cook--Levin theorem shows that SAT is the ``hardest'' problem in NP ---\\
+solving it in polynomial time would solve \textbf{all} of NP in polynomial time.}
+\end{tcolorbox}
+
+\end{document}
