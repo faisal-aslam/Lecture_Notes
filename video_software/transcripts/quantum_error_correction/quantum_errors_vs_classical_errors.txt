@@ -1,0 +1,46 @@
+Title: Why Quantum Errors Are Different from Classical Errors
+
+Error correction in classical computers and communication networks has been studied for many decades, and many powerful error-correction schemes have been developed. However, these schemes cannot be applied directly to quantum computers. In this video, we will understand why.
+
+Before we begin, I should mention that classical error-correction techniques are still extremely important in quantum computing. Although they cannot be applied directly, many of the ideas developed for classical error correction have inspired the design of quantum error-correction schemes.
+
+Let us understand this with a simple example.
+
+Suppose we want to protect a classical bit against errors. Assume that each bit flips with a probability of one percent. One simple approach is to create a logical bit using three copies of the same bit. In other words, instead of sending a single zero, we send three zeros. Similarly, instead of sending a single one, we send three ones.
+
+At the receiving end, we use majority voting. If only one of the three bits is corrupted during transmission, the receiver can still determine the correct logical value. For example, suppose we send zero zero zero and receive zero one zero. Since two out of the three bits are still zero, majority voting tells us that the logical bit was zero.
+
+Of course, this scheme fails if two or more bits are flipped. Nevertheless, it significantly reduces the probability of an error in the logical bit.
+
+Let us calculate the new error probability. A logical error occurs only when exactly two out of the three bits flip or when all three bits flip. Using the binomial distribution, the probability of a logical error is
+
+three times p squared times one minus p plus p cubed,
+
+where p is the physical bit-flip probability.
+
+For p equal to one percent, the logical error probability is
+
+three times zero point zero one squared times zero point nine nine plus zero point zero one cubed,
+
+which equals zero point zero zero zero two nine eight. Expressed as a percentage, this is approximately zero point zero two nine eight percent. Thus, the logical error rate is reduced from one percent to about zero point zero three percent, which is roughly thirty-three times smaller than the original error rate.
+
+What prevents us from applying this same idea directly to quantum computers?
+
+There are three main reasons.
+
+The first reason is the no-cloning theorem. The theorem states that it is impossible to create an exact copy of an arbitrary unknown quantum state. Therefore, unlike classical bits, we cannot simply make multiple copies of a qubit and use majority voting. I have presented a detailed proof of the no-cloning theorem in another video, and the link is provided in the description.
+
+The second reason is that quantum errors are continuous, whereas classical errors are discrete. In a classical computer, a bit can only change from zero to one or from one to zero. There are only two possible states and a limited number of possible errors.
+
+In contrast, a qubit can undergo much more general transformations. A qubit may experience a bit-flip error similar to a classical bit, but it can also acquire a phase error or undergo a rotation by an arbitrary angle. As a result, there are infinitely many possible errors that can affect a qubit.
+
+Isn't that fascinating? Quantum systems are far richer and more complex than classical systems.
+
+The third reason is that measuring a qubit generally disturbs its state. If a qubit is in a superposition and we measure it, the state collapses to one of the basis states. Therefore, we cannot simply inspect a qubit to determine whether an error has occurred. This raises an interesting question: how can we correct errors if we cannot directly measure the quantum information stored in the qubit?
+
+This is one of the central challenges of quantum error correction.
+
+I hope you can already appreciate the beauty and depth of this subject. Despite all of these challenges, researchers have developed remarkable quantum error-correction schemes that make large-scale quantum computing possible.
+
+In the next video, we will begin with a simple quantum error-correction scheme that is inspired by the majority-voting idea we discussed for classical bits. So stay tuned. The journey is just getting started.
+
