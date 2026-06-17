@@ -1,837 +1,1224 @@
-%% ============================================================
-%%  Quantum Error Correction — Graduate Course Outline
-%%  A 30-Lecture Semester Course
-%%  Designed for students with a background in quantum computing
-%% ============================================================
-\documentclass[12pt, oneside]{article}
+\documentclass[12pt,oneside]{article}
 
-% ── Packages ──────────────────────────────────────────────────
+%% ── Packages ──────────────────────────────────────────────────
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{lmodern}
-\usepackage[margin=1.1in, top=1.2in, bottom=1.2in]{geometry}
+\usepackage{mathpazo}          % Palatino text + math
+\usepackage[scaled=0.92]{helvet}
+\usepackage[margin=1.1in,top=1.2in,bottom=1.25in]{geometry}
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage{titlesec}
-\usepackage{titletoc}
 \usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{tabularx}
+\usepackage{longtable}
 \usepackage{fancyhdr}
-\usepackage{graphicx}
-\usepackage{amsmath, amssymb, amsthm}
-\usepackage{mdframed}
+\usepackage{amsmath,amssymb}
+\usepackage{braket}
+\newcommand{\proj}[1]{|#1\rangle\langle#1|}
+
+
+
 \usepackage{tcolorbox}
 \usepackage{parskip}
 \usepackage{multicol}
 \usepackage{setspace}
+\usepackage{ragged2e}
 
-% ── Colour Palette ────────────────────────────────────────────
-\definecolor{primary}{HTML}{1A3A5C}       % deep navy
-\definecolor{accent}{HTML}{2E86C1}        % mid blue
-\definecolor{highlight}{HTML}{E8F4FD}     % very light blue tint
-\definecolor{partcolor}{HTML}{154360}     % dark navy for part headers
-\definecolor{lecturenum}{HTML}{2E86C1}
-\definecolor{rulegray}{HTML}{BDC3C7}
-\definecolor{prereqbox}{HTML}{EAF2FF}
-\definecolor{outcomecolor}{HTML}{1B4F72}
-\definecolor{lightgray}{HTML}{F2F3F4}
+%% ── Colour Palette ───────────────────────────────────────────
+\definecolor{primary}{HTML}{1A3A5C}
+\definecolor{accent}{HTML}{2672B0}
+\definecolor{highlight}{HTML}{EBF4FF}
+\definecolor{partbg}{HTML}{1A3A5C}
+\definecolor{lightgray}{HTML}{F4F5F6}
+\definecolor{rulegray}{HTML}{BFC9CA}
+\definecolor{warmgold}{HTML}{9A7D0A}
+\definecolor{darktext}{HTML}{1C2833}
 
-% ── Hyperref ──────────────────────────────────────────────────
+%% ── Hyperref ──────────────────────────────────────────────────
 \hypersetup{
-  colorlinks  = true,
-  linkcolor   = accent,
-  urlcolor    = accent,
-  citecolor   = accent,
-  pdftitle    = {Quantum Error Correction — Graduate Course Outline},
-  pdfauthor   = {},
-  bookmarksnumbered = true,
-  bookmarksopen     = true
+  colorlinks=true,
+  linkcolor=accent,
+  urlcolor=accent,
+  pdftitle={Quantum Error Correction — Comprehensive Graduate Course},
+  bookmarksnumbered=true,
+  bookmarksopen=false
 }
 
-% ── Header / Footer ───────────────────────────────────────────
+%% ── Page style ────────────────────────────────────────────────
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\color{primary}\textit{Quantum Error Correction}}
-\fancyhead[R]{\small\color{primary}\textit{30-Lecture Graduate Course}}
-\fancyfoot[C]{\small\color{rulegray}\thepage}
+\fancyhead[L]{\small\color{primary}\textit{Quantum Error Correction --- Comprehensive Graduate Course}}
+\fancyhead[R]{\small\color{primary}\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\headrule}{\color{rulegray}\hrule width\headwidth height\headrulewidth}
+\setlength{\headheight}{15pt}
 
-% ── Section / Part Formatting ─────────────────────────────────
-\titleformat{\section}[block]
-  {\large\bfseries\color{primary}}
-  {}
-  {0pt}
-  {}
-  [\vspace{-2pt}\color{accent}\rule{\textwidth}{1.2pt}]
+%% ── tcolorbox styles ─────────────────────────────────────────
+\tcbuselibrary{skins,breakable}
 
-\titlespacing{\section}{0pt}{18pt}{8pt}
-
-% ── tcolorbox Styles ─────────────────────────────────────────
-\tcbuselibrary{skins, breakable}
-
-\tcbset{
-  partbox/.style={
-    enhanced,
-    breakable,
-    colback   = primary,
-    colframe  = primary,
-    coltitle  = white,
-    fonttitle = \large\bfseries,
-    arc       = 3pt,
-    left      = 8pt, right = 8pt,
-    top       = 6pt, bottom = 6pt,
-    boxrule   = 0pt,
-  },
-  lecturebox/.style={
-    enhanced,
-    breakable,
-    colback   = highlight,
-    colframe  = accent,
-    arc       = 2pt,
-    left      = 10pt, right = 8pt,
-    top       = 8pt,  bottom = 8pt,
-    boxrule   = 0.6pt,
-  },
-  outcomebox/.style={
-    enhanced,
-    colback   = lightgray,
-    colframe  = rulegray,
-    arc       = 2pt,
-    left      = 8pt, right = 8pt,
-    top       = 6pt, bottom = 6pt,
-    boxrule   = 0.4pt,
-    fontupper = \small,
-  }
-}
-
-% ── Custom Commands ───────────────────────────────────────────
+%% Part header box
 \newcommand{\parthead}[3]{%
-  % #1 = Part number, #2 = Title, #3 = Lectures span
-  \vspace{14pt}
-  \begin{tcolorbox}[partbox]
-    \color{white}
-    \textbf{Part #1 \enspace|\enspace #2}
-    \hfill
-    \small Lectures #3
+  \vspace{16pt}
+  \begin{tcolorbox}[
+    enhanced,colback=partbg,colframe=partbg,
+    arc=3pt,left=10pt,right=10pt,top=7pt,bottom=7pt,boxrule=0pt
+  ]
+    \color{white}\large\bfseries
+    Part #1\enspace\textbar\enspace #2
+    \hfill\normalfont\normalsize\color{white!80!partbg}Lectures #3
   \end{tcolorbox}
-  \vspace{4pt}
+  \vspace{2pt}
 }
 
+%% Lecture title box
 \newcommand{\lecturetitle}[3]{%
-  % #1 = number, #2 = title, #3 = theme tag
   \vspace{10pt}
-  \begin{tcolorbox}[lecturebox]
-    \textbf{\color{lecturenum}Lecture #1.\enspace}%
+  \begin{tcolorbox}[
+    enhanced,breakable,
+    colback=highlight,colframe=accent,
+    arc=2pt,left=10pt,right=8pt,top=7pt,bottom=7pt,boxrule=0.7pt
+  ]
+    \textbf{\color{accent}Lecture #1.\enspace}%
     {\color{primary}\bfseries #2}%
-    \hfill{\small\color{accent}\textit{#3}}
+    \hfill{\small\color{warmgold}\textit{#3}}
   \end{tcolorbox}
-  \vspace{-4pt}
+  \vspace{-2pt}
 }
 
+%% Bullet list
 \newcommand{\topics}[1]{%
-  \begin{itemize}[leftmargin=1.4em, itemsep=1pt, topsep=3pt, parsep=0pt]
+  \begin{itemize}[leftmargin=1.5em,itemsep=1.5pt,topsep=3pt,parsep=0pt]
     #1
-  \end{itemize}
+  \end{itemize}\vspace{2pt}
 }
-
 \newcommand{\T}[1]{\item #1}
 
+%% Outcome box
 \newcommand{\keybox}[1]{%
-  \begin{tcolorbox}[outcomebox]
-    \textbf{\color{primary}Learning Outcomes:}\quad #1
-  \end{tcolorbox}
-  \vspace{4pt}
+  \begin{tcolorbox}[
+    enhanced,colback=lightgray,colframe=rulegray,
+    arc=2pt,left=8pt,right=8pt,top=5pt,bottom=5pt,boxrule=0.4pt,
+    fontupper=\small
+  ]
+    \textbf{\color{primary}Learning Outcomes:\enspace}#1
+  \end{tcolorbox}\vspace{4pt}
 }
 
-% ─────────────────────────────────────────────────────────────
+%% Section styling (used for appendix headings)
+\titleformat{\section}[block]
+  {\large\bfseries\color{primary}}{}{0pt}{}
+  [\vspace{-2pt}\color{accent}\rule{\textwidth}{1pt}]
+\titlespacing{\section}{0pt}{18pt}{8pt}
+
+%% ─────────────────────────────────────────────────────────────
 \begin{document}
 
-% ── Title Page ───────────────────────────────────────────────
+%% ═══════════════════════════════════════════════════════
+%%   TITLE PAGE
+%% ═══════════════════════════════════════════════════════
 \thispagestyle{empty}
 \begin{center}
-
-  \vspace*{1.6cm}
+  \vspace*{1.4cm}
   {\color{primary}\rule{\textwidth}{2pt}}
   \vspace{0.4cm}
 
   {\fontsize{26}{32}\selectfont\bfseries\color{primary}
-    Quantum Error Correction}
+   Quantum Error Correction}
 
-  \vspace{0.25cm}
-  {\large\color{accent} A Graduate Course in Fault-Tolerant Quantum Computing}
+  \vspace{0.2cm}
+  {\large\color{accent}
+   A Comprehensive Graduate Course in Theory, Algorithms, and Modern Practice}
 
-  \vspace{0.4cm}
+  \vspace{0.35cm}
   {\color{primary}\rule{\textwidth}{2pt}}
 
-  \vspace{1.2cm}
+  \vspace{1.1cm}
 
   \begin{tabular}{rl}
-    \color{primary}\textbf{Format:}    & 30 Lectures $\times$ 80 minutes \\[3pt]
-    \color{primary}\textbf{Level:}     & Graduate / Advanced Undergraduate \\[3pt]
-    \color{primary}\textbf{Credits:}   & 3 \\[3pt]
+    \color{primary}\textbf{Format:}       & 45 Lectures $\times$ 80 minutes \\[3pt]
+    \color{primary}\textbf{Level:}        & Graduate / Advanced Undergraduate \\[3pt]
+    \color{primary}\textbf{Credits:}      & 4 \\[3pt]
     \color{primary}\textbf{Prerequisites:} &
-      Quantum mechanics (Dirac notation), linear algebra, \\
-      & basic quantum circuits and gates, elementary probability \\[3pt]
-    \color{primary}\textbf{Recommended:} & Classical information theory, group theory \\
+       Dirac notation, density matrices (introductory), \\
+    & quantum gates and circuits, linear algebra, \\
+    & elementary probability and combinatorics \\[3pt]
+    \color{primary}\textbf{Recommended:}  &
+       Classical information theory, group theory (basics) \\
   \end{tabular}
 
-  \vspace{1.4cm}
+  \vspace{1.1cm}
 
   \begin{tcolorbox}[
-    enhanced, colback=highlight, colframe=accent,
-    arc=3pt, left=12pt, right=12pt, top=10pt, bottom=10pt,
-    boxrule=0.8pt, width=0.92\textwidth
+    enhanced,colback=highlight,colframe=accent,
+    arc=3pt,left=12pt,right=12pt,top=10pt,bottom=10pt,
+    boxrule=0.8pt,width=0.94\textwidth
   ]
-    \textbf{\color{primary}Course Description.}
-    This course develops the theory and practice of quantum error correction from first
-    principles to the cutting edge of current research. Beginning with the mathematical
-    machinery needed to describe noise in quantum systems, the course builds through
-    stabilizer codes, fault-tolerant architectures, and topological codes, culminating
-    in an in-depth treatment of surface codes, quantum LDPC codes, and bosonic
-    encodings. Students completing this course will be equipped to read current
-    research literature, design and analyse quantum error-correcting codes, and
-    implement decoders for realistic hardware models.
+    \textbf{\color{primary}Course Description.}\enspace
+    This course is a rigorous, self-contained treatment of quantum error correction (QEC)
+    from mathematical foundations to the state of the art.
+    We develop every major theoretical framework---operator-sum representations, the
+    Knill--Laflamme conditions, stabilizer formalism, topological codes, and quantum
+    LDPC codes---and pair each with the algorithms and software tools needed to use
+    them in practice.
+    Students will leave able to design codes, prove correctness conditions, implement
+    and benchmark decoders, analyse fault-tolerant architectures, and read current
+    research literature with confidence.
+    The course expands the standard 30-lecture treatment to 45 lectures so that
+    \emph{nothing significant is omitted}: every major algorithm is derived, not just
+    stated, and each code family is studied in depth.
   \end{tcolorbox}
 
-  \vspace{1.2cm}
+  \vspace{1.0cm}
 
   \begin{tcolorbox}[
-    enhanced, colback=lightgray, colframe=rulegray,
-    arc=3pt, left=12pt, right=12pt, top=8pt, bottom=8pt,
-    boxrule=0.4pt, width=0.92\textwidth
+    enhanced,colback=lightgray,colframe=rulegray,
+    arc=3pt,left=12pt,right=12pt,top=9pt,bottom=9pt,
+    boxrule=0.4pt,width=0.94\textwidth
   ]
     \textbf{\color{primary}Course Structure}\\[6pt]
-    \begin{tabularx}{\linewidth}{@{}lX@{}}
-      \color{accent}\textbf{Part I}   & Why QEC Exists: Noise, Channels, and Metrics \hfill\textit{Lectures 1–5} \\[2pt]
-      \color{accent}\textbf{Part II}  & Foundations: Quantum Codes from Scratch \hfill\textit{Lectures 6–11} \\[2pt]
-      \color{accent}\textbf{Part III} & Stabilizer Formalism and CSS Codes \hfill\textit{Lectures 12–18} \\[2pt]
-      \color{accent}\textbf{Part IV}  & Fault-Tolerant Quantum Computing \hfill\textit{Lectures 19–24} \\[2pt]
-      \color{accent}\textbf{Part V}   & Topological and Surface Codes \hfill\textit{Lectures 25–28} \\[2pt]
-      \color{accent}\textbf{Part VI}  & Modern Frontiers \hfill\textit{Lectures 29–30} \\
+    \begin{tabularx}{\linewidth}{@{}lX r@{}}
+      \color{accent}\textbf{Part I}   &
+        Mathematical and Physical Foundations & Lec.\ 1--7 \\[1pt]
+      \color{accent}\textbf{Part II}  &
+        Elementary Quantum Codes              & Lec.\ 8--14 \\[1pt]
+      \color{accent}\textbf{Part III} &
+        Stabilizer Formalism                  & Lec.\ 15--22 \\[1pt]
+      \color{accent}\textbf{Part IV}  &
+        Fault-Tolerant Quantum Computing      & Lec.\ 23--30 \\[1pt]
+      \color{accent}\textbf{Part V}   &
+        Topological and Surface Codes         & Lec.\ 31--37 \\[1pt]
+      \color{accent}\textbf{Part VI}  &
+        Quantum LDPC Codes                    & Lec.\ 38--41 \\[1pt]
+      \color{accent}\textbf{Part VII} &
+        Bosonic Codes and Hardware            & Lec.\ 42--44 \\[1pt]
+      \color{accent}\textbf{Part VIII}&
+        Research Frontiers                    & Lec.\ 45 \\
     \end{tabularx}
   \end{tcolorbox}
-
 \end{center}
 
 \newpage
 
-% ── Table of Contents ─────────────────────────────────────────
-{
+%% Table of Contents
+{%
   \hypersetup{linkcolor=primary}
+  \setlength{\parskip}{1pt}
   \tableofcontents
 }
 
 \newpage
 
-%% =============================================================
-%%  PART I
-%% =============================================================
+%% ═══════════════════════════════════════════════════════════════
+%%   PART I — MATHEMATICAL AND PHYSICAL FOUNDATIONS
+%% ═══════════════════════════════════════════════════════════════
 
-\parthead{I}{Why Quantum Error Correction Exists: Noise, Channels, and Metrics}{1–5}
+\parthead{I}{Mathematical and Physical Foundations}{1--7}
+\addcontentsline{toc}{section}{Part I: Mathematical and Physical Foundations (Lec.\ 1--7)}
 
-\addcontentsline{toc}{section}{Part I: Why QEC Exists — Noise, Channels, and Metrics}
-
-% ── Lecture 1 ─────────────────────────────────────────────────
+%%──────────────────────────────────────────────────────
 \lecturetitle{1}{The Case for Quantum Error Correction}{Motivation}
-\addcontentsline{toc}{subsection}{Lecture 1: The Case for Quantum Error Correction}
+\addcontentsline{toc}{subsection}{Lec.\ 1: The Case for Quantum Error Correction}
 
 \topics{
-  \T{Fragility of quantum information: superposition, entanglement, and decoherence}
-  \T{Why classical redundancy fails naively: no-cloning theorem and measurement collapse}
-  \T{Historical arc: Shor (1995), Steane (1996), Kitaev (1997)}
-  \T{High-level picture of encode--detect--correct}
-  \T{Road-map of the course: what we will build and why each piece matters}
-  \T{Key insight: errors form a \emph{discrete} algebra — correcting a basis suffices}
+  \T{Fragility of quantum information: superposition, entanglement, decoherence}
+  \T{No-cloning theorem: proof and implications for redundancy}
+  \T{Measurement collapse: why classical repetition fails directly}
+  \T{Key insight: errors form a \emph{discrete algebra}---correcting a Pauli basis suffices for all errors (error digitisation)}
+  \T{Historical milestones: Shor (1995), Steane (1996), Calderbank--Shor (1996), Kitaev (1997, 2003)}
+  \T{High-level encode--detect--correct cycle}
+  \T{Threshold theorem: informal statement---below a critical error rate, arbitrarily long computation is possible}
+  \T{Roadmap of the course: every major concept previewed}
 }
 
-\keybox{Articulate \emph{why} quantum information is more fragile than classical; identify the no-cloning obstruction; describe QEC at an intuitive level.}
+\keybox{Articulate the no-cloning obstruction; explain error digitisation; describe the QEC cycle at an intuitive level; state the threshold theorem informally.}
 
-% ── Lecture 2 ─────────────────────────────────────────────────
-\lecturetitle{2}{Mathematical Framework: Density Matrices and Quantum Operations}{Formalism}
-\addcontentsline{toc}{subsection}{Lecture 2: Mathematical Framework — Density Matrices and Quantum Operations}
+%%──────────────────────────────────────────────────────
+\lecturetitle{2}{Quantum States and Density Operators}{Formalism I}
+\addcontentsline{toc}{subsection}{Lec.\ 2: Quantum States and Density Operators}
 
 \topics{
-  \T{Density operators: pure and mixed states, positivity, unit trace}
-  \T{Bloch sphere and its extension to multi-qubit systems}
-  \T{Tensor products and partial trace; reduced density matrices}
-  \T{Quantum operations: completely positive trace-preserving (CPTP) maps}
-  \T{Operator-sum (Kraus) representation: existence and non-uniqueness}
-  \T{Unitary freedom in the Kraus representation}
+  \T{State vectors, superposition, and the Hilbert space $\mathcal{H}$}
+  \T{Density operators $\rho$: definition, positivity, unit trace, purity}
+  \T{Pure vs.\ mixed states; ensemble interpretation}
+  \T{Bloch sphere: pure-state parameterisation, mixed states inside the sphere}
+  \T{Tensor products: multi-qubit Hilbert spaces}
+  \T{Partial trace: reduced density matrices, marginals}
+  \T{Schmidt decomposition and entanglement quantification}
+  \T{Purification: every mixed state is the partial trace of a pure state}
 }
 
-\keybox{Compute density matrices, reduced states, and express any CPTP map in Kraus form.}
+\keybox{Compute density matrices, reduced states, Schmidt rank, and purifications.}
 
-% ── Lecture 3 ─────────────────────────────────────────────────
-\lecturetitle{3}{Noise Models and Quantum Channels}{Channels}
-\addcontentsline{toc}{subsection}{Lecture 3: Noise Models and Quantum Channels}
+%%──────────────────────────────────────────────────────
+\lecturetitle{3}{Quantum Operations: CPTP Maps and Kraus Operators}{Formalism II}
+\addcontentsline{toc}{subsection}{Lec.\ 3: Quantum Operations --- CPTP Maps and Kraus Operators}
 
 \topics{
-  \T{Bit-flip, phase-flip, and bit-phase-flip channels}
-  \T{Depolarizing channel and its Pauli expansion}
-  \T{Amplitude damping: spontaneous emission, $T_1$ decay}
-  \T{Dephasing (pure dephasing) channel: $T_2$ and $T_\phi$}
-  \T{Thermal noise and general Lindblad master equation (overview)}
-  \T{Pauli channel representation and error rates}
-  \T{Gate noise vs.\ idle noise; crosstalk and leakage (brief)}
+  \T{Completely positive (CP) maps: definition via positivity on extensions}
+  \T{Choi--Jamio\l{}kowski isomorphism: CP maps $\leftrightarrow$ positive semidefinite Choi matrices}
+  \T{Operator-sum (Kraus) representation: $\mathcal{E}(\rho)=\sum_k E_k \rho E_k^\dagger$; trace-preservation condition}
+  \T{Unitary freedom in Kraus operators: two sets represent the same channel iff related by a unitary}
+  \T{Stinespring dilation theorem: every CPTP map arises from unitary evolution on an extended system}
+  \T{Unitary, projective, and general measurement as special cases}
+  \T{Completely positive trace non-increasing maps (quantum instruments)}
 }
 
-\keybox{Derive Kraus operators for standard channels; connect physical decoherence timescales $T_1, T_2$ to channel parameters.}
+\keybox{Derive Kraus representations; apply the Choi isomorphism; state and use the Stinespring dilation theorem.}
 
-% ── Lecture 4 ─────────────────────────────────────────────────
-\lecturetitle{4}{Distance Measures for Quantum States and Channels}{Metrics}
-\addcontentsline{toc}{subsection}{Lecture 4: Distance Measures for Quantum States and Channels}
+%%──────────────────────────────────────────────────────
+\lecturetitle{4}{Standard Noise Channels in Quantum Computing}{Channels}
+\addcontentsline{toc}{subsection}{Lec.\ 4: Standard Noise Channels in Quantum Computing}
 
 \topics{
-  \T{Fidelity: pure vs.\ mixed state formulae; properties}
-  \T{Trace distance and its operational interpretation (distinguishability)}
-  \T{Bures distance and quantum relative entropy (brief)}
-  \T{Average gate fidelity and its relation to the depolarizing error rate}
-  \T{Diamond norm ($\|\cdot\|_\diamond$): definition and why it is the right channel metric}
-  \T{Computing diamond norm for simple channels; connection to fault-tolerance thresholds}
+  \T{Bit-flip channel $\mathcal{E}_{BF}$: Kraus operators, action on Bloch sphere}
+  \T{Phase-flip (dephasing) channel: pure dephasing $T_\phi$, relation to $T_2$}
+  \T{Bit-phase-flip channel}
+  \T{Depolarizing channel: isotropic Pauli noise, Bloch sphere contraction; parameter $p$}
+  \T{Amplitude damping: spontaneous emission, $T_1$ relaxation; thermal amplitude damping}
+  \T{Generalized amplitude damping (finite temperature)}
+  \T{Erasure channel: known-location qubit loss}
+  \T{Pauli channel and its importance for CSS codes and stabilizer codes}
+  \T{Leakage errors: transitions outside the computational subspace}
+  \T{Crosstalk: correlated multi-qubit noise (qualitative)}
+  \T{Lindblad master equation: Markovian evolution and jump operators (overview)}
 }
 
-\keybox{Compute fidelity and trace distance; explain the operational meaning of the diamond norm.}
+\keybox{Write Kraus operators and Bloch-sphere actions for all standard channels; connect $T_1, T_2$ to channel parameters; identify Pauli channel structure.}
 
-% ── Lecture 5 ─────────────────────────────────────────────────
-\lecturetitle{5}{Characterising Real Hardware Errors}{Hardware}
-\addcontentsline{toc}{subsection}{Lecture 5: Characterising Real Hardware Errors}
+%%──────────────────────────────────────────────────────
+\lecturetitle{5}{Distance Measures for Quantum States and Channels}{Metrics}
+\addcontentsline{toc}{subsection}{Lec.\ 5: Distance Measures for Quantum States and Channels}
 
 \topics{
-  \T{State preparation and measurement (SPAM) errors}
-  \T{Gate error benchmarking: randomised benchmarking (RB) and interleaved RB}
-  \T{Quantum process tomography (QPT): protocol, complexity, limitations}
-  \T{Gate set tomography (GST): self-consistent characterisation}
-  \T{Pauli noise learning and sparse noise models}
-  \T{Case study: superconducting qubits and trapped-ion systems}
-  \T{Connecting characterised errors to code design choices}
+  \T{Fidelity $F(\rho,\sigma)$: Uhlmann formula, properties, pure-state case}
+  \T{Bures distance, quantum angle}
+  \T{Trace distance $T(\rho,\sigma)=\tfrac12\|\rho-\sigma\|_1$: operational meaning (distinguishability bound)}
+  \T{Quantum relative entropy $S(\rho\|\sigma)$: definition, monotonicity under CPTP maps}
+  \T{Average gate fidelity $\bar{F}$: definition and its relation to the depolarizing rate $p$}
+  \T{Diamond norm $\|\mathcal{E}\|_\diamond$: definition, operational meaning (best distinguishing strategy)}
+  \T{Computing diamond norm via semidefinite programming (SDP)}
+  \T{Diamond norm vs.\ average gate fidelity: when they differ and which to use}
+  \T{Gentle measurement lemma}
 }
 
-\keybox{Describe RB, QPT, and GST; extract error rates from experimental data; discuss hardware-aware code selection.}
+\keybox{Compute fidelity, trace distance, and average gate fidelity; formulate diamond norm as an SDP; explain the operational interpretation of each measure.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{6}{Characterising Quantum Hardware Errors}{Hardware}
+\addcontentsline{toc}{subsection}{Lec.\ 6: Characterising Quantum Hardware Errors}
+
+\topics{
+  \T{State preparation and measurement (SPAM) errors: modelling and mitigation}
+  \T{Randomised benchmarking (RB): protocol, exponential decay, extracting $r_{EPC}$}
+  \T{Interleaved RB: gate-specific error rates}
+  \T{Simultaneous RB: crosstalk detection}
+  \T{Quantum process tomography (QPT): protocol, $\chi$-matrix, tomographic complexity}
+  \T{Gate set tomography (GST): self-consistent, SPAM-agnostic characterisation}
+  \T{Pauli noise learning: sparse Pauli error models and efficient estimation}
+  \T{Cycle benchmarking and Pauli error rates}
+  \T{Case studies: superconducting transmons ($T_1\sim100\,\mu$s, $T_2\sim100\,\mu$s, gate time $\sim20$\,ns), trapped ions, neutral atoms}
+  \T{Connecting characterised error models to code and decoder design}
+}
+
+\keybox{Design an RB or GST experiment; interpret its output; match a hardware error model to an appropriate code.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{7}{Classical Coding Theory: Essential Background}{Classical ECC}
+\addcontentsline{toc}{subsection}{Lec.\ 7: Classical Coding Theory --- Essential Background}
+
+\topics{
+  \T{Linear codes over $\mathbb{F}_2$: generator matrix $G$, parity-check matrix $H$}
+  \T{Systematic form; encoding; codeword space}
+  \T{Syndrome $s=He^T$: coset structure and syndrome decoding}
+  \T{Minimum Hamming distance $d$; error detection and correction capability}
+  \T{Repetition codes: $[n,1,n]$}
+  \T{Hamming codes $[2^r-1, 2^r-1-r, 3]$: perfect codes, single-error correction}
+  \T{Reed--Muller codes: recursive construction, puncturing, parameters}
+  \T{Dual codes $C^\perp$; self-orthogonal and self-dual codes}
+  \T{Singleton bound, Hamming bound, Plotkin bound, Gilbert--Varshamov bound}
+  \T{LDPC codes (classical): Tanner graphs, parity checks of constant weight}
+  \T{Belief propagation (BP) on Tanner graphs: message passing, sum-product algorithm}
+  \T{Why dual-containing codes are central to CSS constructions}
+}
+
+\keybox{Construct and decode Hamming and Reed--Muller codes; run BP on a Tanner graph; state classical bounds and their quantum analogues.}
 
 \newpage
 
-%% =============================================================
-%%  PART II
-%% =============================================================
+%% ═══════════════════════════════════════════════════════════════
+%%   PART II — ELEMENTARY QUANTUM CODES
+%% ═══════════════════════════════════════════════════════════════
 
-\parthead{II}{Foundations: Quantum Codes from Scratch}{6–11}
+\parthead{II}{Elementary Quantum Codes}{8--14}
+\addcontentsline{toc}{section}{Part II: Elementary Quantum Codes (Lec.\ 8--14)}
 
-\addcontentsline{toc}{section}{Part II: Foundations — Quantum Codes from Scratch}
-
-% ── Lecture 6 ─────────────────────────────────────────────────
-\lecturetitle{6}{Classical Error Correction: The Right Lens}{Classical}
-\addcontentsline{toc}{subsection}{Lecture 6: Classical Error Correction — The Right Lens}
-
-\topics{
-  \T{Linear codes: generator and parity-check matrices}
-  \T{Repetition codes, Hamming codes, and perfect codes}
-  \T{Syndrome decoding and coset structure}
-  \T{Dual codes and self-orthogonal codes (essential for CSS)}
-  \T{Minimum distance, error detection vs.\ correction: $[[n,k,d]]$ notation}
-  \T{Shannon capacity and why it cannot directly translate to quantum}
-}
-
-\keybox{Work with generator/parity-check matrices; perform syndrome decoding; compute minimum distance.}
-
-% ── Lecture 7 ─────────────────────────────────────────────────
-\lecturetitle{7}{The Three-Qubit Codes and the QEC Idea}{First Codes}
-\addcontentsline{toc}{subsection}{Lecture 7: The Three-Qubit Codes and the QEC Idea}
+%%──────────────────────────────────────────────────────
+\lecturetitle{8}{Three-Qubit Codes and the QEC Cycle}{First Codes}
+\addcontentsline{toc}{subsection}{Lec.\ 8: Three-Qubit Codes and the QEC Cycle}
 
 \topics{
-  \T{Three-qubit bit-flip code: encoding circuit, syndrome extraction, correction}
+  \T{Three-qubit bit-flip code $[[3,1,1]]$: encoding circuit $\ket{\psi}\to\ket{\psi\psi\psi}_{logical}$}
+  \T{Syndrome extraction without measuring the logical qubit: ancilla-based parity checks}
+  \T{Syndrome table and correction unitaries}
   \T{Three-qubit phase-flip code via Hadamard conjugation}
-  \T{Syndrome measurement without disturbing the logical state}
-  \T{Why ancilla qubits are essential and how to prepare them}
-  \T{Error analysis: what errors are and are not correctable}
+  \T{Fault paths and correlated errors (why two independent errors can fool the code)}
+  \T{Resource overhead: 3 physical qubits per logical qubit, 2 ancillae}
+  \T{Limitations: cannot correct both bit and phase flips simultaneously}
 }
 
-\keybox{Implement the three-qubit codes in circuit form; explain syndrome extraction and its quantum subtleties.}
+\keybox{Build and simulate the three-qubit QEC cycle in circuit form; identify uncorrectable error patterns.}
 
-% ── Lecture 8 ─────────────────────────────────────────────────
-\lecturetitle{8}{Shor's Nine-Qubit Code}{Concatenation Idea}
-\addcontentsline{toc}{subsection}{Lecture 8: Shor's Nine-Qubit Code}
+%%──────────────────────────────────────────────────────
+\lecturetitle{9}{Shor's Nine-Qubit Code and Error Digitisation}{Concatenation}
+\addcontentsline{toc}{subsection}{Lec.\ 9: Shor's Nine-Qubit Code and Error Digitisation}
 
 \topics{
-  \T{Concatenation of bit-flip and phase-flip codes}
-  \T{Logical qubit, encoding and decoding circuits}
-  \T{Correcting arbitrary single-qubit errors: why it works}
-  \T{Error digitisation: continuous errors reduced to Pauli errors}
-  \T{Syndrome measurement schedule and resource count}
+  \T{Concatenation strategy: combine bit-flip and phase-flip codes}
+  \T{Encoding: $\ket{0_L}\to\tfrac{1}{2\sqrt{2}}(\ket{000}+\ket{111})^{\otimes 3}$, circuit derivation}
+  \T{Syndrome extraction circuit: two rounds of parity measurements}
+  \T{Correcting arbitrary single-qubit errors: $\{I,X,Y,Z\}$ form a basis---any error on one qubit correctable}
+  \T{Error digitisation theorem: continuous errors project onto discrete Pauli errors upon syndrome measurement}
+  \T{Resource count: 9 physical qubits, overhead analysis}
+  \T{Connection to concatenated codes (preview of threshold theorem)}
 }
 
-\keybox{Derive the Shor code construction; explain error digitisation; count physical-to-logical qubit overhead.}
+\keybox{Derive the Shor code; prove error digitisation; count physical resources.}
 
-% ── Lecture 9 ─────────────────────────────────────────────────
-\lecturetitle{9}{The Quantum Error Correction Conditions}{Theory}
-\addcontentsline{toc}{subsection}{Lecture 9: The Quantum Error Correction Conditions}
+%%──────────────────────────────────────────────────────
+\lecturetitle{10}{The Knill--Laflamme Conditions}{QEC Theory}
+\addcontentsline{toc}{subsection}{Lec.\ 10: The Knill--Laflamme Conditions}
 
 \topics{
-  \T{Knill--Laflamme (KL) conditions: derivation and meaning}
-  \T{Error spaces and orthogonality requirements}
-  \T{Necessary and sufficient conditions; degenerate vs.\ non-degenerate codes}
-  \T{Quantum Singleton bound and quantum Hamming bound}
-  \T{Degenerate codes: exploiting error degeneracy}
-  \T{When perfect (saturating the Hamming bound) codes exist}
+  \T{Formal definition of a quantum error-correcting code: subspace $\mathcal{C}\subseteq\mathcal{H}$}
+  \T{Correctable error set $\mathcal{E}$: what it means}
+  \T{Knill--Laflamme (KL) conditions: $\bra{c_i}E_a^\dagger E_b\ket{c_j}=\lambda_{ab}\delta_{ij}$ --- derivation}
+  \T{Necessity and sufficiency of KL: proof of both directions}
+  \T{Non-degenerate codes: $\lambda_{ab}=\lambda_a\delta_{ab}$; degenerate codes: $\lambda_{ab}$ non-diagonal}
+  \T{Error spaces and orthogonality: geometric picture}
+  \T{Syndrome measurement as the recovery map $\mathcal{R}$}
+  \T{Quantum error correction as a projective recovery: Knill--Laflamme recovery channel}
+  \T{Applications: verify KL for Shor code and three-qubit codes}
 }
 
-\keybox{Verify KL conditions for a given code and error set; state and prove quantum Singleton and Hamming bounds.}
+\keybox{State and prove the KL conditions in both directions; verify them for concrete codes; distinguish degenerate from non-degenerate codes.}
 
-% ── Lecture 10 ─────────────────────────────────────────────────
-\lecturetitle{10}{The Five-Qubit Perfect Code}{Perfect Codes}
-\addcontentsline{toc}{subsection}{Lecture 10: The Five-Qubit Perfect Code}
+%%──────────────────────────────────────────────────────
+\lecturetitle{11}{Quantum Bounds: Singleton, Hamming, and Beyond}{Bounds}
+\addcontentsline{toc}{subsection}{Lec.\ 11: Quantum Bounds --- Singleton, Hamming, and Beyond}
 
 \topics{
-  \T{Construction: unique $[[5,1,3]]$ code}
-  \T{Stabilizer description (preview of Part III)}
-  \T{Encoding and decoding circuits}
+  \T{$[[n,k,d]]$ notation: $n$ physical qubits, $k$ logical qubits, distance $d$}
+  \T{Quantum Singleton bound: $n - k \geq 4(d-1)$ --- derivation}
+  \T{Quantum MDS codes: saturate the Singleton bound; existence and examples}
+  \T{Quantum Hamming (sphere-packing) bound for non-degenerate codes: $\sum_{j=0}^{t}3^j\binom{n}{j}\leq 2^{n-k}$}
+  \T{Perfect codes: saturate Hamming bound; uniqueness of $[[5,1,3]]$}
+  \T{Quantum Plotkin bound}
+  \T{Linear programming (LP) bounds: Delsarte/Krawtchouk framework extended to quantum codes}
+  \T{Asymptotic rates: quantum Gilbert--Varshamov bound}
+  \T{Degenerate codes and the open question of whether they surpass non-degenerate bounds}
+}
+
+\keybox{Derive quantum Singleton and Hamming bounds; assess a code's optimality; state the asymptotic rate-distance trade-off.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{12}{The Five-Qubit Perfect Code $[[5,1,3]]$}{Perfect Code}
+\addcontentsline{toc}{subsection}{Lec.\ 12: The Five-Qubit Perfect Code $[[5,1,3]]$}
+
+\topics{
+  \T{Existence and uniqueness: saturates the quantum Hamming bound}
+  \T{Stabilizer generators: $XZZXI$, $IXZZX$, $XIXZZ$, $ZXIXZ$}
+  \T{Logical operators $\bar{X}=XXXXX$, $\bar{Z}=ZZZZZ$}
+  \T{Encoding circuit: systematic construction from stabilizers}
+  \T{Syndrome table: all 15 non-trivial single-qubit errors}
   \T{Verification of KL conditions}
-  \T{Comparison with Shor code: overhead vs.\ optimality}
+  \T{Decoding circuit}
+  \T{Comparison with Shor code: same distance, lower overhead}
+  \T{Transversal operations: which Clifford gates are transversal?}
 }
 
-\keybox{Construct and verify the five-qubit code; compare perfect vs.\ non-perfect codes on resource grounds.}
+\keybox{Construct the five-qubit code from scratch; verify KL; derive the complete syndrome table and encoding circuit.}
 
-% ── Lecture 11 ─────────────────────────────────────────────────
-\lecturetitle{11}{Quantum Bounds and Code Families}{Bounds}
-\addcontentsline{toc}{subsection}{Lecture 11: Quantum Bounds and Code Families}
+%%──────────────────────────────────────────────────────
+\lecturetitle{13}{CSS Codes: The Calderbank--Shor--Steane Construction}{CSS}
+\addcontentsline{toc}{subsection}{Lec.\ 13: CSS Codes --- The Calderbank--Shor--Steane Construction}
 
 \topics{
-  \T{Quantum Singleton bound (quantum MDS codes)}
-  \T{Linear programming (LP) bounds for quantum codes}
-  \T{Asymptotic rate--distance trade-offs: what is achievable?}
-  \T{Quantum capacity of the depolarizing channel (heuristic)}
-  \T{Overview of known optimal-rate families (brief survey)}
+  \T{Classical codes $C_1$ and $C_2$ with $C_2\subseteq C_1$; dual-containing condition $C_2^\perp \subseteq C_1$}
+  \T{Construction: $X$-stabilizers from $H_2$, $Z$-stabilizers from $H_1$}
+  \T{Parameters: $[[n, k_1 - k_2, d]]$ where $d=\min(d_1,d_2)$}
+  \T{Independent $X$- and $Z$-error correction: decoupled syndrome decoding}
+  \T{Transversal logical $\bar{X}$ and $\bar{Z}$; transversal CNOT}
+  \T{Worked examples: CSS version of Shor code, Hamming-based CSS codes}
+  \T{Importance for fault tolerance: separate $X/Z$ syndrome measurement}
 }
 
-\keybox{Apply quantum bounds to assess code quality; articulate the landscape of achievable code parameters.}
+\keybox{Construct any CSS code from two classical codes; identify stabilizers and parameters; explain why CSS enables transversal CNOTs.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{14}{Quantum Codes from Algebraic Structures (Overview)}{Algebra}
+\addcontentsline{toc}{subsection}{Lec.\ 14: Quantum Codes from Algebraic Structures (Overview)}
+
+\topics{
+  \T{Reed--Solomon codes and quantum Reed--Solomon (MDS family)}
+  \T{BCH codes and quantum BCH codes}
+  \T{Cyclic codes: generator polynomials and their quantum analogues}
+  \T{Algebraic geometry (AG) codes: Goppa construction, quantum AG codes}
+  \T{Quantum codes from combinatorial designs}
+  \T{Convolutional quantum codes (brief)}
+  \T{Quantum turbo codes (brief)}
+  \T{Why these families matter: high rates, algebraic decoding algorithms}
+}
+
+\keybox{Describe how classical algebraic codes lift to quantum codes; state parameters of quantum BCH, RS, and AG codes.}
 
 \newpage
 
-%% =============================================================
-%%  PART III
-%% =============================================================
+%% ═══════════════════════════════════════════════════════════════
+%%   PART III — STABILIZER FORMALISM
+%% ═══════════════════════════════════════════════════════════════
 
-\parthead{III}{Stabilizer Formalism and CSS Codes}{12–18}
+\parthead{III}{Stabilizer Formalism}{15--22}
+\addcontentsline{toc}{section}{Part III: Stabilizer Formalism (Lec.\ 15--22)}
 
-\addcontentsline{toc}{section}{Part III: Stabilizer Formalism and CSS Codes}
-
-% ── Lecture 12 ─────────────────────────────────────────────────
-\lecturetitle{12}{The Pauli Group and Stabilizer States}{Stabilizers I}
-\addcontentsline{toc}{subsection}{Lecture 12: The Pauli Group and Stabilizer States}
-
-\topics{
-  \T{$n$-qubit Pauli group $\mathcal{P}_n$: structure, centre, commutation rules}
-  \T{Stabilizer states: definition, examples (Bell states, GHZ, cluster states)}
-  \T{Stabilizer generators: minimal generating sets}
-  \T{Abelian stabilizer groups and the code space}
-  \T{Binary symplectic representation of Paulis}
-}
-
-\keybox{Find the stabilizer group of common states; represent Paulis in binary symplectic form.}
-
-% ── Lecture 13 ─────────────────────────────────────────────────
-\lecturetitle{13}{Stabilizer Codes: Code Space and Syndromes}{Stabilizers II}
-\addcontentsline{toc}{subsection}{Lecture 13: Stabilizer Codes — Code Space and Syndromes}
+%%──────────────────────────────────────────────────────
+\lecturetitle{15}{The Pauli Group and Binary Symplectic Representation}{Stabilizers I}
+\addcontentsline{toc}{subsection}{Lec.\ 15: The Pauli Group and Binary Symplectic Representation}
 
 \topics{
-  \T{Code space as $+1$ eigenspace of the stabilizer group}
-  \T{Logical operators $\bar{X}, \bar{Z}$: definition and freedom}
-  \T{Syndrome extraction: commutation implies non-destructive readout}
-  \T{Error correction via syndrome table}
-  \T{Parameters $[[n,k,d]]$ from stabilizer group structure}
-  \T{Degenerate codes revisited in stabilizer language}
+  \T{Single-qubit Pauli group $\mathcal{P}_1 = \{\pm I, \pm iI, \pm X, \pm iX, \pm Y, \pm iY, \pm Z, \pm iZ\}$}
+  \T{$n$-qubit Pauli group $\mathcal{P}_n$: structure, centre $\{\pm I, \pm iI\}^{\otimes n}$}
+  \T{Commutation and anti-commutation relations; commutator $[P,Q]$ in $\mathcal{P}_n$}
+  \T{Binary symplectic representation: $P \leftrightarrow (a|b)\in\mathbb{F}_2^{2n}$; $X\to(1|0)$, $Z\to(0|1)$, $Y\to(1|1)$}
+  \T{Symplectic inner product $\Lambda(u,v) = u\cdot \Lambda \cdot v^T$: encodes commutativity}
+  \T{Two Paulis commute iff symplectic inner product $=0$}
+  \T{Check matrix $H=(H_X|H_Z)\in\mathbb{F}_2^{(n-k)\times 2n}$: rows are stabilizer generators}
+  \T{Commutativity condition on $H$: $H_X H_Z^T + H_Z H_X^T = 0$ over $\mathbb{F}_2$}
 }
 
-\keybox{Construct code space and logical operators from a stabilizer group; extract and interpret syndromes.}
+\keybox{Represent any stabilizer group in binary symplectic form; test commutativity via the symplectic product.}
 
-% ── Lecture 14 ─────────────────────────────────────────────────
-\lecturetitle{14}{The Gottesman Formalism and Clifford Group}{Stabilizers III}
-\addcontentsline{toc}{subsection}{Lecture 14: The Gottesman Formalism and Clifford Group}
+%%──────────────────────────────────────────────────────
+\lecturetitle{16}{Stabilizer States and Stabilizer Codes}{Stabilizers II}
+\addcontentsline{toc}{subsection}{Lec.\ 16: Stabilizer States and Stabilizer Codes}
 
 \topics{
-  \T{Binary symplectic representation of stabilizer codes}
-  \T{Standard form of the check matrix; row reduction}
-  \T{Clifford group: generators ($H, S, \mathrm{CNOT}$) and action on Paulis}
-  \T{Efficient classical simulation: Aaronson--Gottesman tableau}
-  \T{Clifford circuits and their role in encoding/decoding}
+  \T{Stabilizer states: unique $+1$-eigenstate of an abelian stabilizer group}
+  \T{Examples: computational basis states, Bell states, GHZ state, cluster states, graph states}
+  \T{Stabilizer group of a code: $\mathcal{S}\subset\mathcal{P}_n$, abelian, $-I\notin\mathcal{S}$}
+  \T{Code space $\mathcal{C} = \{\ket{\psi}: S\ket{\psi}=\ket{\psi}\;\forall S\in\mathcal{S}\}$; dimension $2^k$}
+  \T{Logical operators: $\bar{X}_i, \bar{Z}_i$ commute with $\mathcal{S}$ but lie outside it}
+  \T{Logical operator freedom: two sets of logical operators differ by elements of $\mathcal{S}$}
+  \T{Parameters $[[n,k,d]]$: $k=n-m$ ($m$ generators), $d=$ min weight of logical operators}
+  \T{Degenerate codes: stabilizer elements of weight $<d$}
+  \T{Graph states and their stabilizer descriptions; the CZ-circuit construction}
 }
 
-\keybox{Perform Clifford-circuit simulation via tableaux; derive encoding circuits from check matrices.}
+\keybox{Identify the code space, logical operators, and parameters of any stabilizer code; construct graph states.}
 
-% ── Lecture 15 ─────────────────────────────────────────────────
-\lecturetitle{15}{Encoding and Decoding Circuits for Stabilizer Codes}{Circuits}
-\addcontentsline{toc}{subsection}{Lecture 15: Encoding and Decoding Circuits for Stabilizer Codes}
+%%──────────────────────────────────────────────────────
+\lecturetitle{17}{Syndrome Measurement and Error Correction in Stabilizer Codes}{Stabilizers III}
+\addcontentsline{toc}{subsection}{Lec.\ 17: Syndrome Measurement and Error Correction in Stabilizer Codes}
 
 \topics{
-  \T{Systematic circuit synthesis from the stabilizer check matrix}
-  \T{Depth reduction and parallelism}
-  \T{Decoding: syndrome measurement circuit, ancilla preparation}
-  \T{Fault-tolerant ancilla preparation (preview of Part IV)}
-  \T{Implementation in Qiskit / Stim (hands-on demo)}
+  \T{Syndrome vector $s\in\mathbb{F}_2^m$: measuring each generator returns $\pm 1$}
+  \T{Error $E$: syndrome $s_i = 0$ if $E$ commutes with $g_i$, $1$ if anti-commutes}
+  \T{Syndrome measurement circuit: ancilla qubit per generator; CNOT/CZ fanout}
+  \T{Why syndrome measurement does not disturb the logical qubit}
+  \T{Coset structure: errors with the same syndrome form a coset of the normaliser}
+  \T{Error correction: choose a representative from each coset (minimum-weight, or MLD)}
+  \T{Residual logical error if wrong representative chosen}
+  \T{Measurement errors: repeated rounds of syndrome measurement; space-time error model}
 }
 
-\keybox{Synthesise encoding and syndrome measurement circuits from a check matrix; run them in a simulator.}
+\keybox{Design syndrome extraction circuits for any stabilizer code; analyse measurement errors in repeated rounds.}
 
-% ── Lecture 16 ─────────────────────────────────────────────────
-\lecturetitle{16}{CSS Codes: Calderbank--Shor--Steane Construction}{CSS}
-\addcontentsline{toc}{subsection}{Lecture 16: CSS Codes — The Calderbank–Shor–Steane Construction}
+%%──────────────────────────────────────────────────────
+\lecturetitle{18}{The Clifford Group and Gottesman Tableau Algorithm}{Clifford Group}
+\addcontentsline{toc}{subsection}{Lec.\ 18: The Clifford Group and Gottesman Tableau Algorithm}
 
 \topics{
-  \T{Construction: two classical codes $C_1 \supseteq C_2$ with $C_2^\perp \subseteq C_1$}
-  \T{$X$-type and $Z$-type stabilizers; separate $X$ and $Z$ correction}
-  \T{Distance and parameters: $[[n, k_1{-}k_2, d]]$}
-  \T{Transversality of logical $\bar{X}$ and $\bar{Z}$}
-  \T{Examples: Shor code, Steane code, and Hamming CSS codes}
+  \T{Clifford group $\mathcal{C}_n$: unitaries mapping $\mathcal{P}_n\to\mathcal{P}_n$ under conjugation}
+  \T{Generators: Hadamard $H$, phase gate $S$, CNOT; their actions on Paulis}
+  \T{Clifford group modulo phases: symplectic group $\text{Sp}(2n,\mathbb{F}_2)$}
+  \T{Gottesman--Knill theorem: Clifford circuits are classically efficiently simulatable}
+  \T{Aaronson--Gottesman tableau: $2n \times 2n$ binary matrix tracking destabilizers and stabilizers}
+  \T{Tableau update rules for $H$, $S$, CNOT, and Pauli measurements}
+  \T{Complexity: $O(n^2)$ per gate, $O(n^3)$ for measurement}
+  \T{Stim: a high-performance stabilizer circuit simulator (hands-on demo)}
+  \T{Applications: simulating QEC circuits efficiently}
 }
 
-\keybox{Construct a CSS code from two classical codes; identify its stabilizers and parameters.}
+\keybox{Implement the Gottesman tableau; simulate circuits of hundreds of qubits classically; use Stim.}
 
-% ── Lecture 17 ─────────────────────────────────────────────────
-\lecturetitle{17}{The Steane $[[7,1,3]]$ Code in Depth}{Steane Code}
-\addcontentsline{toc}{subsection}{Lecture 17: The Steane $[[7,1,3]]$ Code in Depth}
+%%──────────────────────────────────────────────────────
+\lecturetitle{19}{Encoding and Decoding Circuits for Stabilizer Codes}{Circuits}
+\addcontentsline{toc}{subsection}{Lec.\ 19: Encoding and Decoding Circuits for Stabilizer Codes}
 
 \topics{
-  \T{Hamming $[7,4,3]$ code and its dual; CSS construction}
-  \T{Full stabilizer table and logical operators}
-  \T{Encoding circuit; transversal Hadamard and CNOT}
-  \T{Syndrome extraction and error correction schedule}
-  \T{Fault-tolerant properties: which gates are transversal?}
+  \T{Standard form of the check matrix via Gaussian elimination over $\mathbb{F}_2$}
+  \T{Systematic encoding circuit synthesis: algorithm and worked example}
+  \T{Circuit depth and parallelism: scheduling syndrome measurements}
+  \T{Decoding circuit: inverse of encoding unitary}
+  \T{Ancilla qubit preparation: $\ket{0}$ vs.\ $\ket{+}$ ancillae for $Z$ and $X$ generators}
+  \T{Circuit-level noise model: errors on gates, ancillae, and measurements}
+  \T{Hands-on: implement the $[[5,1,3]]$ and $[[7,1,3]]$ encoding circuits in Stim}
 }
 
-\keybox{Fully describe the Steane code: construction, circuits, syndromes, and transversal gates.}
+\keybox{Systematically derive encoding and syndrome measurement circuits from any check matrix.}
 
-% ── Lecture 18 ─────────────────────────────────────────────────
-\lecturetitle{18}{Syndrome Decoding Algorithms}{Decoding I}
-\addcontentsline{toc}{subsection}{Lecture 18: Syndrome Decoding Algorithms}
+%%──────────────────────────────────────────────────────
+\lecturetitle{20}{The Steane $[[7,1,3]]$ Code: A Complete Study}{Steane Code}
+\addcontentsline{toc}{subsection}{Lec.\ 20: The Steane $[[7,1,3]]$ Code --- A Complete Study}
 
 \topics{
-  \T{Lookup table decoding: complexity and limits}
-  \T{Maximum likelihood decoding (MLD): formulation and hardness}
-  \T{Minimum-weight decoding and its relation to MLD under Pauli noise}
-  \T{Belief propagation (BP) on the Tanner graph of a code}
-  \T{BP failures for short cycles; enhanced decoders (OSD, BP-OSD)}
-  \T{Soft vs.\ hard information decoding}
+  \T{Hamming $[7,4,3]$ code: generator and parity-check matrices}
+  \T{Dual-containing property: $[7,4,3]^\perp=[7,3,4]$; CSS construction}
+  \T{Full stabilizer generators (6 generators): $H_Z$ and $H_X$ blocks}
+  \T{Logical operators: $\bar{X}=X^7$, $\bar{Z}=Z^7$}
+  \T{Encoding circuit (7 qubits, 6 ancillae)}
+  \T{Syndrome extraction circuit and syndrome table (all 42 single-qubit error syndromes)}
+  \T{Transversal Hadamard: $H^{\otimes 7}$ maps $\bar{X}\leftrightarrow\bar{Z}$}
+  \T{Transversal CNOT between two code blocks}
+  \T{Transversal phase gate $S^{\otimes 7}$ up to corrections}
+  \T{Why Steane cannot transversally implement $T$: preview of Eastin--Knill}
 }
 
-\keybox{Implement lookup-table and BP decoders; analyse their complexity and failure modes.}
+\keybox{Fully construct and analyse the Steane code: stabilizers, logical operators, circuits, syndromes, and transversal gates.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{21}{Syndrome Decoding Algorithms I: Classical and Minimum-Weight}{Decoding I}
+\addcontentsline{toc}{subsection}{Lec.\ 21: Syndrome Decoding Algorithms I --- Classical and Minimum-Weight}
+
+\topics{
+  \T{Decoding problem: given syndrome $s$, find most likely error $\hat{E}$}
+  \T{Lookup table (syndrome table) decoding: correctness, exponential storage}
+  \T{Maximum likelihood decoding (MLD): $\hat{E}=\arg\max_E p(E|s)$ --- NP-hard in general}
+  \T{Degenerate MLD: sum over degenerate cosets; coset-based decoding}
+  \T{Minimum-weight (MW) decoding: polynomial-time for special codes}
+  \T{Tanner graph of a stabilizer code: variable nodes (qubits), check nodes (generators)}
+  \T{Belief propagation (BP) on the Tanner graph: log-likelihood ratio formulation}
+  \T{BP failures: short cycles (girth), trapping sets}
+  \T{Ordered statistics decoding (OSD): post-processing to fix BP failures}
+  \T{BP-OSD algorithm and its performance for CSS codes}
+  \T{Soft-decision decoding: exploiting analog measurement outcomes}
+}
+
+\keybox{Implement BP and BP-OSD decoders; analyse their complexity and failure modes; formulate MLD as an optimisation problem.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{22}{Syndrome Decoding Algorithms II: Advanced Methods}{Decoding II}
+\addcontentsline{toc}{subsection}{Lec.\ 22: Syndrome Decoding Algorithms II --- Advanced Methods}
+
+\topics{
+  \T{Small-set-flip (SSF) decoder: linear time, designed for qLDPC codes}
+  \T{Renormalisation group (RG) decoder: multi-scale syndrome matching}
+  \T{Maximum-likelihood decoding via tensor networks: exact MLD for 1D codes}
+  \T{Neural network decoders: deep learning for decoding; training, architecture choices}
+  \T{Reinforcement learning decoders (brief)}
+  \T{Sliding-window decoding for real-time operation}
+  \T{Space-time decoding: decoding in the presence of measurement errors}
+  \T{Benchmarking decoders: threshold, sub-threshold logical error rate $p_L \propto (p/p_{th})^{\lceil d/2\rceil}$}
+  \T{Decoder latency and real-time constraints for hardware}
+}
+
+\keybox{Compare advanced decoders on speed-accuracy trade-offs; implement and benchmark a neural-network decoder.}
 
 \newpage
 
-%% =============================================================
-%%  PART IV
-%% =============================================================
+%% ═══════════════════════════════════════════════════════════════
+%%   PART IV — FAULT-TOLERANT QUANTUM COMPUTING
+%% ═══════════════════════════════════════════════════════════════
 
-\parthead{IV}{Fault-Tolerant Quantum Computing}{19–24}
+\parthead{IV}{Fault-Tolerant Quantum Computing}{23--30}
+\addcontentsline{toc}{section}{Part IV: Fault-Tolerant Quantum Computing (Lec.\ 23--30)}
 
-\addcontentsline{toc}{section}{Part IV: Fault-Tolerant Quantum Computing}
-
-% ── Lecture 19 ─────────────────────────────────────────────────
-\lecturetitle{19}{Principles of Fault Tolerance}{FT I}
-\addcontentsline{toc}{subsection}{Lecture 19: Principles of Fault Tolerance}
-
-\topics{
-  \T{Error propagation through two-qubit gates: fault paths}
-  \T{Fault-tolerant vs.\ transversal: definitions and distinction}
-  \T{Transversal gates: why they prevent catastrophic error spread}
-  \T{Non-transversal gates and the challenge of universality}
-  \T{Fault-tolerant gadget design: $t$-fault-tolerant protocols}
-}
-
-\keybox{Trace error propagation through circuits; define and verify fault-tolerance for simple gadgets.}
-
-% ── Lecture 20 ─────────────────────────────────────────────────
-\lecturetitle{20}{Fault-Tolerant Syndrome Extraction}{FT II}
-\addcontentsline{toc}{subsection}{Lecture 20: Fault-Tolerant Syndrome Extraction}
+%%──────────────────────────────────────────────────────
+\lecturetitle{23}{Principles of Fault Tolerance}{FT Principles}
+\addcontentsline{toc}{subsection}{Lec.\ 23: Principles of Fault Tolerance}
 
 \topics{
-  \T{Shor-style ancilla preparation with verification}
-  \T{Steane-style error correction using encoded ancillae}
-  \T{Knill-style teleportation-based error correction}
-  \T{Flag qubits: a resource-efficient alternative}
-  \T{Comparing protocols: overhead, depth, and noise sensitivity}
+  \T{Error propagation through two-qubit gates: CNOT spreads $X$ forward, $Z$ backward}
+  \T{Fault-tolerant (FT) gadget: a $t$-fault-tolerant gadget fails only if $\geq t+1$ faults occur}
+  \T{Transversal gates: bitwise application to code blocks; why they cannot spread errors within a block}
+  \T{Transversal $\neq$ FT in general: worked counter-examples}
+  \T{Gadget composition: how FT gadgets are combined into FT circuits}
+  \T{Malignant pairs: pairs of fault locations that together cause a logical error}
+  \T{Level reduction: replacing a physical gadget with a higher-level FT gadget}
+  \T{$t$-fault-tolerant protocols: $t$ faults $\Rightarrow$ at most $t$ errors on output block}
 }
 
-\keybox{Design and compare FT syndrome extraction protocols; analyse their resource requirements.}
+\keybox{Trace error propagation through any Clifford circuit; verify fault-tolerance of a given gadget; count malignant pairs.}
 
-% ── Lecture 21 ─────────────────────────────────────────────────
-\lecturetitle{21}{Logical Gates on Encoded Qubits: Clifford Gates}{Logical Ops}
-\addcontentsline{toc}{subsection}{Lecture 21: Logical Gates on Encoded Qubits — Clifford Gates}
+%%──────────────────────────────────────────────────────
+\lecturetitle{24}{Fault-Tolerant Syndrome Extraction: Protocols and Trade-offs}{FT Syndrome}
+\addcontentsline{toc}{subsection}{Lec.\ 24: Fault-Tolerant Syndrome Extraction --- Protocols and Trade-offs}
 
 \topics{
-  \T{Implementing encoded Clifford gates via physical transversal operations}
-  \T{Gate teleportation for non-transversal Clifford gates}
-  \T{Code switching (gauge fixing) to change the transversal gate set}
-  \T{Resource overhead comparison for different Clifford implementations}
+  \T{Problem: a faulty ancilla can propagate errors into the data block}
+  \T{Shor syndrome extraction: cat-state ancilla preparation + verification; analysis}
+  \T{Steane syndrome extraction: encoded ancilla in the same code; transversal CNOT to data}
+  \T{Knill (telecorrection) syndrome extraction: logical teleportation-based; removes data block from error path}
+  \T{Flag qubit protocol: one or two flag qubits detect dangerous high-weight faults; resource efficient}
+  \T{Comparison: ancilla overhead, depth, noise sensitivity, suitability for different hardware}
+  \T{Repeated syndrome measurement: majority vote, minimum-weight recovery in space-time}
+  \T{Circuit-level noise simulations: Monte Carlo with Stim}
 }
 
-\keybox{Derive transversal Clifford implementations; explain gate teleportation and code switching.}
+\keybox{Describe, compare, and analyse Shor, Steane, Knill, and flag-qubit FT syndrome extraction; run circuit-level Monte Carlo simulations.}
 
-% ── Lecture 22 ─────────────────────────────────────────────────
-\lecturetitle{22}{The Eastin--Knill Theorem and Universality}{Limits}
-\addcontentsline{toc}{subsection}{Lecture 22: The Eastin–Knill Theorem and Universality}
+%%──────────────────────────────────────────────────────
+\lecturetitle{25}{Logical Gates I: Transversal and Clifford Gates}{Logical Gates I}
+\addcontentsline{toc}{subsection}{Lec.\ 25: Logical Gates I --- Transversal and Clifford Gates}
 
 \topics{
-  \T{Statement and proof of the Eastin--Knill theorem}
-  \T{Why Clifford gates alone are insufficient for universal QC}
-  \T{Bypassing Eastin--Knill: code switching, gauge fixing, and magic state injection}
-  \T{Overview of routes to fault-tolerant universality}
+  \T{Transversal gates on CSS codes: $\bar{H}=H^{\otimes n}$, $\bar{S}=S^{\otimes n}$ (where applicable), $\overline{CNOT}=CNOT^{\otimes n}$}
+  \T{Which codes support which transversal Clifford generators}
+  \T{Gate teleportation: implementing a logical gate via teleportation with an ancilla state $U\ket{0}$}
+  \T{Teleportation-based Clifford gates: cost and ancilla preparation}
+  \T{Code switching (gauge fixing): changing between two codes to access different transversal gate sets}
+  \T{Example: switching between Steane and Reed--Muller codes to access $\bar{T}$ and $\bar{H}$}
+  \T{Pieceable fault tolerance: gates that are not transversal but can be done in FT pieces}
 }
 
-\keybox{Prove Eastin--Knill; identify and compare strategies for achieving a universal FT gate set.}
+\keybox{Implement transversal Clifford gates; explain gate teleportation; describe and execute code switching.}
 
-% ── Lecture 23 ─────────────────────────────────────────────────
-\lecturetitle{23}{Magic State Distillation}{Magic States}
-\addcontentsline{toc}{subsection}{Lecture 23: Magic State Distillation}
+%%──────────────────────────────────────────────────────
+\lecturetitle{26}{Logical Gates II: The Eastin--Knill Theorem}{Eastin-Knill}
+\addcontentsline{toc}{subsection}{Lec.\ 26: Logical Gates II --- The Eastin--Knill Theorem}
 
 \topics{
-  \T{Magic states: $|T\rangle$ and $|H\rangle$; why they suffice for universality}
-  \T{Bravyi--Kitaev distillation protocol: 15-to-1 routine}
-  \T{Distillation overhead: space-time costs}
-  \T{Improved protocols: Reed--Muller and punctured codes}
-  \T{Catalyst-free and code-based alternatives (brief)}
-  \T{Resource estimation: how many physical qubits per logical $T$ gate?}
+  \T{Statement: no quantum error-correcting code with continuous symmetry has a transversal universal gate set}
+  \T{Precise statement: no QECC admits a universal transversal gate set}
+  \T{Proof sketch: transversal gates form a group; a finite group cannot be universal}
+  \T{Implications: must use non-transversal methods to achieve universality}
+  \T{Approximate versions and exceptions: codes with approximate transversal $T$ gates}
+  \T{Circumventing Eastin--Knill: magic state injection, code switching, gauge fixing, 3D codes}
+  \T{Bravyi--König theorem: 2D topological codes have transversal gates in the third level of the Clifford hierarchy at most}
 }
 
-\keybox{Describe and analyse the Bravyi--Kitaev protocol; estimate resource costs for a given error target.}
+\keybox{Prove the Eastin--Knill theorem; identify strategies to bypass it; state the Bravyi--König theorem.}
 
-% ── Lecture 24 ─────────────────────────────────────────────────
-\lecturetitle{24}{The Threshold Theorem}{Threshold}
-\addcontentsline{toc}{subsection}{Lecture 24: The Threshold Theorem}
+%%──────────────────────────────────────────────────────
+\lecturetitle{27}{Magic State Distillation}{Magic States}
+\addcontentsline{toc}{subsection}{Lec.\ 27: Magic State Distillation}
 
 \topics{
-  \T{Statement of the threshold theorem (Aharonov--Ben-Or; Kitaev; Knill)}
-  \T{Proof sketch: level reduction and concatenated codes}
-  \T{Physical vs.\ pseudo-threshold; code-specific thresholds}
-  \T{Resource overhead: $O(\log^c n)$ physical qubits per logical gate}
-  \T{Numerical thresholds for common codes and noise models}
-  \T{Limitations: correlated noise, leakage, non-Markovian errors}
+  \T{Magic states: $\ket{T}=T\ket{+}$ and $\ket{H}=H\ket{0}$; why they suffice for universality with Clifford gates}
+  \T{Noisy magic states: $\rho_T = (1-p)\proj{T} + p \frac{I}{2}$; threshold for distillation}
+  \T{Bravyi--Kitaev (BK) 15-to-1 distillation protocol: uses $[[15,1,3]]$ Reed--Muller code; derivation}
+  \T{Error analysis: output fidelity as a function of input error rate $p$}
+  \T{Distillation threshold: $p < p_{th}\approx 0.14$ for BK protocol}
+  \T{Resource cost: 15 noisy $\ket{T}$ per output; $k$ levels of concatenation give $p^{2^k}$}
+  \T{Improved protocols: 10-to-2 (Meier--Eastin--Knill), punctured Reed--Muller, triorthogonal codes}
+  \T{Triorthogonal codes: codes whose generators satisfy a triorthogonality condition; enable transversal $T$}
+  \T{Resource estimation: physical qubit and time costs for distillation factories}
+  \T{Magic state distillation factories in surface code architecture}
 }
 
-\keybox{Sketch the threshold proof; compute resource overhead for concatenated codes; discuss practical thresholds.}
+\keybox{Derive the BK distillation protocol; compute output error rate; estimate factory overhead for a target error rate.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{28}{Concatenated Codes and the Threshold Theorem}{Threshold}
+\addcontentsline{toc}{subsection}{Lec.\ 28: Concatenated Codes and the Threshold Theorem}
+
+\topics{
+  \T{Concatenated codes: encoding a logical qubit with code $C$, then encoding each physical qubit with $C$ again}
+  \T{Parameters of level-$\ell$ concatenation: $[[n^\ell, 1, d^\ell]]$}
+  \T{Logical error rate under concatenation: $p_L^{(\ell)} \approx \frac{1}{c}\left(c\,p\right)^{2^\ell}$ for distance-3 codes}
+  \T{Threshold error rate $p_{th} = 1/c$: below threshold, $p_L\to 0$ with $\ell$}
+  \T{Rigorous threshold theorem: Aharonov--Ben-Or; Kitaev; Knill--Laflamme--Zurek}
+  \T{Proof sketch (Aharonov--Ben-Or): level reduction, malignant pair counting}
+  \T{Resource overhead: $O(\text{poly}\log(1/\epsilon))$ physical operations per logical gate at error $\epsilon$}
+  \T{Physical vs.\ pseudo-threshold: code-specific one-level breakeven point}
+  \T{Numerical thresholds for common codes: $\sim10^{-4}$ (depolarizing, concatenated), $\sim1\%$ (surface codes)}
+  \T{Limitations: correlated noise, non-Markovian errors, leakage, threshold reduction}
+}
+
+\keybox{Prove the threshold theorem via level reduction; compute resource overhead; discuss limitations.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{29}{Fault-Tolerant Protocol Design and Resource Estimation}{FT Design}
+\addcontentsline{toc}{subsection}{Lec.\ 29: Fault-Tolerant Protocol Design and Resource Estimation}
+
+\topics{
+  \T{Full FT architecture: logical qubit storage, syndrome extraction, gate application, magic state factories}
+  \T{Space-time cost of a logical circuit: $T$-count, $T$-depth, CNOT-count}
+  \T{Resource estimation frameworks: (e.g., Beverland et al., Azure Quantum Resource Estimator)}
+  \T{Estimating physical qubits for Shor's algorithm: $\sim 10^6$ to $10^8$ physical qubits at $10^{-3}$ error rate}
+  \T{Algorithmic-level optimisations: $T$-gate synthesis, Clifford+$T$ decomposition}
+  \T{Rotation synthesis: Solovay--Kitaev algorithm; $\epsilon$-approximation of arbitrary single-qubit gates}
+  \T{Gridsynth and Repeat-Until-Success (RUS) circuits for efficient rotation synthesis}
+  \T{Co-design considerations: choosing code and hardware jointly}
+}
+
+\keybox{Perform end-to-end resource estimation for a quantum algorithm; apply Solovay--Kitaev and gridsynth for rotation synthesis.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{30}{Quantum Error Correction Experiments: State of Practice}{Experiments}
+\addcontentsline{toc}{subsection}{Lec.\ 30: Quantum Error Correction Experiments --- State of Practice}
+
+\topics{
+  \T{Superconducting qubit experiments: Google ($[[5,1,3]]$, surface code below threshold, 2023--24), IBM}
+  \T{Trapped-ion experiments: IonQ, Quantinuum ($[[7,1,3]]$ Steane, color codes, logical qubit lifetime)}
+  \T{Neutral atom experiments: Harvard/QuEra, Pasqal}
+  \T{Photonic approaches: GKP states in optical modes}
+  \T{Metrics: logical error rate per round, break-even point, logical qubit lifetime vs.\ physical $T_1$}
+  \T{Current achievements and open engineering challenges}
+  \T{Roadmap to fault-tolerant quantum computing: timeline estimates}
+}
+
+\keybox{Compare QEC achievements across platforms; assess where each platform stands relative to fault-tolerance thresholds.}
 
 \newpage
 
-%% =============================================================
-%%  PART V
-%% =============================================================
+%% ═══════════════════════════════════════════════════════════════
+%%   PART V — TOPOLOGICAL AND SURFACE CODES
+%% ═══════════════════════════════════════════════════════════════
 
-\parthead{V}{Topological and Surface Codes}{25–28}
+\parthead{V}{Topological and Surface Codes}{31--37}
+\addcontentsline{toc}{section}{Part V: Topological and Surface Codes (Lec.\ 31--37)}
 
-\addcontentsline{toc}{section}{Part V: Topological and Surface Codes}
-
-% ── Lecture 25 ─────────────────────────────────────────────────
-\lecturetitle{25}{Topological Quantum Codes: Toric and Planar Codes}{Topology I}
-\addcontentsline{toc}{subsection}{Lecture 25: Topological Quantum Codes — Toric and Planar Codes}
-
-\topics{
-  \T{Motivation: locality, high threshold, 2D hardware compatibility}
-  \T{Kitaev's toric code: qubits on edges of a torus}
-  \T{Vertex ($A_v$) and plaquette ($B_p$) stabilizers}
-  \T{Logical operators as non-contractible loops}
-  \T{Anyons: $e$ (electric) and $m$ (magnetic) excitations}
-  \T{Anyon braiding and topological protection}
-  \T{Planar (surface) code: open boundary conditions, roughvssmooth boundaries}
-}
-
-\keybox{Construct toric and planar code stabilizers; identify logical operators topologically; describe anyon creation and braiding.}
-
-% ── Lecture 26 ─────────────────────────────────────────────────
-\lecturetitle{26}{Surface Code: Threshold, Operations, and Overhead}{Topology II}
-\addcontentsline{toc}{subsection}{Lecture 26: Surface Code — Threshold, Operations, and Overhead}
+%%──────────────────────────────────────────────────────
+\lecturetitle{31}{Topological Quantum Codes: Motivation and the Toric Code}{Toric Code}
+\addcontentsline{toc}{subsection}{Lec.\ 31: Topological Quantum Codes --- Motivation and the Toric Code}
 
 \topics{
-  \T{Surface code threshold $\approx 1\%$: heuristic derivation}
-  \T{Logical error rate as a function of code distance and physical error rate}
-  \T{Transversal gates on surface codes: only $\bar{X}$ and $\bar{Z}$}
-  \T{Lattice surgery: logical CNOT via code deformations (merge/split)}
-  \T{Twist defects and colour-code conversion for Hadamard}
-  \T{Resource overhead: physical qubits and time steps per logical gate}
+  \T{Why topology? Local stabilizers + high threshold + 2D hardware compatibility}
+  \T{Kitaev's toric code: qubits on edges of a square lattice on a torus}
+  \T{Vertex operators $A_v = \prod_{e\ni v}X_e$ and plaquette operators $B_p = \prod_{e\in p}Z_e$}
+  \T{Ground state space: $[[2L^2, 2, L]]$ code; two logical qubits from torus topology}
+  \T{Logical operators: non-contractible loops (strings) in $X$ and $Z$ bases}
+  \T{Anyons: $e$ (electric, $A_v=-1$) and $m$ (magnetic, $B_p=-1$) excitations}
+  \T{Anyon creation, propagation, and annihilation as string operators}
+  \T{Braiding statistics: $e$ and $m$ anyons are mutual semions}
+  \T{Topological protection: logical error $\Leftrightarrow$ system-spanning string}
 }
 
-\keybox{Implement lattice surgery protocols; estimate surface-code overhead for target logical error rates.}
+\keybox{Construct the toric code; identify anyons and their braiding statistics; relate topological order to logical operators.}
 
-% ── Lecture 27 ─────────────────────────────────────────────────
-\lecturetitle{27}{Surface Code Decoding in Depth}{Decoding II}
-\addcontentsline{toc}{subsection}{Lecture 27: Surface Code Decoding in Depth}
+%%──────────────────────────────────────────────────────
+\lecturetitle{32}{The Planar (Surface) Code: Construction and Properties}{Surface Code I}
+\addcontentsline{toc}{subsection}{Lec.\ 32: The Planar (Surface) Code --- Construction and Properties}
 
 \topics{
-  \T{Decoding as a matching problem: syndrome graph construction}
-  \T{Minimum-weight perfect matching (MWPM): Blossom V algorithm}
-  \T{Union--Find (Helios/Fowler) decoder: near-linear time}
-  \T{Neural-network decoders: learned decoding for complex noise}
-  \T{Correlated decoding and space-time codes}
-  \T{Decoding under circuit noise vs.\ code-capacity noise}
-  \T{Practical decoder latency and real-time decoding}
+  \T{Open boundary conditions: rough ($Z$) and smooth ($X$) boundaries}
+  \T{Stabilizers on a $d\times d$ grid: $\lfloor d^2/2\rfloor$ each of $A_v$ and $B_p$; one logical qubit}
+  \T{Logical operators: horizontal string ($\bar{X}$), vertical string ($\bar{Z}$); weight $d$}
+  \T{Code parameters: $[[d^2+(d-1)^2, 1, d]]$ (rotated) or $[[2d^2-2d+1, 1, d]]$ (unrotated)}
+  \T{Rotated planar code: checkerboard layout; $d^2$ data qubits, $(d^2-1)$ ancillae}
+  \T{Syndrome measurement circuit: weight-4 and weight-2 boundary stabilizers}
+  \T{Circuit-level noise model; $X$ and $Z$ errors and measurement errors}
+  \T{Logical error rate vs.\ $d$ and $p$: exponential suppression below threshold}
 }
 
-\keybox{Implement MWPM and Union-Find decoders; evaluate threshold and logical error rate numerically.}
+\keybox{Construct and parameterise the rotated planar code; draw syndrome extraction circuits; describe the error model.}
 
-% ── Lecture 28 ─────────────────────────────────────────────────
-\lecturetitle{28}{Colour Codes and Other 2D Topological Codes}{Topology III}
-\addcontentsline{toc}{subsection}{Lecture 28: Colour Codes and Other 2D Topological Codes}
+%%──────────────────────────────────────────────────────
+\lecturetitle{33}{Surface Code Threshold and Logical Error Rate}{Surface Code II}
+\addcontentsline{toc}{subsection}{Lec.\ 33: Surface Code Threshold and Logical Error Rate}
 
 \topics{
-  \T{Colour codes on three-colourable lattices: structure and parameters}
-  \T{Transversal Clifford gates on colour codes}
-  \T{Folding map between colour codes and surface codes}
-  \T{Honeycomb (Floquet) codes: measurement-based dynamics}
-  \T{Hastings--Haah--O'Brien code: low overhead for superconducting hardware}
-  \T{Comparison of 2D codes: threshold, overhead, and gate set}
+  \T{Heuristic threshold argument: matching random errors to random syndrome changes}
+  \T{Mapping to 2D random-bond Ising model (Nishimori line)}
+  \T{Code-capacity threshold $\approx 10.9\%$ (depolarizing); circuit-level threshold $\approx 0.5$--$1\%$}
+  \T{Sub-threshold logical error rate: $p_L \approx A(p/p_{th})^{\lfloor d/2 \rfloor + 1}$}
+  \T{Numerical Monte Carlo estimation with Stim + PyMatching}
+  \T{Teraquop qubit: physical qubits needed for one logical qubit at $10^{-6}$ logical error rate}
+  \T{Biased noise: tailored surface codes and XZZX surface codes}
 }
 
-\keybox{Describe colour code structure and its richer transversal gate set; compare 2D code families.}
+\keybox{Derive and interpret the surface code threshold; simulate logical error rates numerically; understand tailored-code advantages.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{34}{Surface Code Decoding: MWPM and Union-Find}{Decoding III}
+\addcontentsline{toc}{subsection}{Lec.\ 34: Surface Code Decoding --- MWPM and Union-Find}
+
+\topics{
+  \T{Decoding problem: matching syndrome defects to cancel them in a minimum-weight way}
+  \T{Syndrome graph: nodes are defects (anyons), edge weights from error probabilities}
+  \T{Minimum-weight perfect matching (MWPM): formulation as a graph problem}
+  \T{Blossom V algorithm: $O(n^3)$ exact MWPM; implementation outline}
+  \T{Weighted matching with log-likelihood weights under independent noise}
+  \T{Space-time matching: including measurement errors; 3D syndrome graph}
+  \T{Union-Find (Helios/Fowler) decoder: near-linear time $O(n\alpha(n))$; algorithm}
+  \T{Accuracy vs.\ speed: MWPM vs.\ Union-Find trade-off}
+  \T{Correlated matching decoders: accounting for $Y$ errors (correlation between $X$ and $Z$ decoding)}
+  \T{PyMatching: open-source MWPM library (hands-on demo)}
+}
+
+\keybox{Implement MWPM and Union-Find decoders; benchmark them on Monte Carlo simulations; compare correlated and uncorrelated decoding.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{35}{Surface Code Decoding: Neural Networks and Beyond}{Decoding IV}
+\addcontentsline{toc}{subsection}{Lec.\ 35: Surface Code Decoding --- Neural Networks and Beyond}
+
+\topics{
+  \T{Motivation: MWPM is sub-optimal under non-Pauli or correlated noise}
+  \T{Convolutional neural network (CNN) decoders: training on syndrome patterns}
+  \T{Recurrent and transformer-based decoders}
+  \T{Reinforcement learning (RL) decoders: agent learns to correct syndromes}
+  \T{Tensor network decoders: exact MLD for 2D codes via contraction (approximate)}
+  \T{Renormalisation group (RG) decoder: $O(n\log n)$ multi-scale matching}
+  \T{Accuracy comparison: neural decoders can approach MLD; at cost of training data and latency}
+  \T{Real-time decoding requirements: decoder must keep pace with syndrome generation ($\mu$s regime)}
+  \T{FPGA and ASIC implementations of decoders}
+}
+
+\keybox{Train and evaluate a neural network decoder; compare decoder accuracy and latency; discuss real-time implementation.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{36}{Logical Gates on Surface Codes: Lattice Surgery}{Lattice Surgery}
+\addcontentsline{toc}{subsection}{Lec.\ 36: Logical Gates on Surface Codes --- Lattice Surgery}
+
+\topics{
+  \T{Transversal gates on surface codes: only $\bar{X}$ and $\bar{Z}$ are transversal}
+  \T{Lattice surgery: merge and split operations on adjacent code patches}
+  \T{Logical CNOT via lattice surgery: merge two patches, measure a joint stabilizer, split}
+  \T{Logical CNOT circuit: ancilla patch, measurement sequence, correction}
+  \T{Logical $\bar{H}$ via patch rotation (code deformation) or twist defects}
+  \T{Logical $\bar{S}$ via lattice surgery with a $\ket{Y}$ ancilla state}
+  \T{Logical $\bar{T}$ via magic state injection: distilled $\ket{T}$ state + CNOT + measurement + correction}
+  \T{Space-time cost of lattice surgery operations}
+  \T{3D space-time diagrams: ZX-calculus representation of lattice surgery}
+}
+
+\keybox{Design lattice surgery protocols for all Clifford gates; estimate space-time costs; draw ZX-calculus diagrams.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{37}{Colour Codes, Honeycomb Codes, and Other 2D Topological Codes}{Other 2D Codes}
+\addcontentsline{toc}{subsection}{Lec.\ 37: Colour Codes, Honeycomb Codes, and Other 2D Topological Codes}
+
+\topics{
+  \T{Colour codes on three-colourable lattices: 4.8.8 and 6.6.6 lattices}
+  \T{Colour code stabilizers: $X$ and $Z$ on each face; parameters $[[n, k, d]]$}
+  \T{Transversal gate set on colour codes: full Clifford group transversally; $\bar{T}$ transversally on 3D colour codes}
+  \T{Folding map: colour code is equivalent to two stacked surface codes}
+  \T{Decoding colour codes: restriction decoder, Möbius decoder}
+  \T{Honeycomb (Floquet) code (Hastings--Haah): dynamical code driven by two-qubit Pauli measurements; no static stabilizers}
+  \T{Measurement schedule of the honeycomb code: six-step cycle generating effective topological order}
+  \T{Hastings--Haah--O'Brien code: low overhead for superconducting hardware with limited connectivity}
+  \T{Comparison: 2D code families on threshold, transversal gate set, overhead, and hardware compatibility}
+}
+
+\keybox{Describe colour code structure and its richer transversal gate set; explain Floquet codes; compare all 2D topological code families.}
 
 \newpage
 
-%% =============================================================
-%%  PART VI
-%% =============================================================
+%% ═══════════════════════════════════════════════════════════════
+%%   PART VI — QUANTUM LDPC CODES
+%% ═══════════════════════════════════════════════════════════════
 
-\parthead{VI}{Modern Frontiers in Quantum Error Correction}{29–30}
+\parthead{VI}{Quantum LDPC Codes}{38--41}
+\addcontentsline{toc}{section}{Part VI: Quantum LDPC Codes (Lec.\ 38--41)}
 
-\addcontentsline{toc}{section}{Part VI: Modern Frontiers in Quantum Error Correction}
-
-% ── Lecture 29 ─────────────────────────────────────────────────
-\lecturetitle{29}{Quantum LDPC Codes and the Good-Code Quest}{QLDPC}
-\addcontentsline{toc}{subsection}{Lecture 29: Quantum LDPC Codes and the Good-Code Quest}
-
-\topics{
-  \T{What LDPC means and why locality matters for scalability}
-  \T{Hypergraph product (HGP) codes: construction and parameters}
-  \T{Fiber-bundle codes and lifted-product codes}
-  \T{Panteleev--Kalachev and Leverrier--Z{\'e}mor ``good'' qLDPC codes: $[[n, \Theta(n), \Theta(n)]]$}
-  \T{Decoding qLDPC codes: BP-OSD, small-set-flip, sliding-window decoding}
-  \T{Hardware realisation challenges: non-local connectivity}
-  \T{Overhead comparison: qLDPC vs.\ surface codes for large-scale computation}
-}
-
-\keybox{Construct HGP codes; state the parameters of recent good qLDPC codes; discuss decoding and hardware challenges.}
-
-% ── Lecture 30 ─────────────────────────────────────────────────
-\lecturetitle{30}{Bosonic Codes and the Future of QEC}{Bosonic \& Outlook}
-\addcontentsline{toc}{subsection}{Lecture 30: Bosonic Codes and the Future of QEC}
+%%──────────────────────────────────────────────────────
+\lecturetitle{38}{Classical LDPC Codes and the Tanner Graph: Deep Dive}{Classical LDPC}
+\addcontentsline{toc}{subsection}{Lec.\ 38: Classical LDPC Codes and the Tanner Graph --- Deep Dive}
 
 \topics{
-  \T{Bosonic encodings: encoding a qubit into a harmonic oscillator}
-  \T{Cat codes: Kerr-cat and dissipative cat qubits; bias-preserving gates}
-  \T{GKP (Gottesman--Kitaev--Preskill) codes: modular variable encoding, grid states}
-  \T{Binomial and Fock-state codes}
-  \T{Hardware: superconducting cavities, trapped-ion motional modes}
-  \T{Concatenation of bosonic codes with qubit codes}
-  \T{Open research directions: fault-tolerant quantum computation timelines, co-design of codes and hardware, non-Pauli noise, quantum memory lifetimes}
-  \T{Where to go next: key research groups, conferences, and literature}
+  \T{LDPC code definition: parity-check matrix with constant row and column weight}
+  \T{Tanner graph: bipartite graph; variable nodes (bits) and check nodes (parities)}
+  \T{Girth and its effect on BP performance: longer cycles $\Rightarrow$ better BP}
+  \T{Expander codes: spectral expansion and its role in distance}
+  \T{Sipser--Spielman linear-time decoding for expander codes}
+  \T{Capacity-approaching LDPC codes: irregular degree distributions, density evolution}
+  \T{Spatially coupled LDPC codes: threshold saturation}
+  \T{Why LDPC matters for quantum: constant-overhead fault tolerance possible}
 }
 
-\keybox{Explain cat and GKP encoding principles; discuss bosonic code advantages and open problems; identify active research frontiers.}
+\keybox{Analyse LDPC codes via their Tanner graphs; understand expansion and its role in decoding; explain capacity-approaching properties.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{39}{Quantum LDPC Codes: Hypergraph Product and Beyond}{qLDPC I}
+\addcontentsline{toc}{subsection}{Lec.\ 39: Quantum LDPC Codes --- Hypergraph Product and Beyond}
+
+\topics{
+  \T{From CSS to LDPC: commutativity constraint; challenge of keeping both check matrices sparse}
+  \T{Hypergraph product (HGP) code (Tillich--Z{\'e}mor): $H = [H_1\otimes I, I\otimes H_2^T]$ construction}
+  \T{Parameters of HGP codes: $[[n_1 n_2 + n_1' n_2', k_1 k_2 + k_1' k_2', \min(d_1,d_2)]]$; constant rate if input codes have constant rate}
+  \T{Lifted product (LP) codes: generalization using quasi-cyclic structure}
+  \T{Fiber bundle codes (Hastings--Haah--O'Brien): twisting the fiber to boost distance}
+  \T{Balanced product codes: another generalization}
+  \T{Distance vs.\ rate: current landscape; $[[n, \Theta(n^{1/2}), \Theta(n^{1/2})]]$ achievable}
+}
+
+\keybox{Construct HGP and LP codes; compute their parameters; describe the code parameter landscape.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{40}{Good Quantum LDPC Codes: Breakthroughs and Constructions}{qLDPC II}
+\addcontentsline{toc}{subsection}{Lec.\ 40: Good Quantum LDPC Codes --- Breakthroughs and Constructions}
+
+\topics{
+  \T{Definition of ``good'' codes: $[[n, \Theta(n), \Theta(n)]]$ with constant-weight checks}
+  \T{Quantum expander codes (Leverrier--Tillich--Z{\'e}mor): $[[n, \Theta(n), \Theta(\sqrt{n})]]$}
+  \T{Panteleev--Kalachev (2022): first asymptotically good qLDPC codes; lifted product over chain complexes}
+  \T{Leverrier--Z{\'e}mor quantum Tanner codes (2022): construction, parameters, and proof sketch}
+  \T{Chain complex perspective: codes as 2-complexes; boundary operators $\partial_1, \partial_2$}
+  \T{Cohomological products: cup product and product of complexes}
+  \T{Hyperbolic codes and codes on higher-dimensional manifolds}
+  \T{Consequences for overhead: constant-overhead fault tolerance theorem (Gottesman, 2014; Leverrier et al.)}
+}
+
+\keybox{Describe the Panteleev--Kalachev and Leverrier--Z{\'e}mor constructions; explain the chain complex framework; state the constant-overhead fault tolerance theorem.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{41}{Decoding Quantum LDPC Codes and Hardware Considerations}{qLDPC III}
+\addcontentsline{toc}{subsection}{Lec.\ 41: Decoding Quantum LDPC Codes and Hardware Considerations}
+
+\topics{
+  \T{Decoding qLDPC codes: BP on the quantum Tanner graph; failure for short cycles}
+  \T{BP-OSD for qLDPC: performance and complexity}
+  \T{Small-set-flip (SSF) decoder (Leverrier--Z{\'e}mor): linear-time; correctness proof sketch}
+  \T{Sliding-window decoding for real-time qLDPC}
+  \T{Neural decoders for qLDPC codes}
+  \T{Hardware realisation of qLDPC: non-local connectivity requirement; long-range interactions}
+  \T{Reconfigurable neutral atom arrays: shuttling enables non-local operations}
+  \T{Interconnected modules (modular architectures): quantum buses, teleportation links}
+  \T{Overhead comparison: qLDPC vs.\ surface codes; $O(1)$ overhead vs.\ $O(d^2)$ overhead}
+  \T{Current state: smallest experimental qLDPC demonstrations}
+}
+
+\keybox{Implement and benchmark SSF and BP-OSD for a qLDPC code; compare overhead with surface codes; discuss hardware feasibility.}
 
 \newpage
 
-%% =============================================================
-%%  Appendix: Course Administration
-%% =============================================================
-\section*{Course Administration and Resources}
-\addcontentsline{toc}{section}{Course Administration and Resources}
+%% ═══════════════════════════════════════════════════════════════
+%%   PART VII — BOSONIC CODES AND HARDWARE
+%% ═══════════════════════════════════════════════════════════════
+
+\parthead{VII}{Bosonic Codes and Hardware}{42--44}
+\addcontentsline{toc}{section}{Part VII: Bosonic Codes and Hardware (Lec.\ 42--44)}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{42}{Bosonic Codes: Cat Qubits and Binomial Codes}{Bosonic I}
+\addcontentsline{toc}{subsection}{Lec.\ 42: Bosonic Codes --- Cat Qubits and Binomial Codes}
+
+\topics{
+  \T{Bosonic encoding: logical qubit in a harmonic oscillator (cavity mode)}
+  \T{Fock space: $\{|0\rangle, |1\rangle, |2\rangle, \ldots\}$; creation/annihilation operators $\hat{a}^\dagger, \hat{a}$}
+  \T{Noise model for oscillators: photon loss (amplitude damping), dephasing, photon gain}
+  \T{Coherent states and cat states: $|\pm\alpha\rangle$; two-component cat code}
+  \T{Kerr-cat qubit: Kerr Hamiltonian confines system to two-cat-state manifold; exponential $Z$-bias}
+  \T{Dissipative cat qubit: engineered two-photon dissipation stabilises cat states}
+  \T{Bias-preserving gates on cat qubits: CNOT and $Z$-rotation without dephasing}
+  \T{Binomial codes: $|0_L\rangle$ and $|1_L\rangle$ as superpositions of Fock states; designed for photon loss}
+  \T{Pair-cat codes, four-component cat codes}
+  \T{Concatenation of cat qubits with qubit codes: biased-noise repetition code; exponential suppression}
+}
+
+\keybox{Describe cat qubit stabilisation; explain bias-preserving gates; design a concatenated cat+repetition code.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{43}{GKP Codes and Grid State Encodings}{Bosonic II}
+\addcontentsline{toc}{subsection}{Lec.\ 43: GKP Codes and Grid State Encodings}
+
+\topics{
+  \T{Gottesman--Kitaev--Preskill (GKP) code: encoding a qubit in a harmonic oscillator via modular variables}
+  \T{Stabilizers: displacement operators $e^{i2\sqrt{\pi}\hat{q}}$ and $e^{-i2\sqrt{\pi}\hat{p}}$}
+  \T{Logical operators: $\bar{X}=e^{i\sqrt{\pi}\hat{q}}$, $\bar{Z}=e^{-i\sqrt{\pi}\hat{p}}$}
+  \T{Ideal GKP state: unphysical comb of delta functions; approximate GKP states}
+  \T{Error correction: homodyne measurement of $\hat{q}$ mod $\sqrt{\pi}$; displacement correction}
+  \T{GKP Steane-type correction: teleportation-based correction}
+  \T{Noise model: Gaussian displacement errors; effective qubit error rate}
+  \T{GKP code performance: near-hashing bound for Gaussian noise}
+  \T{Hardware: superconducting microwave cavities (cQED), optical modes, trapped-ion motion}
+  \T{Rectangular and hexagonal GKP lattices; multi-mode GKP codes}
+  \T{Concatenation of GKP with qubit codes: GKP-surface code, GKP-repetition code}
+}
+
+\keybox{Derive GKP stabilizers and logical operators; describe error correction via modular homodyne measurement; design concatenated GKP+qubit codes.}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{44}{Hardware Platforms and Co-design of Codes}{Hardware \& Co-design}
+\addcontentsline{toc}{subsection}{Lec.\ 44: Hardware Platforms and Co-design of Codes}
+
+\topics{
+  \T{Superconducting qubits (transmons): gate times, connectivity (nearest-neighbour grid), $T_1/T_2$, leakage}
+  \T{Superconducting cavities (3D cQED): photon lifetime $>1$\,ms; GKP and cat qubit host}
+  \T{Trapped ions: all-to-all connectivity, long coherence times, slow gates; suited for Steane/colour codes}
+  \T{Neutral atoms in tweezers: reconfigurable connectivity (shuttling), mid-circuit measurement; suited for qLDPC}
+  \T{Photonic quantum computing: cluster-state approach, linear optics, GKP in optical modes}
+  \T{Co-design principles: choose code to match hardware noise bias, connectivity graph, and gate set}
+  \T{Noise bias exploitation: XZZX surface code for biased noise; cat+repetition for pure $Z$-bias}
+  \T{Connectivity-aware syndrome circuits: reducing non-local operations}
+  \T{Compiling logical circuits to hardware: routing, scheduling, and decomposition}
+  \T{System-level resource estimation: from algorithm to physical qubits}
+}
+
+\keybox{Match code families to hardware platforms; perform co-design given a noise model; compile logical circuits to hardware-native gates.}
+
+\newpage
+
+%% ═══════════════════════════════════════════════════════════════
+%%   PART VIII — RESEARCH FRONTIERS
+%% ═══════════════════════════════════════════════════════════════
+
+\parthead{VIII}{Research Frontiers and Open Problems}{45}
+\addcontentsline{toc}{section}{Part VIII: Research Frontiers and Open Problems (Lec.\ 45)}
+
+%%──────────────────────────────────────────────────────
+\lecturetitle{45}{Open Problems and the Road Ahead}{Frontiers}
+\addcontentsline{toc}{subsection}{Lec.\ 45: Open Problems and the Road Ahead}
+
+\topics{
+  \T{\textbf{Decoding frontiers:} optimal decoders for qLDPC codes; efficient exact MLD; decoding under coherent noise}
+  \T{\textbf{New code constructions:} single-shot error correction codes (no repeated measurements); high-rate codes for specific hardware; quantum polar codes}
+  \T{\textbf{Single-shot QEC:} Bombin's 3D codes; codes where one round of noisy measurements suffices for correction}
+  \T{\textbf{Quantum fault tolerance with non-Pauli noise:} coherent errors, non-Markovian noise, crosstalk; approximate QEC}
+  \T{\textbf{Approximate quantum error correction (AQEC):} trading exact correctability for better parameters; Petz recovery map; quantum error mitigation}
+  \T{\textbf{Quantum error mitigation (QEM):} zero-noise extrapolation, probabilistic error cancellation, Clifford data regression; relation to and distinction from QEC}
+  \T{\textbf{Quantum memory:} self-correcting quantum memories; 4D toric code; Haah's cubic code; open problem: does a self-correcting quantum memory exist in 3D?}
+  \T{\textbf{Constant-overhead fault tolerance:} practical implementations of qLDPC-based architectures}
+  \T{\textbf{Quantum LDPC codes for entanglement distillation and quantum communications}}
+  \T{\textbf{Connections to condensed matter:} topological phases of matter, anyons, SPT phases, quantum spin liquids}
+  \T{\textbf{Connections to quantum gravity and holography:} quantum error correction in AdS/CFT; Ryu--Takayanagi formula as QEC; tensor network codes}
+  \T{\textbf{Classical simulation of QEC:} limits of stabilizer simulation; beyond-Clifford simulation}
+  \T{How to navigate the research literature; key conferences (QIP, TQC, APS); important research groups}
+}
+
+\keybox{Identify and articulate open problems in QEC; connect QEC to condensed matter and quantum gravity; navigate the research literature independently.}
+
+\newpage
+
+%% ═══════════════════════════════════════════════════════════════
+%%   APPENDIX: COURSE ADMINISTRATION
+%% ═══════════════════════════════════════════════════════════════
+
+\section*{Course Administration}
+\addcontentsline{toc}{section}{Course Administration}
 
 \subsection*{Grading}
 \begin{center}
-\begin{tabular}{lcc}
+\begin{tabular}{llc}
   \toprule
-  \textbf{Component} & \textbf{Weight} & \textbf{Notes} \\
+  \textbf{Component} & \textbf{Description} & \textbf{Weight} \\
   \midrule
-  Problem Sets (6)      & 40\% & Biweekly; proofs and computations \\
-  Midterm Exam          & 20\% & Covers Parts I–III \\
-  Final Exam            & 25\% & Comprehensive \\
-  Research Presentation & 15\% & Paper from past 3 years; 20-min talk \\
+  Problem Sets (8 total)     & Biweekly; proofs, circuit design, simulations & 40\% \\
+  Midterm Exam               & Covers Parts I--III; closed book                & 15\% \\
+  Final Exam                 & Comprehensive; closed book                      & 20\% \\
+  Programming Projects (2)   & Decoder implementation; resource estimation     & 15\% \\
+  Research Presentation      & Paper from last 3 years; 20-min talk + Q\&A     & 10\% \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection*{Software and Tools}
-
+\subsection*{Software Tools Used in the Course}
 \begin{itemize}[itemsep=3pt]
-  \item \textbf{Stim} — high-performance stabilizer circuit simulator (Google); used from Lecture 15
-  \item \textbf{PyMatching} — MWPM decoder for surface codes; used in Lectures 27--28
-  \item \textbf{Qiskit QEC} — IBM's QEC toolkit; supplementary exercises
-  \item \textbf{LDPC} (Python package) — BP-OSD for classical and quantum LDPC codes (Lecture 18, 29)
-  \item \textbf{NumPy / SciPy / Matplotlib} — numerical experiments and visualisation
+  \item \textbf{Stim} (Google) --- high-performance stabilizer circuit simulator; used from Lecture 18 onward
+  \item \textbf{PyMatching} --- MWPM decoder for surface codes; used in Lectures 34--35
+  \item \textbf{LDPC} (Python) --- BP-OSD for classical and quantum LDPC codes; Lectures 21, 41
+  \item \textbf{Qiskit QEC} --- IBM's error correction toolkit; supplementary exercises
+  \item \textbf{NumPy / SciPy / Matplotlib} --- numerical experiments and visualisation throughout
+  \item \textbf{CVXPY} --- SDP for diamond norm computations; Lecture 5
 \end{itemize}
 
-\subsection*{Primary Textbooks}
+\subsection*{Primary References}
 
-\begin{itemize}[itemsep=3pt]
-  \item Nielsen \& Chuang, \textit{Quantum Computation and Quantum Information} (Cambridge) — Chapters 10, 12
-  \item Gottesman, \textit{Surviving as a Quantum Computer in a Classical World} (lecture notes, 2024)
-  \item Lidar \& Brun (eds.), \textit{Quantum Error Correction} (Cambridge, 2013)
+\noindent\textbf{Textbooks:}
+\begin{itemize}[itemsep=2pt]
+  \item Nielsen \& Chuang, \textit{Quantum Computation and Quantum Information} (Cambridge UP, 2000) --- Ch.\ 10, 12
+  \item Lidar \& Brun (eds.), \textit{Quantum Error Correction} (Cambridge UP, 2013)
+  \item Gottesman, \textit{Surviving as a Quantum Computer in a Classical World} (lecture notes, 2024 edition)
+  \item Preskill, \textit{Lecture Notes on Quantum Computation}, Chapter 7 (online)
 \end{itemize}
 
-\subsection*{Key Research References}
-
+\noindent\textbf{Key Research Papers (a representative sample):}
 \begin{itemize}[itemsep=2pt, label={$\triangleright$}]
-  \item Kitaev (2003) — Fault-tolerant quantum computation by anyons
-  \item Dennis \textit{et al.}\ (2002) — Topological quantum memory
-  \item Fowler \textit{et al.}\ (2012) — Surface codes: towards practical large-scale QC
-  \item Bravyi \& Haah (2012) — Magic state distillation with low overhead
-  \item Panteleev \& Kalachev (2022) — Asymptotically good qLDPC codes
-  \item Leverrier \& Z{\'e}mor (2022) — Quantum Tanner codes
-  \item Grimsmo \& Puri (2021) — Quantum error correction with the Gottesman--Kitaev--Preskill code
+  \item Shor (1995); Steane (1996) --- founding codes
+  \item Knill \& Laflamme (1997) --- KL conditions
+  \item Gottesman (1997) --- stabilizer formalism (thesis)
+  \item Kitaev (2003) --- fault-tolerant quantum computation by anyons
+  \item Dennis, Kitaev, Landahl, Preskill (2002) --- topological quantum memory
+  \item Fowler, Martinis et al.\ (2012) --- surface codes: towards practical large-scale QC
+  \item Bravyi \& Kitaev (2005) --- magic state distillation
+  \item Eastin \& Knill (2009) --- restrictions on transversal gates
+  \item Hastings \& Haah (2021) --- honeycomb code
+  \item Panteleev \& Kalachev (2022) --- asymptotically good quantum LDPC codes
+  \item Leverrier \& Z{\'e}mor (2022) --- quantum Tanner codes
+  \item Gottesman (2014) --- fault tolerance with constant overhead
+  \item Grimsmo \& Puri (2021) --- GKP codes (review)
+  \item Google Quantum AI (2023) --- below-threshold surface code experiment
 \end{itemize}
 
-\subsection*{Lecture-by-Lecture Topic Map}
+\subsection*{Lecture--Topic Quick Reference}
 
-\begin{center}
-\small
-\begin{tabularx}{\textwidth}{@{}c l X c@{}}
+{\small
+\begin{longtable}{@{}cll c@{}}
   \toprule
-  \textbf{Lec.} & \textbf{Title (abbrev.)} & \textbf{Key Concept} & \textbf{Part} \\
+  \textbf{Lec.} & \textbf{Title} & \textbf{Key Concept} & \textbf{Part} \\
   \midrule
-  1  & The Case for QEC               & No-cloning; error discretisation       & I \\
-  2  & Density Matrices \& CPTP       & Kraus operators                         & I \\
-  3  & Noise Channels                 & Bit-flip, dephasing, depolarising       & I \\
-  4  & Distance Measures              & Fidelity, trace distance, diamond norm  & I \\
-  5  & Hardware Errors                & RB, QPT, GST                           & I \\
+  \endfirsthead
+  \toprule
+  \textbf{Lec.} & \textbf{Title} & \textbf{Key Concept} & \textbf{Part} \\
   \midrule
-  6  & Classical ECC                  & Syndrome decoding, dual codes           & II \\
-  7  & Three-Qubit Codes              & Syndrome extraction without disturbance & II \\
-  8  & Shor's Code                    & Error digitisation                      & II \\
-  9  & KL Conditions                  & Degenerate codes, quantum bounds        & II \\
-  10 & Five-Qubit Perfect Code        & Optimal distance-3 code                 & II \\
-  11 & Quantum Bounds                 & Singleton, Hamming, LP bounds           & II \\
-  \midrule
-  12 & Pauli Group \& Stabilizers     & Binary symplectic representation        & III \\
-  13 & Stabilizer Codes               & Logical operators, syndromes            & III \\
-  14 & Gottesman Formalism            & Clifford tableaux, simulation           & III \\
-  15 & Encoding Circuits              & Circuit synthesis; Stim demo            & III \\
-  16 & CSS Codes                      & $C_1 \supseteq C_2$ construction        & III \\
-  17 & Steane $[[7,1,3]]$             & Full worked example                     & III \\
-  18 & Syndrome Decoding Algorithms   & BP, BP-OSD, MLD                         & III \\
-  \midrule
-  19 & FT Principles                  & Fault paths, transversal gates          & IV \\
-  20 & FT Syndrome Extraction         & Shor, Steane, Knill, flag qubits        & IV \\
-  21 & Logical Clifford Gates         & Gate teleportation, code switching      & IV \\
-  22 & Eastin--Knill Theorem          & Obstruction to universality             & IV \\
-  23 & Magic State Distillation       & Bravyi--Kitaev; T-gate overhead         & IV \\
-  24 & Threshold Theorem              & Concatenated codes; $\sim$1\% threshold & IV \\
-  \midrule
-  25 & Toric \& Planar Codes          & Anyons, non-contractible loops          & V \\
-  26 & Surface Code Operations        & Lattice surgery, overhead               & V \\
-  27 & Surface Code Decoding          & MWPM, Union-Find, neural decoders       & V \\
-  28 & Colour \& Honeycomb Codes      & Floquet codes, Hastings-Haah            & V \\
-  \midrule
-  29 & Quantum LDPC Codes             & HGP, good qLDPC codes                  & VI \\
-  30 & Bosonic Codes \& Outlook       & Cat, GKP; open problems                 & VI \\
+  \endhead
   \bottomrule
-\end{tabularx}
-\end{center}
+  \endfoot
+  1  & Case for QEC                    & No-cloning; error digitisation          & I \\
+  2  & Density Operators               & Mixed states, partial trace             & I \\
+  3  & CPTP Maps \& Kraus Operators    & Choi iso., Stinespring dilation         & I \\
+  4  & Noise Channels                  & Bit-flip, dephasing, depolarizing, AD   & I \\
+  5  & Distance Measures               & Fidelity, trace dist., diamond norm     & I \\
+  6  & Hardware Characterisation       & RB, QPT, GST                           & I \\
+  7  & Classical Coding Theory         & BP on Tanner graphs, dual codes         & I \\
+  \midrule
+  8  & Three-Qubit Codes               & Syndrome without disturbing logical     & II \\
+  9  & Shor's Code                     & Error digitisation; concatenation       & II \\
+  10 & Knill--Laflamme Conditions      & Necessity and sufficiency proof         & II \\
+  11 & Quantum Bounds                  & Singleton, Hamming, LP bounds           & II \\
+  12 & Five-Qubit Perfect Code         & Unique $[[5,1,3]]$; KL verification     & II \\
+  13 & CSS Construction                & Dual-containing codes; transversal CNOT & II \\
+  14 & Algebraic Code Families         & BCH, RS, AG quantum codes               & II \\
+  \midrule
+  15 & Pauli Group \& Symplectic Rep.  & Binary symplectic inner product         & III \\
+  16 & Stabilizer States \& Codes      & Code space, logical operators           & III \\
+  17 & Syndrome Extraction             & Ancilla-based non-destructive readout   & III \\
+  18 & Clifford Group \& Tableaux      & Gottesman--Knill; Aaronson--Gottesman   & III \\
+  19 & Encoding \& Decoding Circuits   & Systematic circuit synthesis            & III \\
+  20 & Steane $[[7,1,3]]$ Code         & Full worked study                       & III \\
+  21 & Decoding Algorithms I           & BP, BP-OSD, MLD                         & III \\
+  22 & Decoding Algorithms II          & NN decoders, SSF, sliding window        & III \\
+  \midrule
+  23 & FT Principles                   & Error propagation; malignant pairs      & IV \\
+  24 & FT Syndrome Extraction          & Shor, Steane, Knill, flag qubits        & IV \\
+  25 & Logical Gates I: Clifford       & Gate teleportation; code switching      & IV \\
+  26 & Eastin--Knill Theorem           & Proof; Bravyi--König theorem            & IV \\
+  27 & Magic State Distillation        & BK 15-to-1; triorthogonal codes         & IV \\
+  28 & Threshold Theorem               & Concatenated codes; level reduction     & IV \\
+  29 & FT Protocol Design              & Resource estimation; gridsynth          & IV \\
+  30 & QEC Experiments                 & Hardware milestones; open challenges    & IV \\
+  \midrule
+  31 & Toric Code                      & Anyons; braiding statistics             & V \\
+  32 & Planar Surface Code             & Rotated code; syndrome circuits         & V \\
+  33 & Surface Code Threshold          & Ising mapping; Monte Carlo; $p_L(d,p)$  & V \\
+  34 & Decoding: MWPM \& Union-Find    & Blossom V; $O(n\alpha(n))$ UF decoder   & V \\
+  35 & Decoding: Neural \& Beyond      & CNN, RL, tensor network decoders        & V \\
+  36 & Lattice Surgery                 & Logical gates via merge/split           & V \\
+  37 & Colour \& Honeycomb Codes       & Floquet codes; 2D code comparison       & V \\
+  \midrule
+  38 & Classical LDPC Deep Dive        & Expander codes; density evolution       & VI \\
+  39 & Hypergraph Product Codes        & HGP, LP, fiber bundle constructions     & VI \\
+  40 & Good qLDPC Codes                & Panteleev--Kalachev; Leverrier--Z{\'e}mor & VI \\
+  41 & qLDPC Decoding \& Hardware      & SSF; neutral atom realisation           & VI \\
+  \midrule
+  42 & Cat Qubits \& Binomial Codes    & Kerr-cat; dissipative cat; bias-preserving & VII \\
+  43 & GKP Codes                       & Grid states; homodyne correction        & VII \\
+  44 & Hardware Platforms \& Co-design & Platform comparison; noise-code matching & VII \\
+  \midrule
+  45 & Open Problems \& Research Frontiers & Single-shot; AQEC; self-correcting memories & VIII \\
+\end{longtable}
+}
 
 \vfill
 \begin{center}
   \color{rulegray}\small
   \rule{0.5\textwidth}{0.4pt}\\[4pt]
-  \textit{This outline is updated for the 2025--26 academic year.
-  Topics in Lectures 29--30 reflect active research; content will track the literature.}
+  \textit{This outline reflects the state of the field as of 2025--26.
+  Parts VI--VIII track active research; content is updated annually.}
 \end{center}
 
 \end{document}
