@@ -72,9 +72,9 @@ meaning a perfect coder could represent a long run of these biased flips using u
 
 English text is a good running example for a video: letter frequencies are highly skewed (E and T are common, Q and Z are rare), so the entropy of English is well below the $\log_2 26 \approx 4.7$ bits per letter you'd need if every letter were equally likely. Empirical estimates put English text entropy at roughly 1--1.5 bits per character once you account for letter correlations (digraphs, common words) — most printed text is far more compressible than its raw bit count suggests.
 
-\subsection{Why entropy is a speed limit}
+\subsection{Why entropy is the compression limit}
 
-Shannon's \textbf{source coding theorem} states that no lossless coder can, on average, use fewer bits per symbol than the source's entropy. This is the single most important fact in this entire field: \emph{entropy is the floor}. The history of entropy coding (Section~4) is the history of getting closer to that floor while paying less and less in computation time to do it.
+Shannon's \textbf{source coding theorem} states that no lossless coder can, on average, use fewer bits per symbol than the source's \emph{entropy rate} $\lim_{n\to\infty} H(X_n \mid X_{n-1}, \ldots, X_1)$, which accounts for all statistical dependencies. This is the single most important theoretical result in this field: \emph{the entropy rate is the floor}. For memoryless sources, this reduces to the ordinary entropy $H(X)$; for sources with structure (like English text), it is significantly lower.
 
 A related result, the \textbf{Kraft--McMillan inequality}, explains why \emph{prefix} codes (Section~4.1) are forced to round code lengths to whole numbers of bits, and therefore why they alone can't always reach the entropy floor exactly — the gap that arithmetic coding and its descendants exist to close.
 
