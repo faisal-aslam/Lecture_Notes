@@ -4,7 +4,7 @@
 \usepackage{xcolor}
 \usepackage{forest}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta}
+\usetikzlibrary{arrows.meta,positioning}
 \usepackage{amsmath,amssymb,mathtools}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -240,11 +240,23 @@ for tree={
 
 A genuinely different idea from both entropy coding and dictionary matching: \emph{rearrange the data first} so that the patterns become trivially easy to compress, then apply much simpler tools afterward. This is the strategy behind \textbf{bzip2}.
 
-\begin{center}
-\resizebox{\linewidth}{!}{$
-\text{raw data} \;\xrightarrow{\text{BWT}}\; \text{permuted data} \;\xrightarrow{\text{MTF}}\; \text{mostly small numbers} \;\xrightarrow{\text{RLE}}\; \text{short runs} \;\xrightarrow{\text{Huffman}}\; \text{compressed output}
-$}
-\end{center}
+\begin{figure}[h]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, align=center, font=\sffamily\small, inner sep=6pt, minimum height=1.15cm},
+  >=Latex
+]
+\node[box, fill=teal!8, draw=teal!60] (bwt) {BWT\\{\scriptsize reorders bytes by context}};
+\node[box, fill=teal!8, draw=teal!60, right=9mm of bwt] (mtf) {Move-to-Front\\{\scriptsize recent symbol $\to$ small number}};
+\node[box, fill=teal!8, draw=teal!60, right=9mm of mtf] (rle) {RLE\\{\scriptsize crushes runs of repeats}};
+\node[box, fill=green!12, draw=green!50!black, right=9mm of rle] (huff) {Huffman\\{\scriptsize entropy-codes what's left}};
+\draw[->] (bwt) -- (mtf);
+\draw[->] (mtf) -- (rle);
+\draw[->] (rle) -- (huff);
+\end{tikzpicture}}
+\caption{The bzip2 pipeline. BWT is a pure reordering step; MTF and RLE are clean-up steps that turn the reordered data into something almost trivial to compress; Huffman (green, as in Figure~2) does the actual entropy coding.}
+\end{figure}
 
 The \textbf{Burrows--Wheeler Transform (BWT)} considers every cyclic rotation of a block of input, sorts those rotations lexicographically, and outputs the last column of the sorted list (along with an index needed to invert the transform). It does not compress anything by itself — the output is the same length as the input — but it has a remarkable property: because the rotations are sorted by what \emph{follows} each character, characters that tend to occur in the same context end up clustered together in runs in the output. Reversing the transform is a clever bit of index bookkeeping that recovers the original string exactly.
 
@@ -256,6 +268,23 @@ bzip2 is the clearest illustration in this whole guide that "transform to expose
 
 \section{Context modeling and the research frontier}
 
+\begin{figure}[h]
+\centering
+\resizebox{0.6\textwidth}{!}{%
+\begin{forest}
+for tree={
+  draw, rounded corners, align=center, l sep+=10pt, s sep+=8pt,
+  edge={-{Latex[length=2mm]}}, anchor=north, child anchor=north,
+  font=\sffamily\small, inner sep=5pt
+}
+[Context modeling, fill=gray!10, draw=gray!70
+  [PPM\\{\scriptsize blended context orders\\+ arithmetic coding}, fill=teal!8, draw=teal!60]
+  [CM / PAQ / cmix\\{\scriptsize dozens of mixed models\\+ arithmetic coding}, fill=green!12, draw=green!50!black]
+]
+\end{forest}}
+\caption{The context-modeling family. Green marks the best known compression ratios of any family in this guide, at the cost of being many orders of magnitude slower than everything else here.}
+\end{figure}
+
 A family worth knowing about even though it rarely appears in consumer software: \textbf{Prediction by Partial Matching (PPM)} predicts the next symbol from a blend of several preceding context lengths (e.g., the previous 1, 2, 3, \ldots characters), falling back to shorter contexts when a longer one hasn't been seen before, and feeds those predictions to an arithmetic coder. \textbf{Context mixing (CM)} compressors (the PAQ family, and its descendants like \texttt{cmix}) go further, blending predictions from dozens or hundreds of statistical and even small neural-network models with a final arithmetic coder.
 
 These approaches regularly produce the best compression ratios known for general text and are the basis of long-running benchmarks like the Hutter Prize for text compression, but they can be many orders of magnitude slower than Huffman, LZ77, or even arithmetic coding alone, which is why they remain primarily a research and benchmarking tool rather than something you'd find in a day-to-day archiver. They are worth mentioning in an overview precisely because they mark the opposite end of the spectrum from tANS: maximum ratio, with speed treated as essentially irrelevant.
@@ -266,6 +295,26 @@ Lossy compression follows the exact same "transform, then entropy-code" template
 
 \subsection{Images}
 
+\begin{figure}[h]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{forest}
+for tree={
+  draw, rounded corners, align=center, l sep+=10pt, s sep+=6pt,
+  edge={-{Latex[length=2mm]}}, anchor=north, child anchor=north,
+  font=\sffamily\small, inner sep=5pt
+}
+[Image codecs, fill=gray!10, draw=gray!70
+  [JPEG\\{\scriptsize block DCT}, fill=orange!8, draw=orange!60!black]
+  [JPEG2000\\{\scriptsize wavelet}, fill=orange!8, draw=orange!60!black]
+  [WebP\\{\scriptsize VP8 intra coding}, fill=orange!8, draw=orange!60!black]
+  [AVIF\\{\scriptsize AV1 intra coding}, fill=green!12, draw=green!50!black]
+  [HEIC / HEIF\\{\scriptsize HEVC intra coding}, fill=orange!8, draw=orange!60!black]
+]
+\end{forest}}
+\caption{Image codecs. Note that three of the five leaves are not independent image formats at all — they are the intra-frame (single-frame) coding tools of a video codec, repurposed for stills. Green marks AVIF as the strongest ratio of the group at the time of writing.}
+\end{figure}
+
 \textbf{JPEG} is the canonical example. The pipeline is: convert the image from RGB to a luma/chroma colour space (YCbCr), optionally subsample the chroma channels at lower resolution than luma (since the eye is far less sensitive to colour detail than to brightness — this is itself a lossy step before the transform even runs), split each channel into 8$\times$8 pixel blocks, apply a \textbf{Discrete Cosine Transform (DCT)} to convert each block from pixel values into a weighted sum of frequency components, \textbf{quantize} those frequency coefficients (dividing by a quantization table tuned by a "quality" setting, which rounds high-frequency detail toward zero since the eye is least sensitive to it), reorder the coefficients in a zig-zag scan to cluster the now-mostly-zero high frequencies together, and finally entropy-code the result with Huffman coding (the original 1992 standard) or, less commonly, arithmetic coding.
 
 \textbf{JPEG2000} follows the same transform-quantize-entropy-code template but replaces the block DCT with a \textbf{wavelet transform} applied to the whole image (or large tiles), which avoids the blocky artefacts classic JPEG can show at low quality and allows a genuinely \emph{lossless} mode using a reversible integer wavelet. Its entropy stage (EBCOT) is also considerably more sophisticated than JPEG's Huffman tables. Despite technical advantages, it never displaced JPEG in mainstream use, largely due to higher computational cost and patent concerns during its rollout.
@@ -274,6 +323,30 @@ Newer image formats reuse video-codec technology for still images rather than in
 
 \subsection{Audio}
 
+\begin{figure}[h]
+\centering
+\resizebox{0.85\textwidth}{!}{%
+\begin{forest}
+for tree={
+  draw, rounded corners, align=center, l sep+=10pt, s sep+=6pt,
+  edge={-{Latex[length=2mm]}}, anchor=north, child anchor=north,
+  font=\sffamily\small, inner sep=5pt
+}
+[Audio codecs, fill=gray!10, draw=gray!70
+  [Lossy\\{\scriptsize MDCT + psychoacoustic model}, fill=orange!12, draw=orange!70!black
+    [MP3, fill=orange!8, draw=orange!60!black]
+    [AAC, fill=orange!8, draw=orange!60!black]
+    [Opus, fill=green!12, draw=green!50!black]
+  ]
+  [Lossless\\{\scriptsize linear prediction + Rice coding}, fill=teal!10, draw=teal!70
+    [FLAC, fill=teal!8, draw=teal!60]
+    [ALAC, fill=teal!8, draw=teal!60]
+  ]
+]
+\end{forest}}
+\caption{Audio codecs split the same way the whole field does (Figure~1): lossy formats trade fidelity for size using a psychoacoustic model, lossless formats use prediction and Rice coding to recover the exact waveform. Green marks Opus as the most modern, latency-flexible option.}
+\end{figure}
+
 Lossy audio compression replaces the spatial DCT/wavelet with a transform over \emph{time}, almost always a \textbf{Modified Discrete Cosine Transform (MDCT)}, and replaces "the eye is less sensitive to fine colour/high spatial frequency" with a \textbf{psychoacoustic model} of what the human ear can and cannot perceive — in particular, masking effects, where a loud sound at one frequency makes nearby frequencies and immediately following moments effectively inaudible. Coefficients in masked regions can be quantized far more coarsely, or dropped entirely, without an audible difference.
 
 \textbf{MP3} (MPEG-1 Audio Layer III) was the format that brought this to the mainstream, using MDCT plus a psychoacoustic model plus Huffman coding. \textbf{AAC} improves on MP3 with better transform and prediction tools and is the default lossy audio codec in most modern streaming and mobile platforms. \textbf{Opus} is a more recent, low-latency codec (a hybrid of the SILK speech codec and the CELT transform codec) designed for real-time use such as voice calls and live streaming, where MP3/AAC's larger encoding delay is a problem.
@@ -281,6 +354,31 @@ Lossy audio compression replaces the spatial DCT/wavelet with a transform over \
 Not every audio codec is lossy: \textbf{FLAC} and Apple's \textbf{ALAC} are \emph{lossless} audio codecs — they use linear prediction (predicting each sample from previous ones) followed by an entropy coder (commonly Rice/Golomb coding, a simple and very fast entropy code well-suited to the geometrically-distributed prediction residuals audio tends to produce) and recover the exact original waveform, at roughly half the size of uncompressed audio rather than MP3/AAC's much larger reductions.
 
 \subsection{Video}
+
+\begin{figure}[h]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{forest}
+for tree={
+  draw, rounded corners, align=center, l sep+=10pt, s sep+=6pt,
+  edge={-{Latex[length=2mm]}}, anchor=north, child anchor=north,
+  font=\sffamily\small, inner sep=5pt
+}
+[Video codecs, fill=gray!10, draw=gray!70
+  [Licensed standards, fill=orange!12, draw=orange!70!black
+    [MPEG-2, fill=orange!8, draw=orange!60!black]
+    [H.264 / AVC, fill=orange!8, draw=orange!60!black]
+    [H.265 / HEVC, fill=orange!8, draw=orange!60!black]
+    [VVC / H.266, fill=orange!8, draw=orange!60!black]
+  ]
+  [Royalty-free, fill=orange!12, draw=orange!70!black
+    [VP9, fill=orange!8, draw=orange!60!black]
+    [AV1, fill=green!12, draw=green!50!black]
+  ]
+]
+\end{forest}}
+\caption{Video codecs grouped by licensing model as much as by technology — patent and royalty considerations have shaped adoption almost as strongly as compression ratio. Green marks AV1 as the current state of the art among the royalty-free options.}
+\end{figure}
 
 Video compression adds one more redundancy to exploit beyond what images have: most of the time, the next frame looks a lot like the previous one. Video codecs add \textbf{motion estimation and compensation}: rather than transform-coding every frame from scratch, the encoder finds which block of the previous (reference) frame each block of the current frame most closely matches, after a small motion shift, and only needs to transmit that motion vector plus a (typically small) residual difference. Frames are categorized as \textbf{I-frames} (independently coded, like a still image), \textbf{P-frames} (predicted from previous frames), and \textbf{B-frames} (predicted from both previous and future frames). The residual after motion compensation still goes through the same block-transform-quantize-entropy-code pipeline as a still image, plus an in-loop filtering step (e.g., deblocking) to smooth block artefacts before the frame is used as a reference for the next one.
 
