@@ -74,13 +74,16 @@ English text is a good running example for a video: letter frequencies are highl
 
 \subsection{Why entropy is the compression limit}
 
-Shannon's \textbf{source coding theorem} states that no lossless coder can, on average, use fewer bits per symbol than the source's \emph{entropy rate} $\lim_{n\to\infty} H(X_n \mid X_{n-1}, \ldots, X_1)$, which accounts for all statistical dependencies. This is the single most important theoretical result in this field: \emph{the entropy rate is the floor}. For memoryless sources, this reduces to the ordinary entropy $H(X)$; for sources with structure (like English text), it is significantly lower.
+For a memoryless source (one where each symbol is independent of the others), the fundamental lower bound on average bits per symbol is the ordinary entropy $H(X)$. But most real data has structure — dependencies between symbols that a good compressor can exploit. The true limit for such sources is the \emph{entropy rate}, which accounts for all statistical dependencies. Understanding this progression — from simple entropy to entropy rate — is the key to understanding why context matters so much in compression.
 
 A related result, the \textbf{Kraft--McMillan inequality}, explains why \emph{prefix} codes (Section~4.1) are forced to round code lengths to whole numbers of bits, and therefore why they alone can't always reach the entropy floor exactly — the gap that arithmetic coding and its descendants exist to close.
 
 \subsection{A note on conditional and higher-order entropy}
 
 Real sources are rarely memoryless. The probability of the next character depends on the previous ones — after "th" in English, "e" is far more likely than "z". \textbf{Conditional entropy} $H(X_n \mid X_{n-1}, X_{n-2}, \ldots)$ captures this and is always less than or equal to the plain (zeroth-order) entropy. This is precisely the gap that context-aware methods (PPM, context mixing, and the prediction step inside video codecs) are built to exploit, and it is why "the entropy of English" keeps getting lower the more context a model is allowed to use.
+
+Shannon's \textbf{source coding theorem} states that no lossless coder can, on average, use fewer bits per symbol than the source's \emph{entropy rate} $\lim_{n\to\infty} H(X_n \mid X_{n-1}, \ldots, X_1)$, which accounts for all statistical dependencies. This is the single most important theoretical result in this field: \emph{the entropy rate is the floor}. For memoryless sources, this reduces to the ordinary entropy $H(X)$; for sources with structure (like English text), it is significantly lower.
+
 
 \section{The big picture}
 
