@@ -171,8 +171,9 @@ first discuss one fundamental idea. It is one of the greatest theoretical
 results in data compression. It is called the Shannon limit.
 
 Claude Shannon showed that every source of data has a compression limit.
-This is the maximum amount by which the data can be compressed without
-losing any information. The limit depends on the amount of information, or
+This result is known as Shannon's source coding theorem. It tells you the
+maximum amount by which the data can be compressed without losing any
+information. The limit depends on the amount of information, or
 uncertainty, in the source. This quantity is called entropy.
 
 \begin{figure}[H]
@@ -201,11 +202,13 @@ So although the algorithms we are about to study are very different, they
 all have the same goal. They try to compress data as close to the Shannon
 limit as possible while remaining fast and memory efficient.
 
-\section*{Part 3 --- The four families of lossless compression}
+\section*{Part 3 --- The five families of lossless compression}
 
-With that in mind, lossless compression can be divided into four categories.
+With that in mind, lossless compression can be divided into five categories.
 Number one, entropy coding. Number two, dictionary or LZ family. Number
-three, transform based compression. And number four, context modeling.
+three, transform based compression. Number four, context modeling. And
+number five, multimedia, formats that combine the first four families,
+specialized for video, images, and audio.
 
 Let us first briefly describe each of these categories. Then we will zoom
 into each one and build more tree diagrams.
@@ -224,13 +227,16 @@ for tree={
     [Dictionary\\/ LZ, fill=lossless!6, draw=lossless!70]
     [Transform\\based, fill=lossless!6, draw=lossless!70]
     [Context\\modeling, fill=lossless!6, draw=lossless!70]
+    [Multimedia, fill=lossless!6, draw=lossless!70]
   ]
   [Lossy, fill=lossy!12, draw=lossy]
 ]
 \end{forest}
 \caption*{\textbf{Figure 5.} The master tree, stage 2: Lossless gains its
-four children. Lossy is still left empty on purpose -- it is not covered in
-this video.}
+five children. The first four are algorithmic families; the fifth,
+multimedia, is built by combining them, specialized for video, images, and
+audio -- we'll see exactly how in Part 8. Lossy is still left empty on
+purpose -- it is not covered in this video.}
 \end{figure}
 
 Let's start with entropy coding. Entropy coding is a family of techniques.
@@ -342,7 +348,19 @@ figure in the section, marked in red.}
 \end{figure}
 
 Among prefix coding algorithms, we have Huffman coding, Shannon coding, and
-Shannon Fano coding. Huffman coding is fast and simple to build. It is also
+Shannon Fano coding. All three build a prefix code, but they go about
+assigning codeword lengths differently. Shannon coding takes each symbol's
+probability and rounds it up to the nearest integer number of bits using
+$-\log_2 p$, then assigns codewords in order using a running sum of the
+probabilities that came before it. Shannon-Fano coding instead works
+top-down: it sorts symbols by probability, then repeatedly splits the list
+into two halves with the most balanced total probability it can manage,
+handing out a \texttt{0} or \texttt{1} for each split. Both are simple,
+sensible heuristics, and both were stepping stones on the way to Huffman
+coding, but neither one is guaranteed to produce the shortest possible
+prefix code, the way Huffman coding is.
+
+Huffman coding, by contrast, is fast and simple to build. It is also
 optimal among all prefix codes for a memoryless source. But Huffman coding is
 not necessarily the best possible entropy coder in an absolute sense. Prefix
 codes are constrained by the Kraft McMillan inequality. We will discuss that
@@ -360,21 +378,27 @@ symbol like $D$ could actually be assigned a code of length 2.4.
 
 \begin{figure}[H]
 \centering
-\begin{tabular}{@{}lcc@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-\textbf{Symbol} & \textbf{Huffman (prefix)} & \textbf{Arithmetic (non-prefix)} \\
+\textbf{Symbol} & \textbf{Probability} & \textbf{Huffman (prefix)} & \textbf{Arithmetic (non-prefix)} \\
 \midrule
-$A$ & 1 bit & 1.1 bits \\
-$B$ & 2 bits & 1.9 bits \\
-$C$ & 3 bits & 2.7 bits \\
-$D$ & 3 bits & \textcolor{warncol}{\textbf{2.4 bits}} \\
+$A$ & 0.43 & 1 bit & 1.1 bits \\
+$B$ & 0.25 & 2 bits & 1.9 bits \\
+$C$ & 0.14 & 3 bits & 2.7 bits \\
+$D$ & 0.18 & 3 bits & \textcolor{warncol}{\textbf{2.4 bits}} \\
+\midrule
+\multicolumn{2}{@{}l}{\textbf{Average length (bits/symbol)}} & 1.89 bits & \textcolor{bestcol}{\textbf{1.76 bits}} \\
 \bottomrule
 \end{tabular}
 \caption*{\textbf{Figure 10.} Why Huffman can't always reach the entropy
 limit: every Huffman codeword length is a whole number (violet column), while
 a non-prefix coder like Arithmetic coding can use fractional lengths (blue
 column) -- a length of 2.4 bits, marked in red, is simply impossible for $D$
-under Huffman coding.}
+under Huffman coding. The probability column (derived from each symbol's
+ideal code length, $p \approx 2^{-\text{length}}$) lets us actually weigh
+these lengths: averaged over how often each symbol occurs, Huffman lands at
+1.89 bits/symbol, while Arithmetic coding lands at 1.76 bits/symbol (green)
+-- a real, measurable gap, not just a per-symbol curiosity.}
 \end{figure}
 
 Because of this, arithmetic coding can often get very close to the Shannon
@@ -596,13 +620,15 @@ for tree={
     ]
     [Transform\\based, fill=lossless!6, draw=lossless!70]
     [Context\\modeling, fill=lossless!6, draw=lossless!70]
+    [Multimedia, fill=lossless!6, draw=lossless!70]
   ]
   [Lossy, fill=lossy!12, draw=lossy]
 ]
 \end{forest}
 \caption*{\textbf{Figure 12.} The master tree, stage 4: Dictionary / LZ gains
 its two children, LZ77 and LZ78, drawn in a new color (brown) so it's
-visually distinct from the entropy-coding branch.}
+visually distinct from the entropy-coding branch. Transform based, context
+modeling, and multimedia are still waiting their turn, in Parts 6 through 8.}
 \end{figure}
 
 The key difference is this. LZ77 uses a sliding window. This makes it memory
@@ -637,8 +663,11 @@ every time a new substring is seen.}
 \end{figure}
 
 Most of the algorithms we cover in this course are extensions of LZ77. For
-example, DEFLATE is LZ77 combined with Huffman coding. And Zstandard is LZ77
-combined with tANS.
+example, DEFLATE is LZ77 combined with Huffman coding, and it's the engine
+inside zip, gzip, and PNG -- old, simple, and everywhere. Zstandard is LZ77
+combined with tANS, a much newer design tuned to get close to DEFLATE's
+ratio, or better, while running far faster, which is why companies like
+Facebook and Netflix use it for everyday compression at scale.
 
 \begin{figure}[H]
 \centering
@@ -661,7 +690,7 @@ replace entropy coding, they hand off to it.}
 
 \section*{Part 6 --- Transform-based compression: the Burrows--Wheeler Transform}
 
-We've now covered two of our four lossless families: entropy coding and
+We've now covered two of our five lossless families: entropy coding and
 dictionary compression. Let's move to the third family. Transform based
 compression.
 
@@ -740,7 +769,8 @@ comes after it work better.}
 
 \section*{Part 7 --- Context modeling: PPM and context mixing}
 
-That brings us to the fourth and final lossless family: context modeling.
+That brings us to the fourth of our five lossless families: context
+modeling.
 
 Entropy coding, which we covered in Part 4, assigns a symbol's code length
 based on how common that symbol is, overall, across the entire source.
@@ -793,6 +823,14 @@ approach behind compressors like PAQ and its descendants. The cost is speed:
 context mixing can run hundreds of times slower than something like Huffman
 coding.
 
+\engage{contextcol}{Fun fact:}{the Hutter Prize is an ongoing competition
+that pays out cash for shrinking a fixed 1\,GB sample of Wikipedia text as
+small as possible. The idea is that squeezing text harder forces you to
+\emph{model} it better, and better modeling of language is a proxy for
+general intelligence. Every leading entry for years has been a context
+mixing compressor descended from PAQ -- the same family we just met, pushed
+to its absolute limit.}
+
 \begin{figure}[H]
 \centering
 \begin{forest}
@@ -811,12 +849,11 @@ for tree={
 curve we've drawn so far, paid for entirely in speed.}
 \end{figure}
 
-\section*{Part 8 --- A fifth lossless branch: multimedia}
+\section*{Part 8 --- The fifth family: multimedia}
 
-We've now met all four algorithmic families that make up lossless
+We've now met four of the five algorithmic families that make up lossless
 compression: entropy coding, dictionary or LZ, transform based, and context
-modeling. But there's one more branch worth adding under lossless, and it's
-a slightly surprising one: multimedia.
+modeling. Time for the fifth one we promised back in Part 3: multimedia.
 
 Earlier in this video I said multimedia, video, images, and audio, is the
 classic use case for \emph{lossy} compression. That's true most of the time.
@@ -853,10 +890,11 @@ for tree={
   [Lossy, fill=lossy!12, draw=lossy]
 ]
 \end{forest}
-\caption*{\textbf{Figure 19.} The master tree, stage 5: Lossless gains a
-fifth child, Multimedia (olive), which in turn splits into the three media
-types we keep coming back to -- video, image, and audio. Lossy is still
-collapsed on purpose; we expand it in Part 9.}
+\caption*{\textbf{Figure 19.} The master tree, stage 5: Lossless's fifth
+child, Multimedia (olive) -- the one we left empty back in Figures 5 and 12
+-- finally expands into the three media types we keep coming back to: video,
+image, and audio. Lossy is still collapsed on purpose; we expand it in Part
+9.}
 \end{figure}
 
 Let's take each one in turn.
@@ -877,9 +915,11 @@ fast, simple Rice coding, a close cousin of the prefix codes from Part 4.
 
 So if you guessed ``a transform-style prediction step followed by entropy
 coding'' for FLAC, you were right. That same pattern, predict, then
-entropy-code the error, shows up in FFV1 and PNG too. Multimedia formats
-aren't a fifth way of compressing data. They're the first four families,
-specialized for pixels and samples.
+entropy-code the error, shows up in FFV1 and PNG too. Multimedia isn't a new
+way of compressing data invented from scratch -- it's the first four
+families, specialized for pixels and samples. That's exactly why it earns
+its own branch in the tree: not a new technique, but the place where the
+other four meet a specific kind of data.
 
 \section*{Part 9 --- Filling in lossy: video, images, and audio}
 
@@ -889,21 +929,35 @@ four shared families. Instead, it splits naturally by media type, because
 what counts as ``unnoticeable'' is different for your eyes than it is for
 your ears.
 
-\textbf{Lossy images -- JPEG.} JPEG splits the image into small blocks,
-transforms each block into frequency components with the discrete cosine
-transform, and then throws away the high-frequency detail the human eye is
-least likely to notice.
+\textbf{Lossy images -- JPEG and WebP.} JPEG splits the image into small
+blocks, transforms each block into frequency components with the discrete
+cosine transform, and then throws away the high-frequency detail the human
+eye is least likely to notice. WebP improves on that idea by borrowing
+prediction tricks from video compression, predicting each block from its
+neighbors before transforming it, which typically gets noticeably smaller
+files than JPEG at the same visual quality.
 
-\textbf{Lossy audio -- MP3 / Opus.} These formats lean on a psychoacoustic
-model, a model of what the human ear can and can't actually perceive, to
-discard sound components you wouldn't hear anyway, then entropy-code
-whatever's left.
+\textbf{Lossy audio -- MP3, AAC, and Opus.} All three lean on a
+psychoacoustic model, a model of what the human ear can and can't actually
+perceive, to discard sound components you wouldn't hear anyway, then
+entropy-code whatever's left. MP3 is the original of the three, and the
+least efficient. AAC is its successor, using a finer-grained psychoacoustic
+model to match MP3's quality at a noticeably lower bitrate. Opus is the
+newest of the three, built for real-time use, and it switches between a
+speech-optimized mode and a music-optimized mode internally to stay
+efficient at both.
 
-\textbf{Lossy video -- H.264 / HEVC / AV1.} Video reuses the image trick at
-its core: each frame still gets the block-transform-and-discard treatment.
-But video adds one more move. It predicts each frame from neighboring
-frames using motion estimation, so it only has to encode what actually
-\emph{changed} between frames, not the whole picture over and over.
+\textbf{Lossy video -- H.264, HEVC, and AV1.} Video reuses the image trick
+at its core: each frame still gets the block-transform-and-discard
+treatment. But video adds one more move. It predicts each frame from
+neighboring frames using motion estimation, so it only has to encode what
+actually \emph{changed} between frames, not the whole picture over and over.
+H.264 is the workhorse behind most streaming and Blu-ray video in use today.
+HEVC, also called H.265, refines the same idea with larger, more flexible
+prediction blocks and roughly doubles H.264's compression ratio at the same
+quality. AV1 is the newest of the three and, unlike the other two, is
+royalty-free; it generally edges out HEVC on ratio and is the format YouTube
+and Netflix increasingly default to for new streams.
 
 \engage{lossy}{Connect the dots:}{lossy video is really lossy image
 compression, applied frame by frame, plus one new idea. Can you name that
