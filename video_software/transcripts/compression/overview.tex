@@ -464,6 +464,87 @@ ratio), and Huffman's defining trait here is the \emph{lowest ratio}, not the
 fastest runtime -- tANS (green) is the fastest-running coder of the five.}
 \end{figure}
 
+That scatter plot is great for intuition, but let's pin the comparison down
+exactly, with two ranked tables. While we're at it, let's bring back two
+prefix codes we named earlier and then left on the sidelines: Shannon coding
+and Shannon-Fano coding.
+
+\engage{prefixcol}{Pause and guess:}{Shannon coding and Shannon-Fano coding
+are both prefix codes, just like Huffman. Where do you think they'll land
+on the ratio table below -- above Huffman, below it, or tied with it?}
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}cp{3.0cm}p{8.0cm}@{}}
+\toprule
+\textbf{Rank} & \textbf{Algorithm(s)} & \textbf{Why} \\
+\midrule
+1 & \textcolor{nonprefixcol}{Arithmetic}, \textcolor{nonprefixcol}{Range} &
+Tied. Both use fractional-length codewords and get essentially as close to
+the Shannon limit as possible. Range coding is just an integer
+reformulation of arithmetic coding -- same ratio. \\[4pt]
+2 & \textcolor{nonprefixcol}{rANS}, \textcolor{bestcol}{tANS} &
+Tied. Also non-prefix, fractional-effective-length coders, so they get very
+close to Arithmetic/Range -- but the table-driven, finite-precision approach
+gives up a small, deliberate amount of ratio in exchange for speed. \\[4pt]
+3 & \textcolor{prefixcol}{Huffman} &
+Optimal \emph{among prefix codes}, but every codeword must be a whole number
+of bits, so it can't match the entropy as tightly as the non-prefix coders
+above it. \\[4pt]
+4 & \textcolor{prefixcol}{Shannon}, \textcolor{prefixcol}{Shannon-Fano} &
+Tied. Both are prefix codes like Huffman, but neither is guaranteed optimal
+even among prefix codes -- Huffman always does at least as well as either of
+them. \\
+\bottomrule
+\end{tabular}
+\caption*{\textbf{Figure 11b.} All entropy coders we've named, ranked by
+compression ratio, best to worst. Colors match the prefix/non-prefix split
+from Figures 7 and 7b.}
+\end{figure}
+
+So Shannon and Shannon-Fano land at the very bottom on ratio, behind even
+Huffman. Now let's rank the same six algorithms a completely different way:
+by speed.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}cp{4.2cm}p{6.8cm}@{}}
+\toprule
+\textbf{Rank} & \textbf{Algorithm(s)} & \textbf{Why} \\
+\midrule
+1 & \textcolor{bestcol}{tANS} &
+Fastest of all. Encoding and decoding reduce to pure table lookups -- no
+arithmetic operations at all. \\[4pt]
+2 & \textcolor{prefixcol}{Huffman}, \textcolor{prefixcol}{Shannon},
+\textcolor{prefixcol}{Shannon-Fano} &
+Tied. All three are prefix codes -- encode/decode is a simple lookup of a
+fixed bit pattern per symbol, structurally similar and similarly fast
+regardless of which one assigns the codewords. \\[4pt]
+3 & \textcolor{nonprefixcol}{rANS} &
+Fast, but each symbol still requires a bit of integer arithmetic to update
+the state, so it's a step behind the pure-lookup tANS. \\[4pt]
+4 & \textcolor{nonprefixcol}{Range} &
+Uses integer arithmetic with renormalization but avoids division -- faster
+than arithmetic coding, slower than the table-driven methods above. \\[4pt]
+5 & \textcolor{nonprefixcol}{Arithmetic} &
+Slowest. Needs high-precision, renormalizing fractional arithmetic,
+historically including division per symbol. \\
+\bottomrule
+\end{tabular}
+\caption*{\textbf{Figure 11c.} The same six entropy coders, ranked by
+compression speed, fastest to slowest. Notice the ranking barely resembles
+Figure 11b's ranking -- the fastest coder (tANS) is tied for second-worst on
+ratio, and the three slowest-to-rank-1 coders on ratio (Huffman,
+Shannon, Shannon-Fano) are tied for second-fastest here.}
+\end{figure}
+
+\engage{prefixcol}{Side note:}{Huffman's reputation for being ``fast''
+usually refers to how quickly its code \emph{table} can be built -- it's a
+simple, greedy tree construction. That's a separate claim from how fast
+encoding and decoding run per symbol once the table already exists, which is
+exactly why those two ideas land in different tables above rather than
+getting conflated into one.}
+
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
