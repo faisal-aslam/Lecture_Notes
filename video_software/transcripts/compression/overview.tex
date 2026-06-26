@@ -206,7 +206,7 @@ limit as possible while remaining fast and memory efficient.
 
 With that in mind, lossless compression can be divided into five categories.
 Number one, entropy coding. Number two, dictionary or LZ family. Number
-three, transform based compression. Number four, context modeling. And
+three, transform-based compression. Number four, context modeling. And
 number five, multimedia, formats that combine the first four families,
 specialized for video, images, and audio.
 
@@ -348,8 +348,9 @@ figure in the section, marked in red.}
 \end{figure}
 
 Shannon coding, Shannon-Fano coding, and Huffman coding are all prefix
-codes. Shannon coding rounds each symbol's probability up to the nearest
-integer using $-\log_2 p$. Shannon-Fano works top-down, repeatedly splitting
+codes. Shannon coding takes each symbol's ideal code length, $-\log_2 p$,
+and rounds it up to the nearest integer to get that symbol's codeword
+length. Shannon-Fano works top-down, repeatedly splitting
 the sorted symbol list into two balanced halves. Huffman coding builds the
 optimal prefix code for a given probability distribution using a greedy
 tree-construction algorithm. Huffman is optimal among all prefix codes for a
@@ -417,6 +418,7 @@ decoding reduce to simple table lookups.
 
 \begin{figure}[H]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{forest}
 for tree={
   draw, rounded corners, align=center, l sep+=12pt, s sep+=8pt,
@@ -436,13 +438,14 @@ for tree={
     [tANS\\{\scriptsize near-best, fastest}, fill=bestcol!12, draw=bestcol]
   ]
 ]
-\end{forest}
+\end{forest}%
+}
 \caption*{\textbf{Figure 7b.} The entropy-coding branch, fully grown. Green
-marks tANS as the fastest of the five -- pure table lookups, no arithmetic at
+marks tANS as the fastest of the seven -- pure table lookups, no arithmetic at
 all.}
 \end{figure}
 
-So here is how these six entropy coders actually compare. Huffman is the
+So here is how these seven entropy coders actually compare. Huffman is the
 quickest and simplest to build, but it gives up the most compression ratio,
 since it's stuck with whole numbers of bits. Shannon and Shannon-Fano are
 also prefix codes, but neither is guaranteed optimal even among prefix codes
@@ -481,12 +484,13 @@ purely on table lookups.
 \filldraw[bestcol] (8.0,3.5) circle (2.2pt);
 \node[anchor=west, bestcol] at (8.2,3.5) {tANS};
 \end{tikzpicture}
-\caption*{\textbf{Figure 11.} Speed vs.\ compression ratio for all six
-entropy coders. Range sits to the \emph{right} of (faster than) Arithmetic at
-the \emph{same} height (same ratio). Shannon and Shannon-Fano sit at the
-bottom on ratio, tied with each other. Huffman's defining trait here is the
-\emph{second-lowest ratio}, not the fastest runtime -- tANS (green) is the
-fastest-running coder of the six.}
+\caption*{\textbf{Figure 11.} Speed vs.\ compression ratio for all seven
+entropy coders (six visible points, since Shannon and Shannon-Fano tie and
+sit on top of each other). Range sits to the \emph{right} of (faster than)
+Arithmetic at the \emph{same} height (same ratio). Shannon and Shannon-Fano
+sit at the bottom on ratio, tied with each other. Huffman's defining trait
+here is the \emph{second-lowest ratio}, not the fastest runtime -- tANS
+(green) is the fastest-running coder of the seven.}
 \end{figure}
 
 That scatter plot is great for intuition, but let's pin the comparison down
@@ -521,7 +525,7 @@ compression ratio, best to worst. Colors match the prefix/non-prefix split
 from Figures 7 and 7b.}
 \end{figure}
 
-Now let's rank the same six algorithms a completely different way: by speed.
+Now let's rank the same seven algorithms a completely different way: by speed.
 
 \begin{figure}[H]
 \centering
@@ -548,7 +552,7 @@ Slowest. Needs high-precision, renormalizing fractional arithmetic,
 historically including division per symbol. \\
 \bottomrule
 \end{tabular}
-\caption*{\textbf{Figure 11c.} The same six entropy coders, ranked by
+\caption*{\textbf{Figure 11c.} The same seven entropy coders, ranked by
 compression speed, fastest to slowest. Notice the ranking barely resembles
 Figure 11b's ranking -- the fastest coder (tANS) is tied for second-worst on
 ratio, and the three slowest-to-rank-1 coders on ratio (Huffman,
@@ -596,9 +600,12 @@ they aren't even optimal among prefix codes. Colors match Figure 7b.}
 
 \section*{Part 5 --- Dictionary compression: the LZ family}
 
-Now next we move to dictionary based compression algorithms. They mostly
+Next, we move to dictionary-based compression algorithms. They mostly
 belong to the LZ family. At a high level, we can divide them into LZ77 and
 LZ78.
+
+Dictionary compressors like LZ77 replace repeated byte patterns with a short reference pointing back to where that pattern last appeared, 
+using a sliding window of recent data to keep the reference small and efficient.
 
 \begin{figure}[H]
 \centering
@@ -664,7 +671,7 @@ example, DEFLATE is LZ77 combined with Huffman coding, and it's the engine
 inside zip, gzip, and PNG -- old, simple, and everywhere. Zstandard is LZ77
 combined with tANS, a much newer design tuned to get close to DEFLATE's
 ratio, or better, while running far faster, which is why companies like
-Facebook and Netflix use it for everyday compression at scale. LZMA (Lempel-Ziv-Markov chain Algorithm) uses LZ77 with larger dictionaries and advanced entropy coding (range coding), achieving excellent compression ratios at the cost of slower speed. Brotli, used in web compression (HTTPS), is a modern LZ77 variant with a static dictionary of common web strings and Huffman coding, offering better compression than gzip for text. Snappy, developed by Google, is an extremely fast LZ77-based compressor with modest compression, optimized for low latency in databases and real-time systems.
+Facebook and Netflix use it for everyday compression at scale. LZMA (Lempel-Ziv-Markov chain algorithm) uses LZ77 with larger dictionaries and advanced entropy coding (range coding), achieving excellent compression ratios at the cost of slower speed. Brotli, used in web compression (HTTP), is a modern LZ77 variant with a static dictionary of common web strings and Huffman coding, offering better compression than gzip for text. Snappy, developed by Google, is an extremely fast LZ77-based compressor with modest compression, optimized for low latency in databases and real-time systems.
 
 \begin{figure}[H]
 \centering
@@ -677,8 +684,8 @@ for tree={
 [LZ77, fill=dictcol!10, draw=dictcol
   [DEFLATE\\{\scriptsize LZ77 + \textcolor{prefixcol}{Huffman}}, fill=dictcol!6, draw=dictcol]
   [Zstandard\\{\scriptsize LZ77 + \textcolor{bestcol}{tANS}}, fill=dictcol!6, draw=dictcol]
-  [LZMA\\{\scriptsize LZ77 + range coding}, fill=dictcol!6, draw=dictcol]
-  [Brotli\\{\scriptsize LZ77 + web dict + Huffman}, fill=dictcol!6, draw=dictcol]
+  [LZMA\\{\scriptsize LZ77 + \textcolor{nonprefixcol}{range coding}}, fill=dictcol!6, draw=dictcol]
+  [Brotli\\{\scriptsize LZ77 + web dict + \textcolor{prefixcol}{Huffman}}, fill=dictcol!6, draw=dictcol]
   [Snappy\\{\scriptsize LZ77, extremely fast}, fill=dictcol!6, draw=dictcol]
 ]
 \end{forest}
@@ -691,7 +698,7 @@ an entropy coder from Part 4 or a specialized optimization. The ``+Huffman'',
 \section*{Part 6 --- Transform-based compression: the Burrows--Wheeler Transform}
 
 We've now covered two of our five lossless families: entropy coding and
-dictionary compression. Let's move to the third family. Transform based
+dictionary compression. Let's move to the third family. Transform-based
 compression.
 
 Here's the core idea. Instead of compressing the data directly, first
@@ -772,11 +779,12 @@ comes after it work better.}
 That brings us to the fourth of our five lossless families: context
 modeling.
 
-Entropy coding, which we covered in Part 4, assigns a symbol's code length
-based on how common that symbol is, overall, across the entire source.
-Context modeling asks a sharper question. Forget the overall frequency. How
-likely is this symbol to appear \emph{right here}, given the handful of
-symbols that just came before it?
+Entropy coding assigns a symbol's code length based on how common that symbol is, overall, across the entire source.
+Context modeling asks a sharper question. Forget the overall frequency. How likely is this symbol to appear \emph{right here}, 
+given the handful of symbols that just came before it?
+
+Context modeling is effectively an order-\emph{n} entropy model, where $n$ is the size of the context. It estimates the probability of
+each symbol conditioned on the $n$ symbols that preceded it, rather than using a single global probability for every symbol.
 
 The flagship algorithm in this family is called PPM, which stands for
 Prediction by Partial Matching.
@@ -897,72 +905,31 @@ image, and audio. Lossy is still collapsed on purpose; we expand it in Part
 9.}
 \end{figure}
 
-Let's take each one in turn.
+Let's take each one in turn. Basically each of FFV1, PNG, and FLAC uses prediction to guess the current pixel or sample based on previously processed pixels or samples, then applies entropy coding to the residual error.
 
-\textbf{Lossless video -- FFV1.} FFV1 predicts each pixel from its
-already-decoded neighbors, then entropy-codes the small leftover error with
-range coding. It's the format film archives and broadcasters reach for when
-a frame absolutely cannot change, not even by one pixel.
+\textbf{Lossless video -- FFV1.} 
+FFV1 predicts each pixel from neighboring pixels that have already been processed, then entropy-codes the prediction error with range coding. It's the format film archives and broadcasters reach for when a frame absolutely cannot change, not even by one pixel.
 
-\textbf{Lossless images -- PNG.} PNG runs a per-row prediction filter to
-exploit how similar neighboring pixels usually are, then compresses the
-resulting residual with DEFLATE, the same LZ77-plus-Huffman pipeline from
-Part 5.
+\textbf{Lossless images -- PNG.} PNG runs a per-row prediction filter to exploit how similar neighboring pixels usually are, then compresses the resulting residual with DEFLATE, the same LZ77-plus-Huffman pipeline.
 
-\textbf{Lossless audio -- FLAC.} FLAC predicts each audio sample from the
-samples just before it, then entropy-codes the small prediction error with
-fast, simple Rice coding, a close cousin of the prefix codes from Part 4.
+\textbf{Lossless audio -- FLAC.} FLAC predicts each audio sample from the samples just before it, then entropy-codes the small prediction error with fast, simple Rice coding, a close cousin of the prefix codes we covered earlier.
 
-So if you guessed ``a transform-style prediction step followed by entropy
-coding'' for FLAC, you were right. That same pattern, predict, then
-entropy-code the error, shows up in FFV1 and PNG too. Multimedia isn't a new
-way of compressing data invented from scratch -- it's the first four
-families, specialized for pixels and samples. That's exactly why it earns
-its own branch in the tree: not a new technique, but the place where the
-other four meet a specific kind of data.
+So if you guessed "a prediction step followed by entropy coding" for FLAC, you were right. That same pattern -- predict, then entropy-code the error -- shows up in FFV1 and PNG too. Multimedia isn't a new way of compressing data invented from scratch; it's the first four families, specialized for pixels and samples. That's exactly why it earns its own branch in the tree: not a new technique, but the place where the other four meet a specific kind of data.
 
 \section*{Part 9 --- Filling in lossy: video, images, and audio}
 
-Now let's finally fill in the other half of our master tree: lossy
-compression. Unlike lossless, lossy compression doesn't reduce neatly into
-four shared families. Instead, it splits naturally by media type, because
-what counts as ``unnoticeable'' is different for your eyes than it is for
-your ears.
+Now let's finally fill in the other half of our master tree: lossy compression. The key takeaway of lossy video, image, and audio compression is that they discard high-frequency detail that is not easily perceptible to human eyes and ears. Thus, the reduction in quality significantly reduces the size of multimedia files, but it remains acceptable for human perception.
 
-\textbf{Lossy images -- JPEG and WebP.} JPEG splits the image into small
-blocks, transforms each block into frequency components with the discrete
-cosine transform, and then throws away the high-frequency detail the human
-eye is least likely to notice. WebP improves on that idea by borrowing
-prediction tricks from video compression, predicting each block from its
-neighbors before transforming it, which typically gets noticeably smaller
-files than JPEG at the same visual quality.
+Unlike lossless, lossy compression doesn't reduce neatly into four shared families. Instead, it splits naturally by media type, because what counts as "unnoticeable" is different for your eyes than it is for your ears.
 
-\textbf{Lossy audio -- MP3, AAC, and Opus.} All three lean on a
-psychoacoustic model, a model of what the human ear can and can't actually
-perceive, to discard sound components you wouldn't hear anyway, then
-entropy-code whatever's left. MP3 is the original of the three, and the
-least efficient. AAC is its successor, using a finer-grained psychoacoustic
-model to match MP3's quality at a noticeably lower bitrate. Opus is the
-newest of the three, built for real-time use, and it switches between a
-speech-optimized mode and a music-optimized mode internally to stay
-efficient at both.
+\textbf{Lossy images -- JPEG and WebP.} JPEG splits the image into small blocks, transforms each block into frequency components with the discrete cosine transform, and then throws away the high-frequency detail the human eye is least likely to notice. WebP improves on that idea by borrowing prediction tricks from video compression, predicting each block from its neighbors before transforming it, which typically gets noticeably smaller files than JPEG at the same visual quality.
 
-\textbf{Lossy video -- H.264, HEVC, and AV1.} Video reuses the image trick
-at its core: each frame still gets the block-transform-and-discard
-treatment. But video adds one more move. It predicts each frame from
-neighboring frames using motion estimation, so it only has to encode what
-actually \emph{changed} between frames, not the whole picture over and over.
-H.264 is the workhorse behind most streaming and Blu-ray video in use today.
-HEVC, also called H.265, refines the same idea with larger, more flexible
-prediction blocks and roughly doubles H.264's compression ratio at the same
-quality. AV1 is the newest of the three and, unlike the other two, is
-royalty-free; it generally edges out HEVC on ratio and is the format YouTube
-and Netflix increasingly default to for new streams.
+\textbf{Lossy audio -- MP3, AAC, and Opus.} All three lean on a psychoacoustic model, a model of what the human ear can and can't actually perceive, to discard sound components you wouldn't hear anyway, then entropy-code whatever's left. MP3 is the original of the three, and the least efficient. AAC is its successor, using a finer-grained psychoacoustic model to match MP3's quality at a noticeably lower bitrate. Opus is the newest of the three, built for real-time use, and it switches between a speech-optimized mode and a music-optimized mode internally to stay efficient at both.
 
-\engage{lossy}{Connect the dots:}{lossy video is really lossy image
-compression, applied frame by frame, plus one new idea. Can you name that
-new idea before reading the paragraph above again? (Hint: it's about what
-changes \emph{between} frames, not within one.)}
+\textbf{Lossy video -- H.264, HEVC, and AV1.} Video reuses the image trick at its core: each frame still gets the block-transform-and-discard treatment. But video adds one more move. It predicts each frame from neighboring frames using motion estimation, so it only has to encode what actually \emph{changed} between frames, not the whole picture over and over. H.264 is the workhorse behind most streaming and Blu-ray video in use today. HEVC, also called H.265, refines the same idea with larger, more flexible prediction blocks and roughly doubles H.264's compression ratio at the same quality. AV1 is the newest of the three and, unlike the other two, is royalty-free; it generally edges out HEVC on ratio and is the format YouTube and Netflix increasingly default to for new streams.
+
+\engage{lossy}{Connect the dots:}{lossy video is really lossy image compression, applied frame by frame, plus one new idea. Can you name that new idea before reading the paragraph above again? (Hint: it's about what changes \emph{between} frames, not within one.)}
+
 
 \begin{figure}[H]
 \centering
@@ -1054,4 +1021,3 @@ you feel lost in a later video, come back to this picture and ask yourself:
 which leaf am I in right now?
 
 \end{document}
-
