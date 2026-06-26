@@ -347,28 +347,20 @@ keep reading (it might be the start of $B=01$). This is the one ``error''
 figure in the section, marked in red.}
 \end{figure}
 
-Among prefix coding algorithms, we have Huffman coding, Shannon coding, and
-Shannon Fano coding. All three build a prefix code, but they go about
-assigning codeword lengths differently. Shannon coding takes each symbol's
-probability and rounds it up to the nearest integer number of bits using
-$-\log_2 p$, then assigns codewords in order using a running sum of the
-probabilities that came before it. Shannon-Fano coding instead works
-top-down: it sorts symbols by probability, then repeatedly splits the list
-into two halves with the most balanced total probability it can manage,
-handing out a \texttt{0} or \texttt{1} for each split. Both are simple,
-sensible heuristics, and both were stepping stones on the way to Huffman
-coding, but neither one is guaranteed to produce the shortest possible
-prefix code, the way Huffman coding is.
+Shannon coding, Shannon-Fano coding, and Huffman coding are all prefix
+codes. Shannon coding rounds each symbol's probability up to the nearest
+integer using $-\log_2 p$. Shannon-Fano works top-down, repeatedly splitting
+the sorted symbol list into two balanced halves. Huffman coding builds the
+optimal prefix code for a given probability distribution using a greedy
+tree-construction algorithm. Huffman is optimal among all prefix codes for a
+memoryless source.
 
-Huffman coding, by contrast, is fast and simple to build. It is also
-optimal among all prefix codes for a memoryless source. But Huffman coding is
-not necessarily the best possible entropy coder in an absolute sense. Prefix
-codes are constrained by the Kraft McMillan inequality. We will discuss that
-in a separate video. One important consequence of this constraint is that
-every codeword must have an integer number of bits. In our earlier example,
-$A$ was assigned a code of length 1. $B$ was assigned a code of length 2. $C$
-and $D$ were both assigned codes of length 3. These lengths are all integers.
-We cannot assign $D$ a code of length 2.4 in Huffman coding.
+Prefix codes are constrained by the Kraft McMillan inequality. One important
+consequence of this constraint is that every codeword must have an integer
+number of bits. In our earlier example, $A$ was assigned a code of length 1.
+$B$ was assigned a code of length 2. $C$ and $D$ were both assigned codes of
+length 3. These lengths are all integers. We cannot assign $D$ a code of
+length 2.4 in Huffman coding.
 
 Because of this restriction, Huffman coding cannot always match the exact
 entropy of the source. So it cannot always reach the Shannon limit.
@@ -434,6 +426,8 @@ for tree={
 [Entropy coding, fill=lossless!10, draw=lossless!70
   [Prefix coding, fill=prefixcol!10, draw=prefixcol
     [Huffman\\{\scriptsize fast, lowest ratio}, fill=prefixcol!6, draw=prefixcol]
+    [Shannon\\{\scriptsize suboptimal prefix}, fill=prefixcol!6, draw=prefixcol]
+    [Shannon-Fano\\{\scriptsize suboptimal prefix}, fill=prefixcol!6, draw=prefixcol]
   ]
   [Non-prefix coding, fill=nonprefixcol!10, draw=nonprefixcol
     [Arithmetic\\{\scriptsize best ratio, slowest}, fill=nonprefixcol!6, draw=nonprefixcol]
@@ -448,12 +442,14 @@ marks tANS as the fastest of the five -- pure table lookups, no arithmetic at
 all.}
 \end{figure}
 
-So here is how these five entropy coders actually compare. Huffman is the
+So here is how these six entropy coders actually compare. Huffman is the
 quickest and simplest to build, but it gives up the most compression ratio,
-since it's stuck with whole numbers of bits. Arithmetic coding and range
-coding sit at the other end. They give you the best possible compression
-ratio, right up against the Shannon limit. Between the two, range coding is
-faster than arithmetic coding, since it avoids division. rANS and tANS sit in
+since it's stuck with whole numbers of bits. Shannon and Shannon-Fano are
+also prefix codes, but neither is guaranteed optimal even among prefix codes
+-- Huffman always does at least as well. Arithmetic coding and range coding
+sit at the other end. They give you the best possible compression ratio,
+right up against the Shannon limit. Between the two, range coding is faster
+than arithmetic coding, since it avoids division. rANS and tANS sit in
 between on ratio, very close to arithmetic and range coding but not quite as
 good, and they are the fastest of the group when it comes to actually running
 the encoder and decoder, with tANS being the fastest of all since it relies
@@ -465,9 +461,13 @@ purely on table lookups.
 \draw[->, thick] (0,0) -- (0,5.2) node[above, font=\sffamily\small] {compression ratio (best $\uparrow$)};
 \draw[->, thick] (0,0) -- (9.2,0) node[right, font=\sffamily\small] {speed (fastest $\rightarrow$)};
 
-% Huffman: lowest ratio
-\filldraw[prefixcol] (1.4,1.0) circle (2.2pt);
-\node[anchor=west, prefixcol] at (1.6,1.0) {Huffman};
+% Shannon and Shannon-Fano: lowest ratio, tied with each other
+\filldraw[prefixcol] (1.0,0.8) circle (2.2pt);
+\node[anchor=west, prefixcol] at (1.2,0.8) {Shannon, Shannon-Fano};
+
+% Huffman: slightly better ratio than Shannon/Shannon-Fano
+\filldraw[prefixcol] (1.4,1.8) circle (2.2pt);
+\node[anchor=west, prefixcol] at (1.6,1.8) {Huffman};
 
 % Arithmetic and Range: tied, best ratio
 \filldraw[nonprefixcol] (3.0,4.6) circle (2.2pt);
@@ -481,25 +481,20 @@ purely on table lookups.
 \filldraw[bestcol] (8.0,3.5) circle (2.2pt);
 \node[anchor=west, bestcol] at (8.2,3.5) {tANS};
 \end{tikzpicture}
-\caption*{\textbf{Figure 11.} Speed vs.\ compression ratio for all five
-entropy coders. Two details that are easy to get backwards: Range sits to the
-\emph{right} of (faster than) Arithmetic at the \emph{same} height (same
-ratio), and Huffman's defining trait here is the \emph{lowest ratio}, not the
-fastest runtime -- tANS (green) is the fastest-running coder of the five.}
+\caption*{\textbf{Figure 11.} Speed vs.\ compression ratio for all six
+entropy coders. Range sits to the \emph{right} of (faster than) Arithmetic at
+the \emph{same} height (same ratio). Shannon and Shannon-Fano sit at the
+bottom on ratio, tied with each other. Huffman's defining trait here is the
+\emph{second-lowest ratio}, not the fastest runtime -- tANS (green) is the
+fastest-running coder of the six.}
 \end{figure}
 
 That scatter plot is great for intuition, but let's pin the comparison down
-exactly, with two ranked tables. While we're at it, let's bring back two
-prefix codes we named earlier and then left on the sidelines: Shannon coding
-and Shannon-Fano coding.
-
-\engage{prefixcol}{Pause and guess:}{Shannon coding and Shannon-Fano coding
-are both prefix codes, just like Huffman. Where do you think they'll land
-on the ratio table below -- above Huffman, below it, or tied with it?}
+exactly, with two ranked tables.
 
 \begin{figure}[H]
 \centering
-\begin{tabular}{@{}cp{3.0cm}p{8.0cm}@{}}
+\begin{tabular}{@{}cp{4.0cm}p{6.0cm}@{}}
 \toprule
 \textbf{Rank} & \textbf{Algorithm(s)} & \textbf{Why} \\
 \midrule
@@ -526,9 +521,7 @@ compression ratio, best to worst. Colors match the prefix/non-prefix split
 from Figures 7 and 7b.}
 \end{figure}
 
-So Shannon and Shannon-Fano land at the very bottom on ratio, behind even
-Huffman. Now let's rank the same six algorithms a completely different way:
-by speed.
+Now let's rank the same six algorithms a completely different way: by speed.
 
 \begin{figure}[H]
 \centering
@@ -578,8 +571,11 @@ getting conflated into one.}
 \node[warncol, right] at (9.7,0) {Shannon limit};
 \node[font=\sffamily\scriptsize, rotate=90] at (-0.6,0.9) {bits / symbol};
 
-\draw[->, prefixcol, thick] (0.2,2.2) -- (4.2,0.55);
-\node[prefixcol, font=\sffamily\scriptsize, above] at (1.4,2.05) {Huffman};
+\draw[->, prefixcol, thick] (0.2,2.2) -- (3.2,0.55);
+\node[prefixcol, font=\sffamily\scriptsize, above] at (1.0,1.8) {Shannon, Shannon-Fano};
+
+\draw[->, prefixcol, thick] (0.2,1.85) -- (4.2,0.45);
+\node[prefixcol, font=\sffamily\scriptsize, above] at (1.8,1.4) {Huffman};
 
 \draw[->, nonprefixcol, thick] (0.2,1.55) -- (6.2,0.28);
 \node[nonprefixcol, font=\sffamily\scriptsize, above] at (3.0,1.05) {rANS};
@@ -593,8 +589,9 @@ getting conflated into one.}
 \caption*{\textbf{Figure 4b.} The Shannon limit wall, fully labeled. Arithmetic
 and Range coding are tied for closest to the limit -- that is the entire
 reason they exist. rANS and tANS trade a small, deliberate gap from the limit
-for a large gain in speed. Huffman is furthest from the wall, since it is
-locked into whole-bit codewords. Colors match Figure 7b.}
+for a large gain in speed. Huffman is further from the wall, since it is
+locked into whole-bit codewords. Shannon and Shannon-Fano are furthest, since
+they aren't even optimal among prefix codes. Colors match Figure 7b.}
 \end{figure}
 
 \section*{Part 5 --- Dictionary compression: the LZ family}
@@ -638,7 +635,7 @@ constrained. LZ78 instead uses a growing dictionary.
 \centering
 \begin{tikzpicture}[font=\sffamily\small]
 % LZ77: sliding window over a fixed-length tape
-\node[anchor=west] at (0,3.0) {\textbf{LZ77 --- sliding window}};
+\node[anchor=west] at (0,3.4) {\textbf{LZ77 --- sliding window}};
 \foreach \i in {0,...,11}{
   \draw[gray!60] (\i*0.5,2.0) rectangle (\i*0.5+0.5,2.5);
 }
@@ -648,12 +645,12 @@ constrained. LZ78 instead uses a growing dictionary.
 \node[font=\sffamily\scriptsize] at (2.75,3.5) [yshift=-0.4cm] {fixed-size window, bounded memory};
 
 % LZ78: growing dictionary table
-\node[anchor=west] at (7.2,3.0) {\textbf{LZ78 --- growing dictionary}};
+\node[anchor=west] at (7.2,3.4) {\textbf{LZ78 --- growing dictionary}};
 \foreach \i/\txt in {0/1: a, 1/2: ab, 2/3: b}{
-  \node[draw=dictcol, fill=dictcol!6, font=\sffamily\scriptsize, minimum width=2.4cm] at (8.4,2.4-\i*0.45) {\txt};
+  \node[draw=dictcol, fill=dictcol!6, font=\sffamily\scriptsize, minimum width=2.4cm] at (8.4,2.8-\i*0.45) {\txt};
 }
-\draw[->, dictcol, thick] (8.4,1.55) -- (8.4,1.1);
-\node[draw=dictcol, dashed, font=\sffamily\scriptsize, minimum width=2.4cm] at (8.4,0.85) {4: \ldots (new entry)};
+\draw[->, dictcol, thick] (8.4,1.95) -- (8.4,1.5);
+\node[draw=dictcol, dashed, font=\sffamily\scriptsize, minimum width=2.4cm] at (8.4,1.25) {4: \ldots (new entry)};
 \node[font=\sffamily\scriptsize] at (8.4,3.5) [yshift=-0.4cm] {dictionary only grows, unbounded memory};
 \end{tikzpicture}
 \caption*{\textbf{Figure 13.} The core contrast between the two LZ branches.
@@ -667,25 +664,28 @@ example, DEFLATE is LZ77 combined with Huffman coding, and it's the engine
 inside zip, gzip, and PNG -- old, simple, and everywhere. Zstandard is LZ77
 combined with tANS, a much newer design tuned to get close to DEFLATE's
 ratio, or better, while running far faster, which is why companies like
-Facebook and Netflix use it for everyday compression at scale.
+Facebook and Netflix use it for everyday compression at scale. LZMA (Lempel-Ziv-Markov chain Algorithm) uses LZ77 with larger dictionaries and advanced entropy coding (range coding), achieving excellent compression ratios at the cost of slower speed. Brotli, used in web compression (HTTPS), is a modern LZ77 variant with a static dictionary of common web strings and Huffman coding, offering better compression than gzip for text. Snappy, developed by Google, is an extremely fast LZ77-based compressor with modest compression, optimized for low latency in databases and real-time systems.
 
 \begin{figure}[H]
 \centering
 \begin{forest}
 for tree={
-  draw, rounded corners, align=center, l sep+=12pt, s sep+=10pt,
+  draw, rounded corners, align=center, l sep+=10pt, s sep+=8pt,
   edge={-{Latex[length=2mm]}}, anchor=north, child anchor=north,
-  font=\sffamily\small, inner sep=5pt
+  font=\sffamily\small, inner sep=4pt
 }
 [LZ77, fill=dictcol!10, draw=dictcol
   [DEFLATE\\{\scriptsize LZ77 + \textcolor{prefixcol}{Huffman}}, fill=dictcol!6, draw=dictcol]
   [Zstandard\\{\scriptsize LZ77 + \textcolor{bestcol}{tANS}}, fill=dictcol!6, draw=dictcol]
+  [LZMA\\{\scriptsize LZ77 + range coding}, fill=dictcol!6, draw=dictcol]
+  [Brotli\\{\scriptsize LZ77 + web dict + Huffman}, fill=dictcol!6, draw=dictcol]
+  [Snappy\\{\scriptsize LZ77, extremely fast}, fill=dictcol!6, draw=dictcol]
 ]
 \end{forest}
-\caption*{\textbf{Figure 14.} LZ77 in practice: two real formats, each adding
-an entropy coder from Part 4 at the very end. The ``+Huffman'' and ``+tANS''
-labels are colored to match Figures 7b and 11 -- dictionary methods don't
-replace entropy coding, they hand off to it.}
+\caption*{\textbf{Figure 14.} LZ77 in practice: five real formats, each adding
+an entropy coder from Part 4 or a specialized optimization. The ``+Huffman'',
+``+tANS'', and ``+range coding'' labels are colored to match Figures 7b and
+11 -- dictionary methods don't replace entropy coding, they hand off to it.}
 \end{figure}
 
 \section*{Part 6 --- Transform-based compression: the Burrows--Wheeler Transform}
@@ -1001,11 +1001,11 @@ for tree={
 }
 [Lossless, fill=lossless!12, draw=lossless
   [Entropy\\coding, fill=lossless!6, draw=lossless!70
-    [Prefix\\(Huffman), fill=prefixcol!8, draw=prefixcol]
+    [Prefix\\(Huffman/Shannon/Shannon-Fano), fill=prefixcol!8, draw=prefixcol]
     [Non-prefix\\(Arith./Range/rANS/tANS), fill=nonprefixcol!8, draw=nonprefixcol]
   ]
   [Dictionary\\/ LZ, fill=dictcol!10, draw=dictcol
-    [{LZ77\\(DEFLATE, Zstandard)}, fill=dictcol!6, draw=dictcol]
+    [{LZ77\\(DEFLATE/Zstd/LZMA/Brotli/Snappy)}, fill=dictcol!6, draw=dictcol]
     [LZ78, fill=dictcol!6, draw=dictcol]
   ]
   [Transform\\based, fill=transformcol!10, draw=transformcol
@@ -1054,3 +1054,4 @@ you feel lost in a later video, come back to this picture and ask yourself:
 which leaf am I in right now?
 
 \end{document}
+
