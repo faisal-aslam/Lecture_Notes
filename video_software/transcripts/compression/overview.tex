@@ -356,6 +356,22 @@ optimal prefix code for a given probability distribution using a greedy
 tree-construction algorithm. Huffman is optimal among all prefix codes for a
 memoryless source.
 
+There's a fourth prefix code worth naming here: Rice coding. It sits apart
+from the other three, because it isn't built around a probability table at
+all. Huffman, Shannon, and Shannon-Fano all need to know, or estimate, the
+probability of every symbol before they can assign codewords. Rice coding
+skips that step entirely. It's tuned for one specific, very common shape of
+data: mostly small numbers with the occasional larger one, exactly what you
+get from a prediction residual in audio or image compression. To encode a
+value, Rice coding splits it into a quotient and a remainder, writes the
+quotient in unary, a string of \texttt{1}s ended by a \texttt{0}, and the
+remainder in a fixed number of bits set by a single tunable parameter $k$.
+That's the key difference from the rest of this section: no symbol table to
+build or transmit, just one parameter $k$, chosen from how large the
+residuals typically are. That makes Rice coding fast enough to recompute on
+the fly, block by block, rather than requiring a full pass over the data up
+front the way Huffman does. We'll see it again with FLAC in Part 8.
+
 Prefix codes are constrained by the Kraft McMillan inequality. One important
 consequence of this constraint is that every codeword must have an integer
 number of bits. In our earlier example, $A$ was assigned a code of length 1.
@@ -912,7 +928,7 @@ FFV1 predicts each pixel from neighboring pixels that have already been processe
 
 \textbf{Lossless images -- PNG.} PNG runs a per-row prediction filter to exploit how similar neighboring pixels usually are, then compresses the resulting residual with DEFLATE, the same LZ77-plus-Huffman pipeline.
 
-\textbf{Lossless audio -- FLAC.} FLAC predicts each audio sample from the samples just before it, then entropy-codes the small prediction error with fast, simple Rice coding, a close cousin of the prefix codes we covered earlier.
+\textbf{Lossless audio -- FLAC.} FLAC predicts each audio sample from the samples just before it, then entropy-codes the small prediction error with fast, simple Rice coding, the specialized prefix code we met back in Part 4.
 
 So if you guessed "a prediction step followed by entropy coding" for FLAC, you were right. That same pattern -- predict, then entropy-code the error -- shows up in FFV1 and PNG too. Multimedia isn't a new way of compressing data invented from scratch; it's the first four families, specialized for pixels and samples. That's exactly why it earns its own branch in the tree: not a new technique, but the place where the other four meet a specific kind of data.
 
