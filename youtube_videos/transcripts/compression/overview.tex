@@ -52,7 +52,7 @@
 \maketitle
 \vspace{-2em}
 
-\noindent This is the narration script for the video, with every figure placed exactly
+\noindent This is the lecture notes for the YouTube video, with every figure placed exactly
 where it should be drawn. Figures that build up over the course of the video
 (the master tree, the Shannon-limit wall) appear more than once, each time
 showing only what should be on the board \emph{at that point} -- draw onto the
@@ -60,16 +60,12 @@ same space rather than starting over.
 
 \section*{Part 1 --- Lossless vs. lossy}
 
-This video gives you a bird's eye view of data compression algorithms and
-techniques. We won't go deep into any single algorithm here. But this high
-level view is critical. It helps you understand the overall field of data
-compression. And it shows you where everything we cover in this course
-actually fits. Throughout the video you'll see a series of tree diagrams.
-These show the hierarchy of compression algorithms and techniques. Here is
-the first one.
+This video gives you a bird's-eye view of data compression algorithms and techniques. We won't go deep into any single algorithm here. 
+However, this high-level view is critical to understanding the overall field of data compression. More importantly, it helps you see where the algorithms in this beautiful YouTube course fit within the bigger picture.
+ During the video, you'll be creating a large tree diagram. This shows the hierarchy of compression algorithms
+ and techniques. A leaf of the tree will have an actual algorithm, whereas a non-leaf will have the categories that algorithms belong to. Let's start!
 
-As this diagram shows, every data compression algorithm falls into one of
-two broad categories. These are lossless and lossy.
+Every data compression algorithm falls into one of two broad categories: lossless and lossy.
 
 \begin{figure}[H]
 \centering
@@ -356,21 +352,27 @@ optimal prefix code for a given probability distribution using a greedy
 tree-construction algorithm. Huffman is optimal among all prefix codes for a
 memoryless source.
 
-There's a fourth prefix code worth naming here: Rice coding. It sits apart
-from the other three, because it isn't built around a probability table at
-all. Huffman, Shannon, and Shannon-Fano all need to know, or estimate, the
-probability of every symbol before they can assign codewords. Rice coding
-skips that step entirely. It's tuned for one specific, very common shape of
-data: mostly small numbers with the occasional larger one, exactly what you
-get from a prediction residual in audio or image compression. To encode a
-value, Rice coding splits it into a quotient and a remainder, writes the
-quotient in unary, a string of \texttt{1}s ended by a \texttt{0}, and the
+There's a fourth prefix code worth naming here: Rice coding. It's still
+entropy coding in the same sense as the other three -- common values get
+short codewords, rare values get long ones -- but it gets its probabilities
+a different way. Huffman, Shannon, and Shannon-Fano all estimate the
+probability of every symbol by measuring the data and building an explicit
+table. Rice coding instead assumes the data already follows one specific,
+very common shape: a geometric distribution, where small values are likely
+and large values get exponentially rarer. That shape happens to match
+prediction residuals from audio and image compression almost perfectly. To
+encode a value, Rice coding splits it into a quotient and a remainder,
+writes the quotient in unary, a string of \texttt{1}s ended by a
+\texttt{0}, so smaller quotients really do get shorter codewords, and the
 remainder in a fixed number of bits set by a single tunable parameter $k$.
-That's the key difference from the rest of this section: no symbol table to
-build or transmit, just one parameter $k$, chosen from how large the
-residuals typically are. That makes Rice coding fast enough to recompute on
-the fly, block by block, rather than requiring a full pass over the data up
-front the way Huffman does. We'll see it again with FLAC in Part 8.
+Golomb coding, Rice coding's more general parent, is provably the optimal
+prefix code for a geometric source; Rice coding is just the special,
+division-free case where that parameter is a power of two. That's the real
+difference from the rest of this section: not that it ignores probability,
+but that it gets probability from a formula instead of a frequency count,
+which is exactly why it's cheap enough to refit block by block rather than
+requiring a full pass over the data up front the way Huffman does. We'll
+see it again with FLAC in Part 8.
 
 Prefix codes are constrained by the Kraft McMillan inequality. One important
 consequence of this constraint is that every codeword must have an integer
