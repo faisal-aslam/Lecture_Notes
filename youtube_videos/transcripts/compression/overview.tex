@@ -525,8 +525,6 @@ from \cref{fig:entropy-children,fig:entropy-full}.}
 \label{fig:entropy-ratio-rank}
 \end{figure}
 
-
-
 Now let's rank the same seven algorithms a completely different way: by speed.
 
 \begin{figure}[H]
@@ -568,7 +566,6 @@ Huffman on general ratio, and the three slowest-to-rank-1 coders on ratio
 (Huffman, Shannon, Shannon-Fano) are tied for third-fastest here.}
 \label{fig:entropy-speed-rank}
 \end{figure}
-
 
 \engage{prefixcol}{Side note:}{Huffman's reputation for being ``fast''
 usually refers to how quickly its code \emph{table} can be built -- it's a
@@ -680,12 +677,75 @@ every time a new substring is seen.}
 \label{fig:lz77-vs-lz78}
 \end{figure}
 
-Most of the algorithms we cover in this course are extensions of LZ77. For
-example, DEFLATE is LZ77 combined with Huffman coding, and it's the engine
-inside zip, gzip, and PNG -- old, simple, and everywhere. Zstandard is LZ77
-combined with tANS, a much newer design tuned to get close to DEFLATE's
-ratio, or better, while running far faster, which is why companies like
-Facebook and Netflix use it for everyday compression at scale. LZMA (Lempel-Ziv-Markov chain algorithm) uses LZ77 with larger dictionaries and advanced entropy coding (range coding), achieving excellent compression ratios at the cost of slower speed. Brotli, used in web compression (HTTP), is a modern LZ77 variant with a static dictionary of common web strings and Huffman coding, offering better compression than gzip for text. Snappy, developed by Google, is an extremely fast LZ77-based compressor with modest compression, optimized for low latency in databases and real-time systems.
+Most of the algorithms we cover in this course are extensions of LZ77.
+Now let's see how LZ77 actually works, at a high level. It slides a
+fixed-size window over the data, split into two parts: a search buffer
+holding what's already been seen, and a look-ahead buffer holding what's
+about to be encoded. Whenever the look-ahead buffer's next string already
+appears somewhere in the search buffer, LZ77 replaces it with a short
+reference: how far back the match starts, and how long it runs. The window
+then slides forward to cover that newly encoded data.
+
+We're skipping real details here -- match-finding strategies, encoding
+optimizations, overlapping matches -- since they deserve their own video.
+For now, the takeaway is simple: LZ77 swaps repeated patterns for short
+references, and almost every dictionary compressor in use today is built
+directly on this sliding-window idea.
+
+Here's a tiny example, shown in Figure~\ref{fig:lz77-example}. Say the
+look-ahead buffer's next characters are \texttt{abc}, and that exact string
+already appeared earlier in the search buffer. Instead of writing
+\texttt{a}, \texttt{b}, \texttt{c} all over again, LZ77 just points back to
+that earlier copy. Because the window is small, a reference back into it
+is almost always shorter than the text it replaces.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\sffamily\small]
+% search buffer cells (already seen)
+\foreach \i/\c in {0/x,1/a,2/b,3/c,4/y,5/z}{
+  \draw[fill=gray!8] (\i*0.7,0) rectangle (\i*0.7+0.7,0.7);
+  \node at (\i*0.7+0.35,0.35) {\texttt{\c}};
+}
+% look-ahead buffer cells (about to be encoded)
+\foreach \i/\c in {6/a,7/b,8/c}{
+  \draw[fill=orange!12] (\i*0.7,0) rectangle (\i*0.7+0.7,0.7);
+  \node at (\i*0.7+0.35,0.35) {\texttt{\c}};
+}
+% highlight the matching substrings
+\draw[thick, dictcol] (1*0.7,0) rectangle (3*0.7+0.7,0.7);
+\draw[thick, dictcol] (6*0.7,0) rectangle (8*0.7+0.7,0.7);
+% boundary line between the two buffers
+\draw[very thick, black] (6*0.7,-0.15) -- (6*0.7,0.85);
+% arrow + label
+\draw[->, thick, dictcol] (7*0.7+0.35,0.9) to[bend right=45] (2*0.7+0.35,0.9);
+\node[dictcol, font=\sffamily\scriptsize] at (4.5*0.7,1.85) {same pattern, seen before};
+% buffer braces + labels
+\draw[decorate, decoration={brace, amplitude=6pt, mirror}, thick, gray] (0,-0.05) -- (6*0.7,-0.05);
+\node[gray, font=\sffamily\scriptsize] at (3*0.7,-0.55) {search buffer};
+\draw[decorate, decoration={brace, amplitude=6pt, mirror}, thick, gray] (6*0.7,-0.05) -- (8*0.7+0.7,-0.05);
+\node[gray, font=\sffamily\scriptsize] at (7*0.7,-0.55) {look-ahead buffer};
+\end{tikzpicture}
+\caption*{The second \texttt{abc} doesn't get written out
+again -- it's replaced by a reference pointing back to the first one. We'll
+unpack exactly what that reference contains in a future video.}
+\label{fig:lz77-example}
+\end{figure}
+
+Most real-world compressors are exactly this idea, dressed up with a
+particular entropy coder on top. DEFLATE is LZ77 combined with Huffman
+coding, and it's the engine inside zip, gzip, and PNG -- old, simple, and
+everywhere. Zstandard is LZ77 combined with tANS, a much newer design tuned
+to get close to DEFLATE's ratio, or better, while running far faster, which
+is why companies like Facebook and Netflix use it for everyday compression
+at scale. LZMA (Lempel-Ziv-Markov chain algorithm) uses LZ77 with larger
+dictionaries and advanced entropy coding (range coding), achieving
+excellent compression ratios at the cost of slower speed. Brotli, used in
+web compression (HTTP), is a modern LZ77 variant with a static dictionary
+of common web strings and Huffman coding, offering better compression than
+gzip for text. Snappy, developed by Google, is an extremely fast
+LZ77-based compressor with modest compression, optimized for low latency
+in databases and real-time systems.
 
 \begin{figure}[H]
 \centering
@@ -710,6 +770,111 @@ an entropy coder from Part 4 or a specialized optimization. The ``+Huffman'',
 dictionary methods don't replace entropy coding, they hand off to it.}
 \label{fig:lz77-formats}
 \end{figure}
+
+
+%%%%
+Just like we did with entropy coding, let's compare these five
+dictionary-based formats on two dimensions: compression ratio
+(Figure~\ref{fig:dict-ratio-rank}) and speed
+(Figure~\ref{fig:dict-speed-rank}).
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}cp{4.0cm}p{6.5cm}@{}}
+\toprule
+\textbf{Rank} & \textbf{Algorithm} & \textbf{Why} \\
+\midrule
+1 & \textcolor{dictcol}{LZMA} &
+Best compression ratio among dictionary methods. Uses large dictionaries
+(up to 4\,GB) and \textcolor{nonprefixcol}{range coding} for entropy,
+enabling excellent ratio at the cost of speed. \\[4pt]
+2 & \textcolor{dictcol}{Brotli} &
+Excellent ratio, especially on text. Uses a large static dictionary of
+common web strings plus \textcolor{prefixcol}{Huffman coding}. Often
+outperforms DEFLATE on web content by around 20--26\%. \\[4pt]
+3 & \textcolor{dictcol}{Zstandard} &
+Very good ratio, tunable from near-DEFLATE to near-LZMA levels. Uses LZ77
+plus \textcolor{bestcol}{tANS}, and at higher compression levels typically
+beats DEFLATE on ratio while still running at comparable or faster speed.
+\\[4pt]
+4 & \textcolor{dictcol}{DEFLATE} &
+Decent, general-purpose ratio. LZ77 plus \textcolor{prefixcol}{Huffman
+coding}. The original universal baseline -- simple, well understood, and
+everywhere (zip, gzip, PNG) -- though Zstandard now beats it on ratio in
+most benchmarks. \\[4pt]
+5 & \textcolor{dictcol}{Snappy} &
+Modest compression ratio -- deliberately trades ratio for speed. Designed
+for databases and real-time systems where latency matters more than
+storage. \\
+\bottomrule
+\end{tabular}
+\caption{Dictionary-based formats ranked by compression ratio, best to
+worst. LZMA (range coding) and Brotli (Huffman with web dictionary) lead;
+Snappy intentionally sacrifices ratio for speed.}
+\label{fig:dict-ratio-rank}
+\end{figure}
+
+Figure~\ref{fig:dict-ratio-rank} ranked these formats by compression ratio.
+Now let's rank the same five formats by speed, in
+Figure~\ref{fig:dict-speed-rank}.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}cp{4.0cm}p{6.5cm}@{}}
+\toprule
+\textbf{Rank} & \textbf{Algorithm} & \textbf{Why} \\
+\midrule
+1 & \textcolor{dictcol}{Snappy} &
+Fastest of all. Minimal dictionary lookups, no entropy coding overhead.
+Designed specifically for maximum throughput, with compression ratio as a
+secondary concern. \\[4pt]
+2 & \textcolor{dictcol}{Zstandard} &
+Very fast, especially at lower compression levels. \textcolor{bestcol}{tANS}
+is extremely efficient, and the implementation is heavily optimized. Often
+matches or exceeds Snappy's decompression speed while compressing better.
+\\[4pt]
+3 & \textcolor{dictcol}{DEFLATE} &
+Moderate speed. \textcolor{prefixcol}{Huffman coding} is fast, but LZ77
+match-finding can be expensive. Gzip, built on DEFLATE, has long been the
+default wherever ``good enough'' speed was all that mattered. \\[4pt]
+4 & \textcolor{dictcol}{Brotli} &
+Slower than DEFLATE. The larger dictionary and more complex match-finding
+cost extra CPU time. Quality over speed, especially for offline compression
+of web assets. \\[4pt]
+5 & \textcolor{dictcol}{LZMA} &
+Slowest of the five. Large dictionaries and complex
+\textcolor{nonprefixcol}{range coding} make it CPU-intensive. Designed for
+maximum compression, not speed -- often used for software distribution,
+where decompression speed matters more than compression speed. \\
+\bottomrule
+\end{tabular}
+\caption{Dictionary-based formats ranked by compression speed, fastest to
+slowest. Notice the ranking is almost the reverse of
+Figure~\ref{fig:dict-ratio-rank} -- Snappy is fastest but worst on ratio,
+LZMA is best on ratio but slowest.}
+\label{fig:dict-speed-rank}
+\end{figure}
+
+The key insight from Figures~\ref{fig:dict-ratio-rank} and
+\ref{fig:dict-speed-rank} is the same trade-off we saw with entropy coding:
+\textbf{you can't have both maximum ratio and maximum speed.} Each format
+makes a deliberate choice about where to sit on that spectrum:
+
+\begin{itemize}
+\item \textbf{Snappy} prioritizes speed above all else.
+\item \textbf{Zstandard} offers the best overall balance -- good ratio with
+competitive, often class-leading speed.
+\item \textbf{DEFLATE} isn't really on this frontier anymore -- Zstandard
+beats it on both ratio and speed in most benchmarks. DEFLATE survives
+because it's been the universal default since the 1990s (zip, gzip, PNG),
+not because of where it sits on this trade-off.
+\item \textbf{Brotli} trades some speed for better ratio, especially on
+web content.
+\item \textbf{LZMA} goes all-in on ratio, accepting much slower compression.
+\end{itemize}
+
+
+
 
 \section*{Part 6 --- Transform-based compression: the Burrows--Wheeler Transform}
 
@@ -1017,7 +1182,6 @@ colored leaf here is something we built up piece by piece over Parts 3
 through 8.}
 \label{fig:complete-lossless}
 \end{figure}
-
 
 \begin{figure}[H]
 \centering
