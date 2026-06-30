@@ -998,32 +998,40 @@ BWT and MTF aren't the only transforms in this family, either. Delta
 encoding replaces each value with its difference from a predicted value,
 often just the previous one, turning smoothly changing data into a
 stream of small numbers; it's the same idea behind PNG's per-row
-prediction filter (\ref{sec:lossy-fill}). The discrete cosine transform and the
-discrete wavelet transform, the workhorses behind JPEG and MP3, do the
-same job for lossy compression: they convert a signal into frequency
-components so that most of the energy lands on a few large coefficients
-and everything else can be quantized away almost for free. What unites
-all of these, BWT, MTF, delta encoding, DCT, is the same handoff
-pattern: rearrange or re-express the data first, then let a simpler
-coder do the squeezing.
+prediction filter (\ref{sec:lossy-fill}). The discrete cosine transform
+and the discrete wavelet transform, the workhorses behind JPEG, MP3, and
+JPEG2000, do the same job for lossy compression: they convert a signal
+into frequency components so that most of the energy lands on a few
+large coefficients and everything else can be quantized away almost for
+free. DCT does this with global, whole-block waves, while wavelets use
+short, localized ripples that adapt to both frequency and position at
+once, which is what lets them keep sharp edges crisp instead of
+smearing them across the block. What unites all of these, BWT, MTF,
+delta encoding, DCT, wavelets, is the same handoff pattern: rearrange or
+re-express the data first, then let a simpler coder do the squeezing.
 
 \begin{figure}[H]
 \centering
+\resizebox{\linewidth}{!}{%
 \begin{forest}
 for tree={
-  draw, rounded corners, align=center, l sep+=12pt, s sep+=10pt,
+  draw, rounded corners, align=center, l sep+=10pt, s sep+=6pt,
   edge={-{Latex[length=2mm]}}, anchor=north, child anchor=north,
-  font=\sffamily\small, inner sep=5pt
+  font=\sffamily\small, inner sep=4pt
 }
 [Transform\\based, fill=transformcol!10, draw=transformcol
-  [BWT\\{\scriptsize\parbox{4.4cm}{\centering reorders symbols by context so simple coders can exploit the new runs; powers bzip2}}, fill=transformcol!6, draw=transformcol]
-  [MTF\\{\scriptsize\parbox{4.4cm}{\centering turns repeated symbols into small numbers, mostly zeros; usually paired right after BWT}}, fill=transformcol!6, draw=transformcol]
-  [Delta /\\DCT\\{\scriptsize\parbox{4.4cm}{\centering predicts each value from its neighbors so only the residual needs coding; used in PNG, JPEG, MP3}}, fill=transformcol!6, draw=transformcol]
+  [BWT\\{\scriptsize\parbox{2.6cm}{\centering reorders symbols by context so simple coders can exploit the new runs; powers bzip2}}, fill=transformcol!6, draw=transformcol]
+  [MTF\\{\scriptsize\parbox{2.6cm}{\centering turns repeated symbols into small numbers, mostly zeros; usually paired right after BWT}}, fill=transformcol!6, draw=transformcol]
+  [Delta\\{\scriptsize\parbox{2.6cm}{\centering predicts each value from its neighbors; only the small residual needs coding, as in PNG and FLAC}}, fill=transformcol!6, draw=transformcol]
+  [DCT\\{\scriptsize\parbox{2.6cm}{\centering re-expresses a block as cosine waves; energy piles onto a few coefficients, used in JPEG, MP3}}, fill=transformcol!6, draw=transformcol]
+  [Wavelet\\{\scriptsize\parbox{2.6cm}{\centering re-expresses a signal as short, localized ripples; keeps edges crisp, used in JPEG2000}}, fill=transformcol!6, draw=transformcol]
 ]
-\end{forest}
-\caption{The transform-based branch. None of BWT, MTF, or delta/DCT
-compete with entropy coding or LZ -- each is a pre-processing step that
-makes whatever comes after it work better.}
+\end{forest}%
+}
+\caption{The transform-based branch. None of BWT, MTF, delta encoding,
+DCT, or the wavelet transform compete with entropy coding or LZ -- each
+is a pre-processing step that makes whatever comes after it work
+better.}
 \label{fig:transform-branch}
 \end{figure}
 
