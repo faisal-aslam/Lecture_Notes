@@ -19,6 +19,11 @@
 \titlespacing*{\section}{0pt}{1.5em}{0.6em}
 \titlespacing*{\subsection}{0pt}{1.2em}{0.4em}
 
+% ---- automatic "Part N --- Title" section numbering, so \section + \label
+% gives both the on-page heading and a working \ref/\cref everywhere else ----
+\renewcommand{\thesection}{Part \arabic{section}}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{0.6em}{---\ }
+
 % ---- colors reused across every figure, so the same idea always wears the same color ----
 \definecolor{lossless}{HTML}{1f7a6c}   % teal family
 \definecolor{lossy}{HTML}{c2622d}      % orange family
@@ -59,7 +64,8 @@ where it should be drawn. Figures that build up over the course of the video
 showing only what should be on the board \emph{at that point} -- draw onto the
 same space rather than starting over.
 
-\section*{Part 1 --- Lossless vs. lossy}
+\section{Lossless vs. lossy}
+\label{sec:lossless-lossy}
 
 This video gives you a bird's-eye view of data compression algorithms and techniques. We won't go deep into any single algorithm here. 
 However, this high-level view is critical to understanding the overall field of data compression. More importantly, it helps you see where the algorithms in this beautiful YouTube course fit within the bigger picture.
@@ -164,7 +170,8 @@ audible to human ears. But in every other case, you need the data to come
 back exactly as it was. Think of the textual records of government
 employees. In those cases, you resort to lossless compression instead.
 
-\section*{Part 2 --- The Shannon limit}
+\section{The Shannon limit}
+\label{sec:shannon-limit}
 
 Before we divide lossless compression into its different categories, let's
 first discuss one fundamental idea. It is one of the greatest theoretical
@@ -203,7 +210,8 @@ So although the algorithms we are about to study are very different, they
 all have the same goal. They try to compress data as close to the Shannon
 limit as possible while remaining fast and memory efficient.
 
-\section*{Part 3 --- The five families of lossless compression}
+\section{The five families of lossless compression}
+\label{sec:five-families}
 
 With that in mind, lossless compression can be divided into five categories.
 Number one, entropy coding. Number two, dictionary or LZ family. Number
@@ -236,7 +244,7 @@ for tree={
 \caption{The master tree, stage 2: Lossless gains its
 five children. The first four are algorithmic families; the fifth,
 multimedia, is built by combining them, specialized for video, images, and
-audio -- we'll see exactly how in Part 8. Lossy is still left empty on
+audio -- we'll see exactly how in \ref{sec:multimedia}. Lossy is still left empty on
 purpose -- it is not covered in this video.}
 \label{fig:master-tree-stage2}
 \end{figure}
@@ -267,7 +275,8 @@ afford to use more bits. As a result, the average number of bits per symbol
 goes down. This is how entropy coding approaches the Shannon limit we just
 talked about.
 
-\section*{Part 4 --- Entropy coding: prefix vs. non-prefix}
+\section{Entropy coding: prefix vs. non-prefix}
+\label{sec:entropy-coding}
 
 If we zoom into entropy coding, we find two further groups of algorithms.
 These are prefix coding and non-prefix coding.
@@ -382,7 +391,7 @@ difference from the rest of this section: not that it ignores probability,
 but that it gets probability from a formula instead of a frequency count,
 which is exactly why it's cheap enough to refit block by block rather than
 requiring a full pass over the data up front the way Huffman does. We'll
-see it again with FLAC in Part 8.
+see it again with FLAC in \ref{sec:multimedia}.
 
 Prefix codes are constrained by the Kraft McMillan inequality. One important
 consequence of this constraint is that every codeword must have an integer
@@ -607,7 +616,8 @@ they aren't even optimal among prefix codes. Colors match \cref{fig:entropy-full
 \label{fig:shannon-limit-full}
 \end{figure}
 
-\section*{Part 5 --- Dictionary compression: the LZ family}
+\section{Dictionary compression: the LZ family}
+\label{sec:dictionary-lz}
 
 Next, we move to dictionary-based compression algorithms. They mostly
 belong to the LZ family. At a high level, we can divide them into LZ77 and
@@ -764,7 +774,7 @@ for tree={
 ]
 \end{forest}
 \caption{LZ77 in practice: five real formats, each adding
-an entropy coder from Part 4 or a specialized optimization. The ``+Huffman'',
+an entropy coder from \ref{sec:entropy-coding} or a specialized optimization. The ``+Huffman'',
 ``+tANS'', and ``+range coding'' labels are colored to match
 \cref{fig:entropy-full,fig:entropy-ratio-rank,fig:entropy-speed-rank} --
 dictionary methods don't replace entropy coding, they hand off to it.}
@@ -876,7 +886,8 @@ web content.
 
 
 
-\section*{Part 6 --- Transform-based compression: the Burrows--Wheeler Transform}
+\section{Transform-based compression: the Burrows--Wheeler Transform}
+\label{sec:transform-bwt}
 
 We've now covered two of our five lossless families: entropy coding and
 dictionary compression. Let's move to the third family. Transform-based
@@ -939,6 +950,63 @@ run-length encoding, followed by entropy coding, can squeeze it far harder
 than it could squeeze the original. That handoff to a simple downstream
 compressor is exactly how bzip2 is built.
 
+The ``much simpler compressor'' mentioned above is itself a second
+transform: the move-to-front transform, or MTF. By the same definition
+used for BWT, MTF qualifies as transform-based compression too -- it
+doesn't shrink the data by a single bit on its own, it just rearranges
+symbols into a far more compressible shape, then hands off to run-length
+and entropy coding to do the actual squeezing.
+
+Here's how it works. Keep a list of every distinct symbol in the data,
+in some starting order. For each symbol in the input, output its current
+position in that list, then move that symbol to the front of the list.
+Symbols that keep repeating, exactly what BWT produces in long runs, end
+up at the front of the list almost permanently, so they keep generating
+small numbers, often literally zero.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Symbol} & \textbf{List before} & \textbf{Output} & \textbf{List after} \\
+\midrule
+a & \texttt{\$ a b n} & 1 & \texttt{a \$ b n} \\
+n & \texttt{a \$ b n} & 3 & \texttt{n a \$ b} \\
+n & \texttt{n a \$ b} & 0 & \texttt{n a \$ b} \\
+b & \texttt{n a \$ b} & 3 & \texttt{b n a \$} \\
+\$ & \texttt{b n a \$} & 3 & \texttt{\$ b n a} \\
+a & \texttt{\$ b n a} & 3 & \texttt{a \$ b n} \\
+a & \texttt{a \$ b n} & 0 & \texttt{a \$ b n} \\
+\bottomrule
+\end{tabular}
+\caption{The move-to-front transform applied to the BWT output
+\texttt{annb\$aa} from Figure~\ref{fig:bwt}, starting from the alphabet
+\texttt{\$ a b n}. Each row outputs the symbol's current position, then
+moves that symbol to the front. The MTF output is \texttt{1 3 0 3 3 3 0}
+-- mostly small numbers, with three 3's and two 0's, exactly the kind of
+skewed, repetitive distribution that run-length and entropy coding
+exploit well.}
+\label{fig:mtf}
+\end{figure}
+
+That output, \texttt{1 3 0 3 3 3 0}, is what bzip2 hands next to
+run-length encoding and then entropy coding. None of the three steps,
+BWT, MTF, or RLE, compresses anything by itself. Each one just reshapes
+the data so the next stage in the pipeline has an easier job.
+
+BWT and MTF aren't the only transforms in this family, either. Delta
+encoding replaces each value with its difference from a predicted value,
+often just the previous one, turning smoothly changing data into a
+stream of small numbers; it's the same idea behind PNG's per-row
+prediction filter (\ref{sec:lossy-fill}). The discrete cosine transform and the
+discrete wavelet transform, the workhorses behind JPEG and MP3, do the
+same job for lossy compression: they convert a signal into frequency
+components so that most of the energy lands on a few large coefficients
+and everything else can be quantized away almost for free. What unites
+all of these, BWT, MTF, delta encoding, DCT, is the same handoff
+pattern: rearrange or re-express the data first, then let a simpler
+coder do the squeezing.
+
 \begin{figure}[H]
 \centering
 \begin{forest}
@@ -949,15 +1017,18 @@ for tree={
 }
 [Transform\\based, fill=transformcol!10, draw=transformcol
   [BWT\\{\scriptsize\parbox{4.4cm}{\centering reorders symbols by context so simple coders can exploit the new runs; powers bzip2}}, fill=transformcol!6, draw=transformcol]
+  [MTF\\{\scriptsize\parbox{4.4cm}{\centering turns repeated symbols into small numbers, mostly zeros; usually paired right after BWT}}, fill=transformcol!6, draw=transformcol]
+  [Delta /\\DCT\\{\scriptsize\parbox{4.4cm}{\centering predicts each value from its neighbors so only the residual needs coding; used in PNG, JPEG, MP3}}, fill=transformcol!6, draw=transformcol]
 ]
 \end{forest}
-\caption{The transform-based branch. BWT doesn't compete
-with entropy coding or LZ -- it's a pre-processing step that makes whatever
-comes after it work better.}
+\caption{The transform-based branch. None of BWT, MTF, or delta/DCT
+compete with entropy coding or LZ -- each is a pre-processing step that
+makes whatever comes after it work better.}
 \label{fig:transform-branch}
 \end{figure}
 
-\section*{Part 7 --- Context modeling: PPM and context mixing}
+\section{Context modeling: PPM and context mixing}
+\label{sec:context-modeling}
 
 That brings us to the fourth of our five lossless families: context
 modeling.
@@ -1042,11 +1113,12 @@ curve we've drawn so far, paid for entirely in speed.}
 \label{fig:context-branch}
 \end{figure}
 
-\section*{Part 8 --- The fifth family: multimedia}
+\section{The fifth family: multimedia}
+\label{sec:multimedia}
 
 We've now met four of the five algorithmic families that make up lossless
 compression: entropy coding, dictionary or LZ, transform based, and context
-modeling. Time for the fifth one we promised back in Part 3: multimedia.
+modeling. Time for the fifth one we promised back in \ref{sec:five-families}: multimedia.
 
 Earlier in this video I said multimedia, video, images, and audio, is the
 classic use case for \emph{lossy} compression. That's true most of the time.
@@ -1087,7 +1159,7 @@ for tree={
 child, Multimedia (olive) -- the one we left empty back in
 \cref{fig:master-tree-stage2,fig:master-tree-stage4} -- finally expands into
 the three media types we keep coming back to: video, image, and audio. Lossy
-is still collapsed on purpose; we expand it in Part 9.}
+is still collapsed on purpose; we expand it in \ref{sec:lossy-fill}.}
 \label{fig:master-tree-stage5}
 \end{figure}
 
@@ -1098,11 +1170,12 @@ FFV1 predicts each pixel from neighboring pixels that have already been processe
 
 \textbf{Lossless images -- PNG.} PNG runs a per-row prediction filter to exploit how similar neighboring pixels usually are, then compresses the resulting residual with DEFLATE, the same LZ77-plus-Huffman pipeline.
 
-\textbf{Lossless audio -- FLAC.} FLAC predicts each audio sample from the samples just before it, then entropy-codes the small prediction error with fast, simple Rice coding, the specialized prefix code we met back in Part 4.
+\textbf{Lossless audio -- FLAC.} FLAC predicts each audio sample from the samples just before it, then entropy-codes the small prediction error with fast, simple Rice coding, the specialized prefix code we met back in \ref{sec:entropy-coding}.
 
 So if you guessed "a prediction step followed by entropy coding" for FLAC, you were right. That same pattern -- predict, then entropy-code the error -- shows up in FFV1 and PNG too. Multimedia isn't a new way of compressing data invented from scratch; it's the first four families, specialized for pixels and samples. That's exactly why it earns its own branch in the tree: not a new technique, but the place where the other four meet a specific kind of data.
 
-\section*{Part 9 --- Filling in lossy: video, images, and audio}
+\section{Filling in lossy: video, images, and audio}
+\label{sec:lossy-fill}
 
 Now let's finally fill in the other half of our master tree: lossy compression. The key takeaway of lossy video, image, and audio compression is that they discard high-frequency detail that is not easily perceptible to human eyes and ears. Thus, the reduction in quality significantly reduces the size of multimedia files, but it remains acceptable for human perception.
 
@@ -1139,7 +1212,8 @@ hearing model instead of a vision model.}
 \label{fig:lossy-branch}
 \end{figure}
 
-\section*{Part 10 --- The complete tree}
+\section{The complete tree}
+\label{sec:complete-tree}
 
 We've now filled in every branch we set out to cover. Let's step back and
 look at the whole thing, lossless and lossy, side by side, one last time.
@@ -1197,7 +1271,7 @@ for tree={
   [Audio\\(MP3/AAC/Opus), fill=lossy!6, draw=lossy]
 ]
 \end{forest}
-\caption{The complete tree, lossy half, from Part 9.
+\caption{The complete tree, lossy half, from \ref{sec:lossy-fill}.
 Lossy splits by medium instead of by algorithmic family, since what's
 ``unnoticeable'' depends on whether you're looking or listening.}
 \label{fig:complete-lossy}
