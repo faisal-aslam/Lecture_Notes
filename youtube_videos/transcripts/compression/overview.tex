@@ -67,10 +67,45 @@ same space rather than starting over.
 \section{Lossless vs. lossy}
 \label{sec:lossless-lossy}
 
-This video gives you a bird's-eye view of data compression algorithms and techniques. We won't go deep into any single algorithm here. 
-However, this high-level view is critical to understanding the overall field of data compression. More importantly, it helps you see where the algorithms in this beautiful YouTube course fit within the bigger picture.
- During the video, you'll be creating a large tree diagram. This shows the hierarchy of compression algorithms
- and techniques. A leaf of the tree will have an actual algorithm, whereas a non-leaf will have the categories that algorithms belong to. Let's start!
+Every day, without realising it, you depend on data compression dozens of
+times. The moment you stream a song, load a webpage, send a photo, or
+join a video call -- compression is there, silently deciding how much data
+gets thrown away and how much gets kept. But here is what most people
+never learn: \emph{there is no single best algorithm}. Every compressor
+in existence is making a different trade-off, and knowing those
+trade-offs is what separates someone who just \emph{uses} compression
+from someone who truly \emph{understands} it.
+
+By the end of this video you will be able to answer questions that
+trip up most practising engineers:
+
+\begin{itemize}
+\item You are building a \textbf{delay-critical live stream}. Which
+  algorithm gives you the best compression ratio while still being fast
+  enough not to stall the pipeline?
+\item You want to \textbf{win the Hutter Prize} -- the best possible
+  compression of a 1\,GB English text file, no matter if it takes hours
+  to compress. Which family of algorithms pushes furthest beyond what
+  any dictionary or entropy coder can do alone, and why?
+\item You want to \textbf{design your own compressor}. How do you combine
+  a prediction-based front end with a dictionary stage and finish with an
+  entropy coder -- and why does that order matter?
+\item A colleague hands you a compressed file and asks which algorithm
+  produced it. How do you \textbf{reverse-engineer the choice} just from
+  the properties of the data?
+\end{itemize}
+
+We are not going deep into any single algorithm today. What we \emph{are}
+doing is building the map -- the complete hierarchy of every major
+compression technique -- so that every deep-dive video in this course
+lands in exactly the right place in your mental model. By the time this
+video ends you will have drawn that entire map yourself, branch by
+branch, as a tree diagram that grows live on the board. Each leaf is a
+real algorithm. Each branch is a family. And by the end you will see at
+a glance why JPEG and bzip2 and zstd and FLAC all feel completely
+different yet all trace back to the same small set of ideas.
+
+Let's start building it.
 
 Every data compression algorithm falls into one of two broad categories: lossless and lossy.
 
@@ -249,18 +284,18 @@ purpose -- it is not covered in this video.}
 \label{fig:master-tree-stage2}
 \end{figure}
 
-Let's start with entropy coding. Entropy coding is a family of techniques.
-These techniques assign shorter codes to more probable symbols. They assign
-longer codes to less probable ones. For example, in English text, the letter
-$e$ appears much more often than the letter $x$. So an entropy coder would
-assign a shorter code to $e$. It would assign a longer code to $x$.
+Let's start with entropy coding. Entropy coding is a family of techniques
+that assign shorter codes to more probable symbols and longer codes to less
+probable ones. For example, in English text, the letter $e$ appears ($12.7\%$)
+much more often than the letter $z$ ($0.074\%$), so an entropy coder would
+assign a shorter code to $e$ and a longer code to $z$.
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[font=\sffamily\small]
 \node[anchor=east] at (0,0.5) {`e' (common)};
 \node[anchor=west] at (0.3,0.5) {$\longrightarrow$ code: \texttt{0}};
-\node[anchor=east] at (0,-0.5) {`x' (rare)};
+\node[anchor=east] at (0,-0.5) {`z' (rare)};
 \node[anchor=west] at (0.3,-0.5) {$\longrightarrow$ code: \texttt{1011001}};
 \end{tikzpicture}
 \caption{The intuition behind every entropy coder, before
@@ -583,6 +618,16 @@ encoding and decoding run per symbol once the table already exists, which is
 exactly why those two ideas land in different tables above rather than
 getting conflated into one.}
 
+\engage{prefixcol}{Side note:}{These rankings assume the compressor does
+not know the shape of the source distribution in advance and must learn it
+from the data. If the distribution is already known to be geometric --
+as prediction residuals in audio and image codecs are -- then Rice coding
+jumps to the top of \emph{both} tables simultaneously. It is provably the
+optimal prefix code for a geometric source (a mathematical theorem, not a
+rule of thumb), and it needs only a single parameter $k$ rather than a
+full frequency table, so both its ratio and its speed improve dramatically
+over the general-purpose coders listed above.}
+
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
@@ -865,6 +910,20 @@ LZMA is best on ratio but slowest.}
 \label{fig:dict-speed-rank}
 \end{figure}
 
+\engage{dictcol}{Side note:}{These speed rankings refer to
+\emph{compression} speed only. Brotli's slow ranking here sometimes
+surprises people who use it every day without noticing any delay -- the
+reason is that compression and decompression are two entirely different
+operations. Brotli is slow to compress but fast to decompress, and for
+web delivery that asymmetry is fine: a page is compressed once on the
+server, cached, and then decompressed by every browser that requests it.
+The user only ever waits for decompression, which is fast. Brotli was
+deliberately designed for this one-compress-many-decompress pattern.
+Where that asymmetry does \emph{not} hold -- live video transcoding,
+real-time database backups, on-the-fly API responses -- Brotli's slow
+compression speed becomes a real problem, and DEFLATE or Zstandard are
+the right choice instead.}
+
 The key insight from Figures~\ref{fig:dict-ratio-rank} and
 \ref{fig:dict-speed-rank} is the same trade-off we saw with entropy coding:
 \textbf{you can't have both maximum ratio and maximum speed.} Each format
@@ -886,129 +945,53 @@ web content.
 
 
 
-\section{Transform-based compression: the Burrows--Wheeler Transform}
+\section{Transform-based compression}
 \label{sec:transform-bwt}
 
 We've now covered two of our five lossless families: entropy coding and
-dictionary compression. Let's move to the third family. Transform-based
+dictionary compression. Let's move to the third family: transform-based
 compression.
 
 Here's the core idea. Instead of compressing the data directly, first
 transform it into a completely different arrangement of the exact same
-symbols. An arrangement that happens to be far easier to compress. Then run
-a simple compressor on top of that.
+symbols -- one that happens to be far easier to compress -- then run a
+simple compressor on top of that. None of the transforms below save a
+single bit on their own. Their entire job is to reshape the data so the
+next stage in the pipeline has an easier time.
 
-The most famous example of this approach is the Burrows-Wheeler Transform,
-or BWT. It is the engine inside the popular bzip2 compressor.
+\textbf{Burrows--Wheeler Transform (BWT).} Sorts every rotation of the
+input string alphabetically and takes the last column of that sorted
+list. Sorting groups together characters that share the same upcoming
+context, so identical characters cluster into runs in the output. Those
+runs are far easier for a downstream coder to exploit. BWT is the engine
+inside bzip2, and it will get its own dedicated video.
 
-\engage{transformcol}{Pause and guess:}{the Burrows-Wheeler Transform, by
-itself, does not save a single bit. Not one. So why would anyone bother
-using it? Take a guess, then keep watching.}
+\textbf{Move-to-front (MTF).} Maintains a list of symbols in order of
+recent use. Each symbol is replaced by its current position in that
+list, then moved to the front. Symbols on a long run, exactly what BWT
+produces, sit permanently at position zero, so the output becomes a
+stream of mostly zeros and small integers -- a skewed distribution that
+entropy coders compress extremely well. MTF is almost always used as the
+stage immediately after BWT.
 
-Here's how it works. Take your string, and add a unique end marker to it,
-say a dollar sign. Now generate every rotation of that string. Sort all of
-those rotations alphabetically. The BWT output is simply the last column of
-that sorted list.
+\textbf{Delta encoding.} Replaces each value with its difference from
+the previous one. Smoothly changing data -- audio samples, pixel rows,
+sensor readings -- produces mostly small residuals near zero, which
+compress far better than the raw values. PNG's per-row prediction filter
+and FLAC's audio predictor are both delta encoding at heart.
 
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[font=\sffamily\small]
-\node[anchor=west, transformcol, font=\sffamily\small\bfseries] at (0,5.2) {input: \texttt{banana\$}};
+\textbf{Discrete Cosine Transform (DCT).} Re-expresses a block of values
+as a sum of cosine waves at different frequencies. Natural signals
+(images, audio) concentrate almost all their energy into a handful of
+low-frequency coefficients; the rest quantize away to near zero almost
+for free. DCT is the core of JPEG and the AAC/MP3 audio codecs.
 
-\node[anchor=west] at (0,4.4) {\textbf{all rotations}};
-\foreach \i/\txt in {0/banana\$,1/anana\$b,2/nana\$ba,3/ana\$ban,4/na\$bana,5/a\$banan,6/\$banana}{
-  \node[font=\sffamily\scriptsize, anchor=west] at (0,4.0-\i*0.42) {\texttt{\txt}};
-}
-
-\draw[->, transformcol, thick] (3.0,2.1) -- (4.2,2.1) node[midway, above, font=\sffamily\scriptsize, transformcol] {sort};
-
-\node[anchor=west] at (4.6,4.4) {\textbf{sorted rotations}};
-\foreach \i/\txt in {0/\$banana,1/a\$banan,2/ana\$ban,3/anana\$b,4/banana\$,5/na\$bana,6/nana\$ba}{
-  \node[font=\sffamily\scriptsize, anchor=west] at (4.6,4.0-\i*0.42) {\texttt{\txt}};
-}
-
-\draw[transformcol, thick, decorate, decoration={brace, amplitude=4pt}] (8.55,4.13) -- (8.55,1.45) node[midway, right=3pt, font=\sffamily\scriptsize, transformcol] {last column};
-
-\node[anchor=west, bestcol, font=\sffamily\small\bfseries] at (4.6,1.0) {BWT output: \texttt{annb\$aa}};
-\end{tikzpicture}
-\caption{The Burrows-Wheeler Transform of \texttt{banana\$},
-worked by hand. Every rotation of the input (left) is sorted alphabetically
-(right), and the last letter of each sorted row, read top to bottom, is the
-BWT output. Notice the output has far more repeated, neighboring letters
-than the original string did.}
-\label{fig:bwt}
-\end{figure}
-
-So why bother? Look closely at the output: \texttt{annb\$aa}. Compare that to
-the original: \texttt{banana\$}. The letters haven't changed, and there are
-exactly as many of them. But in the BWT output, identical letters are far
-more likely to sit right next to each other. That's because sorting groups
-together every rotation that shares the same upcoming context. The BWT
-itself doesn't compress anything. What it does is rearrange the data so that
-a much simpler compressor, typically a move-to-front transform, followed by
-run-length encoding, followed by entropy coding, can squeeze it far harder
-than it could squeeze the original. That handoff to a simple downstream
-compressor is exactly how bzip2 is built.
-
-The ``much simpler compressor'' mentioned above is itself a second
-transform: the move-to-front transform, or MTF. By the same definition
-used for BWT, MTF qualifies as transform-based compression too -- it
-doesn't shrink the data by a single bit on its own, it just rearranges
-symbols into a far more compressible shape, then hands off to run-length
-and entropy coding to do the actual squeezing.
-
-Here's how it works. Keep a list of every distinct symbol in the data,
-in some starting order. For each symbol in the input, output its current
-position in that list, then move that symbol to the front of the list.
-Symbols that keep repeating, exactly what BWT produces in long runs, end
-up at the front of the list almost permanently, so they keep generating
-small numbers, often literally zero.
-
-\begin{figure}[H]
-\centering
-\begin{tabular}{@{}cccc@{}}
-\toprule
-\textbf{Symbol} & \textbf{List before} & \textbf{Output} & \textbf{List after} \\
-\midrule
-a & \texttt{\$ a b n} & 1 & \texttt{a \$ b n} \\
-n & \texttt{a \$ b n} & 3 & \texttt{n a \$ b} \\
-n & \texttt{n a \$ b} & 0 & \texttt{n a \$ b} \\
-b & \texttt{n a \$ b} & 3 & \texttt{b n a \$} \\
-\$ & \texttt{b n a \$} & 3 & \texttt{\$ b n a} \\
-a & \texttt{\$ b n a} & 3 & \texttt{a \$ b n} \\
-a & \texttt{a \$ b n} & 0 & \texttt{a \$ b n} \\
-\bottomrule
-\end{tabular}
-\caption{The move-to-front transform applied to the BWT output
-\texttt{annb\$aa} from Figure~\ref{fig:bwt}, starting from the alphabet
-\texttt{\$ a b n}. Each row outputs the symbol's current position, then
-moves that symbol to the front. The MTF output is \texttt{1 3 0 3 3 3 0}
--- mostly small numbers, with three 3's and two 0's, exactly the kind of
-skewed, repetitive distribution that run-length and entropy coding
-exploit well.}
-\label{fig:mtf}
-\end{figure}
-
-That output, \texttt{1 3 0 3 3 3 0}, is what bzip2 hands next to
-run-length encoding and then entropy coding. None of the three steps,
-BWT, MTF, or RLE, compresses anything by itself. Each one just reshapes
-the data so the next stage in the pipeline has an easier job.
-
-BWT and MTF aren't the only transforms in this family, either. Delta
-encoding replaces each value with its difference from a predicted value,
-often just the previous one, turning smoothly changing data into a
-stream of small numbers; it's the same idea behind PNG's per-row
-prediction filter (\ref{sec:lossy-fill}). The discrete cosine transform
-and the discrete wavelet transform, the workhorses behind JPEG, MP3, and
-JPEG2000, do the same job for lossy compression: they convert a signal
-into frequency components so that most of the energy lands on a few
-large coefficients and everything else can be quantized away almost for
-free. DCT does this with global, whole-block waves, while wavelets use
-short, localized ripples that adapt to both frequency and position at
-once, which is what lets them keep sharp edges crisp instead of
-smearing them across the block. What unites all of these, BWT, MTF,
-delta encoding, DCT, wavelets, is the same handoff pattern: rearrange or
-re-express the data first, then let a simpler coder do the squeezing.
+\textbf{Discrete Wavelet Transform (DWT).} Like DCT but uses short,
+localized wavelets instead of global waves, giving simultaneous
+frequency and position information. A sharp edge in an image is captured
+by a few short, localized coefficients rather than being smeared across
+the whole block, which is why JPEG2000 handles edges and fine detail
+better than classic JPEG.
 
 \begin{figure}[H]
 \centering
@@ -1028,10 +1011,9 @@ for tree={
 ]
 \end{forest}%
 }
-\caption{The transform-based branch. None of BWT, MTF, delta encoding,
-DCT, or the wavelet transform compete with entropy coding or LZ -- each
-is a pre-processing step that makes whatever comes after it work
-better.}
+\caption{The five members of the transform-based family. Each reshapes
+data into a more compressible form and hands off to a downstream coder
+to do the actual squeezing -- none of them saves a single bit on their own.}
 \label{fig:transform-branch}
 \end{figure}
 
