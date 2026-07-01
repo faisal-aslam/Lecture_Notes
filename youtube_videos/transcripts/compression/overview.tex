@@ -980,6 +980,64 @@ sensor readings -- produces mostly small residuals near zero, which
 compress far better than the raw values. PNG's per-row prediction filter
 and FLAC's audio predictor are both delta encoding at heart.
 
+\medskip
+Delta encoding is also the simplest example of a pattern that will
+reappear in almost every remaining section of this video:
+\textbf{predict the next value, encode only the residual, entropy-code
+the result.} It is worth pausing on a concrete example now, because
+every time you see this pattern again -- in context modeling, in FLAC,
+in PNG, in video codecs -- you can map it straight back to what happens
+here.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+& \multicolumn{6}{c}{\textbf{Hourly temperature readings ($^\circ$C)}} \\
+\midrule
+\textbf{Raw values}     & 10 & 12 & 11 & 13 & 12 & 14 \\
+\textbf{Prediction}     & -- & 10 & 12 & 11 & 13 & 12 \\
+\textbf{Residual}       & 10 & +2 & -1 & +2 & -1 & +2 \\
+\bottomrule
+\end{tabular}
+\caption{Delta encoding on a simple temperature sequence. The
+prediction is just the previous value. The residual is tiny and
+repetitive: only three distinct values ($+2$, $-1$, $10$), compared to
+six distinct raw values. An entropy coder can assign $+2$ and $-1$ very
+short codes since each appears three times, giving much better
+compression than coding the raw sequence directly.}
+\label{fig:delta-example}
+\end{figure}
+
+The prediction here is the simplest possible: ``the next value equals
+the current one.'' But the predict-then-residual idea scales to far
+richer predictors:
+
+\begin{itemize}
+\item \textbf{Linear prediction (FLAC, FFV1).} Fit a short polynomial
+  to the last few samples and extrapolate. A waveform that is rising
+  smoothly gets predicted almost perfectly; only the tiny wobble around
+  that trend needs to be encoded.
+\item \textbf{Spatial prediction (PNG, HEVC intra).} Predict a pixel
+  from its already-encoded neighbours above and to the left. Smooth
+  regions of an image produce near-zero residuals across entire rows.
+\item \textbf{Motion-compensated prediction (H.264, HEVC, AV1).}
+  Predict an entire video frame from a previous frame by finding where
+  each block moved. Only the difference between the predicted frame and
+  the actual frame -- the motion residual -- is transmitted.
+\item \textbf{Context modeling (PPM, context mixing).} Predict the
+  \emph{probability distribution} of the next symbol given the last
+  $n$ symbols, rather than predicting its value directly. Feed that
+  distribution to an arithmetic coder. No numerical residual, but the
+  same underlying idea: use the past to make the present cheaper to
+  encode.
+\end{itemize}
+
+Each of these is just a smarter answer to the same question delta
+encoding asks: \emph{given what I have already seen, what is my best
+guess at the next value?} The better the prediction, the smaller and
+more compressible the residual.
+
 \textbf{Discrete Cosine Transform (DCT).} Re-expresses a block of values
 as a sum of cosine waves at different frequencies. Natural signals
 (images, audio) concentrate almost all their energy into a handful of
@@ -1027,8 +1085,13 @@ Entropy coding assigns a symbol's code length based on how common that symbol is
 Context modeling asks a sharper question. Forget the overall frequency. How likely is this symbol to appear \emph{right here}, 
 given the handful of symbols that just came before it?
 
-Context modeling is effectively an order-\emph{n} entropy model, where $n$ is the size of the context. It estimates the probability of
-each symbol conditioned on the $n$ symbols that preceded it, rather than using a single global probability for every symbol.
+Context modeling is the predict-then-encode pattern from the delta
+encoding example (Figure~\ref{fig:delta-example}), but applied at the
+level of \emph{probabilities} rather than numerical values. Instead of
+predicting what the next number will be and encoding the difference,
+context modeling predicts what the next \emph{symbol} is most likely to
+be, then lets an entropy coder assign it a short code if that prediction
+is confident.
 
 The flagship algorithm in this family is called PPM, which stands for
 Prediction by Partial Matching.
@@ -1117,6 +1180,8 @@ archives, or a studio's master audio recording. For those cases, engineers
 built dedicated lossless formats for video, images, and audio. And under the
 hood, every one of them is just a clever combination of the four families we
 already covered.
+
+If you recall the temperature example from Figure~\ref{fig:delta-example} -- predict the next value, encode only the residual, entropy-code the result -- you have already understood the core of FLAC, PNG, and FFV1. Lossless multimedia codecs are essentially that same three-step pipeline, but with smarter predictors tuned to the specific structure of audio waveforms, image rows, and video frames.
 
 \engage{mmcol}{Pause and guess:}{FLAC is a lossless audio format. Based on
 everything we've covered so far, which lossless family or families do you
