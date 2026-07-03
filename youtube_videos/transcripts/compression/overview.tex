@@ -962,17 +962,47 @@ next stage in the pipeline has an easier time.
 \textbf{Burrows--Wheeler Transform (BWT).} Sorts every rotation of the
 input string alphabetically and takes the last column of that sorted
 list. Sorting groups together characters that share the same upcoming
-context, so identical characters cluster into runs in the output. Those
-runs are far easier for a downstream coder to exploit. BWT is the engine
-inside bzip2, and it will get its own dedicated video.
+context, so identical characters cluster into long runs in the output.
+Those runs are far easier for a downstream coder to exploit. BWT is the
+engine inside bzip2, and it will get its own dedicated video.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Input}  & \texttt{abracadabra\$} \\
+\textbf{BWT output} & \texttt{ard\$rcaaaabb} \\
+\bottomrule
+\end{tabular}
+\caption{BWT on \texttt{abracadabra\$}. The input has no long runs of
+identical characters. The output has four \texttt{a}s and two
+\texttt{b}s sitting side by side -- those runs are what BWT is
+designed to create.}
+\label{fig:bwt-example}
+\end{figure}
 
 \textbf{Move-to-front (MTF).} Maintains a list of symbols in order of
 recent use. Each symbol is replaced by its current position in that
-list, then moved to the front. Symbols on a long run, exactly what BWT
-produces, sit permanently at position zero, so the output becomes a
-stream of mostly zeros and small integers -- a skewed distribution that
-entropy coders compress extremely well. MTF is almost always used as the
-stage immediately after BWT.
+list, then moved to the front. Symbols on a long run sit permanently at
+position zero, so the output becomes a stream of mostly zeros and small
+integers -- a skewed distribution that entropy coders compress extremely
+well. MTF is almost always used as the stage immediately after BWT.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{BWT output (MTF input)}  & \texttt{a\ \ r\ \ d\ \ \$\ \ r\ \ c\ \ a\ \ a\ \ a\ \ a\ \ b\ \ b} \\
+\textbf{MTF output} & \texttt{1\ \ 5\ \ 5\ \ 3\ \ 2\ \ 5\ \ 4\ \ 0\ \ 0\ \ 0\ \ 5\ \ 0} \\
+\bottomrule
+\end{tabular}
+\caption{MTF applied to the BWT output above. The four \texttt{a}s in a
+row become \texttt{4\ 0\ 0\ 0} -- once \texttt{a} moves to the front of
+the list it stays there, so every repeat costs just a zero. The two
+\texttt{b}s become \texttt{5\ 0} for the same reason. A stream
+dominated by zeros is exactly what an entropy coder can squeeze hardest.}
+\label{fig:mtf-example}
+\end{figure}
 
 \textbf{Delta encoding.} Replaces each value with its difference from
 the previous one. Smoothly changing data -- audio samples, pixel rows,
@@ -1232,7 +1262,29 @@ So if you guessed "a prediction step followed by entropy coding" for FLAC, you w
 \section{Filling in lossy: video, images, and audio}
 \label{sec:lossy-fill}
 
-Now let's finally fill in the other half of our master tree: lossy compression. The key takeaway of lossy video, image, and audio compression is that they discard high-frequency detail that is not easily perceptible to human eyes and ears. Thus, the reduction in quality significantly reduces the size of multimedia files, but it remains acceptable for human perception.
+Now let's finally fill in the other half of our master tree: lossy
+compression. The key idea behind lossy multimedia compression can be
+captured in three steps.
+
+\textbf{First, transform.} The raw data is re-expressed so that
+coarse structure and fine detail become separately accessible -- for
+example via a DCT, a wavelet transform, or linear prediction.
+
+\textbf{Second, discard.} High-frequency components, fine detail that
+human eyes and ears cannot easily perceive, are quantized aggressively
+or dropped entirely. This is the step where quality is traded for size,
+and it is done carefully so the loss stays below the threshold of
+perception.
+
+\textbf{Third, compress.} The remaining coefficients -- now sparse,
+with many zeros where detail was discarded -- are compressed using
+standard lossless techniques such as zero run-length encoding followed
+by entropy coding.
+
+The result is a dramatic reduction in file size that remains acceptable
+to human perception, which is exactly why lossy formats dominate
+wherever the data is meant to be seen or heard rather than processed
+exactly.
 
 Unlike lossless, lossy compression doesn't reduce neatly into four shared families. Instead, it splits naturally by media type, because what counts as "unnoticeable" is different for your eyes than it is for your ears.
 
