@@ -403,14 +403,22 @@ integer $j = j_{n-1}\cdots j_0$ in binary, then
 
 \begin{tcolorbox}[insight]
   \textbf{Why the product form matters.}\ The product form shows that
-  each output qubit of the QFT carries phase information for exactly one
-  bit of the binary fraction $0.j_1 j_2 \cdots j_n$.  The \emph{last}
-  output qubit ($k=n$) encodes only $j_n$ (one bit), while the
-  \emph{first} output qubit ($k=1$) encodes all $n$ bits.
-  This structure is what makes the QFT efficient to implement
-  (in $\bigO(n^2)$ gates) and is also what allows \QPE{} to decode
-  the phase: Stage~2 of \QPE{} prepares a state that is \emph{exactly}
-  in this product form, and the \IQFT{} then reads it out as a basis state.
+  the output qubits of the QFT carry \emph{different amounts} of phase
+  information about the binary fraction $0.j_1 j_2 \cdots j_n$.
+  Specifically, the $k$-th factor in the tensor product is in the state
+  $\tfrac{1}{\sqrt{2}}(\Ket{0}+e^{2\pi\ii\,0.j_{n-k+1}\cdots j_n}\Ket{1})$,
+  encoding the last $k$ bits of the input.
+  At one extreme, the \emph{last} output qubit (the $n$-th factor) encodes
+  only $j_n$ — a single bit of $\varphi$.
+  At the other extreme, the \emph{first} output qubit (the 1st factor)
+  encodes all $n$ bits via the full binary fraction $0.j_1 j_2\cdots j_n$.
+  This hierarchical structure — from coarsest resolution at the first qubit
+  to finest resolution at the last — is what makes the QFT efficient to
+  implement in $\bigO(n^2)$ gates (each qubit only needs controlled-phase
+  interactions with the qubits that follow it in the product), and is also
+  what allows \QPE{} to decode the phase: Stage~2 of \QPE{} prepares a
+  state in \emph{exactly} this product form, and the \IQFT{} then reads
+  it out as a computational basis state.
 \end{tcolorbox}
 
 \subsection{Controlled-Unitary Gates}
