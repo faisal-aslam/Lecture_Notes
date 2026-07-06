@@ -585,25 +585,120 @@ phase register is in the product state:
 \[
   \bigotimes_{k=0}^{n-1}\frac{\Ket{0}+e^{2\pi \ii \varphi 2^k}\Ket{1}}{\sqrt{2}}.
 \]
-Expanding this tensor product and using $j = \sum_{k=0}^{n-1} 2^k j_k$:
+We now expand this tensor product carefully, one step at a time.
+
+\medskip
+\noindent\textbf{Step A: Write each single-qubit factor explicitly.}
+
+Each qubit $k$ is in the state $\dfrac{\Ket{0}+e^{2\pi\ii\varphi 2^k}\Ket{1}}{\sqrt{2}}$.
+Write this as $\dfrac{1}{\sqrt{2}}\sum_{j_k=0}^{1} e^{2\pi\ii\varphi 2^k j_k}\Ket{j_k}$,
+since the $j_k=0$ term gives $e^0\Ket{0}=\Ket{0}$ and the $j_k=1$ term gives
+$e^{2\pi\ii\varphi 2^k}\Ket{1}$. So:
+\[
+  \bigotimes_{k=0}^{n-1}\frac{\Ket{0}+e^{2\pi \ii \varphi 2^k}\Ket{1}}{\sqrt{2}}
+  = \bigotimes_{k=0}^{n-1} \frac{1}{\sqrt{2}}\sum_{j_k=0}^{1} e^{2\pi\ii\varphi 2^k j_k}\Ket{j_k}.
+\]
+
+\medskip
+\noindent\textbf{Step B: Pull the $1/\sqrt{2}$ factors out front.}
+
+There are $n$ qubits, each contributing $1/\sqrt{2}$, so together they give $1/\sqrt{2^n}$:
+\[
+  = \frac{1}{\sqrt{2^n}} \bigotimes_{k=0}^{n-1} \sum_{j_k=0}^{1} e^{2\pi\ii\varphi 2^k j_k}\Ket{j_k}.
+\]
+
+\medskip
+\noindent\textbf{Step C: Expand the tensor product of sums into a single sum.}
+
+This is the key algebraic step. Expanding a tensor product of sums means
+summing over \emph{all combinations} of the individual indices. For two qubits
+as a small example:
+\[
+  \Bigl(\sum_{j_0} a_{j_0}\Ket{j_0}\Bigr) \otimes \Bigl(\sum_{j_1} b_{j_1}\Ket{j_1}\Bigr)
+  = \sum_{j_0}\sum_{j_1} a_{j_0} b_{j_1}\,\Ket{j_0}\otimes\Ket{j_1}
+  = \sum_{j_0, j_1} a_{j_0} b_{j_1}\,\Ket{j_0 j_1}.
+\]
+For $n$ qubits, the same rule gives a sum over all $n$-bit strings
+$(j_{n-1}, j_{n-2}, \ldots, j_0)$ with $j_k \in \{0,1\}$:
+\[
+  \bigotimes_{k=0}^{n-1} \sum_{j_k=0}^{1} e^{2\pi\ii\varphi 2^k j_k}\Ket{j_k}
+  = \sum_{j_0=0}^{1}\sum_{j_1=0}^{1}\cdots\sum_{j_{n-1}=0}^{1}
+    \left(\prod_{k=0}^{n-1} e^{2\pi\ii\varphi 2^k j_k}\right)
+    \Ket{j_{n-1}\cdots j_1 j_0}.
+\]
+The total number of terms in this sum is $2^n$ (one per binary string), matching
+the range $j \in \{0, \ldots, 2^n-1\}$.
+
+\medskip
+\noindent\textbf{Step D: Relabel the nested sum with the integer index $j$.}
+
+Every binary string $(j_{n-1},\ldots,j_1,j_0)$ corresponds to a unique integer
+\[
+  j = j_{n-1}\cdot 2^{n-1} + \cdots + j_1\cdot 2^1 + j_0\cdot 2^0
+    = \sum_{k=0}^{n-1} j_k\, 2^k, \quad j \in \{0,1,\ldots,2^n-1\}.
+\]
+The basis state $\Ket{j_{n-1}\cdots j_1 j_0}$ is written $\Ket{j}$ in this notation.
+So the nested sum becomes a single sum over $j$:
+\[
+  \sum_{j=0}^{2^n-1}
+    \left(\prod_{k=0}^{n-1} e^{2\pi\ii\varphi 2^k j_k}\right)
+    \Ket{j}.
+\]
+
+\medskip
+\noindent\textbf{Step E: Simplify the product of exponentials.}
+
+Using the rule $e^{a}\cdot e^{b} = e^{a+b}$, a product of exponentials becomes
+a single exponential with the exponents added:
+\[
+  \prod_{k=0}^{n-1} e^{2\pi\ii\varphi 2^k j_k}
+  = e^{\,2\pi\ii\varphi 2^0 j_0}\cdot e^{\,2\pi\ii\varphi 2^1 j_1}\cdots e^{\,2\pi\ii\varphi 2^{n-1} j_{n-1}}
+  = e^{\,2\pi\ii\varphi\left(\sum_{k=0}^{n-1} 2^k j_k\right)}
+  = e^{2\pi\ii\varphi j},
+\]
+where the last equality uses the binary expansion $j = \sum_{k=0}^{n-1} 2^k j_k$
+from Step D.
+
+\medskip
+\noindent\textbf{Putting it all together:}
 \begin{align}
   \Ket{\Psi_2}
   &= \bigotimes_{k=0}^{n-1}\frac{\Ket{0}+e^{2\pi \ii \varphi 2^k}\Ket{1}}{\sqrt{2}}
   \otimes\Ket{\psi}
-  \notag \\
+  \tag{product of single-qubit states after kickback} \\
+  &= \frac{1}{\sqrt{2^n}} \bigotimes_{k=0}^{n-1} \sum_{j_k=0}^{1} e^{2\pi\ii\varphi 2^k j_k}\Ket{j_k}
+  \otimes\Ket{\psi}
+  \tag{Step A+B: rewrite each factor as a sum} \\
   &= \frac{1}{\sqrt{2^n}} \sum_{j=0}^{2^n-1}
       \prod_{k=0}^{n-1} \left(e^{2\pi \ii \varphi 2^k}\right)^{j_k} \Ket{j}
   \otimes\Ket{\psi}
-  \notag \\
+  \tag{Step C+D: expand tensor product, relabel with $j$} \\
   &= \frac{1}{\sqrt{2^n}} \sum_{j=0}^{2^n-1}
       e^{2\pi \ii \varphi \sum_{k=0}^{n-1} 2^k j_k} \Ket{j}
   \otimes\Ket{\psi}
-  \notag \\
+  \tag{Step E: merge product of exponentials} \\
   &= \frac{1}{\sqrt{2^n}} \sum_{j=0}^{2^n-1}
       e^{2\pi \ii \varphi j}\Ket{j}
   \otimes\Ket{\psi}.
+  \tag{$j = \sum_k 2^k j_k$ by definition}
   \label{eq:after_controlled}
 \end{align}
+
+\begin{tcolorbox}[insight]
+  \textbf{The conceptual summary of this calculation.}
+  The tensor product of $n$ single-qubit superpositions is mechanically
+  expanded by choosing one term ($\Ket{0}$ or $\Ket{1}$, i.e.\ $j_k=0$ or $1$)
+  from each qubit independently, multiplying the resulting amplitudes, and
+  forming the $n$-qubit basis state from the chosen bits.
+  Since all $2^n$ combinations are possible, we get a sum over all
+  $n$-bit integers $j$.  The phase accumulated for each $j$ is the product
+  of the individual phases $e^{2\pi\ii\varphi 2^k j_k}$, which collapses
+  to $e^{2\pi\ii\varphi j}$ because the exponents add and
+  $\sum_k 2^k j_k$ is precisely the binary representation of $j$.
+  This is why the powers-of-2 structure of the controlled gates
+  is essential: it is what makes the exponent equal to $\varphi j$
+  rather than some other function of $j$.
+\end{tcolorbox}
 
 \begin{tcolorbox}[insight]
   \textbf{Why powers of 2?}\ The crucial step is the last line of the
