@@ -121,6 +121,45 @@ fully-neural baseline; total wall-clock time vs.\ the same baselines;
 gatekeeper accuracy; and a ratio-vs-time plot showing where SwitchZip
 sits relative to ``always classical'' and ``always neural.''
 
+\section{Extension: More Than Two Candidates}
+The gatekeeper does not have to be a two-way choice. It can be extended to
+pick among $K$ candidate compressors per block --- e.g.\ run-length
+encoding (RLE, good for long repeated runs), dictionary/LZ-style coding
+(good for repeated substrings), delta encoding (good for numeric or
+sensor data with small changes between values), and the neural predictor
+(good for complex structure).
+
+This does not change the core mechanism: the gatekeeper is still a
+classifier making one cheap prediction per block, so the decision cost
+does not grow much with $K$. Two things do grow with $K$: the bookkeeping
+per block (a 2-way choice needs 1 bit, an 8-way choice needs 3 bits), and
+the amount of labeled training data needed so the gatekeeper sees enough
+examples of each candidate's ``home turf.'' Recommended order of work:
+build and validate the two-way (classical vs.\ neural) version first,
+since it is easier to measure and debug, then generalize to $K$ candidates
+as a stretch goal if time permits.
+
+\section{Novelty Check --- Do This Before Starting}
+Before committing months to this project, search specifically for:
+\begin{itemize}[nosep]
+  \item Data Compression Conference (DCC) proceedings, last 3 years, for
+  ``adaptive'' or ``learned'' codec selection.
+  \item ``Compressor routing,'' ``codec selection,'' ``compression
+  algorithm selection,'' and ``mixture of compressors.''
+  \item OpenZL (a graph-based compression framework from Meta that
+  selects different encoding components per data structure) --- close
+  enough in spirit that the exact difference from SwitchZip needs to be
+  stated clearly if this project proceeds.
+  \item Context-mixing compressors such as PAQ, cmix, and zpaq --- these
+  \emph{blend} predictions from multiple models continuously rather than
+  \emph{switching} between them per block. SwitchZip's discrete,
+  cost-aware switching is the point of difference to state explicitly.
+\end{itemize}
+If a very similar cost-aware discrete router already exists in the
+literature, the project should pivot to whichever gap remains open ---
+e.g.\ the $K$-way extension above, or a different data domain (genomic,
+sensor/IoT) where no one has applied this yet.
+
 \section*{References}
 \begin{thebibliography}{9}
 
