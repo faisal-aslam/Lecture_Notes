@@ -1,0 +1,158 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{\textbf{SwitchZip: A Cost-Aware Hybrid Classical/Neural Lossless Compressor}\\
+\large Final Year BS Project Proposal}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Is it lossless?}
+Yes. SwitchZip only decides \emph{which} lossless compressor to use on each
+block of data. Both options (classical and neural) are lossless on their
+own, and the choice made per block is stored alongside the data, so
+decompression always recovers the original file bit-for-bit.
+
+\section{Key Terms}
+\begin{description}[leftmargin=1.2cm, style=nextline]
+  \item[Lossless compression] Shrinking a file so it takes less space while
+  still being able to reconstruct the exact original afterward. (Lossy
+  compression, e.g.\ JPEG or MP3, permanently discards some detail.)
+  \item[Compression ratio] Original size $\div$ compressed size. Example:
+  a 10~MB file compressed to 2.5~MB has a ratio of 4.
+  \item[Entropy coding] Assigning shorter codes to more predictable data
+  and longer codes to less predictable data. Huffman coding and arithmetic
+  coding are both entropy coders.
+  \item[Arithmetic coding] Represents a whole message as one number in
+  $[0,1)$. At each step the current interval is split according to the
+  predicted probability of each possible next symbol, and the piece
+  matching the actual symbol becomes the new interval.
+  \item[Predictor] Anything that estimates ``how likely is each possible
+  next symbol, given what came before.'' Better predictions shrink the
+  interval less on the correct guess, which is what makes the output
+  smaller.
+  \item[Neural predictor] A predictor built from a neural network (e.g.\ an
+  LSTM or a small transformer). Usually predicts far better than simple
+  statistical models, at the cost of more computation per symbol.
+  \item[Classical compressor] A non-neural compressor such as
+  \texttt{gzip}, \texttt{zstd}, or PPMd. Cheap and fast, weaker predictor.
+  \item[Block] A chunk of the file (e.g.\ 4--64~KB) compressed as one unit,
+  so a program can make a separate decision for each chunk.
+  \item[Gatekeeper] The classifier this project builds: for each block, it
+  predicts whether the neural predictor's gain is worth its extra time.
+  \item[Latency] How long compression/decompression takes to run.
+\end{description}
+
+\section{Worked Example: Arithmetic Coding}
+Suppose the alphabet is \{A, B, C\} with predicted probabilities
+$P(A)=0.7$, $P(B)=0.2$, $P(C)=0.1$, and the message to encode is ``A''.
+
+Start with the interval $[0, 1)$. Split it into three pieces sized by
+probability:
+\[
+A \to [0, 0.7), \quad B \to [0.7, 0.9), \quad C \to [0.9, 1.0)
+\]
+Since the symbol is A, the new interval becomes $[0, 0.7)$ --- a large
+range, so it costs few bits to identify a number inside it. If instead the
+predictor had assigned A only $P(A)=0.1$, the interval for A would have
+been small (e.g.\ $[0, 0.1)$), costing more bits for the same symbol. This
+is exactly why a better predictor produces smaller output: it makes the
+interval for the symbol that actually occurs as large as possible.
+
+\section{Worked Example: Routing a File}
+Take a log file made of two halves: the first half is highly repetitive
+boilerplate (timestamps, fixed field names), the second half is
+free-form user comments.
+
+\begin{itemize}[nosep]
+  \item Block 1--50 (boilerplate): \texttt{gzip} already compresses this
+  well because the patterns are short and repeat constantly. A neural
+  predictor would barely improve the ratio, so the gatekeeper routes these
+  blocks to the classical compressor.
+  \item Block 51--100 (free text): predicting the next word needs
+  real language understanding. \texttt{gzip} does much worse here, while a
+  small neural model captures word-level structure and compresses it
+  further. The gatekeeper routes these blocks to the neural compressor.
+\end{itemize}
+The output file stores: (compressed block 1--50 via gzip) + (compressed
+block 51--100 via neural model) + (a short list saying ``blocks 1--50:
+classical, blocks 51--100: neural''). Decompression reads that list first
+and applies the matching decoder to each block.
+
+\section{Motivation}
+Neural predictors combined with arithmetic coding beat classical
+compressors by a wide margin on many data types \cite{deletang2024,bellard2019,goyal2018dzip}.
+The cost is speed: a neural model has to produce a prediction for every
+single symbol, and this speed/ratio tradeoff is identified as the main
+obstacle to using neural compression in practice \cite{kipf2026}. There is
+also no standard way yet to decide, block by block, whether paying that
+cost is worth it \cite{aitdcc2026}.
+
+\section{Project Plan}
+\begin{enumerate}[nosep]
+  \item \textbf{Baselines.} Run \texttt{gzip}, \texttt{zstd}, and a small
+  open-source neural compressor (e.g.\ DZip \cite{goyal2018dzip}) on
+  3--4 public datasets: plain text, genomic data, log files.
+  \item \textbf{Labels.} For every block, record which method gave the
+  best ratio-for-time result. This becomes training data for the
+  gatekeeper.
+  \item \textbf{Gatekeeper.} Train a small, fast classifier (simple
+  block statistics, or a tiny CNN) to predict that label directly from
+  the raw block, without running the neural model first.
+  \item \textbf{Pipeline.} Block splitting $\to$ gatekeeper $\to$ route
+  $\to$ compress $\to$ measure ratio and wall-clock time end to end.
+  \item \textbf{Ablations.} Vary block size; measure how often the
+  gatekeeper is wrong and what that costs; test on data types not seen
+  during training.
+\end{enumerate}
+
+\section{Evaluation}
+On held-out data, report: compression ratio vs.\ gzip, zstd, and a
+fully-neural baseline; total wall-clock time vs.\ the same baselines;
+gatekeeper accuracy; and a ratio-vs-time plot showing where SwitchZip
+sits relative to ``always classical'' and ``always neural.''
+
+\section*{References}
+\begin{thebibliography}{9}
+
+\bibitem{deletang2024}
+G.~Del\'etang, A.~Ruoss, P.-A.~Duquenne, E.~Catt, T.~Genewein, C.~Mattern,
+J.~Grau-Moya, L.~K.~Wenliang, M.~Aitchison, L.~Orseau, M.~Hutter, and
+J.~Veness.
+\newblock Language Modeling Is Compression.
+\newblock \emph{International Conference on Learning Representations
+(ICLR)}, 2024.
+
+\bibitem{bellard2019}
+F.~Bellard.
+\newblock Lossless Data Compression with Neural Networks.
+\newblock Technical report, 2019.
+
+\bibitem{goyal2018dzip}
+M.~Goyal, K.~Tatwawadi, S.~Chandak, and I.~Ochoa.
+\newblock DZip: Improved General-Purpose Lossless Compression Based on
+Novel Neural Network Modeling.
+\newblock \emph{arXiv preprint arXiv:1911.03572}, 2019.
+
+\bibitem{kipf2026}
+Kipf et al.
+\newblock Waiting to Decompress: The Economics of LLM-Based Compression.
+\newblock \emph{Conference on Innovative Data Systems Research (CIDR)},
+2026.
+
+\bibitem{aitdcc2026}
+The 2026 Algorithmic Information Theory Data Compression Challenge.
+\newblock Benchmark report, 2026. \url{https://aitdcc.github.io}.
+
+\end{thebibliography}
+
+\end{document}
