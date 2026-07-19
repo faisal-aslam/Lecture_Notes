@@ -1,0 +1,239 @@
+\documentclass[11pt,a4paper]{article}
+\input{lecture-preamble}
+
+\title{\vspace{-1.3cm}\textbf{Lecture 1: Mathematical Foundations\\ for Lattice-Based Cryptography}\\[4pt]
+\large Groups, Rings, Fields, Modular Arithmetic,\\ Vector Spaces, Basis, and Lattices}
+\author{Dr.\ Faisal Aslam}
+\date{Lecture Notes --- Session 1 (approx. 2 hours)}
+
+\begin{document}
+\maketitle
+\vspace{-0.8cm}
+
+\begin{notebox}
+\small\textbf{Purpose of this lecture.} Every technical term used later in the thesis proposal --- ``lattice,'' ``modulus,'' ``ring $\mathbb{Z}_q[x]/(x^n+1)$'' --- rests on a small set of algebraic building blocks. This lecture builds those blocks, one at a time, from the ground up: \emph{Group $\to$ Ring $\to$ Field $\to$ Modular Arithmetic $\to$ Vector Space $\to$ Basis $\to$ Lattice}. Nothing here requires prior abstract algebra; every definition is followed immediately by concrete, worked examples.
+\end{notebox}
+
+\tableofcontents
+\vspace{0.3cm}
+
+\section{Why Start With Algebra?}
+
+Lattice-based cryptography is, at its core, about doing arithmetic on \emph{vectors} whose coordinates live in a \emph{finite, wraparound number system}, arranged according to strict algebraic rules. Before we can even state what a lattice is, we need precise answers to questions like:
+\begin{itemize}[leftmargin=*]
+  \item What does it mean for a set of numbers to have a well-behaved notion of ``add'' and ``multiply''? (\textbf{Groups, Rings, Fields})
+  \item What happens when arithmetic ``wraps around,'' like a clock? (\textbf{Modulus})
+  \item What does it mean to build every point in a space out of a small number of building-block directions? (\textbf{Vector spaces, Basis})
+  \item What happens when we only allow \emph{whole-number} combinations of those building blocks, instead of any real-number combination? (\textbf{Lattice})
+\end{itemize}
+This lecture answers each of these in order. By the end, the definition of a lattice (Section~7) should feel like the natural, inevitable next step, not an isolated new idea.
+
+\section{Sets and Binary Operations (Quick Refresher)}
+
+A \textbf{set} is just a collection of objects (numbers, vectors, symbols --- anything). A \textbf{binary operation} on a set $S$ is a rule that takes two elements of $S$ and combines them into a third element, e.g., ordinary addition $+$ takes two numbers and produces their sum. We write $a * b$ for a general binary operation.
+
+An operation is \textbf{closed} on $S$ if combining two elements of $S$ always gives another element of $S$ (never something outside $S$). This sounds obvious but fails more often than you'd expect --- see Example~1 below.
+
+\begin{exbox}{Closure Can Fail}
+Let $S = \{1, 2, 3, 4, 5\}$ (just these five numbers) and let $*$ be ordinary addition. Then $2 * 4 = 6$, but $6 \notin S$. So ordinary addition is \emph{not} closed on $S$. This is exactly the kind of problem modular arithmetic (Section~5) is built to fix.
+\end{exbox}
+
+\section{Groups}
+
+\begin{defbox}{Group}
+A set $G$ together with a binary operation $*$ is called a \textbf{group}, written $(G, *)$, if all four of the following hold:
+\begin{enumerate}[leftmargin=*, label=(G\arabic*)]
+  \item \textbf{Closure:} for all $a, b \in G$, $a * b \in G$.
+  \item \textbf{Associativity:} for all $a,b,c \in G$, $(a*b)*c = a*(b*c)$.
+  \item \textbf{Identity:} there exists an element $e \in G$ such that $a * e = e * a = a$ for all $a \in G$.
+  \item \textbf{Inverses:} for every $a \in G$, there exists $a^{-1} \in G$ such that $a * a^{-1} = a^{-1} * a = e$.
+\end{enumerate}
+If, in addition, $a * b = b * a$ for all $a, b \in G$ (the order doesn't matter), the group is called \textbf{abelian} (commutative).
+\end{defbox}
+
+\begin{exbox}{Groups You Already Know}
+\begin{itemize}[leftmargin=*]
+  \item $(\mathbb{Z}, +)$ --- the integers under addition. Identity is $0$; the inverse of $a$ is $-a$. This is an abelian group.
+  \item $(\mathbb{R} \setminus \{0\}, \times)$ --- nonzero real numbers under multiplication. Identity is $1$; the inverse of $a$ is $1/a$. Also abelian. (We had to remove $0$ because $0$ has no multiplicative inverse.)
+  \item $(\mathbb{Z}, \times)$ --- integers under multiplication --- is \textbf{not} a group: $2$ has no inverse in $\mathbb{Z}$ (we'd need $1/2$, which isn't an integer). This fails axiom (G4).
+\end{itemize}
+\end{exbox}
+
+\begin{rmkbox}{Why Cryptography Cares About Groups}
+Many classical cryptographic schemes (Diffie--Hellman, ElGamal, elliptic-curve cryptography) are built directly on top of group structure --- the security relies on certain problems (like ``given $g$ and $g^a$, find $a$'') being hard inside a specific group. Lattice-based cryptography instead builds on richer structures (rings and modules, coming next), but the group is always the first layer underneath.
+\end{rmkbox}
+
+\begin{exercisebox}{Try This Before Next Lecture}
+Is $(\mathbb{Z}_5 \setminus \{0\}, \times \bmod 5) = (\{1,2,3,4\}, \times \bmod 5)$ a group? Check all four axioms directly by building the multiplication table. (You'll need Section~5 for what ``$\bmod 5$'' means if it's new to you --- come back to this after reading that section.)
+\end{exercisebox}
+
+\section{Rings}
+
+A ring is what you get when you ask a set to support \emph{two} operations --- usually called ``$+$'' and ``$\times$'' --- that interact the way ordinary addition and multiplication do.
+
+\begin{defbox}{Ring}
+A set $R$ with two binary operations $+$ and $\times$ is a \textbf{ring} $(R, +, \times)$ if:
+\begin{enumerate}[leftmargin=*, label=(R\arabic*)]
+  \item $(R, +)$ is an abelian group (with identity element usually written $0$).
+  \item $\times$ is associative: $(a \times b) \times c = a \times (b \times c)$.
+  \item The distributive laws hold: $a \times (b + c) = (a \times b) + (a \times c)$ and $(a+b)\times c = (a \times c) + (b \times c)$.
+\end{enumerate}
+Note: a ring does \emph{not} need multiplicative inverses, and multiplication need not be commutative in general (though in every ring we use in this thesis, it will be --- these are called \textbf{commutative rings}). If there is an element $1 \in R$ with $a \times 1 = 1 \times a = a$ for all $a$, we say $R$ is a \textbf{ring with unity}.
+\end{defbox}
+
+\begin{exbox}{Rings You Already Know}
+\begin{itemize}[leftmargin=*]
+  \item $(\mathbb{Z}, +, \times)$ --- the integers form a commutative ring with unity $1$. Notice $2$ still has no multiplicative inverse, and that's fine --- rings don't require one.
+  \item \textbf{Polynomial rings}, e.g. $\mathbb{Z}[x]$: the set of all polynomials with integer coefficients (like $3x^2 - x + 7$), with ordinary polynomial addition and multiplication. This is a ring for exactly the same reason $\mathbb{Z}$ is.
+\end{itemize}
+\end{exbox}
+
+\begin{previewbox}{The Ring That Kyber and Dilithium Actually Use}
+Both Kyber and Dilithium do their arithmetic inside a specific ring of the form
+$$R_q = \mathbb{Z}_q[x] / (x^n + 1),$$
+read as: ``polynomials with coefficients taken modulo $q$ (Section~5), where we also reduce powers of $x$ using the rule $x^n \equiv -1$.'' This looks intimidating right now, but it is built from exactly the pieces in this lecture: a polynomial ring (this section), with coefficients from $\mathbb{Z}_q$ (Section~5), further ``folded'' by a fixed rule. We will unpack this fully in a later lecture --- for now, just notice that ``ring'' is not an abstract curiosity; it's the literal object the cryptography is built on.
+\end{previewbox}
+
+\section{Fields}
+
+\begin{defbox}{Field}
+A \textbf{field} is a commutative ring with unity $F$ in which \emph{every nonzero element has a multiplicative inverse} --- that is, $(F \setminus \{0\}, \times)$ is also an abelian group. Informally: a field is a set where you can add, subtract, multiply, and divide (by anything except $0$) and always stay inside the set.
+\end{defbox}
+
+\begin{exbox}{Fields and Non-Fields}
+\begin{itemize}[leftmargin=*]
+  \item $\mathbb{Q}$ (rationals), $\mathbb{R}$ (reals), $\mathbb{C}$ (complex numbers) are all fields --- you can divide by any nonzero element and stay inside the set.
+  \item $\mathbb{Z}$ is \textbf{not} a field: $2 \in \mathbb{Z}$ has no multiplicative inverse in $\mathbb{Z}$ (again, $1/2 \notin \mathbb{Z}$). $\mathbb{Z}$ is a ring, but not a field.
+  \item $\mathbb{Z}_5 = \{0,1,2,3,4\}$ under addition and multiplication mod $5$ \emph{is} a field --- every nonzero element has an inverse (you checked this, or will check this, in Exercise~4.1). Fields built this way, from $\mathbb{Z}_p$ with $p$ prime, are called \textbf{finite fields} or \textbf{Galois fields}, written $\mathbb{F}_p$ or $GF(p)$.
+\end{itemize}
+\end{exbox}
+
+\begin{rmkbox}{The One-Sentence Summary So Far}
+Group $\subset$ Ring $\subset$ Field, in the sense that a field is a ring with extra structure (division), and a ring is built from a group with extra structure (a second operation). Each step adds a capability: groups let you undo one operation (inverses); rings add a second, distributive operation; fields guarantee \emph{both} operations are fully invertible (except division by $0$).
+\end{rmkbox}
+
+\section{The Modulus: Arithmetic That Wraps Around}
+
+\begin{defbox}{Congruence Modulo $n$}
+For a fixed positive integer $n$ (the \textbf{modulus}), two integers $a$ and $b$ are \textbf{congruent modulo $n$}, written
+$$a \equiv b \pmod{n},$$
+if $n$ divides $(a-b)$ evenly --- equivalently, $a$ and $b$ leave the same remainder when divided by $n$. The set of possible remainders, $\{0, 1, 2, \ldots, n-1\}$, together with addition and multiplication performed ``with wraparound,'' is written $\mathbb{Z}_n$ (or $\mathbb{Z}/n\mathbb{Z}$).
+\end{defbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=1.1]
+  \foreach \i in {0,...,11} {
+    \node[circle, draw, minimum size=0.75cm, font=\small] at ({90-\i*30}:2) {\i};
+  }
+  \draw[-{Latex[length=2mm]}, thick, blue] (2.6,0.3) arc (7:83:2.7);
+  \node[blue, font=\small] at (3.2,1.9) {$9 + 5 = 14 \equiv 2 \pmod{12}$};
+\end{tikzpicture}
+\caption{The clock analogy for modular arithmetic: $\mathbb{Z}_{12}$ works exactly like a 12-hour clock face. $9$ o'clock plus $5$ hours wraps around to $2$ o'clock, i.e., $9+5=14 \equiv 2 \pmod{12}$.}
+\end{figure}
+
+\begin{exbox}{Computing Modulo}
+$17 \bmod 5$: divide $17$ by $5$ to get $3$ remainder $2$, so $17 \equiv 2 \pmod 5$. Similarly, $23 \equiv 3 \pmod{10}$, and $-1 \equiv n-1 \pmod n$ (e.g., $-1 \equiv 4 \pmod 5$) --- negative numbers wrap around too.
+\end{exbox}
+
+\begin{rmkbox}{When Is $\mathbb{Z}_n$ a Ring? When Is It a Field?}
+$\mathbb{Z}_n$ is \emph{always} a commutative ring with unity, for any $n \geq 2$. But it is a \emph{field} only when $n = p$ is \textbf{prime}. If $n$ is composite (e.g., $n=6$), some nonzero elements fail to have multiplicative inverses --- e.g., in $\mathbb{Z}_6$, there is no $x$ with $2x \equiv 1 \pmod 6$, since $2$ shares a common factor with $6$. This is exactly why cryptographic schemes that need a field (rather than just a ring) are built with a prime modulus $q$.
+\end{rmkbox}
+
+\begin{previewbox}{Why Cryptography Loves the Modulus}
+Modular arithmetic gives us two things cryptography needs badly: (1) a \textbf{finite} number system (so keys and computations have a fixed, bounded size, no matter how much you compute), and (2) built-in \textbf{one-wayness} in places --- e.g., given only $a \bmod n$, you cannot tell which of infinitely many integers $a$ actually was. The Learning-With-Errors (LWE) problem from the proposal document hides its secret inside equations that live in exactly this kind of finite, modular number system (there, the modulus is usually called $q$).
+\end{previewbox}
+
+\begin{exercisebox}{Practice}
+(a) Compute $23 \times 15 \bmod 7$. (b) List all elements of $\mathbb{Z}_8$ that \emph{do not} have a multiplicative inverse, and explain why (hint: compare each element to $8$). (c) Confirm $\mathbb{Z}_7$ is a field by checking that $3$ has a multiplicative inverse mod $7$ (find $x$ such that $3x \equiv 1 \pmod 7$).
+\end{exercisebox}
+
+\section{Vector Spaces, Basis, and Dimension}
+
+\begin{defbox}{Vector Space}
+A \textbf{vector space} over a field $F$ is a set $V$ (whose elements are called \textbf{vectors}) equipped with vector addition and scalar multiplication (multiplying a vector by an element of $F$), satisfying the ``obvious'' rules you'd expect: addition makes $(V,+)$ an abelian group, and scalar multiplication distributes sensibly over both vector addition and field addition. The most important example for us: $\mathbb{R}^n$, the set of all $n$-tuples of real numbers, is a vector space over $\mathbb{R}$.
+\end{defbox}
+
+\begin{defbox}{Linear Combination, Span, Linear Independence}
+Given vectors $v_1, \ldots, v_k \in V$ and scalars $c_1, \ldots, c_k \in F$, the vector $c_1 v_1 + c_2 v_2 + \cdots + c_k v_k$ is called a \textbf{linear combination} of $v_1, \ldots, v_k$. The set of \emph{all} linear combinations of a set of vectors is called their \textbf{span}. The vectors $v_1, \ldots, v_k$ are \textbf{linearly independent} if the only way to write $0 = c_1 v_1 + \cdots + c_k v_k$ is with every $c_i = 0$ --- informally, no vector in the set is ``redundant'' (expressible using the others).
+\end{defbox}
+
+\begin{defbox}{Basis and Dimension}
+A set of vectors $B = \{b_1, \ldots, b_k\}$ is a \textbf{basis} of a vector space $V$ if (1) $B$ is linearly independent, and (2) $B$ \textbf{spans} $V$ (every vector in $V$ can be written as a linear combination of $B$). Every basis of a given vector space has the same number of elements $k$, called the \textbf{dimension} of $V$.
+\end{defbox}
+
+\begin{exbox}{Basis of $\mathbb{R}^2$}
+The vectors $e_1 = (1,0)$ and $e_2 = (0,1)$ form the ``standard'' basis of $\mathbb{R}^2$: any vector $(a,b)$ is exactly $a \cdot e_1 + b \cdot e_2$. But this is far from the \emph{only} basis --- $\{(1,1), (1,-1)\}$ is also a valid basis of $\mathbb{R}^2$ (check: they're linearly independent, and any $(a,b)$ can be written as a combination of them). A vector space almost always has infinitely many possible bases; some are more convenient to work with than others. \textbf{Keep this fact in mind --- it becomes very important in Section~7.}
+\end{exbox}
+
+\section{From Vector Spaces to Lattices}
+
+Everything so far has allowed \emph{any} scalar from the field $F$ (e.g., any real number) when forming linear combinations. A lattice is what happens when we impose one dramatic restriction: \textbf{only integer combinations are allowed.}
+
+\begin{defbox}{Lattice}
+Given $n$ linearly independent vectors $b_1, \ldots, b_n \in \mathbb{R}^n$ (called a \textbf{basis} of the lattice), the \textbf{lattice} they generate is the set of \emph{all integer} linear combinations:
+$$
+\mathcal{L}(b_1, \ldots, b_n) = \left\{ \sum_{i=1}^{n} a_i b_i \;\middle|\; a_i \in \mathbb{Z} \right\}.
+$$
+Unlike a vector space (which is a continuous, solid region filling all of $\mathbb{R}^n$), a lattice is a \textbf{discrete} set of isolated points --- it looks like an infinite, evenly-repeating grid, as in Figure~2. Formally, a lattice is a discrete additive subgroup of $\mathbb{R}^n$: it is itself a group under vector addition (check: it's closed, has an identity $\vec{0}$, every point has an inverse, and addition is associative), but its elements do not fill up space continuously.
+\end{defbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=0.62]
+  \foreach \x in {0,...,7}
+    \foreach \y in {0,...,5}
+      \fill[gray!70] (\x,\y) circle (1.6pt);
+  \draw[-{Latex[length=2mm]}, thick, blue] (2,1) -- (4,2);
+  \node[blue, font=\small] at (3.3,2.5) {basis vector $b_1$};
+  \draw[-{Latex[length=2mm]}, thick, blue] (2,1) -- (1,3);
+  \node[blue, font=\small, left] at (1,3) {basis vector $b_2$};
+\end{tikzpicture}
+\caption{A 2-dimensional lattice generated by a basis $\{b_1, b_2\}$: every grid dot is reachable by some \emph{integer} combination $a_1 b_1 + a_2 b_2$ (with $a_1, a_2 \in \mathbb{Z}$), starting from any chosen origin dot.}
+\end{figure}
+
+\begin{rmkbox}{Same Lattice, Different Basis}
+Just as with vector spaces (Example~7), a single lattice has \emph{many} different valid bases. Two bases generate the exact same set of grid points if and only if one can be converted to the other using an integer matrix with determinant $\pm 1$ (a \textbf{unimodular} transformation) --- we won't need the details of this fact yet, but the consequence is critical: some bases consist of short, nearly-perpendicular vectors (a ``good'' basis, easy to compute with), while other, equally valid bases for the \emph{same} lattice consist of long, nearly-parallel vectors (a ``bad'' basis, hard to compute with). \textbf{This gap between good and bad bases for the same lattice is the single most important idea in lattice-based cryptography}: the secret key is typically a good (short) basis, while the public key describes the same lattice using a bad (long, scrambled-looking) basis. Recovering the good basis from the bad one is believed to be extremely hard once the dimension $n$ is large enough.
+\end{rmkbox}
+
+\begin{exbox}{A Tiny Lattice by Hand}
+Let $b_1 = (2,0)$ and $b_2 = (0,3)$ in $\mathbb{R}^2$. The lattice $\mathcal{L}(b_1,b_2)$ consists of every point $(2a_1, 3a_2)$ for integers $a_1, a_2$ --- so it includes $(0,0)$, $(2,0)$, $(-2,0)$, $(0,3)$, $(2,3)$, $(4,-3)$, and so on, but \emph{not} $(1,1)$ or $(1,0)$, since those cannot be written as $(2a_1, 3a_2)$ for integer $a_1, a_2$.
+\end{exbox}
+
+\begin{previewbox}{Where This Leads Next Lecture}
+With Groups $\to$ Rings $\to$ Fields $\to$ Modular arithmetic $\to$ Vector spaces $\to$ Basis $\to$ Lattice now in place, the next lecture can finally state the \textbf{Learning With Errors (LWE)} problem precisely: a secret vector, hidden inside noisy linear equations over $\mathbb{Z}_q$ (a ring, Section~5), which is exactly the kind of ``bad basis'' hardness described above, dressed up in a specific, standardized cryptographic form. We will also unpack the ring $R_q = \mathbb{Z}_q[x]/(x^n+1)$ flagged in Section~4, since \textbf{module lattices} (lattices whose coordinates come from a ring like $R_q$ instead of plain integers) are exactly what Kyber and Dilithium use in practice.
+\end{previewbox}
+
+\section{Summary Table}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Structure} & \textbf{Requires} & \textbf{Example} \\
+\hline
+Group & 1 operation, inverses exist & $(\mathbb{Z}, +)$ \\
+Ring & 2 operations, no division needed & $(\mathbb{Z}, +, \times)$, $\mathbb{Z}[x]$ \\
+Field & Ring + division by nonzero elements & $\mathbb{Q}, \mathbb{R}, \mathbb{Z}_p$ ($p$ prime) \\
+Modulus & Wraparound arithmetic & $\mathbb{Z}_n = \{0,\ldots,n-1\}$ \\
+Vector space & Field + vectors + scalar mult. & $\mathbb{R}^n$ \\
+Basis & Independent, spanning vector set & $\{(1,0),(0,1)\}$ in $\mathbb{R}^2$ \\
+Lattice & Vector space, but \emph{integer} combos only & Grid of points in $\mathbb{R}^n$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{Full List of Exercises (Assign as Homework Before Lecture 2)}
+
+\begin{exercisebox}{Homework Set}
+\begin{enumerate}[leftmargin=*]
+  \item Verify $(\{1,2,3,4\}, \times \bmod 5)$ is a group by writing out its full multiplication table (Exercise 4.1 above).
+  \item Compute $23 \times 15 \bmod 7$; list the non-invertible elements of $\mathbb{Z}_8$; verify $\mathbb{Z}_7$ is a field by finding the inverse of $3$ (Exercise~6.1 parts a--c above).
+  \item Is $\mathbb{Z}_9$ a field? Why or why not? (Hint: think about what $9$ is \emph{not}.)
+  \item Show that $\{(1,1), (1,-1)\}$ is a valid basis of $\mathbb{R}^2$ by (a) checking linear independence and (b) writing the vector $(4,2)$ as a linear combination of them.
+  \item For the lattice generated by $b_1=(1,2)$ and $b_2=(3,1)$: is the point $(7,5)$ in the lattice? (Find integers $a_1, a_2$ with $a_1 b_1 + a_2 b_2 = (7,5)$, or show none exist.)
+  \item In your own words (3--4 sentences), explain why a ``good basis'' and a ``bad basis'' for the same lattice can make the same mathematical object feel completely different to work with computationally.
+\end{enumerate}
+\end{exercisebox}
+
+\end{document}

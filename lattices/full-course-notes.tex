@@ -1,0 +1,29 @@
+% ============================================================
+% Master file: stitches the already-compiled, standalone lecture
+% PDFs into one combined "full course pack" PDF using pdfpages.
+% This is the simplest approach: each lectureN-*.tex file stays
+% fully independent (own title page, own numbering) and this
+% file just merges the finished PDFs together, in order.
+%
+% Usage:
+%   1. Compile each lecture file individually first
+%      (e.g. pdflatex lecture1-math-foundations.tex), so each
+%      lectureN-*.pdf exists in this folder.
+%   2. Add each new lecture's PDF filename to the \includepdf
+%      list below, in order.
+%   3. Compile this file to produce full-course-notes.pdf.
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+\usepackage{pdfpages}
+
+\begin{document}
+
+\includepdf[pages=-]{lecture1-math-foundations.pdf}
+
+% ---- Lecture 2 (uncomment once the file exists) ----
+% \includepdf[pages=-]{lecture2-<name>.pdf}
+
+% ---- Lecture 3 (uncomment once the file exists) ----
+% \includepdf[pages=-]{lecture3-<name>.pdf}
+
+\end{document}
