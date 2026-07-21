@@ -118,7 +118,7 @@ Let $H = 4\mathbb{Z} \subseteq \mathbb{Z}$. List all distinct cosets of $H$ in $
 
 \section{Rings}
 
-A ring is what you get when you ask a set to support \emph{two} operations --- usually called ``$+$'' and ``$\times$'' --- that interact the way ordinary addition and multiplication do.
+A ring is what you get when you ask a set to support \emph{two} binary operations that play two structurally different roles --- one behaves like addition (fully invertible), the other behaves like multiplication (weaker, no inverses required). We always \emph{label} these two operations ``$+$'' and ``$\times$,'' but --- and this is worth being precise about, since it's easy to misread --- \textbf{the labels do not mean the operations have to literally be school-arithmetic addition and multiplication}. They can be almost any two operations at all, as long as together they satisfy the axioms below. ``$+$'' and ``$\times$'' are names for the \emph{roles} the two operations play, not a requirement about what the operations must concretely do.
 
 \begin{defbox}{Ring}
 A set $R$ with two binary operations $+$ and $\times$ is a \textbf{ring} $(R, +, \times)$ if:
@@ -129,6 +129,15 @@ A set $R$ with two binary operations $+$ and $\times$ is a \textbf{ring} $(R, +,
 \end{enumerate}
 Note: a ring does \emph{not} need multiplicative inverses, and multiplication need not be commutative in general (though in every ring we use in this thesis, it will be --- these are called \textbf{commutative rings}). If there is an element $1 \in R$ with $a \times 1 = 1 \times a = a$ for all $a$, we say $R$ is a \textbf{ring with unity}.
 \end{defbox}
+
+\begin{rmkbox}{``$+$'' and ``$\times$'' Are Role Labels, Not a Restriction to Arithmetic}
+Compare this to groups (Section~3): a group has \emph{one} operation, and we wrote it as a generic $*$ precisely to emphasize that it could be anything (addition, multiplication, matrix multiplication, function composition --- whatever satisfies the axioms). A ring needs \emph{two} operations, and it turns out we always call them ``$+$'' and ``$\times$'' --- but this is a naming convention for the two \emph{roles}, not a claim that the operations must be ordinary numeric addition and multiplication. Concretely:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{$n \times n$ matrices:} ``$+$'' is ordinary matrix addition (this forms an abelian group), and ``$\times$'' is matrix \emph{multiplication} (associative, distributes over $+$) --- but matrix multiplication is \textbf{not} commutative in general, which is fine, since a ring's axioms above don't require it (only \emph{commutative} rings require it, and this one wouldn't qualify as one).
+  \item \textbf{Boolean rings} (used in digital logic): ``$+$'' is XOR and ``$\times$'' is AND on $\{0,1\}$ --- nothing to do with school arithmetic at all, yet every ring axiom above holds.
+\end{itemize}
+So whenever you meet a new ring in this course, the first question to ask is not ``is $+$ really addition and is $\times$ really multiplication?'' but rather: \emph{what are the two operations here, and do they satisfy axioms (R1)--(R3)?} The labels ``$+$''/``$\times$'' just tell you which operation is playing which role once you've checked that.
+\end{rmkbox}
 
 \begin{exbox}{Rings You Already Know}
 \begin{itemize}[leftmargin=*]
@@ -166,8 +175,38 @@ Find a pair of zero divisors in $\mathbb{Z}_{12}$ (there are several valid answe
 \section{Fields}
 
 \begin{defbox}{Field}
-A \textbf{field} is a commutative ring with unity $F$ in which \emph{every nonzero element has a multiplicative inverse} --- that is, $(F \setminus \{0\}, \times)$ is also an abelian group. Informally: a field is a set where you can add, subtract, multiply, and divide (by anything except $0$) and always stay inside the set.
+A \textbf{field} is a set $F$ with two binary operations $+$ and $\times$ such that:
+\begin{enumerate}[leftmargin=*, label=(F\arabic*)]
+  \item $(F, +)$ is an abelian group, over \emph{all} of $F$ (identity element $0$).
+  \item $(F \setminus \{0\}, \times)$ is an abelian group, over $F$ \textbf{with $0$ removed} (identity element $1$).
+  \item The distributive law holds: $a \times (b+c) = (a\times b) + (a \times c)$.
+\end{enumerate}
+Informally: a field is a set where you can add, subtract, multiply, and divide (by anything except $0$) and always stay inside the set. In short --- \textbf{a field is two abelian groups sharing one set, glued together by distributivity.}
 \end{defbox}
+
+\begin{rmkbox}{Why $0$ Has to Be Excluded, and It's Not Optional}
+In \emph{any} structure with a distributive law, $0 \times x = 0$ for every $x$ (this follows from distributivity itself, not from an extra rule: $0 \times x = (0+0)\times x = 0\times x + 0 \times x$, so subtracting $0\times x$ from both sides gives $0 = 0 \times x$). So $0$ could only have a multiplicative inverse if $0 \times x = 1$ for some $x$ --- but the left side is always $0$, never $1$ (as long as $1 \ne 0$, which we always assume). So $0$ is permanently excluded from having an inverse, in every field, without exception; it isn't a special case someone chose, it's forced by the arithmetic.
+\end{rmkbox}
+
+\begin{defbox}{Subtraction and Division Are \emph{Derived}, Not Extra}
+Neither subtraction nor division is a new, independent operation requiring its own axiom --- both are just notation for ``combine with an inverse,'' one level for each operation:
+$$
+a - b := a + (-b), \qquad \frac{a}{b} := a \times b^{-1} \ \ (b \ne 0),
+$$
+where $-b$ is guaranteed to exist by $(F,+)$ being a group (F1), and $b^{-1}$ is guaranteed to exist, for every \emph{nonzero} $b$, by $(F\setminus\{0\},\times)$ being a group (F2). So ``a field supports division'' is not an extra requirement on top of the definition --- it falls straight out of (F2) once every nonzero element is already promised an inverse. This is exactly why (F2) excludes $0$: since $0$ can never have an inverse (see the remark above), ``dividing by $0$'' can never be defined this way, no matter what field you're in.
+\end{defbox}
+
+\begin{exbox}{Division in $\mathbb{Z}_5$, Worked Out}
+What is $4 \div 3$ in $\mathbb{Z}_5$? First find $3^{-1} \bmod 5$: $3 \times 2 = 6 \equiv 1 \pmod 5$, so $3^{-1} = 2$. Then $4 \div 3 := 4 \times 3^{-1} = 4 \times 2 = 8 \equiv 3 \pmod 5$. Check: $3 \times 3 = 9 \equiv 4 \pmod 5$ --- correct, exactly as ``$4 \div 3 = 3$'' should verify.
+\end{exbox}
+
+\begin{rmkbox}{The One-Line Takeaway}
+\textbf{Subtraction is the additive inverse; division is the multiplicative inverse.} Same trick, applied once per operation --- $a-b$ means ``add $a$ and $b$'s additive inverse,'' $a/b$ means ``multiply $a$ by $b$'s multiplicative inverse.'' The one asymmetry between them traces directly back to (F1) vs.\ (F2): \emph{every} element of $F$ has an additive inverse, since $(F,+)$ is a group over \emph{all} of $F$ --- so subtraction always works. But \emph{only nonzero} elements have a multiplicative inverse, since $(F\setminus\{0\},\times)$ is a group only after removing $0$ --- so division by $b$ only ever works when $b \ne 0$.
+\end{rmkbox}
+
+\begin{factbox}{Every Field Is a Ring}
+Every field $F$ (Definition above) is automatically a commutative ring with unity --- in fact, an \textbf{integral domain} (Section~4.1). \emph{Why:} (F1) is exactly ring axiom (R1). Associativity and distributivity of $\times$ (ring axioms (R2)--(R3)) are inherited directly from $\times$ being a group operation on $F \setminus \{0\}$ together with (F3). So a field satisfies every ring axiom, plus two extra guarantees stacked on top: $\times$ is commutative, and every \emph{nonzero} element is invertible. This is why some textbooks instead \emph{define} a field as ``a commutative ring with unity in which every nonzero element has a multiplicative inverse'' --- that phrasing and the definition above pick out exactly the same objects; it's just built in the reverse order (starting from ``ring'' and adding a condition, instead of starting from two groups and gluing them together). Finally, a field is automatically an integral domain too: if $ab=0$ with $a \ne 0$, multiplying both sides by $a^{-1}$ forces $b = a^{-1}(ab) = a^{-1}\cdot 0 = 0$, so there can be no zero divisors.
+\end{factbox}
 
 \begin{exbox}{Fields and Non-Fields}
 \begin{itemize}[leftmargin=*]
@@ -222,21 +261,58 @@ For integers $a, b$ (not both zero), $\gcd(a,b)$ is the largest positive integer
 An element $a \in \mathbb{Z}_n$ has a multiplicative inverse if and only if $\gcd(a,n) = 1$. This is why every nonzero element of $\mathbb{Z}_p$ (for prime $p$) has an inverse: any $a$ with $1 \le a \le p-1$ automatically satisfies $\gcd(a,p)=1$, since $p$'s only divisors are $1$ and $p$ itself.
 \end{rmkbox}
 
-The classical \textbf{Euclidean Algorithm} computes $\gcd(a,b)$ by repeated division with remainder: $\gcd(a,b) = \gcd(b, a \bmod b)$, stopping when the remainder hits $0$. The \textbf{Extended} Euclidean Algorithm does this same process but also keeps track of how the running remainder can be written as a combination $a \cdot x + b \cdot y$ (integers $x,y$) at every step --- and when the algorithm finishes with $\gcd(a,b)=1$, the final $x$ is exactly $a^{-1} \bmod b$.
+The classical \textbf{Euclidean Algorithm} computes $\gcd(a,b)$ by repeated division with remainder: $\gcd(a,b) = \gcd(b, a \bmod b)$, stopping when the remainder hits $0$. The \textbf{Extended} Euclidean Algorithm does this same process but also tracks, at \emph{every single step}, how the current remainder can be written as a combination $a\cdot x + b\cdot y$ (integers $x,y$) --- and when the algorithm finishes with $\gcd(a,b)=1$, the row where the remainder equals $1$ hands you the inverse directly. The cleanest way to track this --- much easier to follow than plain back-substitution --- is a running \textbf{table} with one row per step.
 
-\begin{exbox}{Finding $3^{-1} \bmod 7$ Properly}
-We want $x$ with $3x \equiv 1 \pmod 7$. Run the Euclidean algorithm on $(7,3)$:
-\begin{align*}
-7 &= 2 \times 3 + 1 \\
-3 &= 3 \times 1 + 0 \quad \text{(remainder hits 0, so } \gcd(7,3)=1\text{)}
-\end{align*}
-Now work backward from the first line to express $1$ as a combination of $7$ and $3$:
-$$1 = 7 - 2 \times 3.$$
-Reading this modulo $7$: $1 \equiv -2 \times 3 \pmod 7$, so $x = -2 \equiv 5 \pmod 7$ is the inverse. \textbf{Check:} $3 \times 5 = 15 = 2\times7+1 \equiv 1 \pmod 7$. Correct --- and this matches whatever you found earlier by trial and error, but now via a method that scales to numbers with hundreds of digits.
+\begin{defbox}{The Extended Euclidean Algorithm, as a Table}
+To find $\gcd(a,b)$ together with integers $x,y$ satisfying $a\cdot x + b\cdot y = \gcd(a,b)$, build a table with columns $q$ (quotient), $r$ (remainder), $x$, $y$, starting with two fixed initial rows and then one new row per division step:
+\begin{center}
+\begin{tabular}{c|c|c|c|c}
+step & $q$ & $r$ & $x$ & $y$ \\
+\hline
+$-1$ & --- & $a$ & $1$ & $0$ \\
+$0$ & --- & $b$ & $0$ & $1$ \\
+$1$ & $q_1 = \lfloor r_{-1}/r_0 \rfloor$ & $r_1 = r_{-1} - q_1 r_0$ & $x_1 = x_{-1} - q_1 x_0$ & $y_1 = y_{-1} - q_1 y_0$ \\
+$2$ & $q_2 = \lfloor r_0/r_1 \rfloor$ & $r_2 = r_0 - q_2 r_1$ & $x_2 = x_0 - q_2 x_1$ & $y_2 = y_0 - q_2 y_1$ \\
+$\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$
+\end{tabular}
+\end{center}
+Every single row satisfies the \textbf{invariant} $r_i = a \cdot x_i + b \cdot y_i$ by construction --- this is the whole mechanism, and it's worth checking explicitly on at least one row the first time you use this table, to convince yourself it isn't magic. Stop once a row produces $r_i = 0$; the \emph{previous} row's $r$ is $\gcd(a,b)$, and that row's $x,y$ are exactly the combination you want.
+\end{defbox}
+
+\begin{exbox}{Table Method, Short Version: $\gcd(7,3)$ and $3^{-1} \bmod 7$}
+\begin{center}
+\begin{tabular}{c|c|c|c|c|l}
+step & $q$ & $r$ & $x$ & $y$ & check: $7x+3y$ \\
+\hline
+$-1$ & --- & $7$ & $1$ & $0$ & $7(1)+3(0)=7$ \checkmark \\
+$0$ & --- & $3$ & $0$ & $1$ & $7(0)+3(1)=3$ \checkmark \\
+$1$ & $\lfloor 7/3\rfloor=2$ & $7-2(3)=1$ & $1-2(0)=1$ & $0-2(1)=-2$ & $7(1)+3(-2)=1$ \checkmark \\
+$2$ & $\lfloor 3/1\rfloor=3$ & $3-3(1)=0$ & $0-3(1)=-3$ & $1-3(-2)=7$ & (stop: $r=0$) \\
+\end{tabular}
+\end{center}
+The row \emph{before} $r$ hit $0$ is step $1$: $r_1 = 1 = \gcd(7,3)$, with $x_1=1, y_1=-2$. So $7(1) + 3(-2) = 1$, i.e., $3 \times (-2) \equiv 1 \pmod 7$, giving $3^{-1} \equiv -2 \equiv 5 \pmod 7$ --- matching what trial and error would also find, but now via a method with a clear, mechanical stopping point.
+\end{exbox}
+
+\begin{exbox}{Table Method, Longer Version: $15^{-1} \bmod 26$}
+Here the table earns its keep --- more steps than the tiny example above, but the process is identical, row by row.
+\begin{center}
+\begin{tabular}{c|c|c|c|c}
+step & $q$ & $r$ & $x$ & $y$ \\
+\hline
+$-1$ & --- & $26$ & $1$ & $0$ \\
+$0$ & --- & $15$ & $0$ & $1$ \\
+$1$ & $\lfloor 26/15\rfloor=1$ & $26-1(15)=11$ & $1-1(0)=1$ & $0-1(1)=-1$ \\
+$2$ & $\lfloor 15/11\rfloor=1$ & $15-1(11)=4$ & $0-1(1)=-1$ & $1-1(-1)=2$ \\
+$3$ & $\lfloor 11/4\rfloor=2$ & $11-2(4)=3$ & $1-2(-1)=3$ & $-1-2(2)=-5$ \\
+$4$ & $\lfloor 4/3\rfloor=1$ & $4-1(3)=1$ & $-1-1(3)=-4$ & $2-1(-5)=7$ \\
+$5$ & $\lfloor 3/1\rfloor=3$ & $3-3(1)=0$ & $3-3(-4)=15$ & $-5-3(7)=-26$ \\
+\end{tabular}
+\end{center}
+The row before $r$ hit $0$ is step $4$: $r_4 = 1 = \gcd(26,15)$, with $x_4=-4, y_4=7$. \textbf{Check the invariant directly:} $26(-4) + 15(7) = -104 + 105 = 1$ \checkmark. Reading this modulo $26$: $15 \times 7 \equiv 1 \pmod{26}$, so $15^{-1} \equiv 7 \pmod{26}$. \textbf{Final check:} $15 \times 7 = 105 = 4\times26+1 \equiv 1 \pmod{26}$. Correct.
 \end{exbox}
 
 \begin{exercisebox}{Practice}
-Use the (extended) Euclidean algorithm, not trial and error, to find $5^{-1} \bmod 11$. Show the division steps and the back-substitution step explicitly.
+Use the table method above (not back-substitution, and not trial and error) to find $5^{-1} \bmod 11$. Build the full table --- steps $-1, 0, 1, 2, \ldots$ --- and stop at the correct row. Then check your answer by direct multiplication.
 \end{exercisebox}
 
 \begin{previewbox}{Why Cryptography Loves the Modulus}
