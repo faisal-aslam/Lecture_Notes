@@ -326,7 +326,18 @@ Modular arithmetic gives us two things cryptography needs badly: (1) a \textbf{f
 \section{Vector Spaces, Basis, and Dimension}
 
 \begin{defbox}{Vector Space}
-A \textbf{vector space} over a field $F$ is a set $V$ (whose elements are called \textbf{vectors}) equipped with vector addition and scalar multiplication (multiplying a vector by an element of $F$), satisfying the ``obvious'' rules you'd expect: addition makes $(V,+)$ an abelian group, and scalar multiplication distributes sensibly over both vector addition and field addition. The most important example for us: $\mathbb{R}^n$, the set of all $n$-tuples of real numbers, is a vector space over $\mathbb{R}$.
+A \textbf{vector space} over a field $F$ is a set $V$ (whose elements are called \textbf{vectors}) equipped with an addition operation $V \times V \to V$ and a scalar multiplication operation $F \times V \to V$, satisfying, for all $u,v,w \in V$ and all $a,b \in F$:
+\begin{enumerate}[leftmargin=*, label=(V\arabic*)]
+  \item \textbf{Closure of addition:} $u+v \in V$.
+  \item \textbf{Associativity of addition:} $(u+v)+w = u+(v+w)$.
+  \item \textbf{Commutativity of addition:} $u+v = v+u$.
+  \item \textbf{Additive identity:} there exists $\vec 0 \in V$ with $v + \vec 0 = v$ for all $v$.
+  \item \textbf{Additive inverses:} for every $v \in V$, there exists $-v \in V$ with $v+(-v) = \vec 0$.
+  \item \textbf{Compatibility of scalar multiplication with field multiplication:} $a(bv) = (ab)v$.
+  \item \textbf{Identity element of scalar multiplication:} $1v = v$, where $1$ is the multiplicative identity of $F$.
+  \item \textbf{Distributivity, two directions:} $a(u+v) = au+av$ \emph{and} $(a+b)v = av+bv$.
+\end{enumerate}
+Axioms (V1)--(V5) say exactly ``$(V,+)$ is an abelian group'' (Section~3) --- nothing new there. Axioms (V6)--(V8) are the genuinely new content: they say scalar multiplication by field elements behaves consistently with the field's own addition and multiplication (Sections~4--5). The most important example for us: $\mathbb{R}^n$, the set of all $n$-tuples of real numbers, is a vector space over $\mathbb{R}$ --- and it's a good exercise to mentally check each of (V1)--(V8) holds there before moving on.
 \end{defbox}
 
 \begin{defbox}{Linear Combination, Span, Linear Independence}
