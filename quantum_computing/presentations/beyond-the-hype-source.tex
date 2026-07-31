@@ -53,6 +53,9 @@
 
 \newcommand{\myth}[1]{\textbf{\alert{MYTH:}} #1}
 \renewcommand{\fact}[1]{\textbf{\textcolor{qCyan!70!black}{FACT:}} #1}
+\newcommand{\predictlabel}{\textbf{\textcolor{qAmber!80!black}{QUICK PREDICTION:}}}
+\newcommand{\soundstruelabel}{\textbf{\textcolor{qViolet}{Why this sounds true:}}}
+\newcommand{\actuallylabel}{\textbf{\textcolor{qRed}{Where it breaks down:}}}
 
 \title{Beyond the Hype}
 \subtitle{A Technical Tour of Quantum Computing Myths}
@@ -200,28 +203,52 @@
 \end{frame}
 
 % ============================================================
+\begin{frame}{Pop quiz -- raise your hand}
+  \begin{center}
+  \Large Which of these is \textbf{true}?
+  \end{center}
+  \vspace{2mm}
+  \begin{enumerate}
+    \item Quantum computers try every possible answer simultaneously
+    \item Quantum computers can already break Bitcoin / all encryption
+    \item Quantum computers will replace classical computers
+    \item \textbf{None of the above}
+  \end{enumerate}
+  \vspace{3mm}
+  \begin{center}
+  \textcolor{qGray}{\emph{(Take a moment. Raise your hand for the one you believe.)}}
+  \end{center}
+  \note{
+    Actually pause here and get hands up for each of the four options --
+    don't skip this, it's the single highest-leverage moment in the talk.
+    Whatever the vote splits like, say: "Interesting -- by the end of this
+    talk you'll be able to explain, technically, why the correct answer is
+    (4), and exactly what's half-true about the other three." This turns
+    the entire rest of the talk into a payoff the audience is owed, rather
+    than a lecture they're receiving. Do not reveal the answer yet. If the
+    room is shy, self-report you would have voted for one of them before
+    you learned the details -- lowers the stakes of guessing wrong.
+  }
+\end{frame}
+
+% ============================================================
 \begin{frame}{Why this talk exists}
   \begin{itemize}
     \item Quantum computing: one of the most \alert{hyped} \emph{and}
           most \alert{misunderstood} topics in computer science today
-    \item Two questions I keep hearing on this campus:
-    \begin{itemize}
-      \item[--] \emph{``Is this real science or Silicon-Valley marketing?''}
-      \item[--] \emph{``Should we spend curriculum time and money on it?''}
-    \end{itemize}
-    \item My claim: \textbf{both extremes are wrong} --- it's neither magic
-          nor a mirage
-    \item Format: \textbf{Myth} $\rightarrow$ \textbf{Fact}, each one taken apart
-          technically but explained so \emph{everyone} in the room follows it
+    \item My claim: \textbf{all four options on the last slide are wrong
+          as literally stated} --- but each is built on a real, technical
+          truth underneath
+    \item Format: \textbf{Myth} $\rightarrow$ \textbf{Fact}, taken apart
+          technically, explained so \emph{everyone} in the room follows it
   \end{itemize}
   \note{
-    Set the stakes explicitly. Mention that by the end you'll return to the
-    curriculum question with concrete data (workforce numbers, market growth,
-    what a course would actually look like) so this doesn't feel like a
-    detour from the administration's real question. Consider asking a show
-    of hands: who has used Qiskit / IBM Quantum Experience? Who thinks
-    quantum computers already exist? Who thinks they can break all encryption
-    today? Use the answers to calibrate pacing.
+    Keep this very short -- 60-90 seconds -- since the pop quiz already did
+    the job of setting stakes. Land the phrase "built on a real truth
+    underneath" -- it previews the "why this sounds true / where it breaks
+    down" pattern you'll repeat through the talk. Consider asking a show
+    of hands: who has used Qiskit / IBM Quantum Experience? Use the answer
+    to calibrate how much hand-holding the linear-algebra parts need.
   }
 \end{frame}
 
@@ -233,14 +260,15 @@
     \item Myths about \textbf{what quantum computers can do} (20 min)
     \item Myths about \textbf{the physics} --- parallelism, entanglement (20 min)
     \item Myths about \textbf{cryptography} (10 min)
-    \item The case for \textbf{teaching this now} (10 min)
+    \item Putting it together, then \textbf{why this matters for us} (15 min)
     \item Curriculum sketch, resources, Q\&A (10 min)
   \end{enumerate}
   \note{
-    Roughly 90 minutes total as outlined; trim section 3 or 4 if running at
-    the 60-minute end, expand Q\&A and section 6 if the audience skews
+    Roughly 95-100 minutes total as outlined; trim section 3 or 4 if running
+    at the 60-minute end, expand Q\&A and section 6 if the audience skews
     administration-heavy. Section 6 is the payload for the deans in the room
-    -- do not let it get squeezed by running long earlier.
+    -- do not let it get squeezed by running long earlier. Remind the room
+    we'll return to the pop quiz at the very end.
   }
 \end{frame}
 
@@ -408,6 +436,10 @@
       \end{itemize}
     \end{column}
   \end{columns}
+  \begin{alertblock}{The one line to remember}
+    A machine advertised as ``a million qubits'' may still behave, in
+    practice, like only a \textbf{few thousand perfect ones}.
+  \end{alertblock}
   \note{
     Be careful with the RSA estimate -- state it as an order-of-magnitude
     estimate from the literature (Gidney \& Ekera and follow-up work), not a
@@ -416,7 +448,9 @@
     improve. The core teaching point: qubit COUNT headlines (120, 1000+) are
     almost all physical qubits, not logical/error-corrected qubits -- that
     distinction alone will inoculate the audience against 90\% of hype
-    articles they'll read afterward.
+    articles they'll read afterward. Land the alert-block line slowly and
+    let it sit for a second before moving on -- it's designed to be the
+    one sentence from this slide people still repeat a year later.
   }
 \end{frame}
 
@@ -424,7 +458,11 @@
 \section{Myth 3: ``Quantum Computers Will Replace Classical Computers''}
 
 \begin{frame}{\myth{Quantum computers will replace classical computing entirely}}
-  \fact{Quantum advantage is \textbf{narrow and structural}, not general}
+  \soundstruelabel\ ``It's exponentially more powerful, so it must beat
+  classical computers at \emph{everything}.''
+
+  \vspace{2mm}
+  \actuallylabel
   \begin{itemize}
     \item Quantum speedups exploit specific \textbf{mathematical structure}
           (periodicity, unstructured search, entanglement in the problem
@@ -444,6 +482,27 @@
     point: "quantum computer" is closer to "specialized coprocessor" (like a
     GPU) than "faster general CPU" -- most future systems will be hybrid
     classical+quantum, with the quantum part handling one narrow subroutine.
+  }
+\end{frame}
+
+\begin{frame}{\predictlabel}
+  \Large
+  \begin{center}
+  Of these four -- \textbf{Shor}, \textbf{Grover}, \textbf{quantum
+  simulation}, \textbf{QAOA} -- \\[2mm]
+  which ones have a \emph{proven} exponential speedup over the best
+  known classical algorithm?
+  \end{center}
+  \note{
+    Let a few people call out guesses before advancing. Answer on the next
+    slide: Shor -- yes, proven exponential (for factoring). Quantum
+    simulation -- yes, for simulating quantum systems themselves. Grover --
+    proven, but only QUADRATIC, not exponential (a common wrong guess).
+    QAOA/VQE -- no proof at all, purely empirical heuristic evidence so far
+    (the most common wrong guess is that this one is exponential, because
+    marketing language rarely distinguishes "quantum-powered" from
+    "provably faster"). This pause makes the table on the next slide land
+    as a reveal rather than a wall of text.
   }
 \end{frame}
 
@@ -502,6 +561,45 @@
   }
 \end{frame}
 
+\begin{frame}{Grover's algorithm, without equations}
+  \begin{center}
+  \Large Imagine a maze with $N$ doors, one correct.
+  \end{center}
+  \vspace{3mm}
+  \begin{columns}
+    \begin{column}{0.48\textwidth}
+      \textbf{Classical search}
+      \begin{itemize}
+        \item Open door 1, door 2, door 3, \ldots
+        \item Worst case: check all $N$ doors
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Grover's search}
+      \begin{itemize}
+        \item \emph{Not} opening all doors at once
+        \item Each round, the \textbf{correct door glows brighter} and
+              the wrong ones dim slightly
+        \item After $\sim\sqrt{N}$ rounds: open the brightest door
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{
+    This is the "no equations" intuition pump for Grover -- use it BEFORE
+    the circuit diagram on the next slide, then use the circuit for anyone
+    who wants the actual mechanism. "Glowing brighter" = constructive
+    interference increasing the marked state's amplitude; "dimming" = the
+    unmarked states' amplitudes decreasing. Be honest that this is a
+    metaphor, not the mechanism, and that the real mechanism (reflections
+    about the average amplitude) is on the next slide for those who want it.
+    This is a good moment for the "why does the parallelism myth sound
+    plausible" comment: it FEELS like checking every door at once because
+    every door does get a peek in superposition -- but only the amplitude
+    pattern, not a full open-and-check, and only the brightest one survives
+    measurement at the end.
+  }
+\end{frame}
+
 \begin{frame}{What a quadratic speedup actually looks like}
   \centering
   \begin{quantikz}
@@ -531,29 +629,53 @@
 \section{Myth 5: ``They Test Every Answer at Once, by Magic''}
 
 \begin{frame}{\myth{Quantum computers try every possible answer simultaneously, ``by magic''}}
+  \soundstruelabel\ superposition really does give the machine
+  \emph{access} to all $2^n$ basis states at once.
+
+  \vspace{3mm}
+  \predictlabel\ if that were the whole story, why doesn't a quantum
+  computer solve \textbf{every} NP-complete problem -- Sudoku, TSP,
+  scheduling -- \emph{instantly}?
+
+  \note{
+    Pause after the prediction question -- let the room sit with the
+    contradiction for a few seconds before advancing. This is the
+    "detective story" structure: state the plausible-sounding premise,
+    then expose the contradiction it implies, THEN resolve it on the next
+    slide. Don't answer it yet. If someone shouts an answer, acknowledge
+    it but say "hold that thought, exact mechanism next slide."
+  }
+\end{frame}
+
+\begin{frame}{\actuallylabel\ measurement only reveals one answer}
   \fact{It's \textbf{interference}, not magic -- and it's fragile}
   \begin{itemize}
-    \item Superposition alone gives you \emph{access} to all $2^n$ basis
-          states -- but a single measurement reveals only \textbf{one},
-          chosen at random by the amplitudes
-    \item The actual trick: design a circuit so that amplitudes leading to
-          \textbf{wrong} answers cancel out (destructive interference), and
+    \item Superposition gives \emph{access} to all $2^n$ basis states --
+          but a single measurement reveals only \textbf{one}, chosen at
+          random by the amplitudes
+    \item The actual trick: design a circuit so amplitudes leading to
+          \textbf{wrong} answers cancel (destructive interference), and
           amplitudes leading to the \textbf{right} answer reinforce
           (constructive interference)
     \item If you don't engineer that interference pattern, superposition
           alone buys you \emph{nothing} -- you'd just measure noise
+    \item That engineering is \textbf{hard} and problem-specific --
+          which is exactly why Sudoku doesn't fall out for free
   \end{itemize}
   \note{
     This is the most important conceptual correction of the whole talk. The
     popular claim "it checks every answer at once" describes superposition
     but silently ignores measurement collapse -- if that were the whole
     story, EVERY quantum algorithm would instantly solve EVERY problem,
-    which is obviously false (see previous section). The actual source of
-    power is designing constructive/destructive interference so that only
-    the useful answers survive to measurement time -- this is genuinely
-    hard algorithm design, not a free lunch from parallelism. This is why
-    only a handful of quantum algorithms exist after 30 years, despite full
-    access to superposition being "free."
+    which is obviously false (see previous section, and the prediction
+    question on the last slide). The actual source of power is designing
+    constructive/destructive interference so that only the useful answers
+    survive to measurement time -- this is genuinely hard algorithm design,
+    not a free lunch from parallelism. This is why only a handful of
+    quantum algorithms exist after 30 years, despite full access to
+    superposition being "free." Tie back explicitly to the Grover
+    "glowing door" analogy from the previous section -- same underlying
+    mechanism, interference reshaping amplitudes round by round.
   }
 \end{frame}
 
@@ -588,6 +710,10 @@
 \section{Myth 6: ``More Qubits = Exponential Storage''}
 
 \begin{frame}{\myth{$n$ qubits store $2^n$ classical bits of information}}
+  \predictlabel\ you measure a 300-qubit chip once. How many classical
+  bits do you get out -- $2^{300}$, or something much smaller?
+
+  \vspace{3mm}
   \fact{The $2^n$-dimensional description is a \textbf{computational resource},
         not readable storage}
   \begin{itemize}
@@ -603,7 +729,11 @@
           Qubits} matter more than a raw qubit number in vendor marketing
   \end{itemize}
   \note{
-    This myth comes from confusing the size of the MATHEMATICAL DESCRIPTION
+    Let someone answer the prediction out loud -- the "obviously correct"
+    wrong answer is 2 to the power 300 (a number bigger than atoms in the
+    universe); the right answer is exactly 300 classical bits, once, per
+    shot. This
+    myth comes from confusing the size of the MATHEMATICAL DESCRIPTION
     of a quantum state (which genuinely is exponential -- this is why
     classical simulation of quantum systems is hard, and why quantum
     computers may help simulate them) with the amount of information you can
@@ -621,7 +751,13 @@
 \section{Myth 7: ``Entanglement Sends Signals Faster Than Light''}
 
 \begin{frame}{\myth{Entanglement lets you communicate faster than light}}
-  \fact{The \textbf{no-communication theorem}: correlation $\neq$ signal}
+  \soundstruelabel\ measuring one entangled particle instantly
+  ``affects'' the other, however far away -- physicists themselves found
+  this so counterintuitive early on that it was famously called
+  ``spooky.''
+
+  \vspace{2mm}
+  \actuallylabel
   \begin{itemize}
     \item Entangled pair shared between Alice and Bob: measuring Alice's
           qubit instantly correlates with Bob's -- \emph{but}
@@ -734,6 +870,99 @@
 \end{frame}
 
 % ============================================================
+\section{Putting It Together}
+
+\begin{frame}{Even the experts were surprised}
+  \begin{itemize}
+    \item \textbf{1994}: Shor's algorithm stunned the field -- until then,
+          most physicists assumed quantum computers, even if buildable,
+          would offer no dramatic advantage over classical ones
+    \item \textbf{1996--2006}: the \textbf{threshold theorem} -- proof that
+          error correction could work \emph{at all} -- was considered one
+          of the hardest open problems; many doubted a physical machine
+          could ever stay below the noise threshold
+    \item \textbf{2019}: Google's ``quantum supremacy'' claim triggered a
+          real scientific dispute (IBM publicly contested the classical
+          comparison) -- a healthy reminder that hype and rigor coexist
+          uneasily in this field
+    \item \textbf{2024}: Google's Willow chip crossed \textbf{below
+          threshold} for the first time -- something many researchers were
+          not confident would happen this decade
+  \end{itemize}
+  \note{
+    This slide humanizes the field for both students and skeptical faculty:
+    even Feynman, Shor, and the error-correction pioneers were working
+    against real doubt, not obvious inevitability. Good line: "if the
+    smartest people in the field kept being surprised, it's fine for you to
+    find this counterintuitive too." The 2019 Google/IBM dispute is worth
+    narrating briefly and neutrally -- IBM argued a classical supercomputer
+    could, with a smarter simulation strategy, do the benchmark task in
+    days rather than the ~10,000 years Google claimed, which is exactly the
+    kind of nuance that builds credibility with a skeptical audience rather
+    than undermining it.
+  }
+\end{frame}
+
+\begin{frame}{If I handed you a quantum computer tomorrow...}
+  \small
+  \begin{tabular}{@{}p{4.1cm}p{4.1cm}p{4.1cm}@{}}
+    \toprule
+    \textbf{Today} & \textbf{Near future} & \textbf{Probably never} \\
+    \midrule
+    Small quantum chemistry \& materials simulations &
+    Better optimization heuristics (logistics, portfolios) &
+    Replace your laptop \\[2mm]
+    Toy/teaching algorithms (Deutsch--Jozsa, small Grover) &
+    Cryptanalysis of RSA/ECC -- once large fault-tolerant machines exist &
+    Solve NP-complete problems instantly \\[2mm]
+    Quantum random number generation &
+    Quantum-enhanced sensing \& metrology &
+    Read out the full exponential state \\
+    \bottomrule
+  \end{tabular}
+  \note{
+    This slide is the single-glance synthesis of the whole talk -- ties
+    directly back to nearly every myth covered. Use it as the moment where
+    even a rushed audience member who tuned out some details can still walk
+    away with the practical shape of the field. "Near future" should be
+    presented as industry roadmap language, not certainty -- these are
+    projections, several years out, contingent on continued error-correction
+    progress. If asked for a date on cryptographically-relevant quantum
+    computers, the honest answer is a wide range across security-planning
+    literature, commonly centered somewhere in the early-to-mid 2030s --
+    say so explicitly as a planning horizon, not a prediction.
+  }
+\end{frame}
+
+\begin{frame}{What I deliberately simplified}
+  \small
+  \begin{itemize}
+    \item Ignored \textbf{global phase} -- physically unobservable, but
+          technically part of the full state description
+    \item Treated states as \textbf{pure states}; real devices constantly
+          deal with \textbf{mixed states} and decoherence via density
+          matrices
+    \item Compressed \textbf{fault-tolerance threshold theorems} into one
+          sentence; the real proofs involve concatenated/topological codes
+          and nontrivial noise-model assumptions
+    \item Simplified the \textbf{BQP vs.\ NP} picture; the actual
+          relationships to PP, PostBQP, and the polynomial hierarchy are
+          active research questions
+    \item Gave point estimates for hardware/RSA-breaking qubit counts that
+          are really wide, assumption-dependent ranges in the literature
+  \end{itemize}
+  \note{
+    This slide is aimed at the physics/CS faculty in the room -- signal
+    explicitly that you know where the corners were cut, so the talk reads
+    as "responsibly simplified" rather than "the presenter doesn't know
+    better." For students, frame it as a preview: "this is the syllabus of
+    everything a real course would go on to cover properly." Good bridge
+    line into the curriculum pitch: "every simplification on this slide is
+    a full lecture topic in an actual course."
+  }
+\end{frame}
+
+% ============================================================
 \section{The Case for Teaching This Now}
 
 \begin{frame}{Recap: myths vs.\ facts}
@@ -763,7 +992,88 @@
   }
 \end{frame}
 
-\begin{frame}{This is not a niche research topic anymore}
+\begin{frame}{This is already Higher Education Commission policy}
+  \begin{itemize}
+    \item HEC's \textbf{revised Computing Curriculum} (aligned with the
+          Undergraduate Education Policy 2023) embeds \textbf{14
+          specialization pathways} inside the CS degree -- \textbf{Quantum
+          Computing is one of them}, alongside AI, Data Science, and
+          Cybersecurity
+    \item Developed with PSEB, P@SHA, NCEAC, and the Ministry of IT \&
+          Telecommunication -- this is a national, industry-consulted
+          standard, not one university's guess
+    \item The question in front of us today is no longer
+          \textbf{``should we?''} -- HEC already answered that. The real
+          question is \textbf{``how well, and how soon?''}
+  \end{itemize}
+  \note{
+    This is the single strongest slide for the administrators in the room
+    -- it reframes the entire remaining discussion from a speculative bet
+    to a compliance-and-competitiveness question. Source: HEC's 2025-2026
+    revised Computer Science curriculum document and public reporting on
+    its June 2026 launch event. If asked for specifics, the curriculum
+    lists Quantum Computing explicitly alongside Cloud Computing and Health
+    Informatics as named specialization tracks. Land this line clearly:
+    adopting a quantum computing elective isn't going out on a limb: it is
+    implementing a standard HEC has already published.
+  }
+\end{frame}
+
+\begin{frame}{The government is already funding this}
+  \begin{itemize}
+    \item In \textbf{May 2025}, Pakistan's Central Development Working
+          Party approved the \textbf{National Center for Quantum
+          Computing (NCQC)} -- a project worth \textbf{Rs.\ 3.318 billion
+          (\textasciitilde\$12M)}, sponsored by HEC itself
+    \item Pakistan's \textbf{first Quantum Computing Hackathon}
+          (PIEAS, NILOP, and NCP, with CERN's Open Quantum Institute)
+          ran in \textbf{February 2026} in Islamabad
+    \item That hackathon drew \textbf{950+ applications for just 42
+          seats} -- roughly a \textbf{1-in-23} acceptance rate, entirely
+          from a student population that mostly has \emph{no formal
+          coursework} in the subject yet
+  \end{itemize}
+  \note{
+    The 950-applicants-for-42-seats statistic is the emotional core of this
+    slide -- it is direct, measured evidence of enormous unmet student
+    demand, gathered with zero curriculum support in place. Make the point
+    explicit: "imagine what happens to that number once students actually
+    have a course to prepare them, instead of self-teaching from YouTube
+    and hoping." The NCQC figure establishes that this isn't just student
+    enthusiasm either -- the federal government, through HEC, is already
+    treating this as strategically important enough to fund at scale.
+  }
+\end{frame}
+
+\begin{frame}{Peer universities are already moving}
+  \begin{itemize}
+    \item \textbf{Islamia University of Bahawalpur} recently announced
+          \textbf{South Punjab's first dedicated Quantum Computing
+          program}, through its Faculty of Computing
+    \item Habib University has run \textbf{national Quantum Information
+          Summer Schools} to build research collaboration across
+          Pakistani institutions
+    \item Private initiatives (e.g.\ CETQAP's simulator and outreach
+          work) show \textbf{industry interest is already forming} around
+          whoever produces trained graduates first
+  \end{itemize}
+  \begin{alertblock}{The real risk isn't teaching this too early}
+    It's \textbf{other universities defining the talent pipeline, the
+    research partnerships, and the industry relationships} while we
+    decide whether it's worth teaching.
+  \end{alertblock}
+  \note{
+    This slide is about competitive urgency, aimed squarely at
+    administration. Naming a specific peer institution (IUB) is a
+    deliberate choice -- "first in South Punjab" framing signals that
+    regional leadership positions are actively being claimed right now,
+    not five years from now. Keep the tone factual and collegial, not
+    alarmist -- the goal is urgency, not panic. The alertblock line is the
+    one to let land and pause on.
+  }
+\end{frame}
+
+\begin{frame}{And the global pipeline backs this up too}
   \begin{columns}
     \begin{column}{0.5\textwidth}
       \begin{tikzpicture}
@@ -803,24 +1113,23 @@
     report and The Quantum Insider's 2026 workforce analysis -- cite these
     sources by name when presenting to administration, and mention this is
     a fast-moving snapshot (spring/summer 2026), worth re-checking before
-    reusing this deck a year from now. Also mention if useful: quantum
-    job/internship postings grew about 11\% in the most recent year measured,
-    and separate industry analyses report postings up roughly 180-450\% over
-    the last several years depending on methodology -- the wide range itself
-    is worth being upfront about, since it reflects how new and unsettled
-    the measurement is, not that the growth isn't real.
+    reusing this deck a year from now. Frame this slide as SUPPORTING
+    context after the Pakistan-specific case, not the headline argument --
+    it answers "is the rest of the world serious about this too?" once the
+    room already knows the domestic policy and demand picture. Also worth
+    mentioning: many quantum-software and research roles are remote-capable
+    -- graduates trained in Pakistan can plausibly serve this global market
+    without needing local hardware industry to exist first.
   }
 \end{frame}
 
 \begin{frame}{The skills gap is the argument}
   \begin{itemize}
-    \item Analysis of thousands of quantum job postings: roughly
+    \item Analysis of thousands of quantum job postings worldwide: roughly
           \textbf{75\% of applicants lack the required skill profile}
     \item Demand spans \textbf{physics + computer science + electrical
           engineering} -- exactly the interdisciplinary mix universities
           are positioned to teach, and industry alone struggles to train
-    \item Average U.S.\ quantum-computing salary already above
-          \textbf{\$180,000}; senior roles regularly exceed \$200,000
     \item \textbf{Low barrier to teach}: cloud access to real hardware
           (IBM Quantum, Amazon Braket, Azure Quantum) means \emph{no lab
           purchase required} to run a serious course
@@ -828,16 +1137,17 @@
   \note{
     This slide is aimed squarely at the administrators in the room. The
     "no lab purchase required" point is one of the strongest practical
-    arguments you can make -- unlike, say, standing up a new wet-lab or
-    fabrication course, a quantum computing course can start with free or
-    low-cost cloud access to actual quantum hardware (IBM's Qiskit platform
-    offers free-tier access), open-source software (Qiskit, Cirq, PennyLane),
-    and existing physics/CS faculty co-teaching. The skills-gap statistic is
-    from EPJ Quantum Technology's analysis of ~3,600 job postings -- cite
-    that provenance if pressed on the number. Frame the ask explicitly: this
-    is not "should we build a quantum lab," it's "should we teach the
-    software/theory layer that students can practice on real cloud hardware
-    for free," which is a much smaller institutional lift.
+    arguments you can make in a resource-constrained setting -- unlike
+    standing up a wet-lab or fabrication course, a quantum computing course
+    can start with free or low-cost cloud access to actual quantum hardware
+    (IBM's Qiskit platform offers a free tier), open-source software
+    (Qiskit, Cirq, PennyLane), and existing physics/CS faculty co-teaching.
+    The skills-gap statistic is from EPJ Quantum Technology's analysis of
+    ~3,600 job postings -- cite that provenance if pressed. Frame the ask
+    explicitly: this is not "should we build a quantum lab," it's "should
+    we teach the software/theory layer that students can practice on real
+    cloud hardware for free" -- a much smaller institutional lift, and one
+    HEC's curriculum has already scoped out for us.
   }
 \end{frame}
 
@@ -852,20 +1162,22 @@
     \item Capstone: run real circuits on cloud quantum hardware (Qiskit)
   \end{enumerate}
   \begin{center}\small
-  \textit{Prerequisite: linear algebra + intro programming --- accessible to
-  juniors, not just PhD students}
+  \textit{Prerequisite: linear algebra + intro programming --- accessible
+  to juniors, and a direct implementation of HEC's Quantum Computing
+  specialization pathway}
   \end{center}
   \note{
     Keep this concrete and modest in scope -- a single semester, 3-credit
-    elective, cross-listed between CS and Physics departments is a realistic
-    and low-risk first step, not a whole new degree program. Mention that
-    many peer universities already run exactly this kind of one-semester
-    "Introduction to Quantum Computing" elective with these prerequisites --
-    this is a well-trodden path, not an experiment. If asked "who teaches
-    it," note that existing CS theory faculty (complexity/algorithms) and
-    physics faculty (quantum mechanics) can co-teach with a semester of prep
-    -- it does not necessarily require a brand-new hire on day one, which
-    lowers the barrier to a pilot offering further.
+    elective, cross-listed between CS and Physics departments is a
+    realistic, low-risk first step, not a whole new degree program (though
+    IUB shows a full program is also a viable next step once demand is
+    proven). If asked "who teaches it," note existing CS theory faculty
+    (complexity/algorithms) and physics faculty (quantum mechanics) can
+    co-teach with a semester of prep -- it does not require a brand-new
+    hire on day one, which lowers the barrier to a pilot offering further.
+    Explicitly note this maps onto HEC's already-published specialization
+    pathway, so the institutional approval story is "implement the
+    national standard," not "invent a new one."
   }
 \end{frame}
 
@@ -877,38 +1189,58 @@
           \textbf{Microsoft Azure Quantum} -- free courses and sandboxes
     \item \textbf{Nielsen \& Chuang}, \emph{Quantum Computation and Quantum
           Information} -- the field's standard textbook
-    \item Student clubs: \textbf{IBM Quantum Educators}, \textbf{QWorld},
-          hackathons (e.g.\ \textbf{iQuHACK})
+    \item Pakistan-specific: \textbf{NCQC} (HEC), \textbf{CETQAP}
+          outreach, and the annual \textbf{Quantum Computing Hackathon}
+          (PIEAS/NILOP/NCP with CERN's OQI)
   \end{itemize}
   \note{
     Give students something to DO tonight, not just think about -- this is
     the single most effective way to convert curiosity into action right
-    after a talk like this. If time allows, consider live-demoing a 3-line
-    Qiskit circuit on the free IBM Quantum cloud during Q\&A to make the
-    "no lab purchase required" point viscerally real.
+    after a talk like this. Highlighting Pakistan-specific resources here
+    matters: it signals this isn't only an import from Silicon Valley, a
+    domestic ecosystem is already forming and students can plug into it
+    directly. If time allows, consider live-demoing a 3-line Qiskit
+    circuit on the free IBM Quantum cloud during Q\&A to make the "no lab
+    purchase required" point viscerally real.
   }
 \end{frame}
 
 % ============================================================
 \begin{frame}[standout]
-  \Large\textbf{Not magic. Not hype. Real physics, real limits, real jobs.}
-  \vspace{4mm}
+  \small
+  \textbf{Before this talk:} quantum = magic, replaces classical
+  computers, breaks everything.
 
+  \vspace{2mm}
+  \textbf{Now:} quantum is \textbf{controlled interference}, it
+  accelerates \textbf{specific} problems, and the bottleneck is
+  \textbf{engineering}, not mystery.
+
+  \vspace{5mm}
+  \Large\textbf{Not magic. Not hype. Real physics, real limits, real
+  jobs -- and, per HEC, already part of the answer.}
+
+  \vspace{4mm}
   \normalsize Questions?
   \note{
-    Closing line should land the whole talk's thesis in one sentence. Then
-    open the floor. Anticipate: (1) "when will it actually be useful?" --
-    answer with the quantum-advantage timeline language from earlier
-    (IBM targeting verified advantage by end of 2026, broader
-    fault-tolerant systems widely estimated 2030s), stated as industry
-    projection, not certainty; (2) "should students specialize in this now
-    or is it too early?" -- answer: learn the FUNDAMENTALS (linear algebra,
-    complexity theory) which are useful regardless of which hardware
-    approach wins, rather than over-betting on one vendor's stack;
-    (3) pushback from a skeptical faculty member about hype -- validate the
-    skepticism (it's earned, the field has overclaimed before) while
-    pointing back at the recap slide as the actual evidence-based position
-    you're arguing for.
+    Closing line should land the whole talk's thesis in one sentence, and
+    explicitly callback to the opening pop quiz: "remember the four
+    options from the start? Now you can explain, technically, why option
+    4 -- none of the above -- was correct, and what's half-true buried in
+    each of the other three." Then open the floor. Anticipate: (1) "when
+    will it actually be useful?" -- answer with the quantum-advantage
+    timeline language from earlier (IBM targeting verified advantage by
+    end of 2026, broader fault-tolerant systems widely estimated 2030s),
+    stated as industry projection, not certainty; (2) "should students
+    specialize in this now or is it too early?" -- answer: learn the
+    FUNDAMENTALS (linear algebra, complexity theory) which are useful
+    regardless of which hardware approach wins, rather than over-betting
+    on one vendor's stack; (3) pushback from a skeptical faculty member
+    about hype -- validate the skepticism (it's earned, the field has
+    overclaimed before) while pointing back at the recap slide and the
+    HEC-policy slide as the actual evidence-based position you're arguing
+    for -- skepticism about specific claims and support for teaching the
+    fundamentals are not in tension.
   }
 \end{frame}
 
