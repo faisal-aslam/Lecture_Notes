@@ -1,0 +1,309 @@
+\documentclass[11pt,a4paper]{article}
+\input{lecture-preamble}
+
+\title{\vspace{-1.3cm}\textbf{Lecture 2: From Lattices to Learning With Errors}\\[4pt]
+\large SVP, CVP, SIS, LWE, Ring-LWE, and Module-LWE}
+\author{Dr.\ Faisal Aslam}
+\date{Lecture Notes --- Session 2 (approx. 2 hours)}
+
+\begin{document}
+\maketitle
+\vspace{-0.8cm}
+
+\begin{notebox}
+\small\textbf{Purpose of this lecture.} Lecture 1 built the algebraic toolkit --- \emph{Group $\to$ Subgroup $\to$ Ring $\to$ Field $\to$ Modular Arithmetic $\to$ Vector Space $\to$ Basis $\to$ Lattice $\to$ Determinant} --- and ended by naming the Shortest Vector Problem (SVP) as one of the hard problems lattice cryptography rests on. This lecture finishes the job: we state SVP and CVP formally, meet the \textbf{Short Integer Solution (SIS)} and \textbf{Learning With Errors (LWE)} problems precisely, and then generalize LWE to \textbf{Ring-LWE} and \textbf{Module-LWE} --- the exact hard problems underneath Kyber (ML-KEM) and Dilithium (ML-DSA). By the end, the public key of a real post-quantum scheme should look to you like ``just an LWE sample,'' not a mysterious block of numbers.
+\end{notebox}
+
+\tableofcontents
+\vspace{0.3cm}
+
+\section{Quick Recap of Lecture 1}
+
+Before building anything new, let's fix the vocabulary we'll be using constantly today.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Term} & \textbf{One-line meaning} \\
+\hline
+Ring $(R,+,\times)$ & Two operations; addition invertible, multiplication need not be \\
+$\mathbb{Z}_q$ & Integers $\{0,\ldots,q-1\}$, wraparound (``clock'') arithmetic \\
+Vector space, basis & Every point = a unique combination of basis directions \\
+Lattice $L$ & \emph{Integer-only} combinations of a basis; a discrete grid in $\mathbb{R}^n$ \\
+$\det(L)$ & Volume of the lattice's fundamental cell; basis-independent \\
+$\lambda_1(L)$ & Length of the shortest nonzero vector in $L$ \\
+Good basis vs.\ bad basis & Short, near-orthogonal vs.\ long, skewed --- same lattice, different difficulty \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{rmkbox}{The One Idea Everything Today Builds On}
+Lecture 1 ended with this sentence: \emph{``the secret key is typically a good (short) basis, while the public key describes the same lattice using a bad basis.''} Today we make that idea concrete and computational. Every hard problem in this lecture is, underneath, a question of the form: \emph{``given a bad description of a lattice, recover something a good description would make trivial.''}
+\end{rmkbox}
+
+\section{Two Canonical Hard Problems on a Lattice}
+
+\subsection{The Shortest Vector Problem (SVP)}
+
+\begin{defbox}{Shortest Vector Problem (SVP)}
+Given a basis $B = \{b_1,\ldots,b_n\}$ for a lattice $L = \mathcal{L}(B) \subseteq \mathbb{R}^n$, find a nonzero vector $v \in L$ with $\|v\| = \lambda_1(L)$ (the minimum distance defined in Lecture 1). The \textbf{decision} version, $\text{GapSVP}_\gamma$, only asks: is $\lambda_1(L) \le d$, or is $\lambda_1(L) > \gamma \cdot d$, for a given distance $d$ and approximation factor $\gamma \ge 1$? (One of these two must hold; the problem promises no ``messy middle'' case.)
+\end{defbox}
+
+\begin{rmkbox}{Why the ``Approximation Factor'' $\gamma$ Matters}
+Finding the \emph{exact} shortest vector ($\gamma = 1$) is extremely hard even for classical computers once $n$ is a few hundred. But so is finding a vector even \emph{polynomially longer} than the shortest one, as long as $\gamma$ stays modest and $n$ is large --- and that weaker, ``approximate'' version is all cryptography actually needs to be hard. This is why you will see phrases like ``SVP is hard to approximate within polynomial factors'' rather than just ``SVP is hard.''
+\end{rmkbox}
+
+\subsection{The Closest Vector Problem (CVP)}
+
+\begin{defbox}{Closest Vector Problem (CVP)}
+Given a basis $B$ for a lattice $L \subseteq \mathbb{R}^n$ and a \textbf{target point} $t \in \mathbb{R}^n$ (not necessarily in $L$), find the lattice point $v \in L$ minimizing $\|t - v\|$. The approximate decision version $\text{GapCVP}_\gamma$ again just distinguishes ``some lattice point within distance $d$ of $t$'' from ``every lattice point is farther than $\gamma \cdot d$ from $t$.''
+\end{defbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=0.62]
+  \foreach \x in {0,...,7}
+    \foreach \y in {0,...,5}
+      \fill[gray!55] (\x,\y) circle (1.6pt);
+  % SVP: shortest nonzero vector from origin
+  \draw[-{Latex[length=2mm]}, thick, blue] (2,2) -- (3,3);
+  \node[blue, font=\small] at (3.7,3.3) {SVP: shortest $v \in L\setminus\{0\}$};
+  \fill[blue] (2,2) circle (2.2pt);
+  \node[blue,font=\tiny] at (1.6,1.7) {origin};
+  % CVP: target point off-lattice, nearest lattice point
+  \fill[red] (5.4,2.6) circle (2pt);
+  \node[red, font=\small, right] at (5.5,2.6) {target $t \notin L$};
+  \draw[-{Latex[length=2mm]}, thick, red, dashed] (5.4,2.6) -- (5,2);
+  \fill[red] (5,2) circle (2.2pt);
+  \node[red, font=\tiny] at (5.0,1.65) {closest $v \in L$};
+\end{tikzpicture}
+\caption{SVP (left, blue) asks for the shortest nonzero vector reachable inside the lattice itself. CVP (right, red) asks, for an arbitrary target point that is \emph{not} on the grid, which grid point is nearest. Both are easy to state and easy to solve by eye in 2D --- and famously hard in high dimensions with only a bad basis to work with.}
+\label{fig:svp-cvp}
+\end{figure}
+
+\begin{exbox}{CVP by Eye vs.\ CVP by Formula}
+In Figure~\ref{fig:svp-cvp} you can \emph{see} the closest grid point instantly. That's because your eye is effectively using a very good, orthogonal basis (the obvious horizontal/vertical grid directions). Algorithmically, CVP is solved by writing $t = \sum c_i b_i$ (allowing real, non-integer $c_i$) and \textbf{rounding each $c_i$ to the nearest integer} --- but this shortcut only gives the \emph{true} closest point when the basis is good (short, near-orthogonal). Hand the exact same lattice to an algorithm with a bad basis instead, and naive rounding can miss the true closest point by a wide margin. This gap --- correct-with-a-good-basis, unreliable-with-a-bad-basis --- is precisely what CVP-based cryptography exploits.
+\end{exbox}
+
+\begin{previewbox}{Where SVP and CVP Are Heading}
+We will not attack SVP or CVP directly today. Instead, both SIS (Section~3) and LWE (Section~4) are best understood as \emph{specific, structured} instances of SVP/CVP, dressed up so that a random instance is easy to \emph{generate} but --- conjecturally --- just as hard to \emph{solve} as the worst case. That ``random instances are as hard as the worst case'' guarantee is the single most important design property of modern lattice cryptography, and we return to it in Section~4.4.
+\end{previewbox}
+
+\section{The Short Integer Solution (SIS) Problem}
+
+\begin{defbox}{Short Integer Solution (SIS)}
+Fix positive integers $n$, $m > n$, a modulus $q$, and a bound $\beta$. Given a uniformly random matrix $A \in \mathbb{Z}_q^{n \times m}$, find a nonzero vector $x \in \mathbb{Z}^m$ with
+$$
+A x \equiv \vec{0} \pmod q \qquad \text{and} \qquad \|x\| \le \beta.
+$$
+\end{defbox}
+
+\begin{rmkbox}{Why This Is Secretly a Lattice Problem}
+Define $\Lambda^{\perp}(A) = \{\, x \in \mathbb{Z}^m : Ax \equiv \vec 0 \pmod q \,\}$. A quick check confirms $\Lambda^\perp(A)$ is a subgroup of $\mathbb{Z}^m$ (closed under addition and negation, contains $\vec 0$) and it is discrete (it's a subset of $\mathbb{Z}^m$) --- so by Lecture 1's subgroup definition, $\Lambda^\perp(A)$ \textbf{is itself a lattice}. Solving SIS is exactly finding a short nonzero vector in $\Lambda^\perp(A)$ --- i.e., \textbf{SIS is SVP}, restricted to this specific, algebraically-generated family of lattices. The reason cryptographers like this family is that generating a \emph{random} instance is as easy as generating a random matrix $A$, yet the resulting lattice is (conjecturally) exactly as hard to solve SVP on as the worst-case lattices Lecture 1 discussed abstractly.
+\end{rmkbox}
+
+\begin{exbox}{A Tiny SIS Instance by Hand}
+Let $n=1$, $m=4$, $q=17$, and $A = \begin{pmatrix}3 & 5 & 8 & 1\end{pmatrix} \in \mathbb{Z}_{17}^{1\times 4}$. We want a short, nonzero, \emph{integer} vector $x = (x_1,x_2,x_3,x_4)$ with $3x_1 + 5x_2 + 8x_3 + x_4 \equiv 0 \pmod{17}$. Try $x = (1,1,-1,-16) \to$ too long. Instead try $x = (1,-1,0,2)$: $3(1) + 5(-1) + 8(0) + 1(2) = 3 - 5 + 0 + 2 = 0 \equiv 0 \pmod{17}$. Success, and $\|x\|$ is small (each entry is $\le 1$ in absolute value except the last, which is $2$). This $x$ is a valid, short solution --- with $m=4$ columns squeezed against only $n=1$ modular equation, short solutions are guaranteed to exist by a pigeonhole argument (more columns than rows means lots of redundancy); the point of SIS being \emph{hard} is that finding one is nontrivial once $n$, $m$ are cryptographically large (hundreds to thousands), not that one fails to exist.
+\end{exbox}
+
+\begin{rmkbox}{What SIS Is Used For}
+SIS is the workhorse behind lattice-based \textbf{hash functions} and was historically the basis of early lattice signature schemes. You will meet it again properly when we discuss Dilithium/ML-DSA in Session 3 and again in Session 5, since Dilithium's fault-attack surface is closely tied to how it uses a SIS-flavored rejection-sampling step.
+\end{rmkbox}
+
+\section{Learning With Errors (LWE)}
+
+\subsection{The Idea, in Plain Language}
+
+Imagine someone hands you a stack of linear equations in an unknown secret vector $s$ --- but each equation's right-hand side has been nudged by a small, random amount of noise before you see it. Solving \emph{noise-free} linear equations is easy (that's just linear algebra --- Gaussian elimination). Solving them once every equation is slightly wrong, and you don't know by how much, turns out to be extremely hard. That is the entire idea of LWE.
+
+\subsection{Formal Definition}
+
+\begin{defbox}{Learning With Errors (LWE)}
+Fix a dimension $n$, a modulus $q$, and an error distribution $\chi$ over $\mathbb{Z}_q$ (typically a discrete Gaussian concentrated near $0$). Let $s \in \mathbb{Z}_q^n$ be a fixed secret vector.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Search-LWE:} given many samples $(a_i, b_i)$ where $a_i \in \mathbb{Z}_q^n$ is uniformly random, $e_i \leftarrow \chi$ is a fresh small error, and
+  $$
+  b_i = \langle a_i, s \rangle + e_i \pmod q,
+  $$
+  find $s$.
+  \item \textbf{Decision-LWE:} distinguish samples $(a_i, b_i)$ generated as above from samples where $b_i$ is instead \emph{uniformly random} in $\mathbb{Z}_q$, independent of $a_i$.
+\end{itemize}
+Written in matrix form for $m$ samples stacked together: given $A \in \mathbb{Z}_q^{m \times n}$ (rows are the $a_i$) and $b = As + e \pmod q$ (with $e \leftarrow \chi^m$), search-LWE asks you to recover $s$.
+\end{defbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node[draw, minimum width=2.2cm, minimum height=1cm, fill=blue!8] (A) at (0,0) {$A$ (public, random)};
+  \node[draw, minimum width=1.6cm, minimum height=1cm, fill=red!10] (s) at (3,0) {$s$ (secret)};
+  \node at (4.6,0) {$+$};
+  \node[draw, minimum width=1.6cm, minimum height=1cm, fill=orange!10] (e) at (6,0) {$e$ (small noise)};
+  \node at (7.6,0) {$=$};
+  \node[draw, minimum width=1.6cm, minimum height=1cm, fill=green!10] (b) at (9,0) {$b$ (public)};
+  \draw[-{Latex[length=2mm]}] (A) -- (1.2,0);
+  \node at (1.9,0) {$\times$};
+  \node[font=\tiny] at (0,-0.75) {known};
+  \node[font=\tiny] at (3,-0.75) {\textbf{unknown --- find this}};
+  \node[font=\tiny] at (6,-0.75) {unknown, but small};
+  \node[font=\tiny] at (9,-0.75) {known};
+\end{tikzpicture}
+\caption{The anatomy of one LWE equation $b = As + e \pmod q$. An attacker sees $A$ and $b$ (both public/known) and must recover $s$, without ever being told $e$ --- only that $e$ is small. Without the noise term $e$, this would be ordinary linear algebra and trivial to invert; the noise is precisely what makes it hard.}
+\label{fig:lwe-anatomy}
+\end{figure}
+
+\subsection{A Fully Worked Numeric Example}
+
+\begin{exbox}{Search-LWE by Hand, $n=3$, $q=17$}
+Let the (unknown, to an attacker) secret be $s = (2, 9, 1) \in \mathbb{Z}_{17}^3$, and let the error distribution $\chi$ produce values in $\{-1,0,1\}$ only (a toy stand-in for a discrete Gaussian). Suppose four samples are generated:
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+$a_i$ & $\langle a_i, s\rangle \bmod 17$ & $e_i$ & $b_i = \langle a_i,s\rangle + e_i \bmod 17$ \\
+\hline
+$(1,0,0)$ & $2$ & $+0$ & $2$ \\
+$(0,1,0)$ & $9$ & $-1$ & $8$ \\
+$(1,1,1)$ & $12$ & $+1$ & $13$ \\
+$(3,2,1)$ & $6+18+1=25\equiv 8$ & $0$ & $8$ \\
+\hline
+\end{tabular}
+\end{center}
+An attacker only ever sees the $a_i$ (left column) and $b_i$ (right column) --- \emph{not} the middle two columns. Notice that sample 1 alone, $b_1 = 2$, looks like it might reveal $s_1 = 2$ directly --- and here it does, since $e_1$ happened to be $0$. But sample 2 gives $b_2 = 8$, while the true $s_2 = 9$: the noise $e_2=-1$ has already shifted the visible answer away from the truth by one full step, with no way for an outside observer to know whether the ``off-by-one'' is coming from $s_2$ or from $e_2$. Multiply that ambiguity across hundreds of dimensions and thousands of samples, and brute-force guessing collapses --- this is the essence of why LWE is hard even though each individual equation looks almost solvable.
+\end{exbox}
+
+\begin{exercisebox}{Try This Before Next Lecture}
+Using the same $A$ rows as above but a \emph{different} secret $s' = (2,8,1)$ (differs from $s$ only in the middle coordinate), recompute $b_1,\ldots,b_4$ with the same errors $e_i$. Compare the resulting $b_i$ values to the table above. How many of the four samples end up identical to the original table, purely by coincidence of the noise? What does this tell you about how many samples an attacker needs before guessing becomes hopeless?
+\end{exercisebox}
+
+\subsection{Why LWE Is Believed Hard: the Lattice Connection}
+
+\begin{rmkbox}{LWE Is Bounded-Distance Decoding (BDD), a Cousin of CVP}
+Define the lattice $\Lambda_q(A) = \{\, y \in \mathbb{Z}_q^m : y \equiv As \pmod q \text{ for some } s \in \mathbb{Z}_q^n \,\}$ (all vectors reachable as $A$ times \emph{some} secret, viewed as a lattice via the ring structure of $\mathbb{Z}_q$ from Lecture 1). The vector $b = As + e$ is, by construction, a point $As \in \Lambda_q(A)$ that has been nudged by a \emph{small} vector $e$. Recovering $s$ from $b$ is therefore exactly \textbf{Bounded-Distance Decoding}: given a target $b$ that is guaranteed to be \emph{unusually close} to some lattice point (closer than a typical random point would be), find that lattice point. This is CVP's easier, promise-bearing cousin --- and, exactly as with CVP in Section~2.2, solving it reliably requires something like a good basis for $\Lambda_q(A)$. The whole point of choosing $A$ uniformly at random is that no such good basis is visible to an attacker; only whoever \emph{generated} $s$ (or knows a matching trapdoor) has an edge.
+\end{rmkbox}
+
+\begin{factbox}{Regev's Worst-Case-to-Average-Case Reduction (Statement Only)}
+A landmark 2005 result (Oded Regev) shows: if there existed an efficient algorithm that solves \emph{average-case, randomly-generated} decision-LWE instances, that algorithm could be turned into an efficient algorithm for \emph{worst-case} GapSVP and other hard lattice problems (via a quantum reduction; later work gave classical reductions for related problems). In plain terms: \textbf{LWE's hardness is not a bet made up from nothing} --- it inherits its credibility from the same worst-case lattice hardness Lecture 1 built toward. This is exactly why cryptographers trust random LWE instances, generated fresh for every key, to be hard: hardness on average is tied by proof to hardness in the worst case. We take this as given; the proof itself is well beyond this course.
+\end{factbox}
+
+\begin{previewbox}{Search vs.\ Decision --- Also Provably Equivalent}
+It's also a known theorem (not proven here) that search-LWE and decision-LWE are polynomially equivalent: an efficient solver for one can be converted into an efficient solver for the other. This matters practically because security \emph{proofs} for encryption schemes are usually stated against decision-LWE (``ciphertexts are indistinguishable from random''), while \emph{attacks} usually aim at search-LWE (``recover the actual secret key''). Session 5 will use both framings, so it's worth knowing they're two views of the same underlying hardness.
+\end{previewbox}
+
+\section{From Plain LWE to Ring-LWE}
+
+\subsection{The Problem With Plain LWE: Size}
+
+A single LWE public key with security parameter $n$ requires an $m \times n$ matrix $A$ over $\mathbb{Z}_q$ --- roughly $n^2$ numbers. For cryptographically secure parameters ($n$ in the many hundreds), that's an enormous public key, and every encryption/decryption operation costs a full matrix-vector multiplication, $O(n^2)$ work. Real deployed schemes need public keys measured in kilobytes and operations fast enough for a TLS handshake or a smartcard, not this.
+
+\subsection{The Fix: Move Into a Polynomial Ring}
+
+Recall from Lecture 1's ``Ring'' section and its preview box: Kyber and Dilithium do arithmetic inside $R_q = \mathbb{Z}_q[x]/(x^n+1)$ --- polynomials of degree $< n$ with coefficients in $\mathbb{Z}_q$, where powers of $x$ wrap around using the rule $x^n \equiv -1$.
+
+\begin{defbox}{The Ring $R_q = \mathbb{Z}_q[x]/(x^n+1)$}
+Elements of $R_q$ are polynomials $a(x) = a_0 + a_1 x + a_2 x^2 + \cdots + a_{n-1}x^{n-1}$ with each coefficient $a_i \in \mathbb{Z}_q$. Addition is ordinary coefficient-wise addition mod $q$. Multiplication is ordinary polynomial multiplication, \emph{followed by reduction}: whenever a term $x^n$ appears, replace it with $-1$ (and more generally $x^{n+k} \to -x^k$), then reduce every coefficient mod $q$. This makes $R_q$ a finite ring with exactly $q^n$ elements --- and, crucially, a single element of $R_q$ packs $n$ numbers into one object that a computer can multiply in roughly $O(n \log n)$ time using the Number-Theoretic Transform (NTT, a finite-field cousin of the FFT) --- we will not need NTT details in this course, just the fact that it's the reason Ring-LWE is fast in practice.
+\end{defbox}
+
+\begin{exbox}{Multiplying Two Small Polynomials in $R_q$, $n=4$, $q=17$}
+Let $n=4$, so we reduce using $x^4 \equiv -1$, and work mod $q=17$. Take $a(x) = 1 + 2x$ and $c(x) = 3 + x^3$ in $R_{17}$. Ordinary polynomial multiplication first:
+$$
+a(x)\,c(x) = (1+2x)(3+x^3) = 3 + x^3 + 6x + 2x^4.
+$$
+Now reduce using $x^4 \equiv -1$: the term $2x^4$ becomes $2 \cdot(-1) = -2$. So we're left with
+$$
+3 + 6x + x^3 - 2 \;=\; 1 + 6x + 0x^2 + x^3.
+$$
+Finally reduce coefficients mod $17$ (here every coefficient is already in $\{0,\ldots,16\}$, so nothing changes): the product is $1 + 6x + x^3 \in R_{17}$. Notice the ``wraparound'' step ($x^4 \to -1$) is exactly what folds the high-degree term back down to degree $<4$ --- this is the polynomial-ring analogue of ``carrying'' in ordinary mod-$q$ arithmetic.
+\end{exbox}
+
+\subsection{Ring-LWE, Formally}
+
+\begin{defbox}{Ring Learning With Errors (RLWE)}
+Fix $R_q = \mathbb{Z}_q[x]/(x^n+1)$ and an error distribution $\chi$ over $R_q$ (coefficients drawn independently from a small distribution). Let $s \in R_q$ be a fixed secret ring element. A search-RLWE sample is a pair $(a, b) \in R_q \times R_q$ where $a$ is uniform random and
+$$
+b = a \cdot s + e \pmod{q}, \qquad e \leftarrow \chi.
+$$
+Search-RLWE asks for $s$ given many such pairs; decision-RLWE asks to distinguish $(a,b)$ from a uniformly random pair in $R_q \times R_q$.
+\end{defbox}
+
+\begin{rmkbox}{One Ring-LWE Sample $\approx$ $n$ Plain-LWE Samples}
+Compare the two definitions side by side: plain LWE needs an entire matrix $A \in \mathbb{Z}_q^{m\times n}$ to state $m$ equations. A \emph{single} Ring-LWE pair $(a,b)$, because $a$ and $s$ are each secretly a length-$n$ coefficient vector multiplied together via the structured polynomial product above, is algebraically equivalent to about $n$ ordinary LWE-style equations bundled into one ring multiplication. This is exactly where the size and speed win comes from --- and exactly why the ring's extra structure is a trade-off: it buys efficiency at the cost of a stronger (though still, so far, unbroken) hardness assumption than plain LWE, since the extra algebraic structure is, in principle, more surface area for a future attack to exploit.
+\end{rmkbox}
+
+\section{Module-LWE: the Middle Ground Kyber and Dilithium Actually Use}
+
+\begin{defbox}{Module Learning With Errors (MLWE)}
+Fix $R_q$ as above and a small integer $k$ (the \textbf{module rank}). The secret is now a length-$k$ vector of ring elements, $\vec{s} \in R_q^k$. A sample is $(\vec a, b)$ with $\vec a \in R_q^k$ uniform random and
+$$
+b = \langle \vec a, \vec s \rangle + e \pmod q = \sum_{i=1}^{k} a_i s_i + e, \qquad e \leftarrow \chi.
+$$
+\end{defbox}
+
+\begin{rmkbox}{MLWE Sits Exactly Between Plain LWE and Ring-LWE}
+Set $k=1$ and MLWE collapses to Ring-LWE exactly. Let $n=1$ (no ring structure at all --- just plain integers) and MLWE collapses toward plain LWE. Choosing $k>1$ with a modest per-ring dimension $n$ gives designers a dial: more of the speed benefit of rings, without committing to the single largest, most algebraically rigid ring dimension. This is precisely why Kyber and Dilithium use MLWE with a moderate fixed $n=256$ and vary $k$ (Kyber uses $k \in \{2,3,4\}$ for its three security levels) instead of varying $n$ directly --- a design choice we will see in full in Session 3.
+\end{rmkbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node at (0,2.6) {\textbf{Plain LWE}};
+  \node[draw,minimum width=1.6cm,minimum height=0.9cm,fill=blue!8] at (0,1.6) {$A \in \mathbb{Z}_q^{m\times n}$};
+  \node[font=\tiny, align=center] at (0,0.9) {big matrix,\\ scalar entries};
+
+  \node at (4,2.6) {\textbf{Module-LWE}};
+  \node[draw,minimum width=1.9cm,minimum height=0.9cm,fill=orange!12, align=center] at (4,1.6) {$k\times k$-ish grid\\ of ring elements};
+  \node[font=\tiny, align=center] at (4,0.6) {Kyber/Dilithium:\\ small $k$, $n=256$};
+
+  \node at (8,2.6) {\textbf{Ring-LWE}};
+  \node[draw,minimum width=1.6cm,minimum height=0.9cm,fill=green!10] at (8,1.6) {single $a \in R_q$};
+  \node[font=\tiny, align=center] at (8,0.9) {one ring element\\ ($k=1$)};
+
+  \draw[-{Latex[length=2mm]}, thick] (1.1,1.6) -- (2.7,1.6);
+  \node[font=\tiny] at (1.9,1.9) {structure};
+  \draw[-{Latex[length=2mm]}, thick] (5.3,1.6) -- (6.9,1.6);
+  \node[font=\tiny] at (6.1,1.9) {$k\to 1$};
+\end{tikzpicture}
+\caption{Module-LWE is a size/speed dial between the two extremes: no ring structure at all (plain LWE, left) and maximal ring structure (Ring-LWE, right). Kyber and Dilithium sit in the middle deliberately.}
+\label{fig:mlwe-dial}
+\end{figure}
+
+\section{Bridge to Session 3: A Real Public Key \emph{Is} an (M)LWE Sample}
+
+\begin{previewbox}{What You'll Recognize Next Session}
+When we open up Kyber (ML-KEM) in Session 3, its key generation will look almost exactly like the MLWE definition above: pick a random public matrix (of ring elements) $\mathbf{A}$, pick a small secret $\vec s$ and small error $\vec e$, and publish $\mathbf{t} = \mathbf{A}\vec s + \vec e$ as the public key --- literally an MLWE sample, with $\vec s$ kept as the secret key. Encryption will use a \emph{second}, independent MLWE-style sample to hide the message inside more noise. Once you can point at a real Kyber public key and say ``that's $b = As+e$,'' the scheme stops looking like magic and starts looking like an application of exactly the object we defined today.
+\end{previewbox}
+
+\section{Summary Table}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Problem} & \textbf{Given} & \textbf{Find / Decide} \\
+\hline
+SVP & Basis $B$ of lattice $L$ & Shortest nonzero $v \in L$ \\
+CVP & Basis $B$, target $t \notin L$ & Closest $v \in L$ to $t$ \\
+SIS & Random $A \in \mathbb{Z}_q^{n\times m}$ & Short nonzero $x$: $Ax\equiv 0$ \\
+Search-LWE & $(A, b=As+e)$ & Recover secret $s$ \\
+Decision-LWE & $(A,b)$ & Is $b$ ``$As+e$'' or uniform random? \\
+Ring-LWE & $(a,b=as+e) \in R_q^2$ & Recover $s \in R_q$ \\
+Module-LWE & $(\vec a, b) \in R_q^k \times R_q$ & Recover $\vec s \in R_q^k$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{Full List of Exercises (Assign as Homework Before Lecture 3)}
+
+\begin{exercisebox}{Homework Set}
+\begin{enumerate}[leftmargin=*]
+  \item State, in your own words (2--3 sentences each), the difference between SVP and CVP, and the difference between the search and decision versions of a problem in general.
+  \item For $n=1$, $m=3$, $q=13$, $A = \begin{pmatrix}4 & 6 & 9\end{pmatrix}$: find a nonzero, short $x \in \mathbb{Z}^3$ solving the SIS instance $Ax \equiv 0 \pmod{13}$ (Section~3 worked example, above). Confirm your answer by direct computation.
+  \item Redo the search-LWE worked example (Section~4.3) with secret $s=(2,9,1)$ but a \emph{new} sample $a_5 = (2,0,1)$ and error $e_5=1$. Compute $b_5$. If you were only given $a_5$ and $b_5$ (not $s$ or $e_5$), could you determine $s$ from this single equation alone? Why not?
+  \item Explain in your own words why LWE would become \emph{easy} (not hard) if the error $e$ were removed entirely (i.e., $b = As$ exactly). Connect your answer to ordinary linear algebra.
+  \item In the ring $R_{17} = \mathbb{Z}_{17}[x]/(x^4+1)$: compute the product $(2 + x^2)(1 + 3x)$, showing the wraparound step explicitly (Section~5.2 worked example, above).
+  \item In 3--4 sentences: why does moving from plain LWE to Ring-LWE reduce key size roughly from $O(n^2)$ numbers to $O(n)$ numbers? Use the ``one Ring-LWE sample $\approx n$ plain-LWE samples'' remark (Section~5.3) in your explanation.
+  \item Module-LWE with $k=1$ is exactly Ring-LWE, and (informally) $R_q$ with $n=1$ is exactly $\mathbb{Z}_q$. Using these two facts, explain why Module-LWE is fairly described as ``a generalization that contains both plain LWE and Ring-LWE as special cases.''
+  \item \textbf{Looking ahead:} Kyber-768 uses module rank $k=3$ with per-ring dimension $n=256$ and $q=3329$. Without looking anything up yet, estimate how many total $\mathbb{Z}_q$-coefficients are packed into one Kyber-768 secret key $\vec s \in R_q^3$. (You'll check this answer in Session 3.)
+\end{enumerate}
+\end{exercisebox}
+
+\end{document}
