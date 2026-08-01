@@ -364,24 +364,61 @@ For $x = (x_1,\ldots,x_n), y=(y_1,\ldots,y_n) \in \mathbb{R}^n$, the (standard) 
 For $x=(3,4)$: $\|x\| = \sqrt{3^2+4^2} = \sqrt{25} = 5$. For $x=(1,1)$ and $y=(1,-1)$: $\langle x,y\rangle = (1)(1)+(1)(-1) = 0$, so these two vectors (the alternate basis of $\mathbb{R}^2$ from the previous example) are orthogonal --- a nicer basis, geometrically, than it might have looked at first glance.
 \end{exbox}
 
+\begin{rmkbox}{What About Complex Vectors? (Good Instinct --- Conjugate the Second Argument)}
+The formula $\langle x,y\rangle=\sum_i x_iy_i$ above is only correct for \emph{real} vectors, $x,y\in\mathbb{R}^n$. It breaks down over $\mathbb{C}^n$: take a single complex coordinate, $x=(i)$. The formula gives $\langle x,x\rangle = i\cdot i = i^2 = -1$, so $\|x\| = \sqrt{-1}$ --- not a real number at all, let alone a sensible ``length.'' A norm must be a non-negative real number, so this naive formula simply stops being a norm once complex entries are allowed.
+
+The fix is exactly what you'd guess: put a \textbf{complex conjugate} on one argument,
+$$
+\langle x,y\rangle \;=\; \sum_{i=1}^n x_i\,\overline{y_i} \qquad \text{(the \emph{Hermitian} inner product)},
+$$
+where $\overline{a+bi} = a-bi$. Now $\langle x,x\rangle = \sum_i x_i\overline{x_i} = \sum_i |x_i|^2$ --- a sum of non-negative real numbers, always real and always $\ge 0$, exactly what a norm needs. And whenever every entry happens to be real, $\overline{y_i}=y_i$, so this formula collapses back \emph{exactly} to the plain dot product in the defbox above --- the conjugate only ever does work when the entries are genuinely complex, and is invisible (a no-op) on real vectors. This is why the definition above was stated over $\mathbb{R}^n$ specifically: every lattice in Lectures~1--4 lives in $\mathbb{R}^n$ or $\mathbb{Z}^n$, so the plain real formula is all we need for now --- but yes, the moment complex vectors enter the picture, conjugating is required, not optional.
+\end{rmkbox}
+
+\begin{previewbox}{Where Complex Vectors Actually Show Up (Preview of Falcon, Lecture 4)}
+This isn't a hypothetical fix-it-just-in-case. Falcon's signing step (``fast Fourier sampling,'' Lecture 4) embeds a ring element of $R_q = \mathbb{Z}_q[x]/(x^n+1)$ into $\mathbb{C}^n$ using the $n$ complex roots of $x^n+1$ --- the \textbf{canonical embedding} --- because in that embedding, the otherwise-awkward polynomial multiplication in $R_q$ becomes simple coordinate-wise multiplication of complex numbers, which is exactly what makes fast Fourier sampling fast. Every norm and inner product computed inside that embedding \emph{is} the Hermitian version defined above, not the plain real dot product. Keep this box in mind when Falcon's sampler resurfaces in Session 5: part of why its floating-point implementation is so delicate to secure is that it's performing real, finite-precision arithmetic on quantities that are conceptually complex-number computations underneath.
+\end{previewbox}
+
 \begin{previewbox}{Quantifying ``Good'' vs.\ ``Bad'' Bases}
 With norms in hand, we can finally give a real, measurable meaning to the ``good basis / bad basis'' idea flagged repeatedly in this lecture: a good basis has vectors with small norm $\|b_i\|$ that are close to orthogonal; a bad basis for the \emph{same} lattice can have arbitrarily large norms and near-parallel vectors, despite generating an identical set of points. One common numerical measure of ``how good'' a basis is is its \textbf{orthogonality defect}, $\frac{\prod_i \|b_i\|}{\det(L)}$ (see Section~8.4 below for $\det(L)$) --- it equals $1$ for a perfectly orthogonal basis and grows the more skewed the basis is.
 \end{previewbox}
 
 \subsection{Gram--Schmidt Orthogonalization}
 
-Given \emph{any} basis, can we systematically produce an orthogonal one (spanning the same space, though generally \emph{not} the same lattice --- more on that distinction below)? Yes:
+Given \emph{any} basis, can we systematically produce an orthogonal one (spanning the same space, though generally \emph{not} the same lattice --- more on that distinction below)? Yes --- and the entire idea rests on one simple geometric move: \textbf{taking a vector and subtracting off however much of it points along some other direction}, leaving only the part that's genuinely new. Let's make that move precise before writing down the full process.
+
+\begin{defbox}{Vector Projection}
+The \textbf{projection} of a vector $v$ onto a (nonzero) vector $u$ is
+$$
+\mathrm{proj}_u(v) \;=\; \frac{\langle v,u \rangle}{\langle u,u \rangle}\, u.
+$$
+Geometrically, $\mathrm{proj}_u(v)$ is the ``shadow'' $v$ casts on the line through $u$ --- the closest point to $v$ that lies on that line, i.e.\ the component of $v$ pointing in the $u$ direction. The leftover piece, $v - \mathrm{proj}_u(v)$, is exactly the component of $v$ perpendicular to $u$: check that $\langle v - \mathrm{proj}_u(v),\, u\rangle = \langle v,u\rangle - \frac{\langle v,u\rangle}{\langle u,u\rangle}\langle u,u\rangle = 0$, confirming orthogonality directly from the definition.
+\end{defbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=1.15]
+  \draw[-{Latex[length=2mm]}, thick, blue] (0,0) -- (2,0) node[below right, font=\small] {$b_1 = b_1^* = (2,0)$};
+  \draw[-{Latex[length=2mm]}, thick, green!50!black] (0,0) -- (1,2) node[above left, font=\small] {$b_2 = (1,2)$};
+  \draw[-{Latex[length=2mm]}, thick, orange, dashed] (0,0) -- (1,0);
+  \node[orange, font=\scriptsize, below] at (0.5,-0.05) {$\mathrm{proj}_{b_1^*}(b_2) = (1,0)$};
+  \draw[-{Latex[length=2mm]}, thick, red, dashed] (1,0) -- (1,2);
+  \node[red, font=\small, right] at (1,1) {$b_2^* = (0,2)$};
+  \draw (0.85,0) -- (0.85,0.15) -- (1,0.15);
+\end{tikzpicture}
+\caption{The geometry behind one Gram--Schmidt step (numbers match the worked example below). The green vector $b_2$ decomposes into an orange piece --- its projection onto $b_1^*$, i.e.\ ``how much of $b_2$ points along $b_1^*$'' --- and a red perpendicular leftover, $b_2^* = b_2 - \mathrm{proj}_{b_1^*}(b_2)$. That red leftover, translated back to the origin, \emph{is} the new orthogonal basis vector. Every step of Gram--Schmidt is this same picture, repeated once per previous direction.}
+\label{fig:gram-schmidt-projection}
+\end{figure}
 
 \begin{defbox}{Gram--Schmidt Process}
 Given linearly independent $b_1,\ldots,b_k$, define $b_1^* = b_1$, and for $i = 2,\ldots,k$:
 $$
 b_i^* = b_i - \sum_{j=1}^{i-1} \mu_{i,j}\, b_j^*, \qquad \text{where } \mu_{i,j} = \frac{\langle b_i, b_j^* \rangle}{\langle b_j^*, b_j^* \rangle}.
 $$
-Each $b_i^*$ is $b_i$ with the ``shadow'' it casts on all previous $b_j^*$ subtracted off, leaving only the genuinely new, orthogonal direction. The result $\{b_1^*,\ldots,b_k^*\}$ is an orthogonal basis of the same vector space (though, importantly, its integer combinations generally do \emph{not} produce the same lattice as the original $b_i$'s --- Gram--Schmidt vectors are a vector-space tool, not automatically a lattice basis).
+Each term $\mu_{i,j}\,b_j^*$ is precisely $\mathrm{proj}_{b_j^*}(b_i)$ from the defbox above --- so this formula is nothing more than \textbf{``take $b_i$, and subtract off its projection onto every previously-built orthogonal direction, one at a time.''} Each $b_i^*$ is $b_i$ with the ``shadow'' it casts on all previous $b_j^*$ subtracted off, leaving only the genuinely new, orthogonal direction. The result $\{b_1^*,\ldots,b_k^*\}$ is an orthogonal basis of the same vector space (though, importantly, its integer combinations generally do \emph{not} produce the same lattice as the original $b_i$'s --- Gram--Schmidt vectors are a vector-space tool, not automatically a lattice basis).
 \end{defbox}
 
 \begin{exbox}{Gram--Schmidt on a $2 \times 2$ Example}
-Let $b_1 = (2,0)$, $b_2 = (1,2)$. Then $b_1^* = b_1 = (2,0)$. Compute $\mu_{2,1} = \frac{\langle b_2,b_1^*\rangle}{\langle b_1^*,b_1^*\rangle} = \frac{(1)(2)+(2)(0)}{4} = \frac{2}{4} = 0.5$. So $b_2^* = b_2 - 0.5\, b_1^* = (1,2) - (1,0) = (0,2)$. Check: $\langle b_1^*, b_2^* \rangle = (2)(0)+(0)(2) = 0$ --- orthogonal, as required.
+Let $b_1 = (2,0)$, $b_2 = (1,2)$ (the same vectors as Figure~\ref{fig:gram-schmidt-projection}). Then $b_1^* = b_1 = (2,0)$. Compute $\mu_{2,1} = \frac{\langle b_2,b_1^*\rangle}{\langle b_1^*,b_1^*\rangle} = \frac{(1)(2)+(2)(0)}{4} = \frac{2}{4} = 0.5$ --- this is exactly $\mathrm{proj}_{b_1^*}(b_2) = 0.5\,(2,0) = (1,0)$, the orange vector in the figure. So $b_2^* = b_2 - \mathrm{proj}_{b_1^*}(b_2) = (1,2) - (1,0) = (0,2)$ --- the red leftover. Check: $\langle b_1^*, b_2^* \rangle = (2)(0)+(0)(2) = 0$ --- orthogonal, as required.
 \end{exbox}
 
 \begin{previewbox}{Where Gram--Schmidt Leads}
