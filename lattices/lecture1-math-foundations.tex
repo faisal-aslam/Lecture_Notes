@@ -513,8 +513,82 @@ Recall from the ``Same Lattice, Different Basis'' remark above: any two bases of
 For $b_1=(2,0)$, $b_2=(0,3)$ from the example above, $B = \begin{pmatrix} 2 & 0 \\ 0 & 3 \end{pmatrix}$, so $\det(L) = |\det(B)| = |2 \times 3 - 0 \times 0| = 6$. Geometrically: the fundamental parallelepiped is just the $2\times 3$ rectangle $[0,2)\times[0,3)$, and copies of this rectangle exactly tile the plane, anchored at every lattice point --- matching the picture in Figure~\ref{fig:latticegrid}'s style, just for this specific (axis-aligned) lattice.
 \end{exbox}
 
-\begin{previewbox}{Minkowski's Theorem: Connecting Volume Back to $\lambda_1(L)$}
-Here is a genuinely deep fact we will only preview, not prove: \textbf{Minkowski's First Theorem} says that any symmetric convex region of volume greater than $2^n \det(L)$ must contain a nonzero lattice point. Applying this to a ball gives a bound relating the two quantities we've now defined: $\lambda_1(L) \le \sqrt{n} \cdot \det(L)^{1/n}$ (up to constants). In plain terms: a lattice cannot ``hide'' an arbitrarily long shortest vector if its volume is small --- volume and minimum distance are locked together by the geometry, no matter which basis you're handed. This is part of \emph{why} SVP is believed hard only in the ``regime'' cryptographers carefully choose (high dimension $n$, appropriately scaled $\det(L)$) rather than for arbitrary lattices --- a preview of parameter selection, which we'll return to once we discuss how Kyber and Dilithium choose their concrete dimensions and moduli.
+\subsection{Minkowski's First Theorem: Volume Forces a Short Vector to Exist}
+
+Everything so far has been about a \emph{specific} lattice: given a basis, compute $\lambda_1(L)$ or $\det(L)$ directly. Minkowski's theorem flips the question around: \emph{without ever finding a shortest vector by hand}, can we predict, from $\det(L)$ alone, an upper bound on how long $\lambda_1(L)$ is allowed to be? Surprisingly, yes --- and the argument is pure geometry, no algebra required.
+
+\begin{defbox}{Minkowski's First Theorem}
+Let $L \subseteq \mathbb{R}^n$ be a full-rank lattice, and let $K \subseteq \mathbb{R}^n$ be a \textbf{symmetric} ($K = -K$, i.e.\ $x \in K \Rightarrow -x \in K$) \textbf{convex} region. If
+$$
+\mathrm{Vol}(K) \;>\; 2^n \det(L),
+$$
+then $K$ contains a nonzero lattice point, i.e.\ $K \cap (L \setminus \{\vec 0\}) \ne \varnothing$.
+\end{defbox}
+
+\begin{rmkbox}{Reading the Theorem in Plain Language}
+Think of $\det(L)$ as ``how much empty space, on average, surrounds each lattice point.'' The theorem says: if you draw \emph{any} symmetric, convex region big enough --- bigger than $2^n$ times that average empty space --- it is \emph{geometrically impossible} for that region to dodge every lattice point except the origin. This is a statement about \emph{existence only}: it doesn't tell you \emph{which} lattice point is inside $K$, or how to find it --- only that one is guaranteed to be there. That ``existence without construction'' flavor is typical of the deep facts underlying lattice cryptography, and it's worth getting comfortable with that style of guarantee now.
+\end{rmkbox}
+
+\begin{rmkbox}{Proof Idea: Shrink, Overlap, and Use Symmetry (Sketch Only)}
+The proof is a clean pigeonhole argument, in three steps:
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Shrink $K$ by half.} Let $K' = \tfrac{1}{2}K = \{\tfrac{1}{2}x : x \in K\}$. Since volume scales with the $n$-th power of a linear shrink factor, $\mathrm{Vol}(K') = \mathrm{Vol}(K)/2^n > \det(L)$.
+  \item \textbf{Force an overlap.} Consider translating $K'$ by every lattice point: the copies $K' + v$ for $v \in L$. If all these copies were disjoint, then within any one fundamental domain (volume $\det(L)$, Section~8.4) the \emph{total} volume of $K'$-material passing through could never exceed $\det(L)$ --- but $\mathrm{Vol}(K') > \det(L)$ already, on its own, before even counting other copies. So the copies cannot all be disjoint: some two of them, $K' + v_1$ and $K' + v_2$ with $v_1 \ne v_2$, must overlap.
+  \item \textbf{Use symmetry and convexity to extract a lattice point.} Overlapping means there exist $x_1, x_2 \in K'$ with $x_1 + v_1 = x_2 + v_2$, i.e.\ $v_1 - v_2 = x_2 - x_1$. Because $K'$ is symmetric, $-x_1 \in K'$ too. Because $K'$ is convex, the midpoint $\tfrac{1}{2}\big(x_2 + (-x_1)\big) \in K'$, which rearranges to $x_2 - x_1 \in 2K' = K$. So $v_1 - v_2 \in K$ --- and $v_1 - v_2$ is a genuine \emph{nonzero} lattice vector (since $v_1 \ne v_2$). That nonzero lattice vector is the point the theorem promised.
+\end{enumerate}
+Nothing here required knowing where the lattice points actually are --- only that $K$ was ``too big, relative to $\det(L)$,'' for its translated copies to avoid colliding.
+\end{rmkbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=0.85]
+  % lattice grid
+  \foreach \x in {-1,...,4}
+    \foreach \y in {-1,...,3}
+      \fill[gray!55] (\x,\y) circle (1.6pt);
+  % the disk K, radius ~1.128, centered at origin (0,0) mapped to a chosen grid point
+  \draw[thick, blue] (1,1) circle (1.13);
+  \node[blue, font=\small] at (1,2.55) {region $K$ (disk, radius $r\approx1.13$)};
+  \fill[blue] (1,1) circle (2pt);
+  \node[blue, font=\tiny] at (1,0.68) {origin};
+  % nonzero lattice point guaranteed inside: (2,1) relative to origin (1,1) -> (1,0) direction
+  \fill[red] (2,1) circle (2.4pt);
+  \node[red, font=\small, right] at (2.1,1) {a nonzero lattice point, guaranteed to exist inside $K$};
+\end{tikzpicture}
+\caption{Minkowski's First Theorem for $L = \mathbb{Z}^2$ ($\det(L)=1$): once the disk's area exceeds $2^2 \cdot \det(L) = 4$ (radius $r \gtrsim 1.13$), the theorem guarantees a nonzero lattice point lies inside it --- and indeed $(1,0)$ (shown here relative to the chosen origin) is inside, at distance exactly $1 < 1.13$.}
+\label{fig:minkowski-disk}
+\end{figure}
+
+\begin{exbox}{Minkowski's Bound on the Simplest Lattice, $L = \mathbb{Z}^2$}
+Take $L = \mathbb{Z}^2$, so $\det(L) = 1$ (Section~8.4). Let $K$ be a disk of radius $r$ centered at the origin --- symmetric and convex, exactly as the theorem requires. The theorem applies once $\mathrm{Vol}(K) = \pi r^2 > 2^2 \cdot \det(L) = 4$, i.e.\ once
+$$
+r > \frac{2}{\sqrt{\pi}} \approx 1.128.
+$$
+So Minkowski's theorem \emph{guarantees}, without any further work, that a disk of radius $1.13$ around the origin must contain a nonzero lattice point. Checking directly: we already know $\lambda_1(\mathbb{Z}^2) = 1$ (the point $(1,0)$), and indeed $1 < 1.128$ --- consistent with, and in fact comfortably inside, the guarantee. Notice the theorem didn't need to know that $(1,0)$ was the answer; it only needed the disk to be big enough.
+\end{exbox}
+
+\begin{exbox}{The Same Bound on a Very Different-Looking Lattice}
+Now take a stretched lattice with basis $b_1 = (5,0)$, $b_2 = (0,1)$, so $\det(L) = |5 \times 1 - 0 \times 0| = 5$ (Section~8.4). The disk threshold becomes $\pi r^2 > 4 \times 5 = 20$, i.e.\ $r > \sqrt{20/\pi} \approx 2.523$. Minkowski's theorem guarantees a nonzero lattice point within distance $2.523$ of the origin. The actual shortest vector here is $(0,1)$, of length $1$ --- again comfortably inside the guaranteed radius, but this time the guarantee is quite \emph{loose}: the theorem promised ``within $2.523$'' and reality delivered ``within $1$.'' This is expected and normal --- Minkowski's theorem is a \textbf{worst-case guarantee}, not an exact formula; it never overpromises (the bound always holds), but it can certainly underdeliver on precision for any one specific lattice. Its real value is as a \emph{universal} ceiling that holds for \emph{every} lattice of a given determinant, not as a precise estimate for one.
+\end{exbox}
+
+\begin{rmkbox}{From the Disk Bound to the General Formula}
+Redo the disk calculation above in $n$ dimensions instead of $2$: the volume of a radius-$r$ ball in $\mathbb{R}^n$ shrinks (relative to $r^n$) as $n$ grows, and pushing the same threshold argument through (we omit the $n$-dimensional volume formula itself, which involves the Gamma function) yields the general bound already stated in Lecture 1's introduction to this topic:
+$$
+\lambda_1(L) \;\le\; \sqrt{n}\cdot \det(L)^{1/n} \qquad \text{(up to a small constant factor).}
+$$
+\textbf{In plain terms:} a lattice can never ``hide'' an unexpectedly long shortest vector behind a small determinant --- volume and minimum distance are locked together by geometry alone, regardless of which basis you're handed to describe the lattice. This is part of \emph{why} SVP is only believed hard in the specific regime cryptographers deliberately choose (large dimension $n$, carefully scaled $\det(L)$), rather than for arbitrary lattices --- a preview of the parameter-selection discussion we'll return to once we look at how Kyber and Dilithium choose their concrete dimensions and moduli.
+\end{rmkbox}
+
+\begin{exercisebox}{Practice}
+Let $L = \mathbb{Z}^3$ (so $\det(L)=1$). Using the volume of a ball in $\mathbb{R}^3$, $\mathrm{Vol} = \tfrac{4}{3}\pi r^3$, find the radius $r$ at which Minkowski's theorem first guarantees a nonzero lattice point inside the ball. Compare it to the true value $\lambda_1(\mathbb{Z}^3) = 1$ (e.g.\ the point $(1,0,0)$) --- is the guarantee looser or tighter, relative to the truth, than it was for $\mathbb{Z}^2$ in the worked example above?
+\end{exercisebox}
+
+\begin{previewbox}{Optional / Advanced: Minkowski's Second Theorem}
+The First Theorem only talks about $\lambda_1(L)$, the \emph{single} shortest vector. It says nothing about the second-shortest independent direction, the third, and so on. \textbf{Minkowski's Second Theorem} fills that gap: define the \textbf{successive minima} $\lambda_1(L) \le \lambda_2(L) \le \cdots \le \lambda_n(L)$, where $\lambda_i(L)$ is the smallest radius $r$ such that the ball of radius $r$ contains $i$ \emph{linearly independent} lattice vectors. The theorem bounds their \emph{product}:
+$$
+\frac{2^n}{n!}\det(L) \;\le\; \lambda_1(L)\cdots\lambda_n(L) \;\le\; 2^n \det(L).
+$$
+\textbf{Do we need this for the thesis?} Not as core material --- everything in Sessions 1--6 (understanding LWE, the algorithms, and the physical attacks in Section 2 of the proposal) only ever leans on the First Theorem's intuition: ``small determinant $\Rightarrow$ short vector must exist.'' The Second Theorem becomes genuinely useful only if the research moves toward analyzing \emph{trapdoor} lattices and Gaussian sampling in depth --- which is exactly what underlies Falcon's signing procedure (flagged for Session 5). A trapdoor basis needs \emph{all} of its vectors short, not just the shortest one, for Gaussian sampling to be both efficient and secure; that ``all vectors short together'' requirement is precisely what the successive minima $\lambda_1,\ldots,\lambda_n$ capture, and the Second Theorem is the tool that ties them back to $\det(L)$. Treat this box as a pointer to come back to \emph{if and only if} the Phase 2 research direction (Section~4 of the proposal) ends up involving Falcon's sampler or trapdoor generation in detail --- otherwise, the First Theorem alone is sufficient background.
 \end{previewbox}
 
 \begin{exercisebox}{Practice}
