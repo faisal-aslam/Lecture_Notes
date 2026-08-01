@@ -92,6 +92,10 @@ We will not attack SVP or CVP directly today. Instead, both SIS (Section~3) and 
 
 \section{The Short Integer Solution (SIS) Problem}
 
+\begin{rmkbox}{Motivating SIS With a Question}
+Here's a question that sounds almost too easy: if I hand you a random matrix $A$ (think: rows and columns of random numbers mod $q$), can you find a \emph{short} nonzero vector $x$ so that $Ax \equiv \vec 0 \pmod q$? If $x$ could be any size at all, this would be trivial linear algebra --- as long as $A$ has more columns than rows, there are always \emph{some} nonzero solutions (more unknowns than equations). The catch, and the entire reason this is a cryptographic problem rather than a homework exercise, is the word \textbf{short}: among the (many) solutions that exist, finding one whose entries are all small turns out to be hard once the matrix is big enough. This is SIS.
+\end{rmkbox}
+
 \begin{defbox}{Short Integer Solution (SIS)}
 Fix positive integers $n$, $m > n$, a modulus $q$, and a bound $\beta$. Given a uniformly random matrix $A \in \mathbb{Z}_q^{n \times m}$, find a nonzero vector $x \in \mathbb{Z}^m$ with
 $$
@@ -116,6 +120,18 @@ SIS is the workhorse behind lattice-based \textbf{hash functions} and was histor
 \subsection{The Idea, in Plain Language}
 
 Imagine someone hands you a stack of linear equations in an unknown secret vector $s$ --- but each equation's right-hand side has been nudged by a small, random amount of noise before you see it. Solving \emph{noise-free} linear equations is easy (that's just linear algebra --- Gaussian elimination). Solving them once every equation is slightly wrong, and you don't know by how much, turns out to be extremely hard. That is the entire idea of LWE.
+
+\begin{rmkbox}{``Wait --- Why Can't I Just Use Linear Algebra?''}
+This is the single most common point of confusion, so let's confront it head-on with a tiny concrete case. Suppose $n=2$ and, with no noise at all, you're given:
+$$
+1\cdot s_1 + 2\cdot s_2 = 8, \qquad 3\cdot s_1 + 1\cdot s_2 = 9.
+$$
+Two equations, two unknowns --- solve normally (e.g.\ elimination) and you get $s_1=2,\ s_2=3$ exactly, every time, no matter how large $n$ gets, as long as you have $n$ independent equations. \textbf{Linear algebra doesn't care how big the system is} --- Gaussian elimination scales smoothly to thousands of unknowns. Now add noise: suppose the equations you're actually given are
+$$
+1\cdot s_1 + 2\cdot s_2 = 8 + e_1, \qquad 3\cdot s_1 + 1\cdot s_2 = 9 + e_2,
+$$
+for some small, unknown $e_1, e_2 \in \{-1,0,1\}$ that you are never told. Now elimination doesn't work: any attempt to ``solve exactly'' is solving for the \emph{wrong} thing, since the right-hand sides are off by an unknown amount. You could try every combination of $e_1, e_2$ and re-solve each time --- for two small error values that's manageable, but for hundreds of equations, each with its own small unknown error, the number of combinations to check explodes exponentially. That explosion, not any deep mystery, is where LWE's hardness lives: \textbf{noise breaks the one tool (linear algebra) that would otherwise make this trivial}, and no comparably efficient tool has been found to replace it.
+\end{rmkbox}
 
 \subsection{Formal Definition}
 
@@ -152,6 +168,27 @@ Written in matrix form for $m$ samples stacked together: given $A \in \mathbb{Z}
 \label{fig:lwe-anatomy}
 \end{figure}
 
+\subsection{What the Error Distribution $\chi$ Actually Is}
+
+We've been saying ``a small error'' without pinning down what ``small'' means or where $e_i$ actually comes from. Time to fix that.
+
+\begin{defbox}{Discrete Gaussian Distribution (the usual choice of $\chi$)}
+For a parameter $\sigma>0$ (roughly, how spread out the noise is), the discrete Gaussian distribution over $\mathbb{Z}$ assigns to each integer $x$ a probability proportional to $\exp(-x^2/2\sigma^2)$ --- the same bell-curve shape as the ordinary (continuous) Gaussian, just evaluated only at integers and re-normalized so the probabilities sum to $1$. In practice this means: $e=0$ is the single most likely outcome, $e=\pm 1$ is somewhat less likely, $e=\pm 2$ less likely still, and values far from $0$ (say $|e| > 6\sigma$) are so improbable they essentially never occur. $\chi$ is this distribution, and each $e_i$ in an LWE sample is drawn independently from it.
+\end{defbox}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+  \foreach \x/\h in {-4/0.03, -3/0.11, -2/0.30, -1/0.61, 0/0.80, 1/0.61, 2/0.30, 3/0.11, 4/0.03}
+    \draw[fill=blue!35, draw=blue!70!black] (\x-0.18,0) rectangle (\x+0.18,\h);
+  \draw[-{Latex[length=2mm]}] (-4.6,0) -- (4.6,0) node[right,font=\small] {$e$};
+  \draw[-{Latex[length=2mm]}] (0,0) -- (0,1) node[above,font=\small] {probability};
+\end{tikzpicture}
+\end{center}
+
+\begin{rmkbox}{Why a Bell Curve, and Not (Say) a Coin Flip $\{-1,0,1\}$?}
+Our worked examples below use a crude stand-in ($e\in\{-1,0,1\}$, each roughly equally likely) purely because it's easy to compute by hand. Real schemes use something bell-curve-shaped (a true discrete Gaussian, or in Kyber's case a closely related and cheaper-to-sample \emph{centered binomial distribution}) for a precise mathematical reason: the hardness proofs connecting LWE back to worst-case lattice problems (Regev's reduction, Section~4.4) require the noise to behave like a Gaussian. Swap in a different-shaped distribution and those proofs may simply no longer apply --- ``small errors'' alone isn't enough; their \emph{shape} matters too. This is a recurring theme you'll meet again in Session 5: real implementations must sample from exactly the right distribution, and subtle sampling mistakes (or side-channel leakage \emph{during} sampling) can quietly undermine security guarantees that look airtight on paper.
+\end{rmkbox}
+
 \subsection{A Fully Worked Numeric Example}
 
 \begin{exbox}{Search-LWE by Hand, $n=3$, $q=17$}
@@ -175,15 +212,70 @@ An attacker only ever sees the $a_i$ (left column) and $b_i$ (right column) --- 
 Using the same $A$ rows as above but a \emph{different} secret $s' = (2,8,1)$ (differs from $s$ only in the middle coordinate), recompute $b_1,\ldots,b_4$ with the same errors $e_i$. Compare the resulting $b_i$ values to the table above. How many of the four samples end up identical to the original table, purely by coincidence of the noise? What does this tell you about how many samples an attacker needs before guessing becomes hopeless?
 \end{exercisebox}
 
+\begin{rmkbox}{Making ``Brute Force Collapses'' Concrete}
+In the toy example above, each error $e_i$ took one of only $3$ values, and there were $4$ samples. A brute-force attacker who doesn't know the errors could, in principle, try every combination of errors, undo them, and check whether the resulting system solves consistently. The number of combinations to try is $(\text{number of error values})^{(\text{number of samples})}$. The table below shows how fast this explodes as the problem scales toward realistic sizes (real schemes use hundreds of samples, and a Gaussian $\chi$ with far more than $3$ realistic values --- this table deliberately keeps $3$ values fixed just to isolate the effect of \emph{sample count} growing):
+\begin{center}
+\begin{tabular}{|c|c|l|}
+\hline
+Samples & Combinations ($3^{\text{samples}}$) & Roughly \\
+\hline
+4 (our example) & $81$ & trivial by hand \\
+20 & $\approx 3.5$ billion & a laptop, seconds \\
+100 & $\approx 5\times 10^{47}$ & far beyond any computer on Earth \\
+500 (realistic scale) & astronomically larger still & meaningless to even state \\
+\hline
+\end{tabular}
+\end{center}
+This is only a crude illustration (real attacks are smarter than raw brute force --- that's what lattice-reduction algorithms like LLL and BKZ are for), but it captures the right intuition: \textbf{the ambiguity introduced by unknown noise compounds multiplicatively with every additional equation}, which is exactly the opposite of ordinary linear algebra, where more equations make life \emph{easier}, not harder.
+\end{rmkbox}
+
+\begin{exbox}{Decision-LWE: Can You Spot the Real Samples?}
+Here are two sets of $(a_i, b_i)$ pairs over $\mathbb{Z}_{17}$. One set was generated as genuine LWE samples $b_i = \langle a_i, s\rangle + e_i$ for some fixed secret $s$; the other set has every $b_i$ replaced by an independent uniformly random value in $\mathbb{Z}_{17}$, with no relationship to $a_i$ at all.
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+\multicolumn{2}{|c|}{Set X} & \multicolumn{2}{c|}{Set Y} \\
+\hline
+$a_i$ & $b_i$ & $a_i$ & $b_i$ \\
+\hline
+$(1,0,0)$ & $2$ & $(1,0,0)$ & $11$ \\
+$(0,1,0)$ & $8$ & $(0,1,0)$ & $3$ \\
+$(1,1,1)$ & $13$ & $(1,1,1)$ & $6$ \\
+\hline
+\end{tabular}
+\end{center}
+Try to decide, just by looking, which set is ``real'' LWE and which is uniform noise. (Set X is, in fact, the real one --- it's the same data as our search-LWE example above.) \textbf{The point of this exercise is that you can't tell, and neither can a computer, efficiently} --- both sets look like an unremarkable list of numbers in $\mathbb{Z}_{17}$. That indistinguishability, formalized, \emph{is} decision-LWE. It's also exactly the property real encryption schemes lean on: a ciphertext under LWE-based encryption should be computationally indistinguishable from random noise to anyone without the secret key.
+\end{exbox}
+
 \subsection{Why LWE Is Believed Hard: the Lattice Connection}
 
 \begin{rmkbox}{LWE Is Bounded-Distance Decoding (BDD), a Cousin of CVP}
 Define the lattice $\Lambda_q(A) = \{\, y \in \mathbb{Z}_q^m : y \equiv As \pmod q \text{ for some } s \in \mathbb{Z}_q^n \,\}$ (all vectors reachable as $A$ times \emph{some} secret, viewed as a lattice via the ring structure of $\mathbb{Z}_q$ from Lecture 1). The vector $b = As + e$ is, by construction, a point $As \in \Lambda_q(A)$ that has been nudged by a \emph{small} vector $e$. Recovering $s$ from $b$ is therefore exactly \textbf{Bounded-Distance Decoding}: given a target $b$ that is guaranteed to be \emph{unusually close} to some lattice point (closer than a typical random point would be), find that lattice point. This is CVP's easier, promise-bearing cousin --- and, exactly as with CVP in Section~2.2, solving it reliably requires something like a good basis for $\Lambda_q(A)$. The whole point of choosing $A$ uniformly at random is that no such good basis is visible to an attacker; only whoever \emph{generated} $s$ (or knows a matching trapdoor) has an edge.
 \end{rmkbox}
 
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=0.62]
+  \foreach \x in {0,...,7}
+    \foreach \y in {0,...,5}
+      \fill[gray!55] (\x,\y) circle (1.6pt);
+  \fill[blue] (4,3) circle (2.4pt);
+  \node[blue, font=\small, below] at (4,2.75) {lattice point $As \in \Lambda_q(A)$};
+  \draw[blue, dashed] (4,3) circle (0.55);
+  \node[blue, font=\tiny] at (5.05,3.5) {small noise ball};
+  \fill[red] (4.25,3.35) circle (2.2pt);
+  \node[red, font=\small, right] at (4.35,3.35) {$b = As+e$ (what you're given)};
+  \draw[-{Latex[length=1.5mm]}, red] (4,3) -- (4.25,3.35);
+\end{tikzpicture}
+\caption{LWE as Bounded-Distance Decoding: $b$ is guaranteed to land inside a small ball around some lattice point $As$ --- unlike general CVP (Figure~\ref{fig:svp-cvp}), where the target could be anywhere. That extra promise (``close, not just closest'') is what makes BDD tractable \emph{with a good basis} and still believed hard \emph{without one}.}
+\label{fig:bdd}
+\end{figure}
+
 \begin{factbox}{Regev's Worst-Case-to-Average-Case Reduction (Statement Only)}
 A landmark 2005 result (Oded Regev) shows: if there existed an efficient algorithm that solves \emph{average-case, randomly-generated} decision-LWE instances, that algorithm could be turned into an efficient algorithm for \emph{worst-case} GapSVP and other hard lattice problems (via a quantum reduction; later work gave classical reductions for related problems). In plain terms: \textbf{LWE's hardness is not a bet made up from nothing} --- it inherits its credibility from the same worst-case lattice hardness Lecture 1 built toward. This is exactly why cryptographers trust random LWE instances, generated fresh for every key, to be hard: hardness on average is tied by proof to hardness in the worst case. We take this as given; the proof itself is well beyond this course.
 \end{factbox}
+
+
 
 \begin{previewbox}{Search vs.\ Decision --- Also Provably Equivalent}
 It's also a known theorem (not proven here) that search-LWE and decision-LWE are polynomially equivalent: an efficient solver for one can be converted into an efficient solver for the other. This matters practically because security \emph{proofs} for encryption schemes are usually stated against decision-LWE (``ciphertexts are indistinguishable from random''), while \emph{attacks} usually aim at search-LWE (``recover the actual secret key''). Session 5 will use both framings, so it's worth knowing they're two views of the same underlying hardness.
@@ -194,6 +286,10 @@ It's also a known theorem (not proven here) that search-LWE and decision-LWE are
 \subsection{The Problem With Plain LWE: Size}
 
 A single LWE public key with security parameter $n$ requires an $m \times n$ matrix $A$ over $\mathbb{Z}_q$ --- roughly $n^2$ numbers. For cryptographically secure parameters ($n$ in the many hundreds), that's an enormous public key, and every encryption/decryption operation costs a full matrix-vector multiplication, $O(n^2)$ work. Real deployed schemes need public keys measured in kilobytes and operations fast enough for a TLS handshake or a smartcard, not this.
+
+\begin{exbox}{Putting Real Numbers On ``Too Big''}
+Take a security-relevant dimension, $n=1024$, with $q$ a few thousand (so each number needs about $12$ bits $\approx 1.5$ bytes to store). A plain-LWE public key needs roughly $n^2 = 1{,}048{,}576$ such numbers --- over $1.5$ megabytes, just for one public key, before even discussing ciphertexts. Compare that to a real ML-KEM-1024 public key, which is about $1{,}568$ \emph{bytes} in total --- roughly a thousand times smaller. That gap is exactly what Ring-LWE and Module-LWE close, by replacing an $n\times n$ grid of independent numbers with a much smaller number of \emph{structured} ring elements that each silently represent $n$ numbers at once (Section~5.3's remark makes precise how).
+\end{exbox}
 
 \subsection{The Fix: Move Into a Polynomial Ring}
 
