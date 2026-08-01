@@ -255,25 +255,32 @@
 % ============================================================
 \begin{frame}{Roadmap}
   \begin{enumerate}
-    \item What \emph{is} a qubit, really? (5 min)
+    \item The \textbf{language} of quantum computing: vectors, gates,
+          measurement (15 min)
     \item Myths about \textbf{existence \& hardware} (15 min)
-    \item Myths about \textbf{what quantum computers can do} (20 min)
-    \item Myths about \textbf{the physics} --- parallelism, entanglement (20 min)
+    \item Myths about \textbf{what quantum computers can do} (25 min)
+    \item Myths about \textbf{the physics} --- parallelism, entanglement (15 min)
     \item Myths about \textbf{cryptography} (10 min)
     \item Putting it together, then \textbf{why this matters for us} (15 min)
     \item Curriculum sketch, resources, Q\&A (10 min)
   \end{enumerate}
   \note{
-    Roughly 95-100 minutes total as outlined; trim section 3 or 4 if running
+    Roughly 100 minutes total as outlined; trim section 3 or 4 if running
     at the 60-minute end, expand Q\&A and section 6 if the audience skews
     administration-heavy. Section 6 is the payload for the deans in the room
     -- do not let it get squeezed by running long earlier. Remind the room
-    we'll return to the pop quiz at the very end.
+    we'll return to the pop quiz at the very end. Note the deliberate
+    ordering change: we build the mathematical vocabulary (vector, unitary,
+    probability) BEFORE hardware and myths, so every later explanation has
+    something to stand on rather than feeling like assertions from
+    authority. If very short on time, the two slides marked "optional
+    visual" in the language section can be skipped without breaking the
+    logical chain.
   }
 \end{frame}
 
 % ============================================================
-\section{What is a Qubit, Really?}
+\section{The Language of Quantum Computing}
 
 \begin{frame}{From bit to qubit}
   \begin{columns}
@@ -308,33 +315,270 @@
     PROBABILITY is the squared magnitude. This is exactly why interference
     (cancellation) is possible -- a concept impossible to state in classical
     probability. Preview: myth about ``testing every answer at once by magic''
-    will come back to this slide directly.
+    will come back to this slide directly. This is now the FIRST of several
+    foundation slides rather than a standalone aside -- the next few slides
+    make this precise.
   }
 \end{frame}
 
-\begin{frame}{Superposition, geometrically}
+\begin{frame}{Quantum computing $=$ linear algebra $+$ probability}
+  \begin{center}
+  \begin{tabular}{ccc}
+    \textbf{Classical} & & \textbf{Quantum} \\[1mm]
+    bit & & qubit \\
+    $0$ or $1$ & & $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$ \\[3mm]
+    \multicolumn{3}{c}{$\Big\downarrow$} \\[2mm]
+    logic gate & & \textbf{vector} \\[3mm]
+    \multicolumn{3}{c}{$\Big\downarrow$} \\[2mm]
+    truth table & & \textbf{unitary matrix} \\[3mm]
+    \multicolumn{3}{c}{$\Big\downarrow$} \\[2mm]
+    output bit & & \textbf{measurement} $\rightarrow$ \textbf{probability}
+  \end{tabular}
+  \end{center}
+  \note{
+    This slide exists to give the room a vocabulary map before diving into
+    any algorithm or myth -- it answers "what new nouns do I need?" in one
+    glance: vector, unitary matrix, probability. State the punchline
+    explicitly: "quantum computing is fundamentally complex linear algebra
+    plus probability theory -- nothing more mystical than that." This
+    single sentence is worth repeating verbatim; it is the thesis the rest
+    of the section makes precise, one rule at a time.
+  }
+\end{frame}
+
+\begin{frame}{Rule 1: a quantum state is a vector}
+  \[
+    |\psi\rangle \;=\; \begin{pmatrix}\alpha \\ \beta\end{pmatrix},
+    \qquad \alpha,\beta \in \mathbb{C}, \qquad |\alpha|^2 + |\beta|^2 = 1
+  \]
+  \begin{itemize}
+    \item $n$ qubits $\Rightarrow$ a vector of $2^n$ complex numbers
+          (\emph{amplitudes})
+    \item The normalization condition ($|\alpha|^2+|\beta|^2=1$) is just
+          ``total probability $=1$'' written in advance
+  \end{itemize}
+  \note{
+    Keep this slide slow and literal -- write the column vector on a board
+    if available. The key move for a mixed expert/beginner room: say
+    explicitly "this is not a metaphor, it is a literal 2-dimensional
+    complex vector, the same object you'd write down in a linear algebra
+    class." For n qubits, the vector lives in a $2^n$ dimensional complex
+    vector space -- flag this as the seed for BOTH the "exponential power"
+    intuition and the "exponential storage" myth, to be resolved properly a
+    few slides from now.
+  }
+\end{frame}
+
+\begin{frame}{Rule 2: computation is a unitary matrix}
+  \[
+    |\psi'\rangle = U|\psi\rangle, \qquad U^\dagger U = I
+  \]
+  \textbf{Concretely -- the Hadamard gate on $|0\rangle$:}
+  \[
+    H = \frac{1}{\sqrt{2}}\begin{pmatrix}1 & 1\\ 1 & -1\end{pmatrix},
+    \qquad
+    H\begin{pmatrix}1\\0\end{pmatrix} =
+    \frac{1}{\sqrt{2}}\begin{pmatrix}1\\1\end{pmatrix}
+  \]
+  \begin{itemize}
+    \item A quantum gate isn't magic -- it's \textbf{literally matrix
+          multiplication}
+    \item Why \emph{unitary}? Because $U^\dagger U = I$ preserves vector
+          length, and vector length $=1$ is exactly what keeps total
+          probability equal to $1$ after the gate
+  \end{itemize}
+  \note{
+    Walk the Hadamard example on the board if possible -- it's small enough
+    to multiply out live: (1/root2)(1,1;1,-1) times (1,0) transpose gives
+    (1/root2)(1,1) transpose, i.e. equal superposition of |0> and |1>. Land
+    the sentence "a quantum gate isn't magic, it's matrix multiplication" --
+    it single-handedly removes a lot of mystification for the room. On
+    unitarity: emphasize this is not an arbitrary rule -- it is FORCED by
+    probability conservation. A non-unitary gate would produce a vector
+    whose squared amplitudes don't sum to 1, which is meaningless as a
+    probability distribution. This is also implicitly why quantum operations
+    are reversible (U has an inverse, $U^\dagger$) -- unlike classical logic
+    gates such as AND/OR, which lose information.
+  }
+\end{frame}
+
+\begin{frame}{Rule 3: measurement gives probabilities}
+  \[
+    P(\text{outcome } 0) = |\alpha|^2, \qquad P(\text{outcome } 1) = |\beta|^2
+  \]
+  \textbf{Smallest possible circuit -- $H$ then measure:}
+  \begin{center}
+  \begin{quantikz}
+    \lstick{$|0\rangle$} & \gate{H} & \meter{}
+  \end{quantikz}
+  \end{center}
+  \begin{itemize}
+    \item Result: $0$ or $1$, each with probability $\tfrac12$ -- genuinely
+          random, not ``secretly both''
+    \item After measurement, the vector \textbf{collapses} to whichever
+          basis state was observed -- the rest of the amplitude is gone
+  \end{itemize}
+  \note{
+    This is the smallest nontrivial quantum circuit that exists, and it's
+    worth presenting as exactly that. Tie back to Rule 2's Hadamard
+    computation: applying H to |0> gave equal amplitudes on |0> and |1>,
+    each of magnitude 1/root2, so each has probability (1/root2) squared = 1/2.
+    Emphasize the word COLLAPSE -- this is the step that later resolves the
+    "tests every answer at once" myth: you have access to a rich vector
+    before measurement, but only one classical outcome after it.
+  }
+\end{frame}
+
+\begin{frame}{Everything is just three rules}
+  \begin{center}
+  \Large
+  \begin{tabular}{rl}
+    \textbf{Rule 1:} & State $=$ vector \\[2mm]
+    \textbf{Rule 2:} & Computation $=$ unitary matrix multiplication \\[2mm]
+    \textbf{Rule 3:} & Measurement $=$ probabilities
+  \end{tabular}
+  \end{center}
+  \vspace{4mm}
+  \begin{center}
+  \normalsize Every quantum algorithm in this talk is just these three
+  rules, repeated many times, with the matrices chosen cleverly.
+  \end{center}
+  \note{
+    Let this slide breathe -- it's meant to be the "click" moment where the
+    whole subject compresses into something small and memorable. Every
+    myth and every algorithm from here on is an instance of these three
+    rules: Shor, Grover, Deutsch-Jozsa, teleportation -- all of them are
+    vectors, unitary matrices, and a measurement at the end. The "chosen
+    cleverly" phrase is the seed for the interference discussion coming up:
+    the entire art of quantum algorithm design is choosing which unitary
+    matrices to multiply, so that the right amplitudes survive to
+    measurement time.
+  }
+\end{frame}
+
+\begin{frame}{...and geometrically, this looks like (optional visual)}
   \begin{columns}
     \begin{column}{0.55\textwidth}
       \blochdiagram[35]
     \end{column}
     \begin{column}{0.45\textwidth}
       \begin{itemize}
-        \item Every pure single-qubit state is a point on this sphere
-        \item Poles = $|0\rangle$, $|1\rangle$ (classical bit values)
-        \item Everywhere else = genuine superposition
-        \item Quantum \textbf{gates} = rotations of this vector
-        \item $n$ qubits $\Rightarrow$ state lives in a $2^n$-dimensional
-              space --- \emph{that} is the resource, not ``storage''
+        \item Every single-qubit vector from Rule 1 is a point on this
+              sphere
+        \item Poles = $|0\rangle$, $|1\rangle$; everywhere else =
+              superposition
+        \item Rule 2's unitary matrices = \textbf{rotations} of this vector
       \end{itemize}
     \end{column}
   \end{columns}
   \note{
-    This is the Bloch sphere. Mention it by name -- students who go on to
-    take a quantum course will see this exact picture in week 1. Rotations
-    (X, Y, Z, Hadamard gates) move the vector around the sphere. Flag the
-    last bullet -- it's a planted seed for the "exponential storage" myth
-    later: a $2^n$ dimensional description does NOT mean $2^n$ classical bits
-    you can extract, since a single measurement collapses to n classical bits.
+    This is the Bloch sphere -- students who go on to take a quantum course
+    will see this exact picture in week 1. It is now positioned as a bonus
+    geometric mental model AFTER the algebra, rather than a substitute for
+    it, so it reinforces rather than replaces Rules 1-3. Skippable if
+    running short on time -- the talk's logical chain does not depend on
+    it. Rotations (X, Y, Z, Hadamard gates) move the vector around the
+    sphere; this is a nice moment to mention that H, seen a moment ago as
+    a matrix, is geometrically a specific rotation on this sphere.
+  }
+\end{frame}
+
+\begin{frame}{Where the exponential comes from}
+  \begin{center}
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{Qubits} & \textbf{Amplitudes needed} \\
+    \midrule
+    1 & 2 \\
+    2 & 4 \\
+    3 & 8 \\
+    $n$ & $2^n$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{3mm}
+  \begin{alertblock}{But you don't get to read all of them}
+    The vector describing $n$ qubits genuinely has $2^n$ entries -- that's
+    real, and it's why classical computers struggle to simulate quantum
+    systems. But Rule 3 says a measurement yields exactly $n$ classical
+    bits, once. The exponential lives in the \emph{description}, not in
+    what you can \emph{extract}.
+  \end{alertblock}
+  \note{
+    This slide front-loads the resolution to the "exponential storage" myth
+    before it's even presented as a myth later -- by the time that myth
+    comes up, the audience already has the tool to debunk it themselves.
+    This is also the honest source of quantum computing's power: classically
+    simulating an n-qubit system requires tracking $2^n$ complex numbers,
+    which is why quantum simulation (Feynman's original motivation) is
+    plausibly the first killer application -- you're using a quantum system
+    to simulate a quantum system, matching resource to resource.
+  }
+\end{frame}
+
+\begin{frame}{Interference, visually}
+  \begin{columns}
+    \begin{column}{0.5\textwidth}
+      \centering
+      \textbf{Destructive}
+      \[
+        {+0.7} \;+\; {-0.7} \;=\; 0
+      \]
+      \vspace{2mm}
+      \textcolor{qGray}{\small opposite-sign amplitudes cancel}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \centering
+      \textbf{Constructive}
+      \[
+        {+0.7} \;+\; {+0.7} \;=\; 1.4
+      \]
+      \vspace{2mm}
+      \textcolor{qGray}{\small same-sign amplitudes reinforce}
+    \end{column}
+  \end{columns}
+  \vspace{4mm}
+  \begin{center}
+  A quantum algorithm is a sequence of unitary matrices (Rule 2) chosen so
+  that \textbf{wrong-answer amplitudes cancel} and
+  \textbf{right-answer amplitudes add up} -- before Rule 3's measurement.
+  \end{center}
+  \note{
+    This is the single most important mechanical idea in the whole talk,
+    now taught as arithmetic rather than mysticism. Amplitudes are signed
+    (in general complex) numbers; when two computational paths lead to the
+    same outcome with opposite-sign amplitudes, they literally cancel in
+    the sum, exactly like the two numbers on the left. When they have the
+    same sign, they add, exactly like the two numbers on the right. This
+    is NOT possible in classical probability (probabilities are
+    non-negative and can only add) -- it is the genuinely new resource
+    quantum mechanics provides. Every algorithm later in the talk (Grover,
+    Deutsch-Jozsa) is this arithmetic, dressed up in a specific circuit.
+  }
+\end{frame}
+
+\begin{frame}{The quantum computing stack (optional visual)}
+  \begin{center}
+  \begin{tabular}{c}
+    Applications \\ $\big\uparrow$ \\
+    Algorithms \\ $\big\uparrow$ \\
+    Quantum circuits \\ $\big\uparrow$ \\
+    Gates (unitary matrices) \\ $\big\uparrow$ \\
+    Qubits (vectors) \\ $\big\uparrow$ \\
+    Physics (hardware)
+  \end{tabular}
+  \end{center}
+  \note{
+    A mental map before we descend into hardware -- everything above
+    "physics" in this stack is what the last several slides just built:
+    qubits are vectors, gates are unitary matrices, circuits chain gates
+    together, algorithms are specific clever circuits, applications are
+    what algorithms are used for. Hardware (next section) is the physical
+    substrate that makes the bottom of this stack real -- and crucially,
+    everything ABOVE hardware in this diagram doesn't care which physical
+    technology is underneath, which is exactly why students should learn
+    the algebra and algorithms regardless of which hardware approach
+    eventually wins.
   }
 \end{frame}
 
@@ -389,6 +633,19 @@
     fixes. This is the trend line that makes "myth 2" on the next slide
     non-trivial to explain -- errors are a real limiter, but the curve just
     bent in the right direction for the first time.
+
+    OPTIONAL COLOR, if time allows: even the experts were repeatedly
+    surprised by this history. Shor's 1994 algorithm stunned physicists who
+    largely assumed quantum computers, even if buildable, would offer no
+    dramatic advantage. The "threshold theorem" (proof that error
+    correction could work at all) was considered one of the hardest open
+    problems for years. Google's 2019 "quantum supremacy" claim triggered a
+    real scientific dispute -- IBM publicly argued a classical supercomputer
+    could match the benchmark in days rather than the ~10,000 years Google
+    claimed -- a healthy reminder that hype and rigor coexist uneasily
+    here. Good line if you use this: "if the smartest people in the field
+    kept being surprised, it's fine for you to find this counterintuitive
+    too."
   }
 \end{frame}
 
@@ -415,6 +672,45 @@
     any claim that we're close to "quantum computers doing everything
     classical computers do, but faster" -- we're not yet at reliable
     general-purpose fault-tolerant computation.
+  }
+\end{frame}
+
+\begin{frame}{Why quantum error correction is hard}
+  \small
+  \textbf{Classically, fixing errors is easy:} copy the bit, compare
+  copies, correct the odd one out.
+
+  \vspace{2mm}
+  \textbf{Quantumly, every step of that is blocked:}
+  \begin{itemize}
+    \item \textbf{No-cloning theorem}: an unknown quantum state
+          \emph{cannot} be copied -- so ``make backup copies'' is not
+          available
+    \item \textbf{Measurement disturbs the state}: directly checking a
+          qubit for errors would collapse its superposition
+    \item Noise is \textbf{continuous} (small rotations, phase drift), not
+          just clean bit-flips
+    \item Correction must extract \emph{only} the error information (the
+          ``syndrome'') \textbf{without learning the encoded data}
+  \end{itemize}
+  \begin{center}
+  \textbf{And yet it still works} -- by encoding one logical qubit
+  redundantly across many physical qubits, measuring only joint
+  \emph{parity} checks, never the data itself.
+  \end{center}
+  \note{
+    This slide exists to make the "just build a bigger quantum computer"
+    myth collapse on its own -- error correction isn't an engineering
+    inconvenience, it fights against several fundamental theorems at once.
+    No-cloning (1982, Wootters-Zurek) rules out the most obvious classical
+    fix. Emphasize the resolution in the last line: stabilizer codes (like
+    the surface code on the next slide) measure multi-qubit PARITY
+    operators, which reveal whether an error occurred and roughly where,
+    without ever measuring the logical |0>/|1> information itself -- this
+    is the clever trick that makes correction possible without collapsing
+    the encoded state. You do not need to derive stabilizer formalism here
+    -- naming that it exists and why it's necessary is enough for this
+    audience.
   }
 \end{frame}
 
@@ -584,6 +880,11 @@
       \end{itemize}
     \end{column}
   \end{columns}
+  \vspace{3mm}
+  \begin{center}
+  \textbf{1 million doors:} classical needs up to $1{,}000{,}000$ tries
+  --- Grover needs about $\mathbf{1{,}000}$.
+  \end{center}
   \note{
     This is the "no equations" intuition pump for Grover -- use it BEFORE
     the circuit diagram on the next slide, then use the circuit for anyone
@@ -626,7 +927,109 @@
 \end{frame}
 
 % ============================================================
-\section{Myth 5: ``They Test Every Answer at Once, by Magic''}
+\section{Myth 5: ``Shor Proves Quantum Computers Are Exponentially Faster''}
+
+\begin{frame}{\myth{Shor's algorithm \emph{proves} quantum computers are exponentially faster than classical ones}}
+  \soundstruelabel\ Shor factors in polynomial time; the best classical
+  algorithm (the General Number Field Sieve) is sub-exponential --
+  looks like a clean, proven exponential gap.
+
+  \vspace{2mm}
+  \actuallylabel
+  \begin{itemize}
+    \item Shor's speedup is exponential over the \textbf{best known}
+          classical algorithm -- \textbf{not} a proven worst-case
+          separation
+    \item \textbf{No one has proven} a polynomial-time classical
+          factoring algorithm doesn't exist. Factoring sits in
+          $\text{NP} \cap \text{co-NP}$, widely \emph{believed} not to be
+          NP-complete -- but whether it's in P is a genuine, unsolved
+          open problem
+    \item Contrast with \textbf{Grover}: its quadratic speedup \emph{is}
+          provably optimal -- no black-box quantum algorithm can search
+          faster than $\Theta(\sqrt{N})$ (Bennett--Bernstein--Brassard--Vazirani, 1997)
+  \end{itemize}
+  \note{
+    This is a subtle and important corrective that a technically literate
+    audience (and especially skeptical faculty) will respect. The core
+    asymmetry to land clearly: Grover's speedup has a matching LOWER BOUND
+    proof -- we know quantum computers cannot do better than root-N for
+    black-box unstructured search, so root-N is provably the right answer.
+    Shor's speedup has no such matching classical lower bound -- we simply
+    have not found a faster classical algorithm despite ~30 years of
+    dedicated effort (including from people highly motivated to break RSA).
+    That is strong empirical evidence, not a theorem. If pressed: factoring
+    being in NP intersect co-NP means both "yes it factors as X times Y"
+    and "no it doesn't" have short verifiable certificates, which is why
+    complexity theorists doubt it is NP-complete (if it were, well-known
+    consequences like NP=co-NP would follow, which is itself considered
+    unlikely) -- but "probably not NP-complete" is very different from
+    "provably not in P." Be careful not to overcorrect into nihilism here:
+    the 30-year empirical gap is exactly why RSA is deployed at all, and
+    exactly why post-quantum migration is happening now -- practical
+    confidence and mathematical proof are both real things, just different
+    things, and this talk has been careful to keep them distinct throughout.
+  }
+\end{frame}
+
+\begin{frame}{The quantum algorithm design toolkit is narrow}
+  \begin{columns}
+    \begin{column}{0.48\textwidth}
+      \textbf{Classical CS} (decades of independent paradigms)
+      \begin{itemize}
+        \small
+        \item Brute force
+        \item Greedy
+        \item Divide \& conquer
+        \item Dynamic programming
+        \item Linear / convex programming
+        \item Approximation algorithms
+        \item Randomized algorithms
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Quantum CS} (almost everything reduces to)
+      \begin{itemize}
+        \item \textbf{QFT / phase estimation} -- periodicity, hidden
+              subgroup problems (Shor, Simon)
+        \item \textbf{Amplitude amplification} -- Grover and its
+              generalizations (quantum walks)
+        \item \textbf{Hamiltonian simulation} -- quantum systems
+              themselves
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \begin{alertblock}{Why this matters}
+    After $\sim$30 years of dedicated research, there are still only a
+    \textbf{handful} of quantum algorithmic primitives with a proven
+    speedup -- not because no one is looking, but because finding new
+    ones has proven to be genuinely, persistently hard.
+  \end{alertblock}
+  \note{
+    This slide reinforces "quantum advantage is narrow" with a structural
+    argument rather than just examples. Most textbook quantum algorithms
+    decompose into one of these three buckets: Simon's algorithm and Shor's
+    algorithm are both instances of the abelian Hidden Subgroup Problem,
+    solved via the quantum Fourier transform and phase estimation; Grover
+    and its many descendants (element distinctness, collision finding,
+    some quantum walk algorithms) are instances of amplitude amplification;
+    Hamiltonian/quantum simulation (Feynman's original motivation) is
+    arguably a genuine third paradigm, though it often uses phase
+    estimation internally as a subroutine. HHL (quantum linear systems) is
+    built on phase estimation too. QAOA/VQE, mentioned earlier as
+    heuristics, don't even belong in this list of PROVEN speedups. This
+    scarcity of paradigms is a real, often-cited observation among
+    quantum-algorithms researchers (a version of this point is associated
+    with people like Scott Aaronson) -- it is a legitimate scientific
+    puzzle, not a marketing weakness to hide. For students in the room,
+    frame it as opportunity rather than limitation: discovering a genuinely
+    new quantum algorithmic paradigm would be a landmark, career-defining
+    result -- the field is nowhere near exhausted, it's under-explored.
+  }
+\end{frame}
+
+% ============================================================
+\section{Myth 6: ``They Test Every Answer at Once, by Magic''}
 
 \begin{frame}{\myth{Quantum computers try every possible answer simultaneously, ``by magic''}}
   \soundstruelabel\ superposition really does give the machine
@@ -707,7 +1110,7 @@
 \end{frame}
 
 % ============================================================
-\section{Myth 6: ``More Qubits = Exponential Storage''}
+\section{Myth 7: ``More Qubits = Exponential Storage''}
 
 \begin{frame}{\myth{$n$ qubits store $2^n$ classical bits of information}}
   \predictlabel\ you measure a 300-qubit chip once. How many classical
@@ -748,7 +1151,7 @@
 \end{frame}
 
 % ============================================================
-\section{Myth 7: ``Entanglement Sends Signals Faster Than Light''}
+\section{Myth 8: ``Entanglement Sends Signals Faster Than Light''}
 
 \begin{frame}{\myth{Entanglement lets you communicate faster than light}}
   \soundstruelabel\ measuring one entangled particle instantly
@@ -810,7 +1213,7 @@
 \end{frame}
 
 % ============================================================
-\section{Myth 8: Cryptography Panic}
+\section{Myth 9: Cryptography Panic}
 
 \begin{frame}{\myth{Quantum computers can already break all our encryption}}
   \fact{Shor's algorithm threatens \textbf{specific} cryptosystems --
@@ -871,37 +1274,6 @@
 
 % ============================================================
 \section{Putting It Together}
-
-\begin{frame}{Even the experts were surprised}
-  \begin{itemize}
-    \item \textbf{1994}: Shor's algorithm stunned the field -- until then,
-          most physicists assumed quantum computers, even if buildable,
-          would offer no dramatic advantage over classical ones
-    \item \textbf{1996--2006}: the \textbf{threshold theorem} -- proof that
-          error correction could work \emph{at all} -- was considered one
-          of the hardest open problems; many doubted a physical machine
-          could ever stay below the noise threshold
-    \item \textbf{2019}: Google's ``quantum supremacy'' claim triggered a
-          real scientific dispute (IBM publicly contested the classical
-          comparison) -- a healthy reminder that hype and rigor coexist
-          uneasily in this field
-    \item \textbf{2024}: Google's Willow chip crossed \textbf{below
-          threshold} for the first time -- something many researchers were
-          not confident would happen this decade
-  \end{itemize}
-  \note{
-    This slide humanizes the field for both students and skeptical faculty:
-    even Feynman, Shor, and the error-correction pioneers were working
-    against real doubt, not obvious inevitability. Good line: "if the
-    smartest people in the field kept being surprised, it's fine for you to
-    find this counterintuitive too." The 2019 Google/IBM dispute is worth
-    narrating briefly and neutrally -- IBM argued a classical supercomputer
-    could, with a smarter simulation strategy, do the benchmark task in
-    days rather than the ~10,000 years Google claimed, which is exactly the
-    kind of nuance that builds credibility with a skeptical audience rather
-    than undermining it.
-  }
-\end{frame}
 
 \begin{frame}{If I handed you a quantum computer tomorrow...}
   \small
@@ -965,8 +1337,25 @@
 % ============================================================
 \section{The Case for Teaching This Now}
 
+\begin{frame}{What quantum computers still \emph{cannot} do}
+  \begin{itemize}
+    \item Cannot solve NP-complete problems instantly
+    \item Cannot clone an unknown quantum state
+    \item Cannot read out every amplitude of the state vector
+    \item Cannot beat classical computers at everything -- only at
+          specific, structured problems
+  \end{itemize}
+  \note{
+    A deliberately blunt, fast slide -- almost a checklist recap of the
+    "actually breaks down" side of every myth so far, right before the
+    fuller recap table. Say each line plainly and move on quickly; this
+    is meant to feel like a satisfying, short list after 90 minutes of
+    nuance, not a new topic.
+  }
+\end{frame}
+
 \begin{frame}{Recap: myths vs.\ facts}
-  \small
+  \scriptsize
   \begin{tabular}{@{}p{6.3cm}p{6.3cm}@{}}
     \toprule
     \textbf{Myth} & \textbf{Reality} \\
@@ -975,6 +1364,7 @@
     Already useful for everything & Still NISQ; narrow, growing set of advantages \\
     Will replace classical computers & Specialized coprocessor, hybrid future \\
     Solves P = NP & New class BQP; no known NP-complete speedup \\
+    Shor \emph{proves} exponential speedup & Proven only vs.\ best-known classical algorithm; open problem \\
     Tests all answers ``by magic'' & Engineered interference; fragile, hard-won \\
     Exponential storage & Exponential description, linear read-out \\
     FTL communication via entanglement & No-communication theorem; classical channel needed \\
@@ -988,7 +1378,9 @@
     complexity theory, information theory, linear algebra, cryptography.
     That's precisely the argument for why this deserves a place in a
     computer science and physics curriculum, not just a pop-science
-    elective."
+    elective." The new Shor row is a good one to pause on specifically for
+    faculty -- it's the row most likely to prompt a genuine follow-up
+    question, and a good one to have prompted deliberately.
   }
 \end{frame}
 
@@ -1019,57 +1411,37 @@
   }
 \end{frame}
 
-\begin{frame}{The government is already funding this}
+\begin{frame}{Investment and demand are already here}
+  \small
   \begin{itemize}
-    \item In \textbf{May 2025}, Pakistan's Central Development Working
-          Party approved the \textbf{National Center for Quantum
-          Computing (NCQC)} -- a project worth \textbf{Rs.\ 3.318 billion
-          (\textasciitilde\$12M)}, sponsored by HEC itself
-    \item Pakistan's \textbf{first Quantum Computing Hackathon}
-          (PIEAS, NILOP, and NCP, with CERN's Open Quantum Institute)
-          ran in \textbf{February 2026} in Islamabad
-    \item That hackathon drew \textbf{950+ applications for just 42
-          seats} -- roughly a \textbf{1-in-23} acceptance rate, entirely
-          from a student population that mostly has \emph{no formal
-          coursework} in the subject yet
-  \end{itemize}
-  \note{
-    The 950-applicants-for-42-seats statistic is the emotional core of this
-    slide -- it is direct, measured evidence of enormous unmet student
-    demand, gathered with zero curriculum support in place. Make the point
-    explicit: "imagine what happens to that number once students actually
-    have a course to prepare them, instead of self-teaching from YouTube
-    and hoping." The NCQC figure establishes that this isn't just student
-    enthusiasm either -- the federal government, through HEC, is already
-    treating this as strategically important enough to fund at scale.
-  }
-\end{frame}
-
-\begin{frame}{Peer universities are already moving}
-  \begin{itemize}
-    \item \textbf{Islamia University of Bahawalpur} recently announced
+    \item \textbf{May 2025}: Pakistan's CDWP approved the \textbf{National
+          Center for Quantum Computing (NCQC)} -- Rs.\ 3.318 billion
+          (\textasciitilde\$12M), sponsored by HEC
+    \item \textbf{Feb 2026}: Pakistan's first Quantum Computing Hackathon
+          (PIEAS, NILOP, NCP, with CERN's Open Quantum Institute) drew
+          \textbf{950+ applications for 42 seats} -- with essentially
+          \emph{no} formal coursework yet in place to prepare applicants
+    \item \textbf{Islamia University of Bahawalpur} just launched
           \textbf{South Punjab's first dedicated Quantum Computing
-          program}, through its Faculty of Computing
-    \item Habib University has run \textbf{national Quantum Information
-          Summer Schools} to build research collaboration across
-          Pakistani institutions
-    \item Private initiatives (e.g.\ CETQAP's simulator and outreach
-          work) show \textbf{industry interest is already forming} around
-          whoever produces trained graduates first
+          program}; Habib University runs national Quantum Information
+          Summer Schools
   \end{itemize}
   \begin{alertblock}{The real risk isn't teaching this too early}
-    It's \textbf{other universities defining the talent pipeline, the
-    research partnerships, and the industry relationships} while we
-    decide whether it's worth teaching.
+    It's \textbf{other universities defining the talent pipeline} while
+    we decide whether it's worth teaching.
   \end{alertblock}
   \note{
-    This slide is about competitive urgency, aimed squarely at
-    administration. Naming a specific peer institution (IUB) is a
-    deliberate choice -- "first in South Punjab" framing signals that
-    regional leadership positions are actively being claimed right now,
-    not five years from now. Keep the tone factual and collegial, not
-    alarmist -- the goal is urgency, not panic. The alertblock line is the
-    one to let land and pause on.
+    The 950-applicants-for-42-seats statistic is the emotional core of this
+    slide -- direct, measured evidence of enormous unmet student demand,
+    gathered with zero curriculum support in place. Say explicitly:
+    "imagine what happens to that number once students have a course to
+    prepare them, instead of self-teaching from YouTube." The NCQC figure
+    shows this isn't just student enthusiasm -- the federal government,
+    through HEC, is already funding this at scale. Naming IUB is deliberate
+    -- "first in South Punjab" signals regional leadership positions are
+    being claimed right now. Keep tone factual and collegial, not
+    alarmist -- the goal is urgency, not panic. Let the alertblock line
+    land with a pause before moving on.
   }
 \end{frame}
 
@@ -1216,9 +1588,11 @@
   accelerates \textbf{specific} problems, and the bottleneck is
   \textbf{engineering}, not mystery.
 
-  \vspace{5mm}
-  \Large\textbf{Not magic. Not hype. Real physics, real limits, real
-  jobs -- and, per HEC, already part of the answer.}
+  \vspace{4mm}
+  \large Classical computing manipulates \textbf{bits}. \\
+  Quantum computing manipulates \textbf{probability amplitudes}. \\
+  It is fast not because it tries every answer --- \\
+  but because it makes the wrong ones \textbf{cancel}.
 
   \vspace{4mm}
   \normalsize Questions?
@@ -1245,3 +1619,4 @@
 \end{frame}
 
 \end{document}
+
