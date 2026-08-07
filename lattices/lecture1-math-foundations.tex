@@ -562,18 +562,86 @@ $$
 then $K$ contains a nonzero lattice point, i.e.\ $K \cap (L \setminus \{\vec 0\}) \ne \varnothing$.
 \end{defbox}
 
-\begin{rmkbox}{Reading the Theorem in Plain Language}
-Think of $\det(L)$ as ``how much empty space, on average, surrounds each lattice point.'' The theorem says: if you draw \emph{any} symmetric, convex region big enough --- bigger than $2^n$ times that average empty space --- it is \emph{geometrically impossible} for that region to dodge every lattice point except the origin. This is a statement about \emph{existence only}: it doesn't tell you \emph{which} lattice point is inside $K$, or how to find it --- only that one is guaranteed to be there. That ``existence without construction'' flavor is typical of the deep facts underlying lattice cryptography, and it's worth getting comfortable with that style of guarantee now.
+\begin{rmkbox}{A Loose End First: Does $K$ Always Contain the Origin?}
+Before reading the theorem's content, it's worth settling a question that the statement itself doesn't address directly: is it possible for a symmetric convex region to \emph{not} contain the origin at all? No --- and this is worth proving explicitly, because it removes a genuine ambiguity later.
+
+\emph{Claim: any nonempty symmetric convex set $K$ contains $\vec 0$.} \emph{Proof:} since $K$ is nonempty, pick any point $x \in K$. By symmetry ($K=-K$), $-x \in K$ too. By convexity, the line segment joining $x$ and $-x$ lies entirely in $K$ --- in particular its midpoint, $\tfrac{1}{2}(x + (-x)) = \vec 0$, is in $K$. $\blacksquare$
+
+So $\vec 0 \in K$ is automatic, for \emph{every} symmetric convex $K$, regardless of its size --- it has nothing to do with the volume threshold $2^n\det(L)$ in the theorem. This resolves a natural point of confusion: the origin is always ``already there,'' at no cost, simply because of $K$'s shape. It's never at risk of being excluded, so the theorem's volume condition can't be about keeping the origin in --- it must be doing something else. That something else is what the theorem is actually about: guaranteeing a \emph{second}, \emph{nonzero} lattice point, which is not automatic and genuinely does depend on $K$ being large enough.
 \end{rmkbox}
 
-\begin{rmkbox}{Proof Idea: Shrink, Overlap, and Use Symmetry (Sketch Only)}
-The proof is a clean pigeonhole argument, in three steps:
-\begin{enumerate}[leftmargin=*]
-  \item \textbf{Shrink $K$ by half.} Let $K' = \tfrac{1}{2}K = \{\tfrac{1}{2}x : x \in K\}$. Since volume scales with the $n$-th power of a linear shrink factor, $\mathrm{Vol}(K') = \mathrm{Vol}(K)/2^n > \det(L)$.
-  \item \textbf{Force an overlap.} Consider translating $K'$ by every lattice point: the copies $K' + v$ for $v \in L$. If all these copies were disjoint, then within any one fundamental domain (volume $\det(L)$, Section~8.4) the \emph{total} volume of $K'$-material passing through could never exceed $\det(L)$ --- but $\mathrm{Vol}(K') > \det(L)$ already, on its own, before even counting other copies. So the copies cannot all be disjoint: some two of them, $K' + v_1$ and $K' + v_2$ with $v_1 \ne v_2$, must overlap.
-  \item \textbf{Use symmetry and convexity to extract a lattice point.} Overlapping means there exist $x_1, x_2 \in K'$ with $x_1 + v_1 = x_2 + v_2$, i.e.\ $v_1 - v_2 = x_2 - x_1$. Because $K'$ is symmetric, $-x_1 \in K'$ too. Because $K'$ is convex, the midpoint $\tfrac{1}{2}\big(x_2 + (-x_1)\big) \in K'$, which rearranges to $x_2 - x_1 \in 2K' = K$. So $v_1 - v_2 \in K$ --- and $v_1 - v_2$ is a genuine \emph{nonzero} lattice vector (since $v_1 \ne v_2$). That nonzero lattice vector is the point the theorem promised.
-\end{enumerate}
-Nothing here required knowing where the lattice points actually are --- only that $K$ was ``too big, relative to $\det(L)$,'' for its translated copies to avoid colliding.
+\begin{rmkbox}{Reading the Theorem in Plain Language}
+Think of $\det(L)$ as ``how much empty space, on average, surrounds each lattice point.'' The theorem says: if you draw \emph{any} symmetric, convex region big enough --- bigger than $2^n$ times that average empty space --- it is \emph{geometrically impossible} for that region to contain \emph{only} the origin among all lattice points. Given the previous remark, $K$ was always going to contain the origin regardless of size; the theorem's real content is that, past this volume threshold, $K$ is \emph{forced} to also snag at least one \emph{nonzero} lattice point --- it cannot manage to exclude every single one of them. This is a statement about \emph{existence only}: it doesn't tell you \emph{which} nonzero lattice point is inside $K$, or how to find it --- only that one is guaranteed to be there. That ``existence without construction'' flavor is typical of the deep facts underlying lattice cryptography, and it's worth getting comfortable with that style of guarantee now.
+\end{rmkbox}
+
+\subsubsection{A Fully Formal Proof, via Blichfeldt's Lemma}
+
+The proof splits cleanly into two pieces: a purely measure-theoretic pigeonhole fact (Blichfeldt's Lemma), which has nothing to do with symmetry or convexity, followed by a short argument that brings symmetry and convexity back in to finish the job.
+
+\begin{factbox}{Blichfeldt's Lemma}
+Let $L \subseteq \mathbb{R}^n$ be a full-rank lattice with fundamental domain $\mathcal{P} = \mathcal{P}(B)$ (Section~8.4), so $\mathrm{Vol}(\mathcal{P}) = \det(L)$. Let $S \subseteq \mathbb{R}^n$ be any measurable set with $\mathrm{Vol}(S) > \det(L)$. Then there exist two \textbf{distinct} points $p, q \in S$ such that $p - q \in L \setminus \{\vec 0\}$.
+\end{factbox}
+
+\begin{rmkbox}{Proof of Blichfeldt's Lemma}
+For each lattice point $v \in L$, consider the piece of $S$ that lands in the copy of the fundamental domain sitting at $v$, i.e.\ $S \cap (v + \mathcal{P})$, and \textbf{fold it back} to the origin's copy by subtracting $v$:
+$$
+S_v \;=\; \big(S \cap (v+\mathcal{P})\big) - v \;\subseteq\; \mathcal{P}.
+$$
+Because the translates $\{v + \mathcal{P} : v \in L\}$ tile $\mathbb{R}^n$ with no gaps or overlaps (Section~8.4), every point of $S$ lies in \emph{exactly one} $v + \mathcal{P}$, so the sets $S \cap (v+\mathcal{P})$, as $v$ ranges over $L$, partition $S$ exactly. Folding back doesn't change volume, so
+$$
+\sum_{v \in L} \mathrm{Vol}(S_v) \;=\; \sum_{v\in L} \mathrm{Vol}\big(S \cap (v+\mathcal{P})\big) \;=\; \mathrm{Vol}(S) \;>\; \det(L) \;=\; \mathrm{Vol}(\mathcal{P}).
+$$
+Now suppose, for contradiction, that the $S_v$'s were all pairwise disjoint (no two overlapping, anywhere inside $\mathcal{P}$). Then they'd be disjoint subsets of the single region $\mathcal{P}$, so the sum of their volumes could be at most $\mathrm{Vol}(\mathcal{P})$ --- but we just showed that sum is \emph{strictly greater} than $\mathrm{Vol}(\mathcal{P})$. Contradiction. So some two of them, $S_{v_1}$ and $S_{v_2}$ with $v_1 \ne v_2$, must overlap: there is a point $y \in S_{v_1} \cap S_{v_2}$.
+
+By definition of $S_v$, $y = p - v_1$ for some $p \in S \cap (v_1+\mathcal{P})$, and $y = q - v_2$ for some $q \in S \cap (v_2+\mathcal{P})$. Both $p,q \in S$. Since $p - v_1 = q - v_2$, we get
+$$
+p - q \;=\; v_1 - v_2 \;\in\; L\setminus\{\vec 0\}
+$$
+(nonzero because $v_1 \ne v_2$, and the difference of two lattice points is again a lattice point, by $L$'s subgroup closure from Section~3.1). This is exactly the pair the lemma promised. $\blacksquare$
+\end{rmkbox}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=1.7]
+  \draw[step=1, gray!50] (-0.2,-0.2) grid (2.2,1.2);
+  \foreach \x in {0,1,2} \foreach \y in {0,1} \fill[gray!70] (\x,\y) circle (0.4pt);
+  \draw[thick] (0,0) rectangle (1,1);
+  \node[font=\tiny] at (0.5,-0.35) {fundamental domain $\mathcal{P} = [0,1)\times[0,1)$};
+  \fill[blue!25] (0,0) rectangle (1.5,1);
+  \draw[blue, thick] (0,0) rectangle (1.5,1);
+  \node[blue, font=\small] at (1.5,1.25) {$S = [0,1.5]\times[0,1]$, area $1.5 > \det(\mathbb{Z}^2)=1$};
+  \fill[red] (0.25,0.5) circle (0.7pt);
+  \node[red, font=\tiny, left] at (0.2,0.5) {$p=(0.25,0.5)$};
+  \fill[red] (1.25,0.5) circle (0.7pt);
+  \node[red, font=\tiny, right] at (1.3,0.5) {$q=(1.25,0.5)$};
+  \draw[-{Latex[length=1.5mm]}, red, dashed] (1.25,0.5) -- (0.25,0.5);
+  \node[red, font=\tiny] at (0.75,0.65) {shift by $-(1,0) \in \mathbb{Z}^2$};
+\end{tikzpicture}
+\caption{Blichfeldt's Lemma in action for $L=\mathbb{Z}^2$. $S$ (blue) has area $1.5$, exceeding $\det(L)=1$, so it cannot fit inside one fundamental domain without ``spilling over.'' The spillover --- the sliver of $S$ with $x\in[1,1.5]$ --- folds back (shift by $-(1,0)$) into the same unit square as the rest of $S$, and lands on top of it: the two marked points $p,q\in S$ fold to the \emph{same} location, and $p-q=(-1,0)$ is a nonzero lattice vector, exactly as the lemma guarantees.}
+\label{fig:blichfeldt}
+\end{figure}
+
+\begin{exbox}{Blichfeldt's Lemma, Checked by Hand}
+Take $L = \mathbb{Z}^2$ ($\det(L)=1$) and $S = [0,1.5]\times[0,1]$, area $1.5 > 1$. Following the proof: the piece of $S$ in the fundamental domain $\mathcal{P}=[0,1)\times[0,1)$ itself is all of $[0,1)\times[0,1)$ (area $1$); the piece of $S$ in the neighboring copy $v+\mathcal{P}$ for $v=(1,0)$ is $[1,1.5]\times[0,1)$ (area $0.5$), which folds back to $[0,0.5)\times[0,1)$ after subtracting $v$. These two folded pieces --- area $1$ and area $0.5$, total $1.5 > 1 = \mathrm{Vol}(\mathcal{P})$ --- cannot both fit disjointly inside $\mathcal{P}$, so they overlap on $[0,0.5)\times[0,1)$. Picking any point there, e.g.\ $(0.25,0.5)$: this equals $p - (0,0) = p$ for $p=(0.25,0.5) \in S$, and also equals $q - (1,0)$ for $q = (1.25,0.5) \in S$. Indeed $p,q \in S$ (check: $0.25, 1.25 \in [0,1.5]$, $0.5\in[0,1]$, both confirmed), and $p - q = (-1,0) \in \mathbb{Z}^2\setminus\{\vec 0\}$ --- exactly as guaranteed, and matching Figure~\ref{fig:blichfeldt}.
+\end{exbox}
+
+\begin{rmkbox}{Deriving Minkowski's Theorem from Blichfeldt's Lemma}
+Now bring back symmetry and convexity to finish the proof. Let $K$ be symmetric and convex with $\mathrm{Vol}(K) > 2^n\det(L)$. Define $S = \tfrac{1}{2}K = \{\tfrac12 x : x \in K\}$. Volume scales with the $n$-th power of a linear scale factor, so $\mathrm{Vol}(S) = \mathrm{Vol}(K)/2^n > \det(L)$ --- exactly the hypothesis Blichfeldt's Lemma needs.
+
+Applying Blichfeldt's Lemma to $S$: there exist distinct $p, q \in S$ with $p - q \in L\setminus\{\vec 0\}$. Since $p,q \in S = \tfrac12 K$, write $p = \tfrac12 x$ and $q = \tfrac12 y$ for (unique) $x, y \in K$. Then
+$$
+p - q \;=\; \tfrac12(x - y) \;=\; \tfrac12\big(x + (-y)\big).
+$$
+Since $K$ is symmetric, $-y \in K$. Since $K$ is convex, the midpoint of $x$ and $-y$ --- which is exactly $\tfrac12(x+(-y)) = p-q$ --- lies in $K$. So $p - q$ is simultaneously:
+\begin{itemize}[leftmargin=*]
+  \item a nonzero lattice vector (from Blichfeldt's Lemma), and
+  \item a point of $K$ (from symmetry and convexity, just shown).
+\end{itemize}
+Therefore $p - q \in K \cap (L\setminus\{\vec 0\})$ --- a nonzero lattice point inside $K$, exactly as the theorem claims. $\blacksquare$
+\end{rmkbox}
+
+\begin{rmkbox}{Tying the Two Halves Together}
+Notice how cleanly the labor divides. Blichfeldt's Lemma is the \emph{engine}: pure volume-counting, no geometry of $K$'s shape involved at all --- it would work verbatim for \emph{any} measurable $S$, symmetric or not, convex or not, as long as it's simply big enough. Symmetry and convexity only enter in the very last step, to upgrade the raw difference $p-q$ (which Blichfeldt hands you for free) into a point that's \emph{also} guaranteed to lie inside $K$ itself, not just somewhere in $\mathbb{R}^n$. This is worth remembering: it's the reason Minkowski's theorem needs \emph{both} hypotheses (symmetric \emph{and} convex) and not just ``big enough'' --- drop either one, and the last step's midpoint trick breaks, even though Blichfeldt's Lemma itself still holds regardless.
 \end{rmkbox}
 
 \begin{figure}[h]
