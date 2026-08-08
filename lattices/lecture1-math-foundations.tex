@@ -344,6 +344,81 @@ Axioms (V1)--(V5) say exactly ``$(V,+)$ is an abelian group'' (Section~3) --- no
 Given vectors $v_1, \ldots, v_k \in V$ and scalars $c_1, \ldots, c_k \in F$, the vector $c_1 v_1 + c_2 v_2 + \cdots + c_k v_k$ is called a \textbf{linear combination} of $v_1, \ldots, v_k$. The set of \emph{all} linear combinations of a set of vectors is called their \textbf{span}. The vectors $v_1, \ldots, v_k$ are \textbf{linearly independent} if the only way to write $0 = c_1 v_1 + \cdots + c_k v_k$ is with every $c_i = 0$ --- informally, no vector in the set is ``redundant'' (expressible using the others).
 \end{defbox}
 
+\subsection{Testing Linear Independence: Row Operations and Row Echelon Form}
+
+The definition above is a yes/no test stated abstractly in terms of the $c_i$'s. For concrete vectors in $\mathbb{R}^n$, it is also a completely mechanical computation --- and the standard tool for carrying it out, \textbf{Gaussian elimination}, is worth setting up properly here, since we will lean on it again once bases and lattices enter the picture.
+
+\begin{defbox}{Elementary Row Operations}
+Given a matrix, the following three operations on its rows are called \textbf{elementary row operations}:
+\begin{enumerate}[leftmargin=*, label=(E\arabic*)]
+  \item \textbf{Row swap:} interchange two rows, $R_i \leftrightarrow R_j$.
+  \item \textbf{Row scaling:} multiply a row by a nonzero scalar, $R_i \to c\,R_i$ for some $c \neq 0$.
+  \item \textbf{Row addition (replacement):} add a scalar multiple of one row to another, $R_i \to R_i + c\,R_j$ (for $i \neq j$).
+\end{enumerate}
+Each operation is \textbf{reversible} by another operation of the same type: a swap undoes itself; scaling by $c$ is undone by scaling by $1/c$; adding $c R_j$ is undone by adding $-c R_j$. This reversibility is exactly why row operations never destroy information --- every row of the new matrix is some combination of the old rows, and (because the operation can be undone) every old row is likewise recoverable as a combination of the new ones.
+\end{defbox}
+
+\begin{factbox}{Row Operations Preserve the Span --- and Hence Independence --- of the Rows}
+Let $v_1,\ldots,v_k$ be the rows of a matrix $A$. Applying any sequence of elementary row operations produces a new matrix $A'$ whose rows $v_1',\ldots,v_k'$ \textbf{span exactly the same space} as $v_1,\ldots,v_k$ did --- because, by the remark above, each new row is some linear combination of the old rows, and each old row is recoverable as a combination of the new ones. In particular: $v_1,\ldots,v_k$ are linearly independent \textbf{if and only if} $v_1',\ldots,v_k'$ are. Row operations are therefore ``free'' for this purpose --- we can simplify a set of vectors as aggressively as we like without ever changing the yes/no answer to the independence question, exactly the same way row operations leave $\gcd$, solution sets, and (as we'll see in Section~8.5) a lattice's determinant unchanged under the right kind of transformation.
+\end{factbox}
+
+\begin{defbox}{Row Echelon Form}
+A matrix is in \textbf{row echelon form (REF)} if:
+\begin{enumerate}[leftmargin=*, label=(\arabic*)]
+  \item Every all-zero row (if any) lies below every nonzero row.
+  \item In each nonzero row, its first nonzero entry --- the \textbf{leading entry} or \textbf{pivot} --- lies strictly to the right of the leading entry of the row above it (so the pivots form a descending ``staircase'').
+\end{enumerate}
+Any matrix can be brought to row echelon form using finitely many elementary row operations --- systematically eliminating entries below each pivot, top to bottom, is exactly \textbf{Gaussian elimination}. The number of nonzero rows in the resulting echelon form is called the \textbf{rank} of the matrix; by the Fact above, this number doesn't depend on which particular sequence of row operations you used to get there.
+\end{defbox}
+
+\begin{rmkbox}{Turning This Into an Independence Test}
+Stack $v_1,\ldots,v_k \in \mathbb{R}^n$ as the $k$ rows of a $k \times n$ matrix $A$, and row-reduce $A$ to echelon form $A'$. Since row operations never change independence, $v_1,\ldots,v_k$ are linearly independent \textbf{exactly when $A'$ has no zero row} --- equivalently, when $\mathrm{rank}(A) = k$ (every row produced its own pivot). If instead a zero row appears, the original vectors are dependent --- and the specific combination of row operations that produced that zero row \emph{is} a witness: it records exactly which combination of the original rows sums to $\vec 0$. The worked example below shows a clean way to read that combination off directly.
+\end{rmkbox}
+
+\begin{exbox}{Row Reduction in Action: Testing $v_1=(1,2,3)$, $v_2=(2,3,4)$, $v_3=(1,1,1)$}
+Stack the vectors as rows, and --- to make the eventual dependency relation easy to read off --- augment the matrix on the right with the $3\times 3$ identity, one column per original vector:
+$$
+\left[\begin{array}{ccc|ccc}
+1 & 2 & 3 & 1 & 0 & 0 \\
+2 & 3 & 4 & 0 & 1 & 0 \\
+1 & 1 & 1 & 0 & 0 & 1
+\end{array}\right]
+\begin{array}{l} \leftarrow v_1 \\ \leftarrow v_2 \\ \leftarrow v_3 \end{array}
+$$
+The idea: whatever combination of rows we apply to the left block, we apply \emph{identically} to the right block --- so the right block always records ``this row currently equals (this combination) of $v_1,v_2,v_3$.''
+
+\textbf{Step 1: eliminate below the first pivot.} Use $R_1$ (pivot in column 1) to clear column 1 in $R_2$ and $R_3$:
+$$
+R_2 \to R_2 - 2R_1, \qquad R_3 \to R_3 - R_1.
+$$
+$$
+\left[\begin{array}{ccc|ccc}
+1 & 2 & 3 & 1 & 0 & 0 \\
+0 & -1 & -2 & -2 & 1 & 0 \\
+0 & -1 & -2 & -1 & 0 & 1
+\end{array}\right]
+$$
+
+\textbf{Step 2: eliminate below the second pivot.} $R_2$'s leading entry is now in column 2; use it to clear column 2 in $R_3$:
+$$
+R_3 \to R_3 - R_2.
+$$
+$$
+\left[\begin{array}{ccc|ccc}
+1 & 2 & 3 & 1 & 0 & 0 \\
+0 & -1 & -2 & -2 & 1 & 0 \\
+0 & 0 & 0 & 1 & -1 & 1
+\end{array}\right]
+$$
+This is row echelon form: two pivots (row 1 in column 1, row 2 in column 2), and one zero row --- so $\mathrm{rank}=2 < 3 = k$, meaning $v_1,v_2,v_3$ \textbf{are linearly dependent}.
+
+\textbf{Reading off the dependency.} Row 3's right-hand block, $(1,-1,1)$, records exactly which combination of the \emph{original} rows produced that zero row: $1\cdot v_1 + (-1)\cdot v_2 + 1\cdot v_3$. Check directly: $v_1 - v_2 + v_3 = (1,2,3)-(2,3,4)+(1,1,1) = (0,0,0)$ \checkmark. So $c_1=1,\ c_2=-1,\ c_3=1$ is a non-trivial solution --- equivalently, $v_2 = v_1+v_3$, which you can also confirm directly.
+\end{exbox}
+
+\begin{rmkbox}{Why More Vectors Than Dimensions Forces Dependence}
+If $k>n$ (more vectors than the ambient dimension), the vectors are \emph{automatically} dependent --- no computation needed. Setting up $c_1v_1+\cdots+c_kv_k=\vec 0$ gives $n$ equations (one per coordinate) in $k>n$ unknowns $c_1,\ldots,c_k$; row-reducing the coefficient matrix can produce at most $n$ pivots (one per row), so at least $k-n$ of the unknowns are left as \textbf{free variables} --- and a homogeneous system with a free variable always has a nontrivial solution (just set the free variable to $1$ and solve for the rest). We will meet this exact fact again, in geometric disguise, once we reach lattices in Section~8.
+\end{rmkbox}
+
 \begin{defbox}{Basis and Dimension}
 A set of vectors $B = \{b_1, \ldots, b_k\}$ is a \textbf{basis} of a vector space $V$ if (1) $B$ is linearly independent, and (2) $B$ \textbf{spans} $V$ (every vector in $V$ can be written as a linear combination of $B$). Every basis of a given vector space has the same number of elements $k$, called the \textbf{dimension} of $V$.
 \end{defbox}
@@ -351,6 +426,20 @@ A set of vectors $B = \{b_1, \ldots, b_k\}$ is a \textbf{basis} of a vector spac
 \begin{exbox}{Basis of $\mathbb{R}^2$}
 The vectors $e_1 = (1,0)$ and $e_2 = (0,1)$ form the ``standard'' basis of $\mathbb{R}^2$: any vector $(a,b)$ is exactly $a \cdot e_1 + b \cdot e_2$. But this is far from the \emph{only} basis --- $\{(1,1), (1,-1)\}$ is also a valid basis of $\mathbb{R}^2$ (check: they're linearly independent, and any $(a,b)$ can be written as a combination of them). A vector space almost always has infinitely many possible bases; some are more convenient to work with than others. \textbf{Keep this fact in mind --- it becomes very important in Section~8.}
 \end{exbox}
+
+\begin{rmkbox}{A Quick Shortcut When $k=n$}
+When there are exactly as many vectors as dimensions, there's a fast special-case test that avoids row reduction entirely: stack $v_1,\ldots,v_n$ as the columns (or rows) of a square matrix $A$ and compute $\det(A)$. Nonzero determinant $\Rightarrow$ independent; zero determinant $\Rightarrow$ dependent. This is a quick yes/no check, but --- unlike the row-reduction method above --- it doesn't by itself hand you the explicit nontrivial combination when the answer is ``dependent''; for that, fall back on row reduction (optionally with the identity-augmentation trick above).
+\end{rmkbox}
+
+\begin{exercisebox}{Practice: Testing Linear Independence}
+For each set of vectors in $\mathbb{R}^3$ below, determine whether the set is linearly independent. If a set turns out to be \textbf{dependent}, don't just say so --- exhibit an explicit \textbf{non-trivial} solution (scalars $c_1,c_2,c_3$, not all zero) to $c_1v_1+c_2v_2+c_3v_3=\vec 0$, and check it by substitution. Use row reduction (with the identity-augmentation trick from the worked example above) at least once, even where the answer is also visible by inspection.
+\begin{enumerate}[leftmargin=*, label=(\alph*)]
+  \item $v_1=(2,4,6)$, \ $v_2=(1,2,3)$, \ $v_3=(0,1,0)$.
+  \item $v_1=(1,0,0)$, \ $v_2=(1,1,0)$, \ $v_3=(1,1,1)$.
+  \item $v_1=(1,2,1)$, \ $v_2=(2,1,3)$, \ $v_3=(4,5,5)$.
+\end{enumerate}
+(Hint for part (c): unlike part (a), the dependency here isn't visible by inspection --- row-reduce the augmented matrix $[\,v_1;v_2;v_3\mid I_3\,]$ exactly as in the worked example above.)
+\end{exercisebox}
 
 \subsection{Inner Products, Norms, and Orthogonality}
 
@@ -379,7 +468,7 @@ This isn't a hypothetical fix-it-just-in-case. Falcon's signing step (``fast Fou
 \end{previewbox}
 
 \begin{previewbox}{Quantifying ``Good'' vs.\ ``Bad'' Bases}
-With norms in hand, we can finally give a real, measurable meaning to the ``good basis / bad basis'' idea flagged repeatedly in this lecture: a good basis has vectors with small norm $\|b_i\|$ that are close to orthogonal; a bad basis for the \emph{same} lattice can have arbitrarily large norms and near-parallel vectors, despite generating an identical set of points. (Here $L$ denotes the \textbf{lattice} generated by the basis $\{b_1,\ldots,b_n\}$ --- all integer combinations of the $b_i$'s, i.e.\ the grid of points they produce; we've been using this good-basis/bad-basis idea informally for a few pages now, and Section~8 below is where $L$ finally gets a full, formal definition. For now, just read $L$ as ``the lattice this basis describes.'') One common numerical measure of ``how good'' a basis is is its \textbf{orthogonality defect}, $\dfrac{\prod_i \|b_i\|}{\det(L)}$, where $\det(L)$ is a single positive number --- the lattice's fundamental-cell volume --- that depends only on $L$ itself, not on which basis is used to describe it (defined precisely in Section~8.4). A good basis has vectors close in length to $\det(L)^{1/n}$ and close to orthogonal, which drives this ratio down toward its minimum possible value of $1$; a bad basis inflates the numerator $\prod_i\|b_i\|$ without changing $\det(L)$ at all, so the ratio grows the more skewed the basis is.
+With norms in hand, we can finally give a real, measurable meaning to the ``good basis / bad basis'' idea flagged repeatedly in this lecture: a good basis has vectors with small norm $\|b_i\|$ that are close to orthogonal; a bad basis for the \emph{same} lattice can have arbitrarily large norms and near-parallel vectors, despite generating an identical set of points. (Here $L$ denotes the \textbf{lattice} generated by the basis $\{b_1,\ldots,b_n\}$ --- all integer combinations of the $b_i$'s, i.e.\ the grid of points they produce; we've been using this good-basis/bad-basis idea informally for a few pages now, and Section~8 below is where $L$ finally gets a full, formal definition. For now, just read $L$ as ``the lattice this basis describes.'') One common numerical measure of ``how good'' a basis is is its \textbf{orthogonality defect}, $\dfrac{\prod_i \|b_i\|}{\det(L)}$, where $\det(L)$ is a single positive number --- the lattice's fundamental-cell volume --- that depends only on $L$ itself, not on which basis is used to describe it (defined precisely in Section~8.5). A good basis has vectors close in length to $\det(L)^{1/n}$ and close to orthogonal, which drives this ratio down toward its minimum possible value of $1$; a bad basis inflates the numerator $\prod_i\|b_i\|$ without changing $\det(L)$ at all, so the ratio grows the more skewed the basis is.
 \end{previewbox}
 
 \subsection{Gram--Schmidt Orthogonalization}
@@ -498,7 +587,7 @@ $$
 \end{defbox}
 
 \begin{rmkbox}{Why the Minimum Is Actually Attained (Not Just an Infimum)}
-For a general infinite set, ``the smallest nonzero norm'' might not literally be achieved by any single element (imagine values getting closer and closer to some limit without ever reaching it). This cannot happen for a lattice, precisely \emph{because} $L$ is discrete (Section~8.1): discreteness guarantees a gap $\varepsilon>0$ around the origin with no other lattice points inside it, so only \emph{finitely many} lattice points can lie in any bounded region --- and the minimum of a norm over a finite set is always achieved. This is also exactly the first step of the ``harder direction'' proof sketch below (Section~8.3): $\lambda_1(L)$ isn't just a number we can talk about, it's a specific vector we can (in principle) point to.
+For a general infinite set, ``the smallest nonzero norm'' might not literally be achieved by any single element (imagine values getting closer and closer to some limit without ever reaching it). This cannot happen for a lattice, precisely \emph{because} $L$ is discrete (Section~8.1): discreteness guarantees a gap $\varepsilon>0$ around the origin with no other lattice points inside it, so only \emph{finitely many} lattice points can lie in any bounded region --- and the minimum of a norm over a finite set is always achieved. This is also exactly the first step of the ``harder direction'' proof sketch below (Section~8.4): $\lambda_1(L)$ isn't just a number we can talk about, it's a specific vector we can (in principle) point to.
 \end{rmkbox}
 
 \begin{rmkbox}{Why $\lambda_1(L)$ Matters}
@@ -570,6 +659,93 @@ For $b_1=(2,0)$, $b_2=(0,3)$ from the example above, $B = \begin{pmatrix} 2 & 0 
 
 We now have the two basic numbers attached to any lattice: $\lambda_1(L)$ (how short its shortest vector is) and $\det(L)$ (how much volume, on average, surrounds each lattice point). Minkowski's First Theorem is the single most important fact connecting them --- and it flips the usual question around. So far, ``finding $\lambda_1(L)$'' has meant: given a specific basis, go and search for a short vector. Minkowski's theorem asks instead: \emph{without searching at all}, can we predict, from $\det(L)$ alone, an upper bound on how long $\lambda_1(L)$ is \emph{allowed} to be? Surprisingly, yes --- and, remarkably, the argument is pure geometry, with no algebra and no knowledge of any particular basis required.
 
+The theorem is about regions $K \subseteq \mathbb{R}^n$ with two specific shape properties, \textbf{symmetric} and \textbf{convex}, both used informally already in this course but worth pinning down precisely before they appear inside a theorem statement.
+
+\begin{defbox}{Symmetric Region (Origin-Symmetric / Centrally Symmetric)}
+A region $K \subseteq \mathbb{R}^n$ is \textbf{symmetric} (short for \emph{origin-symmetric}, sometimes called \emph{centrally symmetric} or \emph{point-symmetric}) if
+$$
+K = -K, \qquad \text{i.e.,} \qquad x \in K \ \Longrightarrow\ -x \in K.
+$$
+In words: whenever a point $x$ belongs to $K$, its reflection through the origin, $-x$, must belong to $K$ too. Informally, $K$ ``looks the same'' if you rotate it $180^\circ$ about the origin --- a disk or square \emph{centered at the origin} is symmetric in this sense, but the same disk or square shifted off-center is not (its reflection through the origin lands somewhere else entirely).
+\end{defbox}
+
+\begin{defbox}{Convex Region}
+A region $K \subseteq \mathbb{R}^n$ is \textbf{convex} if, for every pair of points $x, y \in K$, the entire straight line segment joining them,
+$$
+\{\, t x + (1-t) y \;:\; t \in [0,1] \,\},
+$$
+also lies inside $K$. Informally: a convex region has no ``dents,'' ``notches,'' or ``holes'' --- you can never draw a straight line between two points of $K$ that has to leave $K$ and come back. Disks, squares, triangles, and ellipses are all convex; rings (annuli), crescents, and star shapes generally are not.
+\end{defbox}
+
+\begin{rmkbox}{The Two Properties Are Independent}
+Symmetric and convex describe two \emph{different} things about a region's shape --- one is about ``does it look the same reflected through the origin,'' the other is about ``does it have any dents or holes'' --- so a region can have either property without the other, both, or neither. Minkowski's theorem needs \emph{both at once}: Figure~\ref{fig:sym-convex-examples} below shows one example of each of the four possible combinations.
+\end{rmkbox}
+
+\begin{figure}[h]
+\centering
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.42]
+  \draw[-{Latex[length=2mm]}] (-2.6,0) -- (2.6,0);
+  \draw[-{Latex[length=2mm]}] (0,-2.3) -- (0,2.3);
+  \filldraw[blue!15, draw=blue!70!black, thick] (0,0) ellipse (1.8 and 1.2);
+  \fill (0,0) circle (1.3pt);
+  \fill[red] (1.2,0.6) circle (1.6pt) node[right, font=\tiny] {$x$};
+  \fill[red] (-1.2,-0.6) circle (1.6pt) node[left, font=\tiny] {$-x$};
+  \draw[red, dashed] (1.2,0.6) -- (-1.2,-0.6);
+\end{tikzpicture}\\[2pt]
+{\small (a) Symmetric \emph{and} convex --- e.g.\ a disk or ellipse centered at the origin.}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.42]
+  \draw[-{Latex[length=2mm]}] (-2.6,0) -- (2.6,0);
+  \draw[-{Latex[length=2mm]}] (0,-2.3) -- (0,2.3);
+  \filldraw[blue!15, draw=blue!70!black, thick] (0.5,0.8) -- (2.3,1.0) -- (1.6,2.2) -- cycle;
+  \fill (0,0) circle (1.3pt);
+  \fill[red] (1.5,1.3) circle (1.6pt) node[above, font=\tiny] {$x$};
+  \fill[red] (-1.5,-1.3) circle (1.6pt) node[below, font=\tiny] {$-x \notin K$};
+\end{tikzpicture}\\[2pt]
+{\small (b) Convex, but \emph{not} symmetric --- $x\in K$ but $-x\notin K$.}
+\end{minipage}
+
+\vspace{10pt}
+
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.42]
+  \draw[-{Latex[length=2mm]}] (-2.6,0) -- (2.6,0);
+  \draw[-{Latex[length=2mm]}] (0,-2.3) -- (0,2.3);
+  \fill[blue!15] (0,0) circle (1.8);
+  \fill[white] (0,0) circle (0.85);
+  \draw[blue!70!black, thick] (0,0) circle (1.8);
+  \draw[blue!70!black, thick] (0,0) circle (0.85);
+  \fill (0,0) circle (1.3pt);
+  \fill[red] (1.3,0) circle (1.6pt) node[above, font=\tiny] {$p$};
+  \fill[red] (-1.3,0) circle (1.6pt) node[above, font=\tiny] {$q$};
+  \draw[red, dashed] (1.3,0) -- (-1.3,0);
+\end{tikzpicture}\\[2pt]
+{\small (c) Symmetric, but \emph{not} convex --- the ring is unchanged by $x\mapsto -x$, but the segment $pq$ cuts through the empty hole.}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.42]
+  \draw[-{Latex[length=2mm]}] (-1,0) -- (3.2,0);
+  \draw[-{Latex[length=2mm]}] (0,-1) -- (0,2.8);
+  \filldraw[blue!15, draw=blue!70!black, thick] (0.5,0.4) -- (2.4,0.4) -- (2.4,1.1) -- (1.3,1.1) -- (1.3,2.2) -- (0.5,2.2) -- cycle;
+  \fill (0,0) circle (1.3pt);
+  \fill[red] (2.0,0.75) circle (1.6pt) node[right, font=\tiny] {$p$};
+  \fill[red] (0.85,1.9) circle (1.6pt) node[left, font=\tiny] {$q$};
+  \draw[red, dashed] (2.0,0.75) -- (0.85,1.9);
+\end{tikzpicture}\\[2pt]
+{\small (d) Neither symmetric nor convex --- an off-center, notched (``L-shaped'') region.}
+\end{minipage}
+\caption{The four combinations of symmetric / not, convex / not. In (a), every point's reflection $-x$ is also in $K$, and every segment between two points of $K$ stays inside $K$ --- this is the shape Minkowski's theorem needs. In (b), the triangle sits entirely in the upper-right, so a point $x\in K$ has its reflection $-x$ landing in the empty lower-left --- symmetry fails, even though the triangle itself has no dents. In (c), the ring \emph{is} symmetric (it looks the same rotated $180^\circ$), but it fails convexity: the straight segment between the two marked points $p,q$ passes through the hollow center, which is not part of the ring. In (d), the region is both off-center (so $x\mapsto -x$ maps points outside $K$) and has an inward notch (so some segments between points of $K$ leave $K$), failing both properties at once.}
+\label{fig:sym-convex-examples}
+\end{figure}
+
 \begin{rmkbox}{The Idea in One Sentence, Before Any Symbols}
 If a symmetric, convex region around the origin is made large enough relative to $\det(L)$, it becomes \emph{geometrically impossible} for that region to avoid every nonzero lattice point --- so one must be hiding inside it, whether or not you know where.
 \end{rmkbox}
@@ -584,7 +760,7 @@ then $K$ contains a nonzero lattice point, i.e.\ $K \cap (L \setminus \{\vec 0\}
 
 \begin{rmkbox}{Reading the Theorem in Plain Language, Term by Term}
 \begin{itemize}[leftmargin=*]
-  \item \textbf{$\det(L)$}, as in Section~8.4, is ``how much empty space, on average, surrounds each lattice point.''
+  \item \textbf{$\det(L)$}, as in Section~8.5, is ``how much empty space, on average, surrounds each lattice point.''
   \item \textbf{$2^n \det(L)$} is a fixed volume threshold, scaled up from $\det(L)$ by a factor that grows with the dimension $n$ (we will see exactly where this factor comes from in the proof below).
   \item \textbf{Symmetric and convex} are conditions on the \emph{shape} of $K$ --- a disk or an ellipsoid centered at the origin both qualify; an oddly-shaped or off-center region generally does not.
   \item \textbf{The conclusion} is purely existential: once $K$'s volume clears the threshold, $K$ is \emph{guaranteed} to contain some nonzero point of $L$ --- but the theorem does not say which point, or how to find it. That ``existence without construction'' flavor is typical of the deep facts underlying lattice cryptography, and it's worth getting comfortable with that style of guarantee now.
@@ -610,7 +786,7 @@ The proof splits cleanly into two independent pieces, and it helps to see the tw
 \end{rmkbox}
 
 \begin{factbox}{Blichfeldt's Lemma}
-Let $L \subseteq \mathbb{R}^n$ be a full-rank lattice with fundamental domain $\mathcal{P} = \mathcal{P}(B)$ (Section~8.4), so $\mathrm{Vol}(\mathcal{P}) = \det(L)$. Let $S \subseteq \mathbb{R}^n$ be any measurable set with $\mathrm{Vol}(S) > \det(L)$. Then there exist two \textbf{distinct} points $p, q \in S$ such that $p - q \in L \setminus \{\vec 0\}$.
+Let $L \subseteq \mathbb{R}^n$ be a full-rank lattice with fundamental domain $\mathcal{P} = \mathcal{P}(B)$ (Section~8.5), so $\mathrm{Vol}(\mathcal{P}) = \det(L)$. Let $S \subseteq \mathbb{R}^n$ be any measurable set with $\mathrm{Vol}(S) > \det(L)$. Then there exist two \textbf{distinct} points $p, q \in S$ such that $p - q \in L \setminus \{\vec 0\}$.
 \end{factbox}
 
 \begin{rmkbox}{Proof of Blichfeldt's Lemma}
@@ -619,7 +795,7 @@ $$
 S_v \;=\; \big(S \cap (v+\mathcal{P})\big) - v \;\subseteq\; \mathcal{P}.
 $$
 
-\textbf{Step 2: The folded pieces' volumes must add up to more than $\mathrm{Vol}(\mathcal{P})$.} Because the translates $\{v + \mathcal{P} : v \in L\}$ tile $\mathbb{R}^n$ with no gaps or overlaps (Section~8.4), every point of $S$ lies in \emph{exactly one} $v + \mathcal{P}$, so the sets $S \cap (v+\mathcal{P})$, as $v$ ranges over $L$, partition $S$ exactly. Folding back (a rigid shift) doesn't change volume, so
+\textbf{Step 2: The folded pieces' volumes must add up to more than $\mathrm{Vol}(\mathcal{P})$.} Because the translates $\{v + \mathcal{P} : v \in L\}$ tile $\mathbb{R}^n$ with no gaps or overlaps (Section~8.5), every point of $S$ lies in \emph{exactly one} $v + \mathcal{P}$, so the sets $S \cap (v+\mathcal{P})$, as $v$ ranges over $L$, partition $S$ exactly. Folding back (a rigid shift) doesn't change volume, so
 $$
 \sum_{v \in L} \mathrm{Vol}(S_v) \;=\; \sum_{v\in L} \mathrm{Vol}\big(S \cap (v+\mathcal{P})\big) \;=\; \mathrm{Vol}(S) \;>\; \det(L) \;=\; \mathrm{Vol}(\mathcal{P}).
 $$
@@ -701,7 +877,7 @@ Notice how cleanly the labor divides. Blichfeldt's Lemma is the \emph{engine}: p
 \end{figure}
 
 \begin{exbox}{Minkowski's Bound on the Simplest Lattice, $L = \mathbb{Z}^2$}
-Take $L = \mathbb{Z}^2$, so $\det(L) = 1$ (Section~8.4). Let $K$ be a disk of radius $r$ centered at the origin --- symmetric and convex, exactly as the theorem requires. The theorem applies once $\mathrm{Vol}(K) = \pi r^2 > 2^2 \cdot \det(L) = 4$, i.e.\ once
+Take $L = \mathbb{Z}^2$, so $\det(L) = 1$ (Section~8.5). Let $K$ be a disk of radius $r$ centered at the origin --- symmetric and convex, exactly as the theorem requires. The theorem applies once $\mathrm{Vol}(K) = \pi r^2 > 2^2 \cdot \det(L) = 4$, i.e.\ once
 $$
 r > \frac{2}{\sqrt{\pi}} \approx 1.128.
 $$
@@ -709,7 +885,7 @@ So Minkowski's theorem \emph{guarantees}, without any further work, that a disk 
 \end{exbox}
 
 \begin{exbox}{The Same Bound on a Very Different-Looking Lattice}
-Now take a stretched lattice with basis $b_1 = (5,0)$, $b_2 = (0,1)$, so $\det(L) = |5 \times 1 - 0 \times 0| = 5$ (Section~8.4). The disk threshold becomes $\pi r^2 > 4 \times 5 = 20$, i.e.\ $r > \sqrt{20/\pi} \approx 2.523$. Minkowski's theorem guarantees a nonzero lattice point within distance $2.523$ of the origin. The actual shortest vector here is $(0,1)$, of length $1$ --- again comfortably inside the guaranteed radius, but this time the guarantee is quite \emph{loose}: the theorem promised ``within $2.523$'' and reality delivered ``within $1$.'' This is expected and normal --- Minkowski's theorem is a \textbf{worst-case guarantee}, not an exact formula; it never overpromises (the bound always holds), but it can certainly underdeliver on precision for any one specific lattice. Its real value is as a \emph{universal} ceiling that holds for \emph{every} lattice of a given determinant, not as a precise estimate for one.
+Now take a stretched lattice with basis $b_1 = (5,0)$, $b_2 = (0,1)$, so $\det(L) = |5 \times 1 - 0 \times 0| = 5$ (Section~8.5). The disk threshold becomes $\pi r^2 > 4 \times 5 = 20$, i.e.\ $r > \sqrt{20/\pi} \approx 2.523$. Minkowski's theorem guarantees a nonzero lattice point within distance $2.523$ of the origin. The actual shortest vector here is $(0,1)$, of length $1$ --- again comfortably inside the guaranteed radius, but this time the guarantee is quite \emph{loose}: the theorem promised ``within $2.523$'' and reality delivered ``within $1$.'' This is expected and normal --- Minkowski's theorem is a \textbf{worst-case guarantee}, not an exact formula; it never overpromises (the bound always holds), but it can certainly underdeliver on precision for any one specific lattice. Its real value is as a \emph{universal} ceiling that holds for \emph{every} lattice of a given determinant, not as a precise estimate for one.
 \end{exbox}
 
 \begin{rmkbox}{From the Disk Bound to the General Formula}
@@ -777,11 +953,11 @@ $\det(L)$ & Volume of the fundamental domain & $|\det(B)|$, any basis $B$ \\
   \item Use the Extended Euclidean Algorithm to find $5^{-1} \bmod 11$ (Section~6.1 exercise, above), showing all steps.
   \item Is $\mathbb{Z}_9$ a field? Why or why not? Answer it two ways: (a) using $\gcd$ (Section~6), and (b) using zero divisors (Section~4.1).
   \item Show that $\{(1,1), (1,-1)\}$ is a valid basis of $\mathbb{R}^2$ by (a) checking linear independence and (b) writing the vector $(4,2)$ as a linear combination of them.
-  \item Run Gram--Schmidt on $b_1=(1,1)$, $b_2=(0,2)$ (Section~7.2 exercise, above), and verify the result is orthogonal.
-  \item For the lattice generated by $b_1=(1,2)$ and $b_2=(3,1)$: (a) is the point $(7,5)$ in the lattice? (b) compute $\det(L)$ from this basis; (c) pick a different valid basis for the same lattice and confirm $\det(L)$ is unchanged (Section~8.4 exercise, above).
+  \item Run Gram--Schmidt on $b_1=(1,1)$, $b_2=(0,2)$ (Section~7.3 exercise, above), and verify the result is orthogonal.
+  \item For the lattice generated by $b_1=(1,2)$ and $b_2=(3,1)$: (a) is the point $(7,5)$ in the lattice? (b) compute $\det(L)$ from this basis; (c) pick a different valid basis for the same lattice and confirm $\det(L)$ is unchanged (Section~8.5 exercise, above).
   \item Let $L = \{(x,y) \in \mathbb{Z}^2 : x + y \text{ is even}\}$. (a) Show $L$ is a subgroup of $(\mathbb{R}^2, +)$. (b) Show $L$ is discrete (find an $\varepsilon$ that isolates $\vec 0$). (c) Since $L$ is therefore a lattice, find a basis $\{b_1, b_2\}$ for it, and compute $\det(L)$.
   \item In your own words (3--4 sentences): why does the definition of a lattice need \emph{both} ``subgroup'' and ``discrete''? Use the $\mathbb{Q}$ example from Section~8.2 to explain what goes wrong if you drop the discreteness requirement.
-  \item In your own words (3--4 sentences), explain why a ``good basis'' and a ``bad basis'' for the same lattice can make the same mathematical object feel completely different to work with computationally, now that you can measure this with norms (Section~7.1).
+  \item In your own words (3--4 sentences), explain why a ``good basis'' and a ``bad basis'' for the same lattice can make the same mathematical object feel completely different to work with computationally, now that you can measure this with norms (Section~7.2).
 \end{enumerate}
 \end{exercisebox}
 
