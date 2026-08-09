@@ -87,7 +87,7 @@ In Figure~\ref{fig:svp-cvp} you can \emph{see} the closest grid point instantly.
 \end{exbox}
 
 \begin{previewbox}{Where SVP and CVP Are Heading}
-We will not attack SVP or CVP directly today. Instead, both SIS (Section~3) and LWE (Section~4) are best understood as \emph{specific, structured} instances of SVP/CVP, dressed up so that a random instance is easy to \emph{generate} but --- conjecturally --- just as hard to \emph{solve} as the worst case. That ``random instances are as hard as the worst case'' guarantee is the single most important design property of modern lattice cryptography, and we return to it in Section~4.4.
+We will not attack SVP or CVP directly today. Instead, both SIS (Section~3) and LWE (Section~4) are best understood as \emph{specific, structured} instances of SVP/CVP, dressed up so that a random instance is easy to \emph{generate} but --- conjecturally --- just as hard to \emph{solve} as the worst case. That ``random instances are as hard as the worst case'' guarantee is the single most important design property of modern lattice cryptography, and we return to it in Section~4.5.
 \end{previewbox}
 
 \section{The Short Integer Solution (SIS) Problem}
@@ -114,11 +114,55 @@ Let $n=1$, $m=4$, $q=17$, and $A = \begin{pmatrix}3 & 5 & 8 & 1\end{pmatrix} \in
 \end{exbox}
 
 \begin{rmkbox}{What SIS Is Used For}
-SIS is the workhorse behind lattice-based \textbf{hash functions} and was historically the basis of early lattice signature schemes. You will meet it again properly when we discuss Dilithium/ML-DSA in Session 3 and again in Session 5, since Dilithium's fault-attack surface is closely tied to how it uses a SIS-flavored rejection-sampling step.
+SIS is the workhorse behind lattice-based \textbf{hash functions} and was historically the basis of early lattice signature schemes. Section~3.1 below builds the hash-function connection explicitly, right now, while the SIS instance above is still fresh. You will meet SIS's signature-adjacent side again in Session 3 (Dilithium/ML-DSA) and again in Session 5, since Dilithium's fault-attack surface is closely tied to how it uses a SIS-flavored rejection-sampling step.
 \end{rmkbox}
 
+\subsection{A Concrete Application: SIS-Based Hash Functions}
+
+\begin{rmkbox}{What a Hash Function Needs}
+A cryptographic hash function takes an input of some size and \textbf{compresses} it down to a fixed, shorter output, with one crucial security property: \textbf{collision resistance} --- it should be hard to find two \emph{different} inputs $x_1 \ne x_2$ that hash to the \emph{same} output. Everything below is aimed at exactly one goal: building a compressing function whose collision resistance follows directly, and provably, from SIS being hard --- no separate, from-scratch security assumption required.
+\end{rmkbox}
+
+\begin{defbox}{The Ajtai-Style SIS Hash Function}
+Fix a uniformly random matrix $A \in \mathbb{Z}_q^{n \times m}$ (exactly the SIS matrix above), with $m > n\log_2 q$ so the map below is genuinely compressing. Define $h_A : \{0,1\}^m \to \mathbb{Z}_q^n$ by
+$$
+h_A(x) = Ax \bmod q.
+$$
+The input $x$ is an $m$-bit string (so there are $2^m$ possible inputs); the output lives in $\mathbb{Z}_q^n$ (only $q^n$ possible outputs). Since $m > n \log_2 q$ forces $2^m > q^n$, the function is squeezing a strictly bigger set down into a strictly smaller one --- exactly the compression a hash function needs, and exactly why some collision is guaranteed to exist by the pigeonhole principle alone (finding one is the hard part).
+\end{defbox}
+
+\begin{rmkbox}{Why Collision Resistance \emph{Is} SIS, Not Just \emph{Like} SIS}
+Suppose an attacker finds a collision: two distinct inputs $x_1 \ne x_2 \in \{0,1\}^m$ with $h_A(x_1) = h_A(x_2)$, i.e.\ $Ax_1 \equiv Ax_2 \pmod q$. By linearity, $A(x_1 - x_2) \equiv \vec 0 \pmod q$. Set $x = x_1 - x_2$. Then:
+\begin{itemize}[leftmargin=*]
+  \item $x \ne \vec 0$, since $x_1 \ne x_2$.
+  \item $A x \equiv \vec 0 \pmod q$ --- exactly the SIS equation.
+  \item $x$ is automatically \textbf{short}: each coordinate of $x_1, x_2 \in \{0,1\}^m$ is $0$ or $1$, so each coordinate of $x = x_1-x_2$ is in $\{-1,0,1\}$, giving $\|x\| \le \sqrt{m}$ --- comfortably within any reasonable SIS bound $\beta$.
+\end{itemize}
+So \textbf{a collision in $h_A$ is, verbatim, a solution to the SIS instance defined by the same matrix $A$.} Turning this around: if SIS is hard for $A$, then finding a collision in $h_A$ is exactly as hard --- there is no weaker link elsewhere in the construction. This is the entire appeal of building a hash function this way: security reduces to a single, already-studied lattice problem, with nothing extra to trust.
+\end{rmkbox}
+
+\begin{exbox}{A Collision, Found and Verified by Hand}
+Reuse $n=1$, $m=4$, $q=17$, $A = \begin{pmatrix}3 & 5 & 8 & 1\end{pmatrix}$ from the SIS worked example above, and the short SIS solution already found there, $x = (1,-1,0,2)$. That $x$ has entries outside $\{-1,0,1\}$ in one coordinate (the $2$), so it isn't itself a difference of two bit-strings --- but it illustrates the mechanism cleanly, and a genuine bit-string collision is built the same way. Take
+$$
+x_1 = (1,0,0,1), \qquad x_2 = (0,1,0,0) \qquad (\text{both in } \{0,1\}^4).
+$$
+Compute both hashes mod $17$:
+$$
+h_A(x_1) = 3(1)+5(0)+8(0)+1(1) = 4, \qquad h_A(x_2) = 3(0)+5(1)+8(0)+1(0) = 5.
+$$
+These don't collide ($4 \ne 5$) --- so $x_1,x_2$ is \emph{not} a collision, only a candidate pair, exactly as most randomly-chosen pairs will not collide. This is the expected, normal outcome: with $q=17$ this toy instance barely compresses at all ($m=4$ bits down to one symbol in $\{0,\ldots,16\}$), so collisions are not hard to stumble on by search, but the \emph{mechanism} --- take any actual collision, subtract, get a short nonzero SIS solution --- is exactly what the remark above proves in general, regardless of how easy or hard this particular toy-sized search happens to be.
+\end{exbox}
+
+\begin{rmkbox}{Why This Only Works Because of Compression}
+It's worth being precise about where $m > n\log_2 q$ was used. Without that condition, $h_A$ might be injective (no collisions could exist at all, even in principle), and the whole security question would be vacuous. With it, collisions are \emph{guaranteed to exist} (pigeonhole, as noted in the defbox) --- the hardness claim is never ``no collision exists,'' only ``no one can \emph{find} one efficiently.'' This mirrors ordinary cryptographic hash functions like SHA-256 exactly: collisions must exist (infinite inputs, finite outputs), and security only ever means ``hard to find,'' never ``impossible.''
+\end{rmkbox}
+
+\begin{exercisebox}{Practice}
+Using the same $A = (3,5,8,1) \in \mathbb{Z}_{17}^{1\times 4}$: (a) compute $h_A(x)$ for $x_1=(1,1,0,0)$ and $x_2=(0,0,1,1)$; do they collide? (b) Find, by inspection or trial, a genuine colliding pair $x_1 \ne x_2 \in \{0,1\}^4$ with $h_A(x_1)=h_A(x_2)$. (c) For your pair from part (b), compute $x=x_1-x_2$ and confirm directly that $Ax\equiv 0\pmod{17}$ --- i.e., confirm your collision really does hand you a SIS solution, exactly as the argument above claims it must.
+\end{exercisebox}
+
 \begin{rmkbox}{SIS vs.\ LWE: Why We Need Both}
-SIS and LWE are built from the same raw material --- a random matrix $A$ --- but they are hard for different reasons and do different jobs. SIS's hardness is about \emph{collisions}: it's hard to find a short $x$ with $Ax\equiv\vec 0$, which is exactly the guarantee \textbf{hash functions} and (lattice) \textbf{signatures} need --- there's no secret to hide, only ``no two short inputs collide.'' LWE's hardness is about \emph{concealment}: without noise, $b=As$ is solved instantly by ordinary linear algebra (Section~4.1's box below); the noise $e$ is precisely what breaks that shortcut, and it creates an asymmetry --- whoever knows $s$ can cancel/tolerate the noise, while anyone else just sees $(A,b)$ that looks uniformly random. That asymmetry is what \textbf{encryption} needs, and SIS alone can't give it. The two problems are even dual views of the same $A$: SIS lives on the kernel lattice $\Lambda^\perp(A)$ (Section~3 above), LWE lives on the image lattice $\Lambda_q(A)$ (Section~4.4 below) --- one random matrix, two lattices, two different cryptographic jobs.
+SIS and LWE are built from the same raw material --- a random matrix $A$ --- but they are hard for different reasons and do different jobs. SIS's hardness is about \emph{collisions}: it's hard to find a short $x$ with $Ax\equiv\vec 0$, which is exactly the guarantee \textbf{hash functions} (Section~3.1 above) and (lattice) \textbf{signatures} need --- there's no secret to hide, only ``no two short inputs collide.'' LWE's hardness is about \emph{concealment}: without noise, $b=As$ is solved instantly by ordinary linear algebra (Section~4.1's box below); the noise $e$ is precisely what breaks that shortcut, and it creates an asymmetry --- whoever knows $s$ can cancel/tolerate the noise, while anyone else just sees $(A,b)$ that looks uniformly random. That asymmetry is what \textbf{encryption} needs, and SIS alone can't give it. The two problems are even dual views of the same $A$: SIS lives on the kernel lattice $\Lambda^\perp(A)$ (Section~3 above), LWE lives on the image lattice $\Lambda_q(A)$ (Section~4.5 below) --- one random matrix, two lattices, two different cryptographic jobs.
 \end{rmkbox}
 
 \section{Learning With Errors (LWE)}
@@ -142,17 +186,27 @@ for some small, unknown $e_1, e_2 \in \{-1,0,1\}$ that you are never told. Now e
 \subsection{Formal Definition}
 
 \begin{defbox}{Learning With Errors (LWE)}
-Fix a dimension $n$, a modulus $q$, and an error distribution $\chi$ over $\mathbb{Z}_q$ (typically a discrete Gaussian concentrated near $0$). Let $s \in \mathbb{Z}_q^n$ be a fixed secret vector.
+Fix a secret dimension $n$, a number of samples $m$ (typically $m \gg n$ in practice), a modulus $q$, and an error distribution $\chi$ over $\mathbb{Z}_q$ (Section~4.3 pins down the usual choice of $\chi$). Exactly as with SIS (Section~3), the problem starts from a \textbf{uniformly random matrix} --- fix $A \in \mathbb{Z}_q^{m \times n}$ chosen uniformly at random. Let $s \in \mathbb{Z}_q^n$ be a fixed, unknown \textbf{secret vector}, and let $e \in \mathbb{Z}_q^m$ be an \textbf{error vector} whose $m$ entries are drawn independently from $\chi$. Define
+$$
+b \;=\; As + e \pmod q \ \in \mathbb{Z}_q^m.
+$$
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Search-LWE:} given many samples $(a_i, b_i)$ where $a_i \in \mathbb{Z}_q^n$ is uniformly random, $e_i \leftarrow \chi$ is a fresh small error, and
-  $$
-  b_i = \langle a_i, s \rangle + e_i \pmod q,
-  $$
-  find $s$.
-  \item \textbf{Decision-LWE:} distinguish samples $(a_i, b_i)$ generated as above from samples where $b_i$ is instead \emph{uniformly random} in $\mathbb{Z}_q$, independent of $a_i$.
+  \item \textbf{Search-LWE:} given $(A, b)$, find $s$.
+  \item \textbf{Decision-LWE:} given $(A,b)$, decide whether $b$ was built this way, or $b$ is instead a \emph{uniformly random} vector in $\mathbb{Z}_q^m$, independent of $A$.
 \end{itemize}
-Written in matrix form for $m$ samples stacked together: given $A \in \mathbb{Z}_q^{m \times n}$ (rows are the $a_i$) and $b = As + e \pmod q$ (with $e \leftarrow \chi^m$), search-LWE asks you to recover $s$.
+\textbf{Row by row, this is exactly the ``many samples'' description.} Write $a_i \in \mathbb{Z}_q^n$ for the $i$-th row of $A$, and $b_i$ for the $i$-th entry of $b$. Then $b_i = \langle a_i, s\rangle + e_i \pmod q$ is one LWE sample, for $i=1,\ldots,m$ --- and $A$ is nothing more than these $m$ row-vectors $a_1,\ldots,a_m$ stacked on top of each other. ``Many noisy inner-product samples'' and ``one noisy matrix-vector equation'' are the \emph{same object}, just described two ways; every worked example below moves freely between the two descriptions.
 \end{defbox}
+
+\begin{rmkbox}{Yes --- LWE Has a Matrix Too, Just Playing the Opposite Role From SIS}
+It's easy to walk away from Section~3 thinking ``SIS has a matrix, LWE doesn't'' --- especially since LWE is usually introduced sample-by-sample first. That impression is wrong: \textbf{both problems start from the exact same raw ingredient, a uniformly random matrix over $\mathbb{Z}_q$.} What differs is the \emph{shape} of the matrix and what you're asked to do with it:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{SIS:} $A \in \mathbb{Z}_q^{n\times m}$ is \emph{wide} (more columns than rows, $m>n$). You search for a short nonzero $x$ in $A$'s \emph{kernel}: $Ax \equiv \vec 0$. Nothing is hidden --- the matrix is entirely public, and the whole difficulty is finding one particular short vector among the many that satisfy the equation.
+  \item \textbf{LWE:} $A \in \mathbb{Z}_q^{m\times n}$ is \emph{tall} (at least as many rows as columns, $m\ge n$, usually $m\gg n$). You're handed a point $b$ that sits \emph{near} $A$'s \emph{image} (near some $As$), nudged off by small noise $e$, and asked to recover which $s$ produced it, or even just to tell that $b$ isn't uniform.
+\end{itemize}
+Same raw material, opposite structural question: SIS asks ``what short vector does $A$ kill?''; LWE asks ``what secret does $A$ almost reveal?'' This is also exactly why Lecture 1's subgroup/lattice machinery applies to \emph{both}: SIS's matrix generates the kernel lattice $\Lambda^\perp(A)$ (Section~3), while LWE's matrix generates an image lattice $\Lambda_q(A)$ (Section~4.5 below) --- two different lattices built from the same kind of object.
+
+\textbf{A notational warning.} Some sources --- including Chris Peikert's \emph{Lattices in Cryptography} lecture notes (Lecture 13, ``Learning With Errors''), which Lecture 1's bibliography already points to --- state LWE with the \emph{transposed} convention: a \emph{wide} matrix $A \in \mathbb{Z}_q^{n\times m}$ (columns, not rows, are the samples), a secret \emph{row} vector $s$, and $b^T = s^T A + e^T$. This is mathematically identical to the defbox above --- just transpose everything, and ``columns of $A$ are samples'' becomes ``rows of $A$ are samples.'' We fix the row-convention above throughout this course because it matches how Lecture 3 writes Kyber's $\vec t = A\vec s+\vec e$ and Lecture 4's ML-DSA $\vec t = A\vec s_1+\vec s_2$; just be aware that flipping between sources' conventions is normal in this literature, and always check which axis a given source calls ``$n$'' and which it calls ``$m$'' before comparing formulas.
+\end{rmkbox}
 
 \begin{figure}[h]
 \centering
@@ -192,7 +246,7 @@ For a parameter $\sigma>0$ (roughly, how spread out the noise is), the discrete 
 \end{center}
 
 \begin{rmkbox}{Why a Bell Curve, and Not (Say) a Coin Flip $\{-1,0,1\}$?}
-Our worked examples below use a crude stand-in ($e\in\{-1,0,1\}$, each roughly equally likely) purely because it's easy to compute by hand. Real schemes use something bell-curve-shaped (a true discrete Gaussian, or in Kyber's case a closely related and cheaper-to-sample \emph{centered binomial distribution}) for a precise mathematical reason: the hardness proofs connecting LWE back to worst-case lattice problems (Regev's reduction, Section~4.4) require the noise to behave like a Gaussian. Swap in a different-shaped distribution and those proofs may simply no longer apply --- ``small errors'' alone isn't enough; their \emph{shape} matters too. This is a recurring theme you'll meet again in Session 5: real implementations must sample from exactly the right distribution, and subtle sampling mistakes (or side-channel leakage \emph{during} sampling) can quietly undermine security guarantees that look airtight on paper.
+Our worked examples below use a crude stand-in ($e\in\{-1,0,1\}$, each roughly equally likely) purely because it's easy to compute by hand. Real schemes use something bell-curve-shaped (a true discrete Gaussian, or in Kyber's case a closely related and cheaper-to-sample \emph{centered binomial distribution}) for a precise mathematical reason: the hardness proofs connecting LWE back to worst-case lattice problems (Regev's reduction, Section~4.5) require the noise to behave like a Gaussian. Swap in a different-shaped distribution and those proofs may simply no longer apply --- ``small errors'' alone isn't enough; their \emph{shape} matters too. This is a recurring theme you'll meet again in Session 5: real implementations must sample from exactly the right distribution, and subtle sampling mistakes (or side-channel leakage \emph{during} sampling) can quietly undermine security guarantees that look airtight on paper.
 \end{rmkbox}
 
 \subsection{A Fully Worked Numeric Example}
@@ -213,6 +267,17 @@ $(3,2,1)$ & $6+18+1=25\equiv 8$ & $0$ & $8$ \\
 \end{center}
 An attacker only ever sees the $a_i$ (left column) and $b_i$ (right column) --- \emph{not} the middle two columns. Notice that sample 1 alone, $b_1 = 2$, looks like it might reveal $s_1 = 2$ directly --- and here it does, since $e_1$ happened to be $0$. But sample 2 gives $b_2 = 8$, while the true $s_2 = 9$: the noise $e_2=-1$ has already shifted the visible answer away from the truth by one full step, with no way for an outside observer to know whether the ``off-by-one'' is coming from $s_2$ or from $e_2$. Multiply that ambiguity across hundreds of dimensions and thousands of samples, and brute-force guessing collapses --- this is the essence of why LWE is hard even though each individual equation looks almost solvable.
 \end{exbox}
+
+\begin{rmkbox}{The Exact Same Example, Written as One Matrix Equation}
+Stack the four $a_i$ rows from the table above into a matrix, exactly as the defbox's ``row by row'' remark describes --- this is the $A \in \mathbb{Z}_{17}^{4\times 3}$ of the formal definition, with $m=4$ samples and secret dimension $n=3$:
+$$
+A = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 1 & 1 & 1 \\ 3 & 2 & 1 \end{pmatrix}, \qquad
+s = \begin{pmatrix} 2 \\ 9 \\ 1 \end{pmatrix}, \qquad
+e = \begin{pmatrix} 0 \\ -1 \\ 1 \\ 0 \end{pmatrix}, \qquad
+b = As + e \bmod 17 = \begin{pmatrix} 2 \\ 8 \\ 13 \\ 8 \end{pmatrix}.
+$$
+Multiplying out $As$ row by row reproduces exactly the middle column of the table above ($2, 9, 12, 8 \bmod 17$), and adding $e$ then reduces mod $17$ reproduces the last column ($2,8,13,8$) --- the two views really are the same computation. An attacker in the search-LWE game is handed only $A$ and $b$ (the matrix and the right-hand column) and must recover $s$; in the decision-LWE game, they're handed $A$ and \emph{either} this $b$ \emph{or} four independent uniform values in $\mathbb{Z}_{17}$, and must say which.
+\end{rmkbox}
 
 \begin{exercisebox}{Try This Before Next Lecture}
 Using the same $A$ rows as above but a \emph{different} secret $s' = (2,8,1)$ (differs from $s$ only in the middle coordinate), recompute $b_1,\ldots,b_4$ with the same errors $e_i$. Compare the resulting $b_i$ values to the table above. How many of the four samples end up identical to the original table, purely by coincidence of the noise? What does this tell you about how many samples an attacker needs before guessing becomes hopeless?
@@ -385,6 +450,7 @@ When we open up Kyber (ML-KEM) in Session 3, its key generation will look almost
 SVP & Basis $B$ of lattice $L$ & Shortest nonzero $v \in L$ \\
 CVP & Basis $B$, target $t \notin L$ & Closest $v \in L$ to $t$ \\
 SIS & Random $A \in \mathbb{Z}_q^{n\times m}$ & Short nonzero $x$: $Ax\equiv 0$ \\
+SIS hash $h_A(x)=Ax$ & Same $A$, input $x\in\{0,1\}^m$ & Compressed output in $\mathbb{Z}_q^n$; collisions $\Rightarrow$ SIS solutions \\
 Search-LWE & $(A, b=As+e)$ & Recover secret $s$ \\
 Decision-LWE & $(A,b)$ & Is $b$ ``$As+e$'' or uniform random? \\
 Ring-LWE & $(a,b=as+e) \in R_q^2$ & Recover $s \in R_q$ \\
@@ -399,7 +465,8 @@ Module-LWE & $(\vec a, b) \in R_q^k \times R_q$ & Recover $\vec s \in R_q^k$ \\
 \begin{enumerate}[leftmargin=*]
   \item State, in your own words (2--3 sentences each), the difference between SVP and CVP, and the difference between the search and decision versions of a problem in general.
   \item For $n=1$, $m=3$, $q=13$, $A = \begin{pmatrix}4 & 6 & 9\end{pmatrix}$: find a nonzero, short $x \in \mathbb{Z}^3$ solving the SIS instance $Ax \equiv 0 \pmod{13}$ (Section~3 worked example, above). Confirm your answer by direct computation.
-  \item Redo the search-LWE worked example (Section~4.3) with secret $s=(2,9,1)$ but a \emph{new} sample $a_5 = (2,0,1)$ and error $e_5=1$. Compute $b_5$. If you were only given $a_5$ and $b_5$ (not $s$ or $e_5$), could you determine $s$ from this single equation alone? Why not?
+  \item Complete the SIS-hash practice exercise in Section~3.1, if you have not already: find a genuine colliding pair for $h_A$ and confirm it yields a valid SIS solution.
+  \item Redo the search-LWE worked example (Section~4.4) with secret $s=(2,9,1)$ but a \emph{new} sample $a_5 = (2,0,1)$ and error $e_5=1$. Compute $b_5$. If you were only given $a_5$ and $b_5$ (not $s$ or $e_5$), could you determine $s$ from this single equation alone? Why not?
   \item Explain in your own words why LWE would become \emph{easy} (not hard) if the error $e$ were removed entirely (i.e., $b = As$ exactly). Connect your answer to ordinary linear algebra.
   \item In the ring $R_{17} = \mathbb{Z}_{17}[x]/(x^4+1)$: compute the product $(2 + x^2)(1 + 3x)$, showing the wraparound step explicitly (Section~5.2 worked example, above).
   \item In 3--4 sentences: why does moving from plain LWE to Ring-LWE reduce key size roughly from $O(n^2)$ numbers to $O(n)$ numbers? Use the ``one Ring-LWE sample $\approx n$ plain-LWE samples'' remark (Section~5.3) in your explanation.
