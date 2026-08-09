@@ -104,7 +104,9 @@ $$
 \end{defbox}
 
 \begin{rmkbox}{Why This Is Secretly a Lattice Problem}
-Define $\Lambda^{\perp}(A) = \{\, x \in \mathbb{Z}^m : Ax \equiv \vec 0 \pmod q \,\}$. A quick check confirms $\Lambda^\perp(A)$ is a subgroup of $\mathbb{Z}^m$ (closed under addition and negation, contains $\vec 0$) and it is discrete (it's a subset of $\mathbb{Z}^m$) --- so by Lecture 1's subgroup definition, $\Lambda^\perp(A)$ \textbf{is itself a lattice}. Solving SIS is exactly finding a short nonzero vector in $\Lambda^\perp(A)$ --- i.e., \textbf{SIS is SVP}, restricted to this specific, algebraically-generated family of lattices. The reason cryptographers like this family is that generating a \emph{random} instance is as easy as generating a random matrix $A$, yet the resulting lattice is (conjecturally) exactly as hard to solve SVP on as the worst-case lattices Lecture 1 discussed abstractly.
+Define $\Lambda^{\perp}(A) = \{\, x \in \mathbb{Z}^m : Ax \equiv \vec 0 \pmod q \,\}$. The name ``$\perp$'' is exactly what it looks like: $Ax\equiv \vec 0$ means $x$ pairs to zero (mod $q$) with \emph{every} row of $A$, so $\Lambda^\perp(A)$ is the orthogonal complement of $A$'s row space --- the same idea as $V^\perp$ for ordinary vector spaces, just computed mod $q$ instead of over $\mathbb{R}$.
+
+A quick check confirms $\Lambda^\perp(A)$ is a subgroup of $\mathbb{Z}^m$ (closed under addition and negation, contains $\vec 0$) and it is discrete (it's a subset of $\mathbb{Z}^m$) --- so by Lecture 1's subgroup definition, $\Lambda^\perp(A)$ \textbf{is itself a lattice}. Solving SIS is exactly finding a short nonzero vector in $\Lambda^\perp(A)$ --- i.e., \textbf{SIS is SVP}, restricted to this specific, algebraically-generated family of lattices. The reason cryptographers like this family is that generating a \emph{random} instance is as easy as generating a random matrix $A$, yet the resulting lattice is (conjecturally) exactly as hard to solve SVP on as the worst-case lattices Lecture 1 discussed abstractly.
 \end{rmkbox}
 
 \begin{exbox}{A Tiny SIS Instance by Hand}
@@ -113,6 +115,10 @@ Let $n=1$, $m=4$, $q=17$, and $A = \begin{pmatrix}3 & 5 & 8 & 1\end{pmatrix} \in
 
 \begin{rmkbox}{What SIS Is Used For}
 SIS is the workhorse behind lattice-based \textbf{hash functions} and was historically the basis of early lattice signature schemes. You will meet it again properly when we discuss Dilithium/ML-DSA in Session 3 and again in Session 5, since Dilithium's fault-attack surface is closely tied to how it uses a SIS-flavored rejection-sampling step.
+\end{rmkbox}
+
+\begin{rmkbox}{SIS vs.\ LWE: Why We Need Both}
+SIS and LWE are built from the same raw material --- a random matrix $A$ --- but they are hard for different reasons and do different jobs. SIS's hardness is about \emph{collisions}: it's hard to find a short $x$ with $Ax\equiv\vec 0$, which is exactly the guarantee \textbf{hash functions} and (lattice) \textbf{signatures} need --- there's no secret to hide, only ``no two short inputs collide.'' LWE's hardness is about \emph{concealment}: without noise, $b=As$ is solved instantly by ordinary linear algebra (Section~4.1's box below); the noise $e$ is precisely what breaks that shortcut, and it creates an asymmetry --- whoever knows $s$ can cancel/tolerate the noise, while anyone else just sees $(A,b)$ that looks uniformly random. That asymmetry is what \textbf{encryption} needs, and SIS alone can't give it. The two problems are even dual views of the same $A$: SIS lives on the kernel lattice $\Lambda^\perp(A)$ (Section~3 above), LWE lives on the image lattice $\Lambda_q(A)$ (Section~4.4 below) --- one random matrix, two lattices, two different cryptographic jobs.
 \end{rmkbox}
 
 \section{Learning With Errors (LWE)}
