@@ -157,6 +157,14 @@ These don't collide ($4 \ne 5$) --- so $x_1,x_2$ is \emph{not} a collision, only
 It's worth being precise about where $m > n\log_2 q$ was used. Without that condition, $h_A$ might be injective (no collisions could exist at all, even in principle), and the whole security question would be vacuous. With it, collisions are \emph{guaranteed to exist} (pigeonhole, as noted in the defbox) --- the hardness claim is never ``no collision exists,'' only ``no one can \emph{find} one efficiently.'' This mirrors ordinary cryptographic hash functions like SHA-256 exactly: collisions must exist (infinite inputs, finite outputs), and security only ever means ``hard to find,'' never ``impossible.''
 \end{rmkbox}
 
+\begin{factbox}{$h_A(x) = Ax$ vs.\ SHA-2/SHA-3: Two Different Kinds of Confidence}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{SHA-2/SHA-3:} security is \emph{empirical} --- decades of public cryptanalysis have failed to find a collision. Fast, compact, no known quantum weakness worth designing around (Grover only gives a quadratic speedup). The default choice for hashing in practice.
+  \item \textbf{$h_A$:} security is a \emph{theorem} --- a collision provably yields a solution to worst-case SIS/lattice problems, not just this one instance. The cost is size and speed: a large public matrix $A$ and a matrix--vector multiply per hash, versus a few dozen fast bitwise operations.
+  \item \textbf{Why bother, then:} $h_A$ is \emph{linear} in $x$, so it composes algebraically with other lattice constructions --- homomorphic operations, commitments, zero-knowledge proofs --- in ways SHA-2/SHA-3's deliberately nonlinear internals cannot. Its role is as a building block \emph{inside} lattice-based protocols, not as a drop-in replacement for general-purpose hashing.
+\end{itemize}
+\end{factbox}
+
 \begin{exercisebox}{Practice}
 Using the same $A = (3,5,8,1) \in \mathbb{Z}_{17}^{1\times 4}$: (a) compute $h_A(x)$ for $x_1=(1,1,0,0)$ and $x_2=(0,0,1,1)$; do they collide? (b) Find, by inspection or trial, a genuine colliding pair $x_1 \ne x_2 \in \{0,1\}^4$ with $h_A(x_1)=h_A(x_2)$. (c) For your pair from part (b), compute $x=x_1-x_2$ and confirm directly that $Ax\equiv 0\pmod{17}$ --- i.e., confirm your collision really does hand you a SIS solution, exactly as the argument above claims it must.
 \end{exercisebox}
