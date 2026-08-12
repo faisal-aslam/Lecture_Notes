@@ -655,12 +655,116 @@ Let $b_1 = (2,0)$ and $b_2 = (0,3)$ in $\mathbb{R}^2$. The lattice $\mathcal{L}(
 One more piece of structure will matter a great deal in later lectures: every lattice has a well-defined ``volume,'' independent of which basis you use to describe it.
 
 \begin{defbox}{Fundamental Domain and Determinant}
-Given a basis $b_1,\ldots,b_n$ of a full-rank lattice $L \subseteq \mathbb{R}^n$, the \textbf{fundamental parallelepiped} is
-$$
-\mathcal{P}(B) = \left\{ \sum_{i=1}^n t_i b_i \;\middle|\; 0 \le t_i < 1 \right\},
-$$
-i.e., the region ``tiled out'' by taking all \emph{fractional} (not just integer) combinations between $0$ and $1$. Copies of $\mathcal{P}(B)$, shifted by every lattice point, tile all of $\mathbb{R}^n$ with no gaps or overlaps. The \textbf{determinant} of the lattice, $\det(L)$, is the volume of $\mathcal{P}(B)$, computed as $\det(L) = |\det(B)|$, where $B$ is the matrix whose rows (or columns) are $b_1,\ldots,b_n$.
+
+Let $L \subseteq \mathbb{R}^n$ be a full-rank lattice with basis
+$b_1,\ldots,b_n$, and let $B$ be the matrix whose columns are
+$b_1,\ldots,b_n$. The \textbf{fundamental parallelepiped} associated
+with this basis is
+\[
+\mathcal{P}(B)
+=
+\left\{
+\sum_{i=1}^n t_i b_i
+\;\middle|\;
+0 \leq t_i < 1
+\right\}.
+\]
+
+The \textbf{determinant} of the lattice $L$ is the volume of its
+fundamental parallelepiped:
+\[
+\det(L)
+=
+\operatorname{vol}(\mathcal{P}(B))
+=
+|\det(B)|.
+\]
+
 \end{defbox}
+
+The fundamental parallelepiped can be viewed as a basic ``tile'' for
+the entire space. Copies of $\mathcal{P}(B)$, shifted by every lattice
+point $\ell\in L$, cover all of $\mathbb{R}^n$ without overlapping
+except possibly along their boundaries. In other words,
+\[
+\mathbb{R}^n
+=
+\bigcup_{\ell\in L}
+\left(\ell+\mathcal{P}(B)\right).
+\]
+
+Here, \textbf{shifting} (or \textbf{translating}) $\mathcal{P}(B)$ by
+a lattice point $\ell$ simply means adding $\ell$ to every point in
+the parallelepiped:
+\[
+\ell+\mathcal{P}(B)
+=
+\left\{
+\ell+x \;\middle|\; x\in\mathcal{P}(B)
+\right\}.
+\]
+The shape and volume do not change; only the location changes.
+
+\medskip
+
+\noindent
+\textbf{Example.}
+Consider the lattice
+\[
+L=\mathbb{Z}^2
+\]
+with basis
+\[
+b_1=(1,0),
+\qquad
+b_2=(0,1).
+\]
+Its fundamental parallelepiped is
+\[
+\mathcal{P}(B)
+=
+[0,1)\times[0,1),
+\]
+which is a unit square.
+
+Now consider the lattice point
+\[
+\ell=(2,1).
+\]
+Shifting the fundamental parallelepiped by $\ell$ gives
+\[
+\ell+\mathcal{P}(B)
+=
+[2,3)\times[1,2).
+\]
+For example,
+\[
+(0,0)\mapsto(2,1),
+\qquad
+(1,0)\mapsto(3,1),
+\qquad
+(0,1)\mapsto(2,2).
+\]
+Thus, shifting by $(2,1)$ simply moves the unit square two units to
+the right and one unit upward.
+
+More generally, every point $x\in\mathbb{R}^n$ can be written as
+\[
+x=\ell+p,
+\qquad
+\ell\in L,\quad p\in\mathcal{P}(B).
+\]
+The lattice point $\ell$ determines the translated copy of the
+fundamental parallelepiped, while $p$ determines the position of $x$
+within that copy.
+
+Since translation does not change volume, every translated copy
+$\ell+\mathcal{P}(B)$ has the same volume as $\mathcal{P}(B)$. Thus,
+$\det(L)$ can be interpreted geometrically as the volume of one
+fundamental ``cell'' of the lattice:
+\[
+\boxed{\det(L)=|\det(B)|.}
+\]
 
 \begin{rmkbox}{Why $\det(L)$ Doesn't Depend on Which Basis You Pick}
 Recall from the ``Same Lattice, Different Basis'' remark above: any two bases of the same lattice are related by a unimodular matrix $U$ (integer entries, $\det(U) = \pm 1$), i.e., $B' = UB$. Then $\det(B') = \det(U)\det(B) = \pm \det(B)$, so $|\det(B')| = |\det(B)|$. This confirms $\det(L)$ is a genuine property of the lattice itself, not an artifact of which basis happened to be used to compute it --- exactly the kind of basis-independence you should expect from something called ``the volume of the lattice.''
