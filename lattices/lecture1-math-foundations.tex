@@ -651,11 +651,10 @@ Let $b_1 = (2,0)$ and $b_2 = (0,3)$ in $\mathbb{R}^2$. The lattice $\mathcal{L}(
 \end{exbox}
 
 \subsection{The Determinant (Volume) of a Lattice}
-
-One more piece of structure will matter a great deal in later lectures: every lattice has a well-defined ``volume,'' independent of which basis you use to describe it.
-
+One more piece of structure will matter a great deal in later lectures:
+every full-rank lattice has a well-defined ``volume,'' independent of
+which basis is used to describe it.
 \begin{defbox}{Fundamental Domain and Determinant}
-
 Let $L \subseteq \mathbb{R}^n$ be a full-rank lattice with basis
 $b_1,\ldots,b_n$, and let $B$ be the matrix whose columns are
 $b_1,\ldots,b_n$. The \textbf{fundamental parallelepiped} associated
@@ -669,9 +668,12 @@ with this basis is
 0 \leq t_i < 1
 \right\}.
 \]
-
-The \textbf{determinant} of the lattice $L$ is the volume of its
-fundamental parallelepiped:
+Here, each coefficient $t_i$ can be \emph{any real number} in the
+interval $[0,1)$. Thus, $\mathcal{P}(B)$ consists of all fractional
+linear combinations of the basis vectors, not merely combinations
+using coefficients $0$ or $1$.
+The \textbf{determinant} of the lattice $L$, denoted by $\det(L)$, is
+the volume of its fundamental parallelepiped:
 \[
 \det(L)
 =
@@ -679,20 +681,23 @@ fundamental parallelepiped:
 =
 |\det(B)|.
 \]
-
 \end{defbox}
-
 The fundamental parallelepiped can be viewed as a basic ``tile'' for
 the entire space. Copies of $\mathcal{P}(B)$, shifted by every lattice
-point $\ell\in L$, cover all of $\mathbb{R}^n$ without overlapping
-except possibly along their boundaries. In other words,
+point $\ell\in L$, tile all of $\mathbb{R}^n$ \emph{exactly}: every
+point of $\mathbb{R}^n$ lies in \emph{one and only one} translated
+copy, with no overlap at all. (This is precisely why the definition
+uses the half-open condition $0 \le t_i < 1$ rather than
+$0 \le t_i \le 1$: it guarantees each point has a unique
+representative $p \in \mathcal{P}(B)$, avoiding double-counting along
+shared faces.) Formally,
 \[
 \mathbb{R}^n
 =
-\bigcup_{\ell\in L}
-\left(\ell+\mathcal{P}(B)\right).
+\bigsqcup_{\ell\in L}
+\left(\ell+\mathcal{P}(B)\right),
 \]
-
+where $\bigsqcup$ denotes a disjoint union.
 Here, \textbf{shifting} (or \textbf{translating}) $\mathcal{P}(B)$ by
 a lattice point $\ell$ simply means adding $\ell$ to every point in
 the parallelepiped:
@@ -700,15 +705,15 @@ the parallelepiped:
 \ell+\mathcal{P}(B)
 =
 \left\{
-\ell+x \;\middle|\; x\in\mathcal{P}(B)
+\ell+x
+\;\middle|\;
+x\in\mathcal{P}(B)
 \right\}.
 \]
 The shape and volume do not change; only the location changes.
-
 \medskip
-
 \noindent
-\textbf{Example.}
+\textbf{Example: the lattice $\mathbb{Z}^2$.}
 Consider the lattice
 \[
 L=\mathbb{Z}^2
@@ -719,14 +724,50 @@ b_1=(1,0),
 \qquad
 b_2=(0,1).
 \]
-Its fundamental parallelepiped is
+According to the definition,
 \[
 \mathcal{P}(B)
 =
-[0,1)\times[0,1),
+\left\{
+t_1b_1+t_2b_2
+\;\middle|\;
+0\leq t_1,t_2<1
+\right\}.
 \]
-which is a unit square.
-
+Substituting the basis vectors gives
+\[
+\begin{aligned}
+t_1b_1+t_2b_2
+&=
+t_1(1,0)+t_2(0,1)\\
+&=
+(t_1,0)+(0,t_2)\\
+&=
+(t_1,t_2).
+\end{aligned}
+\]
+Therefore,
+\[
+\mathcal{P}(B)
+=
+\left\{
+(t_1,t_2)
+\;\middle|\;
+0\leq t_1,t_2<1
+\right\}
+=
+[0,1)\times[0,1).
+\]
+Notice that $t_1$ and $t_2$ are not restricted to the values $0$ and
+$1$. They can take any real values between $0$ and $1$. For example,
+\[
+0.3b_1+0.7b_2
+=
+(0.3,0.7)
+\in\mathcal{P}(B).
+\]
+Thus, $\mathcal{P}(B)$ contains every point in the unit square
+$[0,1)\times[0,1)$.
 Now consider the lattice point
 \[
 \ell=(2,1).
@@ -741,14 +782,16 @@ For example,
 \[
 (0,0)\mapsto(2,1),
 \qquad
-(1,0)\mapsto(3,1),
-\qquad
-(0,1)\mapsto(2,2).
+(0.3,0.7)\mapsto(2.3,1.7).
 \]
-Thus, shifting by $(2,1)$ simply moves the unit square two units to
-the right and one unit upward.
-
-More generally, every point $x\in\mathbb{R}^n$ can be written as
+Thus, shifting by $(2,1)$ simply moves the entire unit square two
+units to the right and one unit upward. Notice that
+$\mathcal{P}(B)=[0,1)\times[0,1)$ and
+$\ell+\mathcal{P}(B)=[2,3)\times[1,2)$ are entirely different sets of
+points: they do not share any point in common, illustrating the
+disjointness of the tiling above.
+More generally, every point $x\in\mathbb{R}^n$ can be written
+\emph{uniquely} as
 \[
 x=\ell+p,
 \qquad
@@ -757,11 +800,10 @@ x=\ell+p,
 The lattice point $\ell$ determines the translated copy of the
 fundamental parallelepiped, while $p$ determines the position of $x$
 within that copy.
-
 Since translation does not change volume, every translated copy
 $\ell+\mathcal{P}(B)$ has the same volume as $\mathcal{P}(B)$. Thus,
-$\det(L)$ can be interpreted geometrically as the volume of one
-fundamental ``cell'' of the lattice:
+the determinant of the lattice can be interpreted geometrically as
+the volume of one fundamental ``cell'' of the lattice:
 \[
 \boxed{\det(L)=|\det(B)|.}
 \]
