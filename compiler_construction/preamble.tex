@@ -49,7 +49,7 @@
 \renewcommand{\headrulewidth}{0.6pt}
 \renewcommand{\footrulewidth}{0.3pt}
 \fancyhead[L]{\small\sffamily\color{nuNavy} CS-4031 Compiler Construction}
-\fancyhead[R]{\small\sffamily\color{nuNavy} Lecture \thelecnum\ --- \lecshorttitle}
+\fancyhead[R]{\small\sffamily\color{nuNavy} \rightmark}
 \fancyfoot[L]{\small\sffamily\color{gray} FAST-NU Lahore, Fall 2026}
 \fancyfoot[C]{\small\sffamily\color{gray} \thepage}
 \fancyfoot[R]{\small\sffamily\color{gray} Notes by course staff}
@@ -74,6 +74,19 @@
 \usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, backgrounds, calc}
 \usepackage{float}
 \usepackage[colorlinks=true, linkcolor=nuBlue, citecolor=nuBlue, urlcolor=nuBlue]{hyperref}
+% Each lecture resets its own \section counter to 1 (see \lecturemeta / the
+% \setcounter{section}{0} at the top of every lecture body) so that hardcoded
+% in-text references like "\S2.4" stay correct no matter whether a lecture
+% is compiled standalone or stitched into full-course-notes.tex. That reset
+% means two different lectures can both have a "Section 2" -- fine for the
+% printed page, but hyperref names its internal PDF anchors after the
+% section number by default, so those would collide across lectures in the
+% combined document. Fixing that here: the *displayed* number (\thesection)
+% is untouched; only hyperref's internal anchor name (\theHsection) gets a
+% lecture-number prefix, making every anchor globally unique.
+\renewcommand{\theHsection}{L\thelecnum.\arabic{section}}
+\renewcommand{\theHsubsection}{L\thelecnum.\arabic{section}.\arabic{subsection}}
+\renewcommand{\theHsubsubsection}{L\thelecnum.\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
 
 % ---------- Box framework (tcolorbox) ----------
 \usepackage[most]{tcolorbox}
@@ -140,16 +153,28 @@
 \newcommand{\lecfulltitle}{}
 
 % \lecturemeta{number}{full title}{CLOs}{Dragon Book refs}{other refs}
+% NOTE: uses \global because subfiles.sty wraps every \subfile{...} call in
+% \begingroup...\endgroup -- without \global, these header/footer macros
+% would silently revert to empty at the end of each subfile (and, due to
+% LaTeX's deferred page shipout, that reset can even bleed onto that same
+% lecture's own last page or two). Keep \global here.
 \newcommand{\lecturemeta}[5]{%
-  \renewcommand{\thelecnum}{#1}%
-  \renewcommand{\lecfulltitle}{#2}%
-  \renewcommand{\lecclo}{#3}%
-  \renewcommand{\lecdbrefs}{#4}%
-  \renewcommand{\lecotherrefs}{#5}%
+  \global\renewcommand{\thelecnum}{#1}%
+  \global\renewcommand{\lecfulltitle}{#2}%
+  \global\renewcommand{\lecclo}{#3}%
+  \global\renewcommand{\lecdbrefs}{#4}%
+  \global\renewcommand{\lecotherrefs}{#5}%
 }
 % Optional: override the short running-header title (keep this SHORT --
 % a few words -- since it shares the header line with the course code).
-\newcommand{\lecshort}[1]{\renewcommand{\lecshorttitle}{#1}}
+% Also sets a \markright: marks are TeX's purpose-built mechanism for
+% running headers that change mid-document, and (unlike re-evaluating a
+% plain macro at shipout time) they are robust to breakable tcolorboxes
+% and other content whose page gets decided/shipped out late.
+\newcommand{\lecshort}[1]{%
+  \global\renewcommand{\lecshorttitle}{#1}%
+  \markright{Lecture \thelecnum\ --- #1}%
+}
 
 % Title block + metadata strip, called right after \begin{document}
 \newcommand{\makelecturetitle}{%

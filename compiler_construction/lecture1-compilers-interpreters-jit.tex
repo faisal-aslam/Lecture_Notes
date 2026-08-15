@@ -1,0 +1,757 @@
+\documentclass[full-course-notes.tex]{subfiles}
+
+\begin{document}
+\lecturemeta{1}
+  {How Programs Run: Compilers, Interpreters, and JIT Compilation (a Java Case Study); the
+   Language-Processing System; Why Study Compilers; Kinds of Compilers}
+  {CLO 1}
+  {\S1.1 (Language Processors), \S1.2 (Language-Processing System -- previewed here, detailed in Lecture 2), \S1.4 (Compiler/Interpreter Distinction), \S1.5 (Applications of Compiler Technology)}
+  {[ET] Engineering a Compiler \S1.1; [AP] Modern Compiler Implementation, Ch.\,1}
+\lecshort{Compilers, Interpreters \& JIT}
+\setcounter{section}{0}
+\makelecturetitle
+
+\begin{coreidea}[Lecture Roadmap]
+\begin{enumerate}
+  \item What is a language processor, and what exactly is a \emph{compiler}?
+  \item Compilers vs.\ interpreters vs.\ just-in-time (JIT) compilation --- three ways to run a
+  program, with a full case study of how \textbf{Java} uses this to become portable.
+  \item A \textbf{typical language-processing system}: preprocessor, compiler, assembler,
+  linker, and loader -- and exactly what an \textbf{object file} is.
+  \item Why study compilers at all, even if you never write one professionally?
+  \item Applications of compiler technology far beyond ``turning C into an executable.''
+  \item Six different \textbf{kinds of compiler} you'll encounter by name in industry.
+\end{enumerate}
+This lecture is entirely conceptual --- no algorithms yet. Lecture 2 goes much deeper into the
+internal \emph{structure} (phases) of a compiler and the toolchain around it.
+\end{coreidea}
+
+\section{What Is a Language Processor?}
+
+\dbtag A \textbf{language processor} is any program that takes another program written in
+some source notation and does something useful with it --- runs it, translates it, checks it,
+or transforms it. Compilers are the most famous member of this family, but not the only one.
+
+\begin{defbox}{Compiler}
+A \textbf{compiler} is a program that reads a program written in one language --- the
+\emph{source language} --- and translates it into an equivalent program in another language ---
+the \emph{target language}. Along the way, if the source program has errors, the compiler
+should report them to the user in a useful way.
+\end{defbox}
+
+Two things are packed into that definition and worth pulling apart, because exam questions love
+to test exactly this distinction:
+
+\begin{itemize}
+  \item \textbf{Translation, not execution.} A compiler's job is to \emph{produce} a target
+  program. It does not itself run your code. If you compile \texttt{main.c} with GCC, GCC's job
+  ends when it hands you \texttt{a.out}; a completely different program (the operating system's
+  loader, then the CPU) is what actually executes it.
+  \item \textbf{Equivalence.} The target program must have the same meaning as the source
+  program. This is the single hardest engineering promise a compiler makes, and essentially the
+  entire field of compiler optimization exists to preserve this promise while still making the
+  target program faster.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=1.1cm, minimum width=3.2cm, align=center, fill=nuLight, draw=nuNavy},
+  lbl/.style={font=\small\itshape}
+]
+  \node[box] (src) {Source Program\\\texttt{(e.g.\ C code)}};
+  \node[box, fill=dbGreenBg, draw=dbGreen, right=2.6cm of src] (comp) {Compiler};
+  \node[box, right=2.6cm of comp] (tgt) {Target Program\\\texttt{(e.g.\ x86 assembly)}};
+  \node[below=0.5cm of comp, font=\small, text=examRed] (err) {Error Messages};
+
+  \draw[-{Latex[length=2.5mm]}, thick] (src) -- (comp);
+  \draw[-{Latex[length=2.5mm]}, thick] (comp) -- (tgt);
+  \draw[-{Latex[length=2.5mm]}, thick, examRed] (comp) -- (err);
+\end{tikzpicture}
+\end{center}
+
+\begin{examfocus}
+Be able to state, in one sentence, that a compiler \emph{translates}; it does not
+\emph{execute}. A one-line definition question like ``define a compiler'' is a classic
+first-quiz question and students routinely lose marks by describing what an interpreter does
+instead.
+\end{examfocus}
+
+\section{Compilers vs.\ Interpreters vs.\ JIT Compilation}
+
+This is the heart of today's lecture (DB \S1.4). There are three broad strategies for getting
+from source code to a running program, and almost every real language-processing system you use
+day to day is one of these three, or (very commonly) a hybrid.
+
+\subsection{Pure Compilation (Ahead-of-Time)}
+
+\dbtag The compiler translates the entire source program into target-machine code \emph{before}
+execution begins. The target program can then be run any number of times, independently of the
+compiler. C, C++, Rust, and (classic) Fortran compilers work this way.
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=1cm, minimum width=2.6cm, align=center},
+  phase/.style={box, fill=dbGreenBg, draw=dbGreen},
+]
+  \node[box, fill=nuLight, draw=nuNavy] (src) {Source Program};
+  \node[phase, right=1.8cm of src] (comp) {Compiler};
+  \node[box, fill=nuLight, draw=nuNavy, right=1.8cm of comp] (tgt) {Target Program};
+  \node[box, fill=nuLight, draw=nuNavy, right=1.8cm of tgt] (input) {Input};
+  \node[box, fill=dbGreenBg, draw=dbGreen, below=0.9cm of $(tgt)!0.5!(input)$] (run) {Running the\\Target Program};
+  \node[box, fill=nuLight, draw=nuNavy, below=0.9cm of run] (out) {Output};
+
+  \draw[-{Latex[length=2.5mm]}, thick] (src) -- (comp);
+  \draw[-{Latex[length=2.5mm]}, thick] (comp) -- (tgt);
+  \draw[-{Latex[length=2.5mm]}, thick] (tgt.south) -- ++(0,-0.45) -| (run.north);
+  \draw[-{Latex[length=2.5mm]}, thick] (input.south) -- ++(0,-0.45) -| (run.north);
+  \draw[-{Latex[length=2.5mm]}, thick] (run) -- (out);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Trade-off:} compilation itself can be slow and happens ``offline,'' but every run of the
+target program afterward is fast, because all the translation work has already been paid for.
+
+\subsection{Pure Interpretation}
+
+\dbtag An \textbf{interpreter} does not produce a separate target program at all. Instead, it
+directly executes the operations specified in the source program, using the source program (or a
+close representation of it) as input on every single run.
+
+\begin{defbox}{Interpreter}
+An interpreter is a language processor that reads a source program and, using the input
+supplied by the user, \emph{directly} produces the output of that program --- with no separate
+translation phase that produces standalone target code the user can run independently.
+\end{defbox}
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=1cm, minimum width=2.6cm, align=center, fill=nuLight, draw=nuNavy},
+  phase/.style={box, fill=dbGreenBg, draw=dbGreen},
+]
+  \node[box] (src) {Source Program};
+  \node[box, below=0.6cm of src] (input) {Input};
+  \node[phase, right=2.2cm of $(src)!0.5!(input)$] (interp) {Interpreter};
+  \node[box, right=2.2cm of interp] (out) {Output};
+
+  \draw[-{Latex[length=2.5mm]}, thick] (src) -- (interp);
+  \draw[-{Latex[length=2.5mm]}, thick] (input) -- (interp);
+  \draw[-{Latex[length=2.5mm]}, thick] (interp) -- (out);
+\end{tikzpicture}
+\end{center}
+
+Classic (older) Python, shell scripts, and simple Basic interpreters are close to this pure
+model: the interpreter re-examines and re-dispatches on the source (or its parsed form) every
+single time a statement executes, even inside a loop that runs a million times.
+
+\textbf{Trade-off:} there is no separate compile step, so you can start running --- and get
+feedback on --- code instantly, which is wonderful for interactive development and REPLs. The
+cost is repeated re-interpretation overhead every time the same line of code runs, which DB
+notes can make interpretation \textbf{10--100$\times$ slower} than running compiled code.
+
+\begin{examfocus}
+Know this speed trade-off in both directions: compilation trades slower ``build time'' for
+faster ``run time''; interpretation trades away build time for slower, but more flexible and
+immediate, run time. Also know that \emph{portability} is a classic interpreter advantage: the
+same source runs unmodified on any machine that has the interpreter, with no separate compile
+step per target machine.
+\end{examfocus}
+
+\subsection{The Hybrid Reality: Bytecode + JIT}
+
+\beyonddb In practice, almost no serious modern language is \emph{purely} compiled or
+\emph{purely} interpreted. DB \S1.4 briefly mentions Java's model as a hybrid; it is worth
+understanding this hybrid model properly, because it is how the overwhelming majority of code
+you run today --- Java, C\#, JavaScript, modern Python (via PyPy), and even Python's own CPython
+--- actually executes.
+
+\begin{enumerate}
+  \item \textbf{Source $\to$ bytecode.} A ``front-end'' compiler translates source code into a
+  compact, machine-independent intermediate form called \textbf{bytecode} (Java's \texttt{.class}
+  files hold JVM bytecode; Python's \texttt{.pyc} files hold Python bytecode).
+  \item \textbf{Bytecode $\to$ execution.} A \textbf{virtual machine (VM)} then runs this
+  bytecode. It can do this two ways:
+  \begin{itemize}
+    \item \emph{Interpret} the bytecode directly, instruction by instruction (slow but starts
+    instantly) -- this is what most bytecode VMs do at first.
+    \item \emph{Just-in-time (JIT) compile} hot pieces of bytecode --- the loops and functions
+    that run over and over --- into native machine code \emph{while the program is running}, and
+    cache that native code for reuse.
+  \end{itemize}
+\end{enumerate}
+
+\begin{defbox}{Just-In-Time (JIT) Compilation}
+JIT compilation defers translation to native machine code until run time, and does so
+selectively: only code that is actually hot (executed frequently) is compiled, while cold code
+may remain interpreted. This lets a system get the fast startup of an interpreter and the fast
+steady-state speed of a compiler.
+\end{defbox}
+
+\begin{examplebox}{Tiered execution in real systems}
+\begin{itemize}
+  \item \textbf{JVM (HotSpot):} interprets bytecode first; the C1 (``client'') JIT compiles warm
+  methods quickly with light optimization; the C2 (``server'') JIT recompiles the hottest methods
+  with heavy optimization once enough profiling data exists.
+  \item \textbf{V8 (Chrome/Node.js JavaScript engine):} \texttt{Ignition} interprets bytecode;
+  \texttt{Sparkplug} does a fast baseline JIT; \texttt{TurboFan} does an aggressive optimizing
+  JIT for hot functions, and can \emph{deoptimize} back to the interpreter if an assumption used
+  for optimization (e.g.\ ``this variable is always a number'') turns out to be wrong.
+  \item \textbf{CPython (standard Python):} traditionally a pure bytecode interpreter with no
+  JIT; \texttt{PyPy} is an alternative Python implementation that adds a JIT and is often
+  5--10$\times$ faster on long-running code as a result.
+\end{itemize}
+\end{examplebox}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=0.95cm, minimum width=2.5cm, align=center, fill=nuLight, draw=nuNavy, font=\small},
+  phase/.style={box, fill=dbGreenBg, draw=dbGreen},
+  hot/.style={box, fill=examRedBg, draw=examRed},
+]
+  \node[box] (src) {Source\\Program};
+  \node[phase, right=1.6cm of src] (fe) {Front-end\\Compiler};
+  \node[box, right=1.6cm of fe] (bc) {Bytecode};
+  \node[phase, below right=1.1cm and 0.0cm of bc] (vm) {Bytecode\\Interpreter};
+  \node[hot, right=1.6cm of bc] (jit) {JIT\\Compiler};
+  \node[box, right=1.6cm of jit] (native) {Native\\Machine Code};
+
+  \draw[-{Latex[length=2.5mm]}, thick] (src) -- (fe);
+  \draw[-{Latex[length=2.5mm]}, thick] (fe) -- (bc);
+  \draw[-{Latex[length=2.5mm]}, thick] (bc) -- (jit);
+  \draw[-{Latex[length=2.5mm]}, thick] (jit) -- (native);
+  \draw[-{Latex[length=2.5mm]}, thick] (bc.south) -- (vm.north);
+  \node[below=0.15cm of vm, font=\scriptsize\itshape, text width=2.6cm, align=center] {runs cold /\\one-shot code};
+  \node[below=0.15cm of native, font=\scriptsize\itshape, text width=2.6cm, align=center] {runs hot,\\repeated code};
+\end{tikzpicture}}
+\end{center}
+
+\begin{enrichment}[Extra Depth: AOT with a JIT Fallback]
+DB draws the compiler/interpreter line fairly simply. In practice, the line is blurrier still:
+some modern systems (GraalVM Native Image, .NET's ReadyToRun) precompile most code AOT for fast
+startup but still keep a JIT available for code discovered or specialized at run time. So
+``compiled'' and ``JIT-compiled'' are not always mutually exclusive labels for one system.
+\emph{(Transpilers, cross-compilers, bootstrapping compilers, and decompilers are their own
+category of ``kind of compiler'' rather than a compiler/interpreter distinction -- we cover all
+of these properly later in this lecture.)}
+\end{enrichment}
+
+\subsection{Comparing the Three Models}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\begin{tabularx}{\textwidth}{@{}l Y Y Y@{}}
+\toprule
+ & \textbf{Pure Compiler} & \textbf{Pure Interpreter} & \textbf{JIT / Hybrid} \\
+\midrule
+\textbf{When translation happens} & Entirely before run time & Continuously, during run time & Partly before, partly during run time \\
+\textbf{Startup latency} & None (target already built) & Very low (start immediately) & Low, but JIT warm-up adds delay before peak speed \\
+\textbf{Steady-state speed} & Fastest & Slowest (re-dispatch overhead) & Approaches compiled speed for hot code \\
+\textbf{Portability} & Target is machine-specific & Source runs anywhere the interpreter exists & Bytecode is portable; JIT output is not \\
+\textbf{Can use runtime profiling info?} & No -- only sees the source, never the running program & N/A -- re-examines source every time, no persistent profile & \textbf{Yes} -- observes actual branch frequencies and value types, enabling speculative optimizations no static compiler can safely make \\
+\textbf{Extra runtime overhead} & None -- compiler is long gone by run time & Dispatch overhead only & Profiling counters, background compiler threads, and a generated-code cache all compete with the program for CPU/memory \\
+\textbf{Debuggability / interactivity} & Weakest (must recompile to test a change) & Best (REPL, immediate feedback) & Good (often still supports a REPL over bytecode) \\
+\textbf{Typical users} & C, C++, Rust, Fortran & Shell scripts, classic BASIC & Java, C\#, JavaScript, PyPy \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{historynote}
+Interpretation is not a modern shortcut invented for scripting languages --- it is \emph{older}
+than compilation. Early LISP (1958) was interpreted because writing a LISP compiler was itself a
+research problem; interpreters let you experiment with a language before anyone knew how to
+compile it well. JIT compilation is also older than most people assume: the term traces to
+Smalltalk and self-modifying-code systems of the 1980s, and was popularized for the mainstream by
+Sun's HotSpot JVM in 1999 -- it was Java's answer to ``we want C-like speed but Smalltalk-like
+portability and safety.''
+\end{historynote}
+
+\subsection{Case Study: How Java Achieves Portability}
+
+\beyonddb Java is the single clearest real-world illustration of everything in \S2, so it is
+worth walking through as a complete case study --- especially since Java's own design goals were
+\emph{explicitly} about the compiler/interpreter trade-off from the start.
+
+\subsubsection{From Pure Interpreter to JIT: A Short History}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Era} & \textbf{What Happened} \\
+\midrule
+Java 1.0 (1996) & The original JVM was a \textbf{pure bytecode interpreter}. Every bytecode
+instruction was fetched, decoded, and dispatched on every single execution -- simple and
+portable, but roughly 10--20$\times$ slower than equivalent compiled C, which badly hurt Java's
+early reputation for performance. \\
+Java 1.2 -- ``HotSpot'' research & Sun's research team built an adaptive compiler codenamed
+\textbf{HotSpot}: instead of compiling everything, or nothing, it would \emph{watch the program
+run} and compile only the small fraction of methods that actually matter for performance. \\
+Java 1.3 (2000) onward & HotSpot became the default production JVM. This is the point Java
+became a genuine \textbf{hybrid}: start by interpreting (fast startup), then JIT-compile
+whichever methods turn out to be ``hot'' (fast steady state). Every mainstream JVM since has
+kept this same architecture. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsubsection{Compilation to Bytecode, Then Portability via the JVM}
+
+\dbtag \texttt{javac}, the Java \emph{compiler}, does not produce machine code for any real CPU
+at all. It produces \textbf{Java bytecode} -- instructions for an abstract, idealized machine
+called the \textbf{Java Virtual Machine (JVM)} that does not physically exist as hardware.
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=1cm, minimum width=3cm, align=center, font=\small},
+  tool/.style={box, fill=dbGreenBg, draw=dbGreen},
+  data/.style={box, fill=nuLight, draw=nuNavy},
+  hot/.style={box, fill=examRedBg, draw=examRed},
+  >=Latex
+]
+  \node[data] (src) at (0,0) {\texttt{Hello.java}\\(source)};
+  \node[tool] (javac) at (4,0) {\texttt{javac}\\(compiler)};
+  \node[data] (class) at (8,0) {\texttt{Hello.class}\\(JVM bytecode)};
+  \node[tool] (interp) at (12.3,1.1) {JVM:\\Interpreter};
+  \node[hot]  (jit)    at (12.3,-1.1) {JVM:\\JIT Compiler};
+  \node[data] (out) at (16.5,0) {Running on\\\emph{this} CPU};
+
+  \draw[->, thick] (src) -- (javac);
+  \draw[->, thick] (javac) -- (class);
+  \draw[->, thick] (class.east) -- ++(0.7,0) |- (interp.west);
+  \draw[->, thick] (class.east) -- ++(0.7,0) |- (jit.west);
+  \draw[->, thick] (interp.east) -| (out.north);
+  \draw[->, thick] (jit.east) -| (out.south);
+\end{tikzpicture}}
+\end{center}
+
+\begin{coreidea}[``Write Once, Run Anywhere'']
+Because \texttt{javac} only ever has to target \emph{one} abstract machine (the JVM
+specification) instead of every physical CPU family, the exact same \texttt{Hello.class} file
+runs unmodified on Windows/x86, Linux/ARM, or a JVM on any other platform --- as long as
+\emph{that} platform has a compliant JVM installed. All the platform-specific work is pushed
+into the JVM implementation itself (one per platform, built once by the JVM vendor), instead of
+into every single Java program ever written. This is Sun Microsystems' famous ``Write Once, Run
+Anywhere'' pitch for Java, and it is the exact same $M + N$ argument (rather than $M \times N$)
+you will meet again with LLVM IR in Lecture 2 --- just applied to distribution instead of to
+compiler internals.
+\end{coreidea}
+
+\subsubsection{HotSpot's Tiered JIT in More Depth}
+
+\dbtag Modern HotSpot uses \textbf{tiered compilation}, layering the interpreter and two JIT
+compilers so the JVM is never stuck doing more work than the code's importance justifies:
+
+\begin{enumerate}
+  \item Every method starts out \textbf{interpreted}, while the JVM silently maintains an
+  \textbf{invocation counter} (calls) and a \textbf{back-edge counter} (loop iterations) for it.
+  \item Once a counter crosses a threshold, the \textbf{C1 (client) compiler} quickly produces a
+  lightly-optimized native version, and also inserts \textbf{profiling instrumentation} into it
+  (recording which branches are taken, which concrete types show up at a call site, \dots).
+  \item If the method keeps getting hotter, the \textbf{C2 (server) compiler} recompiles it a
+  second time, now using the profiling data gathered by the C1 version to make aggressive,
+  \emph{speculative} optimizations: inlining a virtual method call that has -- so far -- always
+  resolved to the same concrete type; eliminating a heap allocation entirely if it can prove the
+  object never escapes the method (\textbf{escape analysis}); unrolling a hot loop.
+  \item If a speculative assumption is later violated (a second, different type shows up at that
+  call site), HotSpot \textbf{deoptimizes}: it discards the C2 code for that method and falls
+  back to the interpreter (or C1) until it is confident enough to try recompiling again.
+\end{enumerate}
+
+\begin{examfocus}
+Be able to explain, in your own words, why HotSpot's C2 compiler can safely make optimizations
+(like assuming a call site's type never changes) that a purely static AOT compiler like GCC
+never could -- and what mechanism (deoptimization) lets it recover if that assumption turns out
+to be wrong.
+\end{examfocus}
+
+\subsubsection{JIT vs.\ AOT vs.\ Interpreter: Advantages and Disadvantages}
+
+Pulling together everything from the enhanced table in \S2.4 and the HotSpot walkthrough above,
+here is the direct trade-off summary for a JIT compiler specifically:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}X X@{}}
+\toprule
+\textbf{JIT Advantages} & \textbf{JIT Disadvantages} \\
+\midrule
+Can use \textbf{real runtime profile data} (actual types, actual branch frequencies) to make
+optimizations no static compiler can safely attempt -- generally impossible for an AOT compiler,
+which only ever sees the source. &
+\textbf{Warm-up latency}: peak performance is only reached after enough executions to get hot
+code recompiled -- a real problem for short-lived programs (e.g.\ CLI tools, serverless
+functions). \\
+Ships one \textbf{portable} bytecode artifact instead of a separate binary per target CPU --
+matching an interpreter's portability, unlike AOT. &
+Consumes \textbf{extra CPU and memory at run time} for profiling counters, the JIT compiler
+threads themselves, and a generated-code cache -- resources an AOT binary or a plain interpreter
+never spend. \\
+Reaches \textbf{steady-state speed close to AOT-compiled native code} for long-running,
+hot-path-dominated programs -- far faster than a pure interpreter ever gets. &
+\textbf{Less predictable} performance moment-to-moment (a method might pause execution while it
+gets recompiled), which matters for hard real-time systems that AOT compilation suits better. \\
+Can \textbf{adapt to the actual host CPU} at run time (e.g.\ use available vector instructions)
+without shipping separate binaries per microarchitecture, unlike a single AOT build. &
+\textbf{Significantly more implementation complexity}: an interpreter, multiple JIT tiers,
+profiling instrumentation, and deoptimization machinery, versus AOT's comparatively simple
+``compile once, done.'' \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{enrichment}[Extra Depth: The Java Class File, Briefly]
+A \texttt{.class} file is itself a small, well-defined binary format worth knowing at a glance:
+it opens with a \textbf{magic number} (\texttt{0xCAFEBABE}, a Sun Microsystems in-joke), a
+class-file version number, a \textbf{constant pool} (a table holding every literal, class name,
+and method/field reference the class uses -- similar in spirit to the symbol table we will meet
+in Lecture 2), and then the actual bytecode for each method. Tools like \texttt{javap -c
+Hello.class} let you disassemble a compiled class and read its raw JVM bytecode instructions
+directly -- a nice hands-on way to see \S2's ``token stream $\to$ bytecode'' pipeline made
+completely concrete.
+\end{enrichment}
+
+\section{Why Study Compilers? (DB \S1.1)}
+
+\dbtag You may never write a production C compiler. So why is this course core, and why does
+almost every strong CS program require it? Three overlapping reasons:
+
+\begin{enumerate}
+  \item \textbf{Compilers are, in DB's phrase, ``one of the largest and most complex software
+  systems'' commonly built} -- yet a working one is buildable in a single semester project.
+  Nowhere else in the curriculum will you build something this large, this precisely specified,
+  end to end, from a formal problem statement to a working artifact.
+  \item \textbf{The techniques generalize far beyond compilers.} Finite automata power text
+  editors, network protocol parsers, and input validation. Context-free grammars appear in JSON
+  parsers, config-file readers, and query languages. Data-flow analysis underlies static
+  analyzers, IDE ``find usages'' features, and security vulnerability scanners. You are not just
+  learning to build a compiler; you are learning the standard toolkit for building \emph{any}
+  system that must process structured, language-like input reliably.
+  \item \textbf{Compilers sit at the hardware/software boundary.} Understanding how a
+  \texttt{for} loop becomes register moves and branch instructions demystifies performance --
+  why one piece of ``equivalent'' code runs 10$\times$ faster than another, why cache-friendly
+  code matters, and why some languages can be faster than others for reasons that have nothing to
+  do with the programmer's skill.
+\end{enumerate}
+
+\begin{enrichment}[Extra Depth: A ``Meta'' Argument]
+There's a fourth reason DB does not spell out explicitly but that experienced engineers often
+cite: compiler construction is one of the few courses where you are forced to build a
+\emph{multi-stage pipeline} with cleanly separated concerns (lexing, parsing, semantic
+analysis, code generation) and \emph{formally specified} correctness at each stage. This is
+directly transferable to designing any large pipeline system -- data pipelines, network stacks,
+even ML training pipelines -- where the same discipline of ``define an intermediate
+representation, verify it, transform it, repeat'' shows up again and again.
+\end{enrichment}
+
+\section{Applications of Compiler Technology (DB \S1.5)}
+
+\dbtag DB is explicit that compiler techniques reach ``far beyond'' translating a
+general-purpose programming language into machine code. Five application areas DB highlights:
+
+\begin{enumerate}
+  \item \textbf{Implementation of high-level programming languages.} The obvious case, but note
+  the historical point DB makes: higher-level languages raised the level of abstraction
+  precisely \emph{because} compiler technology matured enough to make that abstraction
+  affordable in performance terms.
+  \item \textbf{Optimizations for computer architectures.} As hardware has grown more parallel
+  (multi-core, SIMD/vector units, deep pipelines, GPUs), the compiler has taken on more
+  responsibility for finding parallelism and hiding memory latency that programmers cannot
+  realistically manage by hand.
+  \item \textbf{Design of new computer architectures.} Hardware designers now co-design
+  instruction sets \emph{with} the compiler in mind (RISC philosophy: keep hardware simple, let
+  the compiler do the scheduling), since a feature only helps if a compiler can reliably exploit
+  it.
+  \item \textbf{Program translations.} Beyond source-to-machine-code, DB lists: binary
+  translation (retargeting compiled binaries to a new instruction set, e.g.\ Apple's Rosetta 2
+  translating x86 binaries to run on Apple Silicon), hardware synthesis (compiling a hardware
+  description language like Verilog into actual circuit layouts), database query interpreters
+  (translating SQL into an execution plan), and compiled simulation (compiling a simulation
+  model, e.g.\ for chip verification, into fast executable code rather than interpreting it).
+  \item \textbf{Software productivity tools.} Type checking, bounds checking, and static
+  program-analysis tools that catch bugs before run time all reuse the same front-end machinery
+  (lexers, parsers, semantic analyzers) that compilers use.
+\end{enumerate}
+
+\begin{enrichment}[Extra Depth: Applications DB Does Not Mention]
+The five areas above were written with early-2000s computing in mind. Several major
+compiler-technology application areas have grown enormously since and deserve a mention:
+\begin{itemize}
+  \item \textbf{Machine-learning compilers.} Frameworks like Google's XLA, Apache TVM, and
+  MLIR (Multi-Level Intermediate Representation, itself built using classic compiler theory)
+  compile neural-network computation graphs down to highly optimized GPU/TPU kernels -- this is
+  now one of the most active areas of compiler research.
+  \item \textbf{WebAssembly (WASM).} A portable, sandboxed bytecode target designed so
+  \emph{any} source language (C, Rust, Go, \dots) can compile to it and run safely inside a
+  browser or standalone runtime at near-native speed.
+  \item \textbf{Superoptimizers.} Tools (e.g.\ Souper, STOKE) that search -- sometimes with
+  SMT solvers, sometimes with reinforcement learning -- for provably optimal short instruction
+  sequences, going beyond what traditional rule-based optimization passes can find.
+  \item \textbf{Domain-specific languages (DSLs) and their compilers.} Halide (image-processing
+  pipelines), SQL query planners, regular-expression engines, and shader languages (GLSL/HLSL for
+  GPUs) are all compilers for a language deliberately kept small and specialized so it can be
+  optimized far more aggressively than a general-purpose language could be.
+  \item \textbf{Security applications.} Control-flow integrity instrumentation, automatic
+  bounds-check insertion (AddressSanitizer), and fuzzing harness generation are compiler-pass
+  techniques applied specifically to hardening software against attack.
+  \item \textbf{LLVM as shared infrastructure.} Perhaps the biggest structural change since DB
+  2nd edition: LLVM lets dozens of front-ends (Clang/C/C++, Rust, Swift, Julia, and more) share
+  one very well-engineered optimizer and set of back-ends, instead of every language reinventing
+  code generation. We will return to LLVM in Lecture 25.
+\end{itemize}
+\end{enrichment}
+
+\section{A Typical Language-Processing System}
+
+\dbtag The ``compiler'' most people invoke by typing \texttt{gcc file.c} is not, strictly, one
+single program at all -- it is a \textbf{driver} that coordinates several distinct tools in
+sequence. DB places the compiler proper inside this larger \textbf{language-processing system}.
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=1.1cm, minimum width=2.7cm, align=center, font=\small},
+  tool/.style={box, fill=dbGreenBg, draw=dbGreen},
+  data/.style={box, fill=nuLight, draw=nuNavy},
+  >=Latex
+]
+  \node[data] (src)  at (0,0)  {Source Program\\(with macros,\\\texttt{\#include}s)};
+  \node[tool] (pre)  at (4,0)  {Preprocessor};
+  \node[data] (src2) at (8,0)  {Pure Source\\Program};
+  \node[tool] (comp) at (12,0) {Compiler};
+  \node[data] (asm)  at (16,0) {Target\\Assembly Program};
+
+  \node[tool] (assm) at (12,-2.4) {Assembler};
+  \node[data] (rel)  at (16,-2.4) {Relocatable\\Object Code};
+  \node[data] (libs) at (8,-4.6)  {Library Files \&\\Relocatable Object Files};
+  \node[tool] (ll)   at (12,-4.6) {Linker / Loader};
+  \node[data] (tgt)  at (16,-4.6) {Target\\Machine Code};
+
+  \draw[->, thick] (src) -- (pre);
+  \draw[->, thick] (pre) -- (src2);
+  \draw[->, thick] (src2) -- (comp);
+  \draw[->, thick] (comp) -- (asm);
+  \draw[->, thick] (asm.south) -- ++(0,-0.5) -| (assm.north);
+  \draw[->, thick] (assm) -- (rel);
+  \draw[->, thick] (rel.south) -- ++(0,-0.5) -| (ll.north);
+  \draw[->, thick] (libs) -- (ll);
+  \draw[->, thick] (ll) -- (tgt);
+\end{tikzpicture}}
+\end{center}
+\begin{center}
+\small\textit{A typical language-processing system (compare DB Fig.\ 1.5): the ``compiler'' you
+invoke on the command line is really a pipeline of five distinct programs.}
+\end{center}
+
+\begin{itemize}
+  \item \textbf{Preprocessor.} Expands macros (\texttt{\#define}), includes files
+  (\texttt{\#include}), and resolves conditional-compilation directives (\texttt{\#ifdef}) ---
+  all as pure text substitution, before the compiler's grammar-aware phases ever run.
+  \item \textbf{Compiler (proper).} Everything from \S1: source $\to$ target assembly (today's
+  ``black box''; Lecture 2 opens it up phase by phase).
+  \item \textbf{Assembler.} Translates human-readable assembly instructions into
+  \textbf{relocatable machine code} and packages it as an \textbf{object file}.
+  \item \textbf{Linker.} Combines multiple object files and library files into one program,
+  resolving references between them.
+  \item \textbf{Loader.} Places the final program into memory and starts it running.
+\end{itemize}
+
+\begin{defbox}{Object File}
+An \textbf{object file} is the output of the assembler: a binary file containing machine
+instructions and data \emph{that is not yet a runnable program}. Critically, it contains:
+\begin{itemize}
+  \item \textbf{Relocatable code/data}, with memory addresses left as placeholders, since the
+  assembler does not know where in memory this code will ultimately live;
+  \item A table of \textbf{symbols this file defines} (e.g.\ a function it implements, available
+  for other files to call); and
+  \item A table of \textbf{symbols this file references but does not define} (e.g.\ a call to
+  \texttt{printf}, defined elsewhere in the C standard library) -- these are exactly what the
+  linker must resolve next.
+\end{itemize}
+On Linux this is the \texttt{.o} file produced by \texttt{gcc -c}; the same idea is called an
+\texttt{.obj} file on Windows.
+\end{defbox}
+
+\begin{coreidea}[What the Linker Actually Does]
+Programs are almost never compiled as a single file. The \textbf{linker}'s job is to take
+\emph{several} object files (and pre-built library files) and merge them into one program, by:
+\begin{enumerate}
+  \item \textbf{Symbol resolution:} matching every symbol a file \emph{references} (like a call
+  to a function defined in another file, or in a library) to the file that actually
+  \emph{defines} it. An unresolved symbol here is exactly the ``undefined reference to
+  \texttt{foo}'' error you see at link time, as distinct from a compiler error.
+  \item \textbf{Relocation:} now that every piece of code has been assigned a real, final
+  address in the combined program, the linker patches every placeholder address left by the
+  assembler with the correct final value.
+\end{enumerate}
+The output is one combined file --- an \textbf{executable} --- with (in the simplest case) no
+unresolved symbols and no remaining placeholder addresses.
+\end{coreidea}
+
+\begin{coreidea}[What the Loader Actually Does]
+The \textbf{loader} is typically part of the operating system, not the compiler toolchain. When
+you run a program, the loader:
+\begin{enumerate}
+  \item Allocates memory for the program (code, data, stack, heap regions);
+  \item Copies (or memory-maps) the executable's instructions and initial data into that memory;
+  \item Performs any \emph{final} address fix-ups that were deferred until this exact moment
+  (relevant for dynamically linked libraries, previewed in Lecture 2); and
+  \item Transfers control to the program's entry point -- the actual first instruction that
+  runs, which is \emph{not} always your \texttt{main} function directly (a small
+  language-runtime startup routine usually runs first).
+\end{enumerate}
+\end{coreidea}
+
+\begin{examfocus}
+A very common exam trap: ``which phase reports an `undefined reference' / `unresolved external
+symbol' error for a missing function?'' The answer is the \textbf{linker}, not the compiler ---
+the compiler is perfectly happy as long as a function is \emph{declared} (e.g.\ via a header
+file); only the linker checks that a matching \emph{definition} actually exists somewhere among
+all the object files and libraries it was given.
+\end{examfocus}
+
+\begin{enrichment}[A Preview of What's Coming in Lecture 2]
+This is deliberately the \emph{introductory} pass over the toolchain. Lecture 2 goes much
+further: static vs.\ dynamic linking, position-independent code and ASLR, real object-file
+formats (ELF, Mach-O, PE), and how build systems like Make, Ninja, and Bazel orchestrate this
+whole pipeline across thousands of files.
+\end{enrichment}
+
+\section{Different Kinds of Compilers}
+
+\beyonddb ``Compiler'' is used as an umbrella term across the industry for several genuinely
+different tools, distinguished by \emph{what kind of language} sits on each side of the
+translation (high-level vs.\ low-level) and \emph{which machine} runs the result. Six worth
+knowing by name:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.45}
+\begin{tabularx}{\textwidth}{@{}p{2.7cm} p{3.6cm} X@{}}
+\toprule
+\textbf{Kind} & \textbf{Source $\to$ Target} & \textbf{Example(s)} \\
+\midrule
+\textbf{Native (AOT) compiler} & High-level $\to$ machine code, same target as the host machine
+& GCC, Clang, \texttt{rustc} compiling for the machine they run on \\
+\textbf{Source-to-source compiler} (\textbf{transpiler}) & High-level $\to$ a \emph{different}
+high-level language & TypeScript $\to$ JavaScript; Babel (modern JS $\to$ older JS); CoffeeScript
+$\to$ JavaScript \\
+\textbf{Cross-compiler} & High-level $\to$ machine code for a target \emph{different} from the
+host running the compiler & Compiling ARM binaries for a phone on an x86 laptop; embedded
+firmware toolchains \\
+\textbf{Binary translator} & Low-level (one instruction set) $\to$ low-level (a \emph{different}
+instruction set) & Apple's Rosetta 2 (x86-64 $\to$ ARM64); QEMU's user-mode emulation \\
+\textbf{Decompiler} & Low-level (machine code or bytecode) $\to$ high-level-\emph{like} source &
+Ghidra, IDA Pro (machine code); JD-GUI, CFR (Java bytecode) \\
+\textbf{Bootstrapping (self-hosting) compiler} & A compiler for language X, \emph{written in} X
+itself & GCC (mostly C); \texttt{rustc} (written in Rust) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{examplebox}{Two of These, Worked Through}
+\textbf{Binary translation (Rosetta 2):} when Apple moved Macs from Intel (x86-64) to Apple
+Silicon (ARM64) in 2020, millions of existing apps were compiled x86-64 binaries with no source
+available to the end user. Rosetta 2 translates those already-compiled x86-64 binaries into
+ARM64 machine code -- notice both sides of this translation are \emph{low-level}, which is what
+makes it a binary translator rather than an ordinary compiler.
+
+\textbf{Bootstrapping (GCC):} you cannot compile the very first C compiler \emph{using} a C
+compiler, since none exists yet. Historically, an initial, minimal C compiler was written in
+assembly or an even earlier language; once that minimal compiler could compile \emph{a subset}
+of C, a fuller C compiler was written in C and compiled by the minimal one; that fuller compiler
+then compiles \emph{itself} (and every subsequent version) from then on. This
+chicken-and-egg-breaking process is exactly what ``self-hosting'' means.
+\end{examplebox}
+
+\begin{examfocus}
+Given a described tool (``translates Kotlin to Java source,'' ``translates ARM machine code
+back into readable pseudo-C,'' ``compiles Swift for an iPhone from a Mac''), be able to name
+which of these six kinds it is and justify your answer using the \emph{source $\to$ target}
+column above -- this classification-by-example is a very common short-answer format.
+\end{examfocus}
+
+\begin{enrichment}[Where the Compiler-vs-Interpreter and Kind-of-Compiler Axes Meet]
+These two classification schemes are independent and can combine freely. A JIT compiler
+\emph{is} a native compiler by this section's scheme (high-level/bytecode $\to$ machine code),
+just one whose \emph{timing} (during execution) differs from an AOT native compiler's. A
+transpiler like Babel is almost always itself an AOT tool -- it finishes its work entirely
+before the JavaScript it produces ever runs. Don't confuse ``what kind of translation is this''
+(this section) with ``when does the translation happen'' (\S2) -- exam questions sometimes test
+both axes on the same tool deliberately.
+\end{enrichment}
+
+\section{A Preview: What's Next}
+
+Lecture 2 opens up the compiler ``black box'' from \S1 of this lecture and walks through its
+internal phases -- lexical analysis, parsing, semantic analysis, intermediate code generation,
+optimization, and final code generation -- in real depth. It also returns to the
+language-processing toolchain from \S6, going far beyond today's introduction: static vs.\
+dynamic linking, position-independent code, real object-file formats, and how build systems
+orchestrate compilation across large projects. Everything in today's lecture is about
+\emph{what} these systems do from the outside; Lecture 2 begins answering \emph{how}, in detail.
+
+\section{Self-Check Questions}
+
+\begin{enrichment}[Practice -- Not Graded]
+\begin{enumerate}
+  \item In one sentence, explain why ``a compiler executes your program'' is a factually
+  incorrect statement, and what does execute it instead.
+  \item Classic CPython has no JIT; PyPy does. Predict, with a reason, which one would be faster
+  for a program consisting of a single loop that runs 50 million times, versus a script that
+  runs once and exits immediately.
+  \item Explain, using the $M+N$ vs.\ $M \times N$ argument, why compiling to JVM bytecode makes
+  Java portable in a way that compiling directly to x86 machine code would not.
+  \item A program compiles successfully with no errors, but fails at link time with ``undefined
+  reference to \texttt{compute\_total}.'' Which tool caught this, and why couldn't the compiler
+  have caught it earlier?
+  \item Is a transpiler (e.g.\ TypeScript $\to$ JavaScript) a compiler under DB's definition?
+  Justify your answer using the definition given in \S1, and separately, name which of the six
+  ``kinds of compiler'' from \S6 it belongs to.
+  \item Give one example, not listed in this lecture, of a real tool on your own laptop that is
+  best described as an ``interpreter'' rather than a compiler.
+  \item HotSpot's C2 JIT only compiles a method after it has been \emph{interpreted} many
+  times. Why not just JIT-compile every method the very first time it's called?
+\end{enumerate}
+\end{enrichment}
+
+\begin{takeaways}
+\begin{itemize}
+  \item A \textbf{compiler translates}; it does not itself execute the source program. An
+  \textbf{interpreter} executes the source directly, with no independent target program left
+  behind.
+  \item Compilers trade slower build time for faster, repeatable run time. Interpreters trade
+  that away for instant startup and easy interactivity.
+  \item Most real systems today (JVM, V8, .NET, PyPy) are \textbf{hybrids}: compile to portable
+  bytecode, interpret it at first, then \textbf{JIT-compile} the hot paths to native code at run
+  time -- Java's own history (pure interpreter in 1.0, HotSpot's tiered JIT from 1.3 onward) is
+  the clearest real example, and it's what makes ``write once, run anywhere'' work.
+  \item A JIT's big edge over AOT is \textbf{using real runtime profile data} for speculative
+  optimization; its costs are \textbf{warm-up latency} and \textbf{runtime profiling/compilation
+  overhead} -- know this trade-off table cold.
+  \item The compiler proper sits inside a larger \textbf{language-processing system}:
+  preprocessor $\to$ compiler $\to$ assembler $\to$ linker $\to$ loader. The assembler produces
+  an \textbf{object file} (relocatable code plus defined/referenced symbol tables); the
+  \textbf{linker} resolves symbols and relocates addresses; the \textbf{loader} places the
+  program in memory and starts it.
+  \item ``Compiler'' covers several genuinely different tools: \textbf{native/AOT compilers},
+  \textbf{source-to-source transpilers}, \textbf{cross-compilers}, \textbf{binary translators},
+  \textbf{decompilers}, and \textbf{bootstrapping/self-hosting compilers} -- know the
+  source$\to$target shape of each.
+  \item Compiler techniques (automata, grammars, data-flow analysis) show up far outside
+  traditional compilers -- in IDEs, static analyzers, database engines, and ML frameworks -- which
+  is the real reason this course is core, not elective.
+  \item DB \S1.5's five application areas (language implementation, architecture optimization,
+  architecture design, program translation, productivity tools) have since been joined by
+  ML compilation, WebAssembly, and shared infrastructure like LLVM.
+\end{itemize}
+\end{takeaways}
+
+\section*{References for This Lecture}
+\begin{itemize}
+  \item [DB] Aho, Lam, Sethi, Ullman. \textit{Compilers: Principles, Techniques, and Tools}, 2nd ed., \S1.1, \S1.2, \S1.4, \S1.5.
+  \item [ET] Cooper \& Torczon. \textit{Engineering a Compiler}, 2nd ed., \S1.1.
+  \item [AP] Appel. \textit{Modern Compiler Implementation in C/Java/ML}, Ch.\,1.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,54 @@
+% =====================================================================
+%  full-course-notes.tex -- COMBINED COURSE NOTES, CS-4031 COMPILER
+%  CONSTRUCTION, FALL 2026
+%
+%  This file stitches every lectureN-*.tex subfile into one PDF. It is
+%  built with the `subfiles` package, which means:
+%    - Each lectureN-*.tex file can still be compiled completely on its
+%      own (right-click "Compile" in your editor, or
+%      `pdflatex lectureN-....tex` directly) to get a standalone PDF
+%      for that lecture.
+%    - Running pdflatex on THIS file instead produces one combined PDF
+%      with every lecture back to back, correct running headers per
+%      lecture, and continuous page numbers.
+%
+%  To add a new lecture:
+%    1. Copy an existing lectureN-*.tex as a template.
+%    2. Update its \lecturemeta{...} call and content.
+%    3. Add one \subfile{...} line below, in order.
+%  compile_all.sh auto-discovers lecture files by filename, so no other
+%  script changes are needed.
+% =====================================================================
+
+\documentclass[11pt]{article}
+\input{preamble.tex}
+\usepackage{subfiles}
+
+\begin{document}
+\pagestyle{empty}
+
+% --- Cover page ---
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\Large\scshape The National University of Computer and Emerging Sciences, Lahore}\\[10pt]
+{\large Course Notes}\\[4pt]
+{\Huge\bfseries\color{nuNavy} Compiler Construction}\\[4pt]
+{\Large CS-4031}\\[8pt]
+{\normalsize Semester Fall-2026}\\[2cm]
+{\small\sffamily\color{gray} Compiled lecture notes -- see individual lectures for per-lecture references.}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+\pagestyle{fancy}
+\subfile{lecture1-compilers-interpreters-jit}
+\clearpage
+\subfile{lecture2-structure-of-a-compiler}
+\clearpage
+\subfile{lecture3-tokens-patterns-lexemes}
+\clearpage
+\subfile{lecture4-regular-expressions-definitions}
+
+\end{document}
