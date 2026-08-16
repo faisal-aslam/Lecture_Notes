@@ -265,6 +265,37 @@ may remain interpreted. This lets a system get the fast startup of an interprete
 steady-state speed of a compiler.
 \end{defbox}
 
+\begin{coreidea}[Why ``Warm-Up'' Adds a Delay]
+The ``time to reach peak speed'' row in \S2.4's table (distinct from startup latency -- see the
+exam-focus note there) has a
+concrete cause: three costs stack up, in sequence, before any piece of code reaches its fastest
+version, and none of them can be skipped.
+\begin{enumerate}
+  \item \textbf{Early runs pay interpreter-speed cost.} The very first time a method or loop
+  executes, no compiled native code for it exists yet -- there is nothing to jump to -- so it
+  runs through the interpreter (or a cheap baseline tier, e.g.\ HotSpot's C1), which is
+  inherently slower per operation than optimized native code.
+  \item \textbf{The system must first observe that code is hot.} A JIT does not compile on the
+  first call; it counts. The runtime increments an invocation/back-edge counter on every call or
+  loop iteration and only triggers compilation once that counter crosses a threshold. A loop
+  that only runs a handful of times may never get compiled at all, because counting to that
+  threshold, by construction, requires real executions to have already happened at the slower
+  tier.
+  \item \textbf{Compilation itself takes real, non-trivial time.} Once flagged hot, the method
+  still has to go through the JIT's own pipeline -- build an IR from the bytecode, run
+  optimization passes (inlining, register allocation, and more), and emit native code. This
+  usually runs on a background thread so it does not block the program outright, but it still
+  competes for CPU and memory (see ``Extra runtime overhead'' in \S2.4's table), and the
+  \emph{old}, slower version keeps running until the newly compiled version is ready and swapped
+  in.
+\end{enumerate}
+The practical consequence: long-running processes (servers, long batch jobs) amortize this
+one-time warm-up cost over a long steady-state run and benefit enormously from JIT compilation,
+while short-lived scripts or CLI invocations may finish before ever reaching peak speed --
+exactly why AOT-vs.-JIT benchmarks can be misleading if they measure only a program that runs
+for a second or two.
+\end{coreidea}
+
 \begin{examplebox}{Tiered execution in real systems}
 \begin{itemize}
   \item \textbf{JVM (HotSpot):} interprets bytecode first; the C1 (``client'') JIT compiles warm
@@ -316,15 +347,30 @@ of these properly later in this lecture.)}
 
 \subsection{Comparing the Three Models}
 
-\begin{center}
-\renewcommand{\arraystretch}{1.35}
-\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
-\begin{tabularx}{\textwidth}{@{}l Y Y Y@{}}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{longtable}{@{} p{0.16\textwidth} p{0.27\textwidth} p{0.27\textwidth} p{0.27\textwidth} @{}}
+\caption{Comparing the three execution models} \label{tab:compare-three-models} \\
 \toprule
  & \textbf{Pure Compiler} & \textbf{Pure Interpreter} & \textbf{JIT / Hybrid} \\
 \midrule
-\textbf{When translation happens} & Entirely before run time & Continuously, during run time & Partly before, partly during run time \\
-\textbf{Startup latency} & None (target already built) & Very low (start immediately) & Low, but JIT warm-up adds delay before peak speed \\
+\endfirsthead
+
+\multicolumn{4}{@{}l}{\itshape Table \thetable{} -- comparing the three execution models (continued)} \\
+\toprule
+ & \textbf{Pure Compiler} & \textbf{Pure Interpreter} & \textbf{JIT / Hybrid} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{@{}r}{\itshape continued on next page} \\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\textbf{When translation happens} & Entirely before run time & Continuously, during run time & Source $\to$ bytecode happens before run time; bytecode $\to$ native code (the JIT step itself) is \textbf{always fully during} run time -- see note below \\
+\textbf{Time to reach peak speed} & N/A -- already at peak from instruction one (see above) & N/A -- there is no ``peak''; every instruction runs at the same interpreted speed forever & \textbf{Nonzero (``warm-up'')} -- profiling must first identify hot code, then compilation must finish, before that code is upgraded to native speed; the program is already running the whole time this happens \\
 \textbf{Steady-state speed} & Fastest & Slowest (re-dispatch overhead) & Approaches compiled speed for hot code \\
 \textbf{Portability} & Target is machine-specific -- a new platform needs a recompile (or cross-compile) & Source runs anywhere the interpreter exists & Bytecode is portable; the JIT-generated native code is not, but it never has to be shipped \\
 \textbf{Optimization opportunity} & Largest -- whole program visible before run time, so multiple, expensive, whole-program passes are affordable & Smallest -- source (or bytecode) is re-examined on every execution, so heavyweight analysis is normally too costly to repeat & Bounded by run-time budget -- fewer/cheaper passes than AOT and limited mostly to hot methods, but compensated by real profiling data (next row) unavailable to AOT \\
@@ -332,9 +378,45 @@ of these properly later in this lecture.)}
 \textbf{Extra runtime overhead} & None -- compiler is long gone by run time & Dispatch overhead only & Profiling counters, background compiler threads, and a generated-code cache all compete with the program for CPU/memory \\
 \textbf{Debuggability / interactivity} & Weakest (must recompile to test a change) & Best (REPL, immediate feedback) & Good (often still supports a REPL over bytecode) \\
 \textbf{Typical users} & C, C++, Rust, Fortran & Shell scripts, classic BASIC & Java, C\#, JavaScript, PyPy \\
-\bottomrule
-\end{tabularx}
-\end{center}
+\end{longtable}
+\normalsize
+
+\begin{examfocus}
+The ``When translation happens'' row is the row most often misread. The hybrid pipeline has
+\emph{two} separate translation stages, and only one of them is ``just-in-time'':
+\begin{itemize}
+  \item \textbf{Source $\to$ bytecode} (e.g.\ \texttt{javac} producing \texttt{.class} files) is
+  ordinary ahead-of-time compilation. It happens once, before the program is ever run, exactly
+  like \S2.1's pure-compiler case -- it is just that its \emph{target} language is bytecode
+  instead of machine code.
+  \item \textbf{Bytecode $\to$ native code}, the actual JIT step, is \emph{never} done ahead of
+  time, not even partially. The decision of \emph{which} loop or method is hot enough to be
+  worth compiling is made by watching the program actually run (via profiling counters), and the
+  native code generated is specific to the behavior observed \emph{during that run} -- this is
+  exactly what ``just-in-time'' means: translation deferred until the last possible moment,
+  triggered by run-time evidence, not decided in advance.
+\end{itemize}
+So the ``partly before, partly during'' language in the table describes the \emph{full hybrid
+pipeline} (front-end compile, then JIT), not the JIT step in isolation. Taken alone, JIT
+compilation is entirely a run-time activity, no different in \emph{when} it happens from pure
+interpretation -- what makes it different is \emph{what} it produces (a reusable native-code
+artifact) rather than \emph{when} it produces it.
+\end{examfocus}
+
+\begin{examfocus}
+A related trap, worth knowing even though the table above does not track it separately:
+``startup latency'' and ``warm-up delay'' sound like the same thing but are not. \textbf{Startup
+latency} asks only: how long before the program starts executing at all? By that measure, JIT
+and pure interpretation are identical -- a JIT-based system \emph{begins} by interpreting (or
+running a cheap baseline tier) exactly like a pure interpreter does, so there is no extra pause
+before the first instruction runs. ``Warm-up,'' by contrast, is not a delay \emph{before}
+starting; it is the time \emph{after} the program has already started before some of its code
+gets promoted to native speed -- exactly what the ``Time to reach peak speed'' row above
+captures. The program is running the entire time warm-up is happening -- it is simply running at
+interpreted (not yet peak) speed for that stretch. So it is correct to say a JIT system has low
+startup latency \emph{and} a nonzero warm-up period -- these are not in tension, because they
+answer two different questions.
+\end{examfocus}
 
 \begin{historynote}
 Interpretation is not a modern shortcut invented for scripting languages --- it is \emph{older}
