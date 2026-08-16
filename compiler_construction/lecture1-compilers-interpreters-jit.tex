@@ -205,6 +205,44 @@ understanding this hybrid model properly, because it is how the overwhelming maj
 you run today --- Java, C\#, JavaScript, modern Python (via PyPy), and even Python's own CPython
 --- actually executes.
 
+\begin{defbox}{Virtual Machine (VM), vs.\ a Plain Interpreter}
+A \textbf{virtual machine}, in the sense used here, is a program that simulates a computer: it
+defines its own instruction set (an abstract, software-only ISA) together with the state a real
+CPU would have -- a program counter, and either an operand stack (JVM, Wasm) or a set of virtual
+registers -- and then runs a fetch-decode-execute loop over that instruction set, exactly the way
+real hardware executes machine code, except every step is simulated in software. Crucially, a VM
+does \emph{not} interpret your source program directly. There is always a separate front-end
+compilation step first (described just below) that translates source into \textbf{bytecode} --
+instructions for this abstract machine -- and the VM interprets \emph{that}, not your original
+code.
+
+This is different from a ``plain'' (tree-walking) interpreter, of the kind \S2.2 first
+introduced: a tree-walking interpreter parses source into an AST and directly, recursively
+evaluates that tree (\texttt{evaluate(node)} calling \texttt{evaluate(node.left)}, and so on).
+There is no separate instruction set, no fixed opcode encoding, and no simulated CPU state --
+the evaluator's own call stack mirrors the shape of the \emph{source program}, not the shape of
+a machine. Nothing about it resembles hardware, so it does not earn the name ``virtual machine.''
+
+The distinction, side by side:
+\begin{itemize}
+  \item \textbf{What is executed.} VM: a fixed, formally-defined bytecode instruction set,
+  produced by a separate compile step. Tree-walking interpreter: the source program's own parse
+  tree, walked directly, with no separate instruction set at all.
+  \item \textbf{Execution state.} VM: an explicit program counter plus an operand stack or
+  virtual registers -- state modeled on real hardware. Tree-walker: just the recursive call
+  stack of the \texttt{evaluate} function, shaped like the program's grammar, not like a CPU.
+  \item \textbf{Is it a genuine compilation target?} VM: yes -- bytecode is often documented and
+  shared across multiple front-end languages (JVM bytecode is targeted by Java, Kotlin, Scala,
+  and Clojure alike). Tree-walker: no -- the AST is just this one interpreter's private internal
+  representation of this one program.
+\end{itemize}
+Every VM is (or contains) some form of interpreter -- it interprets bytecode instruction by
+instruction. But not every interpreter is a VM: a tree-walker interprets source structure directly
+and never defines a machine to simulate. (A second, unrelated sense of ``virtual machine'' --
+\emph{system} VMs like VMware or QEMU, which virtualize an entire computer including its OS --
+is a different concept entirely and not what is meant here.)
+\end{defbox}
+
 \begin{enumerate}
   \item \textbf{Source $\to$ bytecode.} A ``front-end'' compiler translates source code into a
   compact, machine-independent intermediate form called \textbf{bytecode} (Java's \texttt{.class}
