@@ -11,8 +11,172 @@
 \setcounter{section}{0}
 \makelecturetitle
 
+\section*{A Career Note: Why Employers Are Hunting for Compiler Engineers}
+
+Before the roadmap: a fair question to ask on Day 1 of any course is ``why should I care?'' For
+this course, there is an unusually concrete answer. Compiler engineering is a small,
+specialized field -- and specialized fields where few people have real skills, but many
+companies need them, tend to pay very well and stay easy to get hired into. The rest of this
+note backs that claim with real, sourced numbers rather than just asserting it.
+
+\begin{center}
+\begin{tikzpicture}
+  \def\ymax{230}
+  \def\barw{2.3}
+  \def\scaley{0.021}
+  % axis
+  \draw[thick] (0,0) -- (0,\ymax*\scaley+0.3);
+  \draw[thick] (0,0) -- (11,0);
+  \foreach \y in {0,50,100,150,200}{
+    \draw[gray!50] (0,\y*\scaley) -- (10.6,\y*\scaley);
+    \node[left, font=\scriptsize] at (-0.15,\y*\scaley) {\$\y k};
+  }
+  % bar 1: Software Developer
+  \def\vA{133}
+  \draw[fill=nuLight, draw=nuNavy, thick] (1,0) rectangle (1+\barw,\vA*\scaley);
+  \node[font=\small\bfseries] at (1+\barw/2, \vA*\scaley+0.25) {\$133k};
+  \node[font=\scriptsize, align=center, text width=2.6cm] at (1+\barw/2,-0.55) {Software Developer\\(US median, BLS)};
+  % bar 2: Compiler Engineer, with range whisker
+  \def\vB{147}
+  \def\vBlo{88}
+  \def\vBhi{220}
+  \draw[fill=dbGreenBg, draw=dbGreen, thick] (4.2,0) rectangle (4.2+\barw,\vB*\scaley);
+  \draw[thick, dbGreen] (4.2+\barw/2,\vBlo*\scaley) -- (4.2+\barw/2,\vBhi*\scaley);
+  \draw[thick, dbGreen] (4.2+\barw/2-0.15,\vBlo*\scaley) -- (4.2+\barw/2+0.15,\vBlo*\scaley);
+  \draw[thick, dbGreen] (4.2+\barw/2-0.15,\vBhi*\scaley) -- (4.2+\barw/2+0.15,\vBhi*\scaley);
+  \node[font=\small\bfseries] at (4.2+\barw/2, \vBhi*\scaley+0.25) {\$147k};
+  \node[font=\scriptsize, align=center, text width=2.8cm] at (4.2+\barw/2,-0.55) {Compiler Engineer\\(US median, Glassdoor)};
+  % bar 3: AI/ML Engineer
+  \def\vC{176}
+  \draw[fill=examRedBg, draw=examRed, thick] (7.4,0) rectangle (7.4+\barw,\vC*\scaley);
+  \node[font=\small\bfseries] at (7.4+\barw/2, \vC*\scaley+0.25) {\$176k};
+  \node[font=\scriptsize, align=center, text width=2.8cm] at (7.4+\barw/2,-0.55) {AI/ML Engineer\\(US median, 2026 postings)};
+\end{tikzpicture}
+\end{center}
+\begin{center}
+\small\textit{US median annual pay, 2026. Compiler-engineer bar shows the 25th--90th percentile
+range as a whisker (\$88k--\$220k+). Sources: BLS Occupational Outlook Handbook (May 2024,
+software developers); Glassdoor 2026 self-reported compiler-engineer salaries (median of 107
+reports, top payers Apple/NVIDIA/Intel); aggregate analysis of 43,480 AI-engineering postings,
+H1 2026. Figures are US-market and will differ elsewhere, but the \emph{relative} picture --
+compiler engineering is solidly competitive with mainstream software pay, not a step down -- is
+the point.}
+\end{center}
+
+\begin{coreidea}[The Scarcity Argument]
+You're right that AI/ML roles significantly outnumber compiler roles, and that frontier AI labs
+pay far more at the very top (total compensation above \$600k--\$1M for senior researchers at
+places like OpenAI is real and reported). But total postings and top-end pay are only half the
+picture -- the other half is \emph{how many people you're competing against for a given
+opening}, and that's where the comparison flips:
+\begin{itemize}
+  \item ``AI Engineer'' is, as of 2026, the single most-chased job title in tech: bootcamps,
+  online courses, and career-switchers are all funneling huge numbers of applicants at
+  \emph{exactly} that title. Industry reporting on the 2026 AI hiring market explicitly notes
+  that entry-level, theory-only ML applicants face heavy competition, precisely \emph{because}
+  so many people are chasing the same title with similar, shallow qualifications.
+  \item Compiler engineering has no equivalent flood. Almost nobody outside a course like this
+  one has ever touched LLVM internals, written a register allocator, or built a lexer by hand.
+  A hiring manager at Arm has described compiler engineering openly as needing ``a fairly niche
+  skill set,'' explicitly citing it as one of their hardest roles to fill -- not because the pay
+  is bad, but because so few candidates exist at all.
+  \item An engineer already working in the field summarized it this way on a professional forum:
+  compiler work is ``a very small and very specialized field,'' but ``plenty of quality shops
+  like NVIDIA, FB, MS, Amazon, Google employ compiler engineers,'' with compensation and respect
+  reported as especially strong at companies like Apple.
+\end{itemize}
+The honest summary: AI has a bigger prize at the very top, but also vastly more competition at
+every level below it. Compiler engineering has a smaller applicant pool at \emph{every} level,
+which is exactly the dynamic that makes a specialized skill valuable.
+\end{coreidea}
+
+\begin{historynote}[New Compilers Are Being Born Right Now]
+If you think compiler design is a ``solved,'' finished field with nothing left to build, the
+timing of this very lecture disproves it. \textbf{Five days before this lecture} (August 11,
+2026), Modular shipped \textbf{Mojo 1.0} -- a brand-new, production-ready systems programming
+language built specifically for AI workloads, created by Chris Lattner, the same engineer who
+created LLVM, Clang, and Swift. Mojo's entire compiler is built on \textbf{MLIR}, itself still
+under active, rapid development. This is not an isolated case:
+\begin{itemize}
+  \item \textbf{Triton} (OpenAI's language and compiler for writing GPU kernels) held its third
+  annual developer conference in October 2025 and remains under active development as a faster,
+  more productive alternative to hand-written CUDA.
+  \item \textbf{Cranelift}, a from-scratch compiler backend written in Rust, is under active
+  development by the Bytecode Alliance and now powers production WebAssembly runtimes
+  (Wasmtime, Wasmer) and an alternative code generator for the Rust compiler itself.
+  \item Every new AI accelerator chip -- Google's TPUs, AWS's Trainium, Cerebras, Groq,
+  Tenstorrent, and a growing list of startups -- needs its \emph{own} compiler backend before
+  it's worth anything to a single customer. The AI hardware boom is, from a hiring standpoint,
+  also a compiler-engineer hiring boom.
+\end{itemize}
+The people who think ``we don't need new compilers'' are usually thinking only of C and Java.
+The moment you count every new language, every new AI accelerator, and every new
+WebAssembly-class runtime, the honest picture is the opposite: more compilers are being started
+from scratch \emph{today} than at almost any point in the field's history.
+\end{historynote}
+
+\begin{examplebox}{Who's Actually Hiring Compiler Engineers Right Now}
+Pulled directly from live job postings and hiring pages in 2026 -- notice the range of company
+\emph{types}, not just the big names:
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Category} & \textbf{Examples} \\
+\midrule
+Big Tech & Google, Meta, Microsoft, Amazon, Apple (Swift compiler team) \\
+GPU / AI silicon & NVIDIA (multiple LLVM, Triton, and CUDA-Tile compiler teams), AMD, Intel \\
+AI chip startups & d-Matrix, quadric, and a long tail of others building custom accelerators \\
+Everyday software you wouldn't expect & MathWorks (compiler team for MATLAB Coder), Tesla,
+ByteDance, ARM \\
+Frontier / niche computing & Code Metal, and even quantum-computing hardware firms (HRL
+Laboratories runs a compiler team for its quantum instruction stack) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+Postings for entry-level compiler roles at companies like NVIDIA in 2026 list base salary bands
+around \$108,000--\$195,500 depending on level, \emph{before} equity and bonus -- competitive
+with, and often above, typical new-grad software offers, for a much smaller applicant pool per
+opening.
+\end{examplebox}
+
+\begin{enrichment}[Why the Middle-End Specifically Matters -- Real Numbers]
+You mentioned middle-end optimization specifically, and it's worth backing that with data too.
+Compiler optimization is not a cosmetic feature -- it directly moves two things companies spend
+enormous money on: \textbf{compute time} and \textbf{energy}.
+\begin{itemize}
+  \item A peer-reviewed study on embedded ARM processors found that carefully choosing which
+  optimizations to apply (not just blindly using \texttt{-O2}) produced execution-time
+  improvements ranging from about 1\% up to \textbf{90\%} depending on the program, with
+  matching reductions in energy use.
+  \item A 2025 empirical study comparing compiled/JIT-accelerated Python (PyPy, Numba, Codon)
+  against plain CPython found energy-efficiency improvements as high as \textbf{86--99\%} on
+  compute-heavy benchmarks -- the same code, the same hardware, dramatically less energy, purely
+  from better compilation.
+  \item At data-center scale, NVIDIA's own 2025 research on workload-aware power/compiler
+  scheduling reported up to \textbf{15\% energy savings} alongside a \textbf{13\% throughput
+  increase} under fixed power budgets -- the kind of improvement that translates directly into
+  real money and real electricity at the scale companies like NVIDIA, Google, and Meta operate
+  at.
+  \item It's not automatic, either: a 2025 study on iOS apps found that a supposedly
+  ``faster'' optimization setting (\texttt{-Ounchecked} plus LLVM's \texttt{-Oz}) actually
+  \emph{increased} energy use by 34\% in one game despite a 9\% speedup -- optimization
+  trade-offs are genuinely subtle, which is exactly why skilled engineers, not just
+  ``turn -O3 on and hope,'' are needed to get this right.
+\end{itemize}
+This is the actual job: decisions made deep in a compiler's middle end -- which you'll start
+building toward in this course -- measurably change how much RAM a program needs, how fast it
+runs, how much it costs to operate at scale, and, increasingly, how much carbon a data center
+emits per computation.
+\end{enrichment}
+
+With that motivation in mind, here's what today actually covers:
+
 \begin{coreidea}[Lecture Roadmap]
 \begin{enumerate}
+  \item \emph{(Just covered above)} A career note on why this specific course is a
+  disproportionately good investment of your attention.
   \item What is a language processor, and what exactly is a \emph{compiler}?
   \item Compilers vs.\ interpreters vs.\ just-in-time (JIT) compilation --- three ways to run a
   program, with a full case study of how \textbf{Java} uses this to become portable.
