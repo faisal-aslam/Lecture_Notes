@@ -781,6 +781,31 @@ you run a program, the loader:
 \end{enumerate}
 \end{coreidea}
 
+\begin{coreidea}[Are Addresses Absolute After Linking, or Only After Loading?]
+It depends on which of two linking models is used, and modern systems mostly use the second one.
+\begin{itemize}
+  \item \textbf{Fixed-base static linking (the ``simplest case'' above).} The linker assumes the
+  program will always be loaded at one predetermined virtual address. Given that assumption, the
+  linker already has everything it needs to compute true, final \textbf{absolute} addresses
+  during linking itself -- the ``Relocation'' step above is the linker permanently writing those
+  absolute values into the executable. The loader's job then is just to copy bytes into memory
+  at that fixed spot; no address math happens at load time.
+  \item \textbf{Position-independent executables (PIE) and shared libraries -- the modern
+  default.} A shared library (\texttt{.so}/\texttt{.dll}) must be loadable at different addresses
+  in different processes, since many unrelated programs share one copy of it; and ASLR (address
+  space layout randomization) deliberately loads a program at a different random base address on
+  every run, as a security defense. In both cases the linker \emph{cannot} know the final load
+  address in advance, so it deliberately leaves references as \textbf{relative} offsets (or
+  entries in a relocation table) instead of fixing them. Only at load time, once the loader's
+  dynamic-linking component has actually chosen a base address for that run, do those relative
+  offsets become true run-time absolute addresses -- this is exactly the ``final address
+  fix-ups'' mentioned in step 3 above.
+\end{itemize}
+So ``linker addresses are relative and become absolute once the loader picks where the program
+is loaded'' is correct specifically for the PIE/shared-library case, which is now the common
+one -- not a universal property of everything the linker produces.
+\end{coreidea}
+
 \begin{examfocus}
 A very common exam trap: ``which phase reports an `undefined reference' / `unresolved external
 symbol' error for a missing function?'' The answer is the \textbf{linker}, not the compiler ---
