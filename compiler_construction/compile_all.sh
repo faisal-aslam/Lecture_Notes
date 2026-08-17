@@ -5,26 +5,41 @@
 # them succeeded, compiles full-course-notes.tex to produce the
 # combined PDF.
 #
-# Usage: ./compile_all.sh [-c]
+# Usage: ./compile_all.sh [-c | -t]
 #   -c    Clean only (removes aux/pdf for every lecture + the combined notes)
+#   -t    Tidy only (removes every lecture's .pdf and all intermediary build
+#         files -- .aux/.log/.out/.toc/.synctex.gz/.compile.log -- for both
+#         the lectures AND full-course-notes.tex, but KEEPS
+#         full-course-notes.pdf untouched). Use this to leave a clean
+#         folder where only the combined PDF is meant to be tracked (e.g.
+#         in git), without deleting the one PDF you actually want to keep.
 #   -h    Show this help message
 
 usage() {
-    echo "Usage: $0 [-c]"
-    echo "  -c    Clean only (don't compile)"
+    echo "Usage: $0 [-c | -t]"
+    echo "  -c    Clean only (removes everything, including full-course-notes.pdf)"
+    echo "  -t    Tidy only (removes lecture PDFs + all intermediary files,"
+    echo "        but keeps full-course-notes.pdf)"
     echo "  -h    Show this help message"
     exit 1
 }
 
 CLEAN_ONLY=0
-while getopts "ch" opt; do
+TIDY_ONLY=0
+while getopts "cth" opt; do
     case $opt in
         c) CLEAN_ONLY=1 ;;
+        t) TIDY_ONLY=1 ;;
         h) usage ;;
         *) usage ;;
     esac
 done
 shift $((OPTIND-1))
+
+if [ $CLEAN_ONLY -eq 1 ] && [ $TIDY_ONLY -eq 1 ]; then
+    echo "Error: -c and -t are mutually exclusive (pick one)."
+    usage
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPILE_ONE="${SCRIPT_DIR}/compile_latex.sh"
@@ -58,6 +73,26 @@ if [ $CLEAN_ONLY -eq 1 ]; then
           full-course-notes.out full-course-notes.toc full-course-notes.synctex.gz \
           full-course-notes.compile.log
     echo "All clean."
+    exit 0
+fi
+
+if [ $TIDY_ONLY -eq 1 ]; then
+    for f in $LECTURE_FILES; do
+        BASENAME=$(basename "$f" .tex)
+        rm -f "${BASENAME}.pdf" "${BASENAME}.aux" "${BASENAME}.log" \
+              "${BASENAME}.out" "${BASENAME}.toc" "${BASENAME}.synctex.gz" \
+              "${BASENAME}.compile.log"
+        echo "  tidied ${BASENAME}.*  (pdf + intermediary files removed)"
+    done
+    echo "Tidying full-course-notes.tex intermediary files (keeping full-course-notes.pdf)..."
+    rm -f full-course-notes.aux full-course-notes.log full-course-notes.out \
+          full-course-notes.toc full-course-notes.synctex.gz full-course-notes.compile.log
+    if [ -f full-course-notes.pdf ]; then
+        echo "Done. full-course-notes.pdf kept; everything else removed."
+    else
+        echo "Done. (Note: full-course-notes.pdf did not exist to begin with --"
+        echo "run a normal build first if you want the combined PDF to keep.)"
+    fi
     exit 0
 fi
 
