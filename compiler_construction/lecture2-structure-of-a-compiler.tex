@@ -372,6 +372,109 @@ family of managed languages -- not raw compiler-infrastructure reuse, and not sa
 for arbitrary source languages -- was its original goal.
 \end{examfocus}
 
+\section{MLIR: A Framework for Building Compiler IRs}
+
+MLIR (``Multi-Level Intermediate Representation'') is a compiler-infrastructure project started
+at Google around 2019 and merged into the official LLVM monorepo as one of its sub-projects in
+2020, first described publicly in~[MLIR]. It is worth understanding alongside LLVM IR for the same reason the
+previous section compared LLVM IR, JVM bytecode, and WebAssembly: people often assume ``MLIR''
+is just another name for ``LLVM IR, but newer,'' when in fact the two solve different problems
+and sit at different points in a compiler's pipeline.
+
+\subsection{The Problem MLIR Was Built to Solve}
+
+LLVM IR is deliberately low-level: typed, in SSA form, organized into ordinary basic blocks --
+close to assembly, as \S5 described. That is exactly what makes it a good shared target for many
+different \emph{source} languages once they have already been reduced to simple operations and
+control flow. It is a poor fit, however, for representing a program \emph{before} that
+reduction has happened -- for example, a matrix multiplication expressed as a single high-level
+tensor operation, or a nested loop that a compiler still intends to tile, fuse, or vectorize as a
+unit. Lowering straight to LLVM IR forces that structure to be flattened away immediately, before
+any optimization pass gets a chance to use it.
+
+Before MLIR existed, projects that needed this kind of higher-level representation simply built
+their own IR from scratch: TensorFlow's XLA had its own IR for tensor computations, Swift had
+SIL, Rust had MIR, and so on. Each of these reimplemented the same underlying machinery --
+a verifier, a textual printer and parser, a pass manager, a way to track source locations for
+error messages -- that LLVM already provides for LLVM IR, but for their own, unrelated IR. MLIR's
+goal is to give every such project a shared framework for this machinery, so that building a new,
+domain-specific IR is a matter of defining new operations rather than rebuilding compiler
+infrastructure from the ground up.
+
+\subsection{Core Ideas}
+
+\textbf{Dialects.} Instead of one fixed instruction set, MLIR defines an extensible mechanism
+for registering \textbf{dialects} -- namespaced families of operations, types, and attributes.
+The \texttt{arith} dialect has operations like \texttt{arith.addi}; the \texttt{linalg} dialect
+has structured, high-level operations such as matrix multiplication; the \texttt{scf} dialect
+(``structured control flow'') has \texttt{for} and \texttt{while} loops as single operations,
+rather than as jumps between basic blocks; and the \texttt{llvm} dialect defines operations that
+directly mirror LLVM IR. Crucially, operations from several different dialects can appear
+together in the very same function -- there is no requirement to fully translate out of one
+dialect before using another.
+
+\textbf{Progressive lowering.} A program does not jump from a high-level dialect straight to
+machine code in one step. It is lowered dialect by dialect: a high-level tensor operation
+becomes a structured loop, the structured loop becomes ordinary branching control flow, and
+that, in turn, becomes the \texttt{llvm} dialect. Each of these steps is a small, independently
+checkable transformation, and different compilers can choose to stop lowering at whichever level
+is most useful for a given optimization -- a loop-tiling pass wants to run before loops are
+flattened into branches, for instance, while register allocation only makes sense long after
+that point.
+
+\textbf{Regions.} An ordinary LLVM IR function is a flat sequence of basic blocks connected by
+branches -- there is no notion of one block being ``inside'' another. An MLIR operation, by
+contrast, can carry a nested \textbf{region} containing its own blocks. A loop or a function body
+is therefore naturally represented as one operation containing a region, preserving its nested
+structure for as long as that structure remains useful, instead of being flattened into a
+control-flow graph immediately.
+
+\subsection{How MLIR Differs From LLVM IR}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+ & \textbf{LLVM IR} & \textbf{MLIR} \\
+\midrule
+What it is & One fixed intermediate representation & A framework for defining many
+intermediate representations (dialects) \\
+Abstraction level & Low and fixed -- close to assembly & Whatever a given dialect needs --
+high, low, or several levels mixed in one module \\
+Control-flow structure & Flat basic blocks connected by branches & Operations can carry nested
+regions, so loops and other structure can stay nested until a pass chooses to flatten them \\
+Role in a pipeline & The representation code is lowered \emph{to}, immediately before
+LLVM's own optimizer and back-ends take over & Sits \emph{upstream} of LLVM IR; its own
+\texttt{llvm} dialect is what eventually converts into ordinary LLVM IR \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The last row is the point most often missed: MLIR does not replace LLVM. A program written using
+MLIR's higher-level dialects is progressively lowered, within MLIR, down to the \texttt{llvm}
+dialect; from there it is translated into ordinary LLVM IR and handed to the exact same
+optimizer passes and back-ends already described in \S3 and \S5. MLIR extends the \emph{front}
+of the pipeline -- giving compiler writers a place to do domain-specific reasoning (tensor
+shapes, loop tiling, hardware-specific fusion) before code is flattened down to LLVM IR -- rather
+than replacing anything downstream of it.
+
+\subsection{Where MLIR Is Used}
+
+MLIR's dialect mechanism has made it attractive well beyond its original use case. Notable
+adopters include Google's XLA and IREE (compiling machine-learning computation graphs to CPUs,
+GPUs, and custom accelerators), PyTorch's Torch-MLIR, Triton (a language for writing GPU
+kernels), CIRCT (an MLIR-based toolchain for hardware design, playing a role similar to parts of
+a Verilog toolchain), and Flang, LLVM's own Fortran front end, which lowers through an
+MLIR dialect called FIR before reaching LLVM IR.
+
+\subsection*{References for This Section}
+\begin{itemize}
+  \item[{[MLIR]}] Lattner, C., Amini, M., Bondhugula, U., Cohen, A., Davis, A., Pienaar, J.,
+  Riddle, R., Shpeisman, T., Vasilache, N., Zinenko, O. \textit{MLIR: A Compiler Infrastructure
+  for the End of Moore's Law}. arXiv:2002.11054, 2020.
+  \item[{[MLIR-DOCS]}] The MLIR Project. Official documentation. \url{https://mlir.llvm.org/}
+\end{itemize}
+
 \section{The Compiler's Neighbors: Preprocessor, Assembler, Linker \& Loader}
 
 \dbtag The ``compiler'' most people mean when they say \texttt{gcc file.c} is actually a
