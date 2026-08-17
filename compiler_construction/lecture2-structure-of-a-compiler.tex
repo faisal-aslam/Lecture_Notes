@@ -74,6 +74,71 @@ This exact table (input $\to$ phase $\to$ output) is the single most common shor
 MCQ pattern in compiler exams worldwide, not just here.
 \end{examfocus}
 
+\subsection{A Tiny Example, Followed Through Every Phase}
+
+\dbtag It helps enormously to see one small piece of source code survive the \emph{entire}
+pipeline, phase by phase, before we study each phase in isolation over the coming lectures. DB
+uses exactly this running example when it first introduces the phases (\S1.2); we reproduce a
+miniature version of it here, and will point back to it by name (``the \texttt{position}
+example'') whenever a later lecture revisits one of these phases in more depth. Nothing here
+needs to be memorized yet -- it is a preview, not new material to be tested on its own.
+
+Source statement (assume \texttt{position}, \texttt{initial}, and \texttt{rate} are declared as
+real/floating-point variables, and \texttt{60} is an ordinary integer literal):
+\begin{center}
+\ttfamily position = initial + rate * 60
+\end{center}
+
+\begin{examplebox}{The \texttt{position} Statement, Phase by Phase}
+\begin{itemize}
+  \item \textbf{Lexical analysis (Lectures 3--7).} The character stream is grouped into tokens:
+  \texttt{<id,1> <=> <id,2> <+> <id,3> <*> <60>} -- where \texttt{id,1}, \texttt{id,2}, and
+  \texttt{id,3} are pointers to the symbol-table entries for \texttt{position}, \texttt{initial},
+  and \texttt{rate} respectively.
+  \item \textbf{Syntax analysis (Lectures 8--17).} The token stream is organized into a syntax
+  tree that reflects the grammatical structure of an assignment: an \texttt{=} node whose left
+  child is \texttt{id,1} and whose right child is a \texttt{+} node, which in turn has children
+  \texttt{id,2} and a \texttt{*} node with children \texttt{id,3} and \texttt{60}.
+  \item \textbf{Semantic analysis (Lectures 18--21).} Types are checked, and where necessary,
+  made explicit. Here, \texttt{60} is an integer literal but \texttt{rate} is real, so the
+  semantic analyzer inserts an explicit conversion: the \texttt{*} node's right child becomes
+  \texttt{inttoreal(60)} instead of the bare integer \texttt{60}. The result is an
+  \emph{annotated} (``decorated'') tree.
+  \item \textbf{Intermediate code generation (Lectures 22--25).} The annotated tree is
+  translated into three-address code, one operation per instruction:
+\begin{verbatim}
+t1 = inttoreal(60)
+t2 = id3 * t1
+t3 = id2 + t2
+id1 = t3
+\end{verbatim}
+  \item \textbf{Code optimization (Lectures 28--29).} \texttt{inttoreal(60)} does not depend on
+  any variable, so it can be computed once, at compile time, instead of being recomputed by the
+  generated program every single time this line runs:
+\begin{verbatim}
+t1 = id3 * 60.0
+id1 = id2 + t1
+\end{verbatim}
+  \item \textbf{Code generation (Lecture 30).} The optimized IR becomes target assembly, using
+  real machine registers and instructions (illustrative syntax, not tied to one specific ISA):
+\begin{verbatim}
+MOVF   id3, R2
+MULF   #60.0, R2
+MOVF   id2, R1
+ADDF   R2, R1
+MOVF   R1, id1
+\end{verbatim}
+\end{itemize}
+\end{examplebox}
+
+\begin{examfocus}
+This example is deliberately small enough to hold in your head. When a later lecture introduces
+the \emph{real} algorithm for a phase (Thompson's construction, LALR(1) table construction,
+available-expressions data-flow analysis, and so on), try re-running that algorithm on this same
+statement by hand before tackling a harder one -- it is a fast way to sanity-check that you have
+understood a new algorithm correctly.
+\end{examfocus}
+
 \subsection{Analysis and Synthesis: The Two Halves}
 
 \dbtag DB groups these six phases into two conceptual halves:
@@ -222,8 +287,90 @@ through once here since we will return to it in Lecture 25 for code generation p
 The practical payoff: when Apple Silicon (AArch64) needed a good C++ compiler, no one had to
 write a new C++ front-end --- Clang's C++ front-end and every middle-end optimization pass were
 already reusable; only a back-end for AArch64 was needed (and it mostly already existed, since
-LLVM had supported ARM for years).
+LLVM had supported ARM for years). This is exactly the $M+N$ payoff from the coreidea box above,
+made concrete: roughly 20+ front-ends (Clang, \texttt{rustc}, Swift, Julia, \dots) and roughly
+20+ back-ends (x86-64, AArch64, RISC-V, WebAssembly, \dots) share \emph{one} middle-end, instead
+of each of those $20 \times 20$ combinations needing its own hand-written optimizer.
 \end{enrichment}
+
+\section{Comparing Real-World IRs: LLVM IR, JVM Bytecode, and WebAssembly}
+
+\beyonddb LLVM IR, JVM bytecode, and WebAssembly are all, loosely, ``intermediate,
+machine-independent instruction sets sitting between source code and a real CPU'' --- which is
+why students often lump them together as interchangeable ``bytecode.'' They are not
+interchangeable: each was designed with a different primary goal in mind, and that goal shapes
+how high- or low-level it is, what it assumes about memory and objects, and what it is actually
+good for.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\small
+\begin{tabularx}{\textwidth}{@{}l X X X@{}}
+\toprule
+ & \textbf{LLVM IR} & \textbf{JVM Bytecode} & \textbf{WebAssembly (Wasm)} \\
+\midrule
+\textbf{Primary design goal} & A reusable \emph{compiler middle-end}: one optimizer, shared by
+many front-ends and back-ends & \emph{Portability} (``write once, run anywhere'') for
+Java-family, object-oriented, garbage-collected languages & \emph{Safe, sandboxed} execution of
+code from an untrusted source (originally: the web), at near-native speed \\
+\textbf{Abstraction level} & Low --- close to assembly, but target-independent; typed and
+SSA-based & Medium-to-high --- bakes in classes, interfaces, virtual method dispatch, exception
+tables & Low --- a compact, portable, stack-based instruction set, close to assembly \\
+\textbf{Assumes an object model / GC?} & No. No built-in notion of classes or garbage
+collection; each front-end supplies its own & Yes. Assumes the JVM supplies garbage collection
+and an object model & No, in Wasm's core spec. A separate, later ``GC proposal'' adds optional
+managed references \\
+\textbf{Control flow} & Ordinary basic blocks and branches, the same shape as real machine code
+& Ordinary jumps/branches; the bytecode \emph{verifier} checks type-safety, not control-flow
+shape & \textbf{Structured only} --- blocks, loops, ifs; no arbitrary \texttt{goto}, so a
+validator can check it in a single linear pass \\
+\textbf{Usually executed directly?} & No --- almost always compiled further, to native code; not
+normally shipped as the final artifact users run & Yes --- interpreted and/or JIT-compiled
+directly by a JVM & Yes --- interpreted and/or JIT/AOT-compiled directly by a Wasm runtime \\
+\textbf{Best fit for} & Being a shared layer that \emph{very different} source languages
+(systems, functional, managed, \dots) can all lower into & Languages that already fit the JVM's
+object/GC model well (Kotlin, Scala, Clojure, Groovy) & Any source language willing to compile
+to a small, safe, sandboxed core -- often reached \emph{via} LLVM's own WebAssembly back-end \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{coreidea}[Why LLVM IR's Low Level Is a Feature, Not a Limitation]
+LLVM IR deliberately does \emph{not} assume any particular memory-management strategy or object
+model. That is exactly why it can serve as the shared middle layer for languages with wildly
+different runtime models: C's manual memory management, Rust's ownership/borrow-checked memory,
+Swift's automatic reference counting, and Julia's dynamic dispatch all lower into the same LLVM
+IR, because none of those choices had to be baked into the IR itself -- each front-end encodes
+its own memory-management decisions \emph{as ordinary LLVM IR instructions}. JVM bytecode makes
+the opposite trade-off: by assuming garbage collection and an object model up front, it becomes
+an excellent, low-friction target for languages that already want exactly that (Kotlin, Scala)
+but an awkward one for a language like C that manages memory itself. Neither design is
+``better'' in general -- they optimize for different things, which is precisely the point of
+this comparison.
+\end{coreidea}
+
+\begin{examplebox}{WebAssembly as ``Just Another LLVM Back-End''}
+Because LLVM already has back-ends for x86-64, AArch64, and RISC-V, adding a WebAssembly
+back-end fits the exact same $M+N$ story from earlier in this lecture: any existing LLVM
+front-end (Clang for C/C++, \texttt{rustc} for Rust) can already produce WebAssembly simply by
+selecting the \texttt{wasm32} target, with \emph{no} changes to the front-end or to any
+optimization pass. This is why, in practice, a great deal of WebAssembly in the wild is not
+hand-written but is the output of compiling C, C++, or Rust source through ordinary LLVM
+tooling (e.g.\ Emscripten for C/C++) -- WebAssembly is simultaneously a stand-alone IR in its own
+right \emph{and} one more entry in LLVM's list of back-end targets.
+\end{examplebox}
+
+\begin{examfocus}
+Do not confuse the two axes this section and the earlier ``kinds of IR'' discussion test
+separately: \emph{how low-level is it, and why} (this section) versus \emph{when is it executed
+relative to run time} (Lecture 1's AOT/interpreter/JIT distinction). LLVM IR and WebAssembly are
+both low-level, but for different reasons -- LLVM IR is low-level so that generating real machine
+code from it is easy and so that no language's runtime assumptions get baked in; WebAssembly is
+low-level \emph{and} structured so that it can be validated quickly and executed safely in a
+sandbox. JVM bytecode is higher-level than both, by design, because portability for one specific
+family of managed languages -- not raw compiler-infrastructure reuse, and not sandboxed safety
+for arbitrary source languages -- was its original goal.
+\end{examfocus}
 
 \section{The Compiler's Neighbors: Preprocessor, Assembler, Linker \& Loader}
 
@@ -391,6 +538,13 @@ can be repurposed wholesale for tooling.
   linking does the opposite?
   \item \texttt{clangd} never performs code generation. Which phases of the pipeline does it
   still need to run, and why are those enough to power features like ``jump to definition''?
+  \item For the \texttt{position} example in \S1.1, write out what the three-address code would
+  look like if \texttt{60} were replaced by \texttt{count}, an already-integer variable (so no
+  \texttt{inttoreal} conversion is needed). Which of the six phases changes as a result, and
+  which stay exactly the same?
+  \item JVM bytecode assumes garbage collection; LLVM IR does not. Explain why this makes JVM
+  bytecode a natural fit for Kotlin but a poor natural fit for a language like C, and explain why
+  WebAssembly's core spec makes the same choice as LLVM IR here rather than the JVM's.
 \end{enumerate}
 \end{enrichment}
 
@@ -400,11 +554,19 @@ can be repurposed wholesale for tooling.
   analysis, intermediate code generation, code optimization, code generation.
   \item These split into an \textbf{analysis} half (front end: builds an IR and symbol table)
   and a \textbf{synthesis} half (back end: builds the target program from that IR).
+  \item The \texttt{position = initial + rate * 60} example shows all six phases acting on one
+  tiny statement: tokens $\to$ syntax tree $\to$ annotated tree (type conversion inserted)
+  $\to$ three-address code $\to$ optimized three-address code (constant folded) $\to$ target
+  assembly.
   \item The \textbf{symbol table} and \textbf{error handler} are not phases in the pipeline ---
   they run alongside every phase.
   \item The \textbf{front-end/middle-end/back-end} split (language-specific $\to$
   language-and-target-agnostic $\to$ target-specific) is what lets one shared IR (like LLVM IR)
   turn an $M \times N$ language/target problem into an $M + N$ problem.
+  \item \textbf{LLVM IR, JVM bytecode, and WebAssembly} are all machine-independent instruction
+  sets but were built for three different goals -- reusable compiler infrastructure, portability
+  for GC'd object-oriented languages, and safe sandboxed execution, respectively -- and that goal
+  explains how high- or low-level each one is and what it assumes about memory and objects.
   \item The compiler proper sits inside a larger toolchain: \textbf{preprocessor} (before) and
   \textbf{assembler, linker, loader} (after) are separate programs, not phases of the compiler
   itself, though DB expects you to know each one's job.

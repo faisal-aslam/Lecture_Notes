@@ -773,8 +773,10 @@ you run a program, the loader:
 \begin{enumerate}
   \item Allocates memory for the program (code, data, stack, heap regions);
   \item Copies (or memory-maps) the executable's instructions and initial data into that memory;
-  \item Performs any \emph{final} address fix-ups that were deferred until this exact moment
-  (relevant for dynamically linked libraries, previewed in Lecture 2); and
+  \item Performs any \emph{final} address fix-ups that were deferred until this exact moment --
+  needed both for dynamically linked libraries (previewed in Lecture 2) \emph{and}, on modern
+  systems, for the main executable itself when it is position-independent (see the box below);
+  and
   \item Transfers control to the program's entry point -- the actual first instruction that
   runs, which is \emph{not} always your \texttt{main} function directly (a small
   language-runtime startup routine usually runs first).
