@@ -59,6 +59,17 @@ If, in addition, $a * b = b * a$ for all $a, b \in G$ (the order doesn't matter)
 \end{itemize}
 \end{exbox}
 
+\begin{exbox}{Groups Hiding in Less Obvious Places: Matrices and Polynomials}
+The three examples above were all sets of plain numbers. Groups show up in far less numeric-looking settings too --- the axioms (G1)--(G4) don't care what the elements \emph{are}, only that closure, associativity, identity, and inverses all hold. Four examples worth having in your back pocket, each a little ``fancier'' than the last:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{$3\times 3$ real matrices under addition, $(M_{3\times 3}(\mathbb{R}), +)$, is a group.} Adding two $3\times 3$ matrices gives another $3\times 3$ matrix (closure); matrix addition is associative; the identity is the all-zeros matrix $\mathbf{0}$; the inverse of $A$ is $-A$ (negate every entry). It's even abelian, since $A+B=B+A$ entrywise. Nothing about this is different in spirit from $(\mathbb{Z},+)$ --- just $9$ numbers moving in lockstep instead of $1$.
+  \item \textbf{The same set under multiplication is \emph{not} a group.} Try $(M_{3\times 3}(\mathbb{R}), \times)$ (ordinary matrix multiplication): closure holds (multiplying two $3\times3$ matrices gives another $3\times3$ matrix) and multiplication is associative, and there's an identity, $I_3$. But axiom (G4) fails: a \textbf{singular} matrix (one with $\det = 0$, e.g.\ the all-zeros matrix, or $\begin{pmatrix}1&0&0\\0&1&0\\0&0&0\end{pmatrix}$) has no inverse matrix at all --- there is no $B$ with $AB=BA=I_3$. So the full set of $3\times3$ matrices under multiplication is not a group, for exactly the same structural reason $(\mathbb{Z},\times)$ wasn't: some elements simply lack an inverse. (Also worth noting for later: even restricting to the invertible matrices, this group would \emph{not} be abelian in general --- $AB \ne BA$ for most matrix pairs --- unlike every example so far.)
+  \item \textbf{Invertible matrices under multiplication, on the other hand, \emph{do} form a group.} Restrict to only the invertible $3\times 3$ matrices, $GL_3(\mathbb{R}) = \{A \in M_{3\times3}(\mathbb{R}) : \det(A)\ne 0\}$. Now every element has an inverse \emph{by construction} (that's what ``invertible'' means), the product of two invertible matrices is again invertible (closure restored), and $I_3$ is still the identity. This is called the \textbf{general linear group}, and it's the standard fix for the multiplication problem above: throw away the elements that were breaking (G4), and check that what's left is still closed.
+  \item \textbf{Unitary matrices under multiplication form a group too --- a more specialized cousin of $GL_3$.} A (complex) $n\times n$ matrix $U$ is \textbf{unitary} if $U^*U = I$, where $U^*$ is the conjugate transpose (Lecture 1, Section~7.2's Hermitian inner product remark is exactly the conjugate this definition needs). The set of $n\times n$ unitary matrices, under multiplication, is a group: the product of two unitary matrices is unitary (check: $(U_1U_2)^*(U_1U_2) = U_2^*U_1^*U_1U_2 = U_2^*IU_2=U_2^*U_2=I$), $I$ itself is unitary, and every unitary $U$ has an inverse --- namely $U^{-1}=U^*$, which is itself unitary. This group, $U(n)$, sits \emph{inside} $GL_n(\mathbb{C})$ as a much smaller, highly-structured subgroup (Section~3.1's subgroup idea, one level up): every unitary matrix is invertible, but very few invertible matrices are unitary.
+  \item \textbf{Degree-$<n$ polynomials under addition form a group; under multiplication they do not.} Let $P_n = \{a_0+a_1x+\cdots+a_{n-1}x^{n-1} : a_i \in \mathbb{R}\}$ (real polynomials of degree strictly less than $n$). Under addition, $(P_n,+)$ is a group exactly like matrices under addition above: closed (adding two such polynomials keeps the degree below $n$), associative, identity is the zero polynomial, and the inverse of $p(x)$ is $-p(x)$. Under multiplication, it immediately fails on \emph{two} separate grounds: closure fails (multiplying two degree-$(n-1)$ polynomials can produce degree up to $2n-2$, which is no longer in $P_n$ at all), and even ignoring that, most individual polynomials have no multiplicative inverse within polynomials (e.g., there is no polynomial $q(x)$ with $x\cdot q(x) = 1$ for every $x$). This is exactly the polynomial-ring preview from Section~4 below: $(P_n,+)$ being a group but $(P_n,\times)$ not being one is precisely why we need the weaker notion of a \textbf{ring} (two operations, only one of which needs full group structure) to describe polynomials properly, rather than expecting both operations to behave like a group.
+\end{itemize}
+\end{exbox}
+
 \begin{rmkbox}{Why Cryptography Cares About Groups}
 Many classical cryptographic schemes (Diffie--Hellman, ElGamal, elliptic-curve cryptography) are built directly on top of group structure --- the security relies on certain problems (like ``given $g$ and $g^a$, find $a$'') being hard inside a specific group. Lattice-based cryptography instead builds on richer structures (rings and modules, coming next), but the group is always the first layer underneath.
 \end{rmkbox}
@@ -578,7 +589,7 @@ $\mathbb{Z} \subseteq \mathbb{R}$ is a subgroup (trivially --- and recall from S
 
 Before going further, it's worth naming one basic quantity attached to every lattice: how close together its points actually are. We will use this constantly for the rest of the lecture (and the rest of the course), so it earns a formal definition rather than staying an informal aside.
 
-\begin{defbox}{Shortest Vector and Minimum Distance $\lambda_1(L)}
+\begin{defbox}{Shortest Vector and Minimum Distance $\lambda_1(L)$}
 Let $L \subseteq \mathbb{R}^n$ be a lattice. A \textbf{shortest vector} of $L$ is a nonzero vector $v \in L$ whose norm is minimal among all nonzero lattice vectors. The length of a shortest vector is called the lattice's \textbf{minimum distance}, or \textbf{first successive minimum}, and is defined by
 \[
 \lambda_1(L)
@@ -815,6 +826,32 @@ Recall from the ``Same Lattice, Different Basis'' remark above: any two bases of
 \begin{exbox}{Computing $\det(L)$ for the Tiny Lattice}
 For $b_1=(2,0)$, $b_2=(0,3)$ from the example above, $B = \begin{pmatrix} 2 & 0 \\ 0 & 3 \end{pmatrix}$, so $\det(L) = |\det(B)| = |2 \times 3 - 0 \times 0| = 6$. Geometrically: the fundamental parallelepiped is just the $2\times 3$ rectangle $[0,2)\times[0,3)$, and copies of this rectangle exactly tile the plane, anchored at every lattice point --- matching the picture in Figure~\ref{fig:latticegrid}'s style, just for this specific (axis-aligned) lattice.
 \end{exbox}
+
+\subsection{Unimodular Equivalence: When Do Two Bases Give the Same Lattice?}
+
+\begin{exbox}{Same Lattice, or Different? A Worked Test Using the Unimodular Criterion}
+Let $B = \begin{pmatrix} 2 & 1 \\ 1 & 1 \end{pmatrix}$ (columns $b_1=(2,1), b_2=(1,1)$) and $B' = \begin{pmatrix} 1 & 3 \\ 0 & 1 \end{pmatrix}$ (columns $b_1'=(1,0), b_2'=(3,1)$) be two candidate bases in $\mathbb{R}^2$. Do they generate the same lattice?
+
+\textbf{Confirming case.} Suppose instead $B' = \begin{pmatrix} 3 & 1 \\ 2 & 1 \end{pmatrix}$. Since $B$ is invertible ($\det B = 2-1=1 \ne 0$), solve $U = B^{-1}B'$: $B^{-1} = \begin{pmatrix} 1 & -1 \\ -1 & 2\end{pmatrix}$ (check: $B B^{-1}=I$). Then
+$$
+U = B^{-1}B' = \begin{pmatrix} 1 & -1 \\ -1 & 2\end{pmatrix}\begin{pmatrix} 3 & 1 \\ 2 & 1\end{pmatrix} = \begin{pmatrix} 1 & 0 \\ 1 & 1 \end{pmatrix}.
+$$
+$U$ has integer entries and $\det(U) = 1\times1 - 0\times1 = 1$, so $|\det(U)|=1$ --- $U$ \textbf{is unimodular}. Since $B' = BU$ with $U$ unimodular, $B$ and $B'$ generate \textbf{the same lattice}.
+
+\textbf{Contrasting case.} Now go back to the original $B' = \begin{pmatrix} 1 & 3 \\ 0 & 1 \end{pmatrix}$. Compute $U = B^{-1}B'$:
+$$
+U = \begin{pmatrix} 1 & -1 \\ -1 & 2\end{pmatrix}\begin{pmatrix} 1 & 3 \\ 0 & 1\end{pmatrix} = \begin{pmatrix} 1 & 2 \\ -1 & -1 \end{pmatrix}.
+$$
+Still integer entries, but $\det(U) = (1)(-1) - (2)(-1) = -1+2 = 1$ --- wait, this is also unimodular; let's instead deliberately pick a genuinely different lattice to illustrate the failing case: $B'' = \begin{pmatrix} 1 & 3 \\ 0 & 2 \end{pmatrix}$. Then
+$$
+U = B^{-1}B'' = \begin{pmatrix} 1 & -1 \\ -1 & 2\end{pmatrix}\begin{pmatrix} 1 & 3 \\ 0 & 2\end{pmatrix} = \begin{pmatrix} 1 & 1 \\ -1 & 1 \end{pmatrix},
+$$
+with $\det(U) = (1)(1)-(1)(-1) = 2$. Since $|\det(U)| = 2 \ne 1$, $U$ is \textbf{not} unimodular --- $B$ and $B''$ generate \emph{different} lattices, and in fact $\mathcal{L}(B'')$ turns out to be a proper sublattice of $\mathcal{L}(B)$ of \textbf{index $2$} (every point of $\mathcal{L}(B'')$ is a point of $\mathcal{L}(B)$, but only half of $\mathcal{L}(B)$'s points are recovered this way) --- a direct consequence of $|\det(U)|$ measuring exactly this kind of ``index'' between the two lattices, matching $\det(L) = |\det(B)|$ scaling by the same factor: $\det(\mathcal{L}(B'')) = |\det(U)|\cdot\det(\mathcal{L}(B)) = 2\det(\mathcal{L}(B))$.
+\end{exbox}
+
+\begin{rmkbox}{Discrete Implies Countable, But Not Conversely}
+It's worth clarifying a subtle point about the discreteness condition (L2) in the Lattice definition: \textbf{every discrete subset of $\mathbb{R}^n$ is automatically countable}, but the converse is false --- being countable does not force a set to be discrete. \emph{Why discrete $\Rightarrow$ countable:} around each point of a discrete set, by definition, sits a small ball containing no other point of the set; these disjoint balls can be shrunk enough to have rational-coordinate centers and rational radii, and there are only countably many such balls in total (since $\mathbb{Q}^n$ is countable) --- so there can be at most countably many points of the discrete set, one per ball. \emph{Why the converse fails:} $\mathbb{Q} \subseteq \mathbb{R}$ is a textbook counterexample --- it is countable (the rationals can be listed $q_1, q_2, q_3,\ldots$), yet, as the exbox above on ``$\mathbb{Q}$ Is a Subgroup, But Not a Lattice'' already showed, $\mathbb{Q}$ is \emph{dense} in $\mathbb{R}$, not discrete: every open ball around any point contains infinitely many other rational points. So countability is a necessary, but nowhere near sufficient, condition for discreteness --- exactly why the Lattice definition needs the stronger, explicitly geometric condition (L2), rather than settling for the weaker ``countable'' in its place.
+\end{rmkbox}
 
 \subsection{Minkowski's First Theorem: Volume Forces a Short Vector to Exist}
 
@@ -1059,6 +1096,15 @@ $$
 
 \begin{exercisebox}{Practice}
 Let $L = \mathbb{Z}^3$ (so $\det(L)=1$). Using the volume of a ball in $\mathbb{R}^3$, $\mathrm{Vol} = \tfrac{4}{3}\pi r^3$, find the radius $r$ at which Minkowski's theorem first guarantees a nonzero lattice point inside the ball. Compare it to the true value $\lambda_1(\mathbb{Z}^3) = 1$ (e.g.\ the point $(1,0,0)$) --- is the guarantee looser or tighter, relative to the truth, than it was for $\mathbb{Z}^2$ in the worked example above?
+\end{exercisebox}
+
+\begin{exercisebox}{Practice: Same Lattice, or Different?}
+For each pair of bases below (columns are the basis vectors), form $U = B^{-1}B'$, check whether $U$ has integer entries with $|\det(U)|=1$, and conclude whether the two bases generate the same lattice. Cross-check by also comparing $|\det(B)|$ and $|\det(B')|$ directly.
+\begin{enumerate}[leftmargin=*, label=(\alph*)]
+  \item $B = \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix}$, $B' = \begin{pmatrix}1 & 1 \\ 0 & 1\end{pmatrix}$.
+  \item $B = \begin{pmatrix}2 & 1 \\ 1 & 1\end{pmatrix}$, $B' = \begin{pmatrix}1 & 3 \\ 1 & 4\end{pmatrix}$.
+  \item $B = \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix}$, $B' = \begin{pmatrix}2 & 0 \\ 0 & 1\end{pmatrix}$.
+\end{enumerate}
 \end{exercisebox}
 
 \begin{previewbox}{Optional / Advanced: Minkowski's Second Theorem}
