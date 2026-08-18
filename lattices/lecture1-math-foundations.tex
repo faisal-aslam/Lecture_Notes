@@ -214,7 +214,8 @@ So whenever you meet a new ring in this course, the first question to ask is not
 \begin{exbox}{Rings You Already Know}
 \begin{itemize}[leftmargin=*]
   \item $(\mathbb{Z}, +, \times)$ --- the integers form a commutative ring with unity $1$. Notice $2$ still has no multiplicative inverse, and that's fine --- rings don't require one.
-  \item \textbf{Polynomial rings}, e.g. $\mathbb{Z}[x]$: the set of all polynomials with integer coefficients (like $3x^2 - x + 7$), with ordinary polynomial addition and multiplication. This is a ring for exactly the same reason $\mathbb{Z}$ is.
+  \item \textbf{Polynomial rings}, e.g. $\mathbb{Z}[x]$: the set of \emph{all} polynomials with integer coefficients, \textbf{of every degree at once} --- no upper bound on degree at all. It contains $7$ (degree $0$), $3x-1$ (degree $1$), $3x^2-x+7$ (degree $2$), and so on, all mixed together in one set, with ordinary polynomial addition and multiplication. This is a ring for exactly the same reason $\mathbb{Z}$ is: closure holds because adding or multiplying two polynomials, of \emph{any} finite degrees, always produces another polynomial of \emph{some} finite degree --- still inside $\mathbb{Z}[x]$, whatever that degree turns out to be.
+  \begin{quote}\small\textbf{Contrast this with $P_n$ from Section~3's ``Groups Hiding in Less Obvious Places'' example}, the set of polynomials of degree \emph{strictly less than} a fixed $n$. There, closure under addition holds (adding two degree-$(n{-}1)$ polynomials keeps the degree below $n$), but closure under multiplication fails (the product can reach degree $2n-2$, escaping $P_n$) --- which is precisely why $(P_n,+)$ is only a group, never a ring. $\mathbb{Z}[x]$ avoids this problem by simply not capping the degree in the first place, so there is no ceiling for a product to break through.\end{quote}
 \end{itemize}
 \end{exbox}
 
@@ -320,6 +321,61 @@ $17 \bmod 5$: divide $17$ by $5$ to get $3$ remainder $2$, so $17 \equiv 2 \pmod
 \begin{rmkbox}{When Is $\mathbb{Z}_n$ a Ring? When Is It a Field?}
 $\mathbb{Z}_n$ is \emph{always} a commutative ring with unity, for any $n \geq 2$. But it is a \emph{field} only when $n = p$ is \textbf{prime}. If $n$ is composite (e.g., $n=6$), some nonzero elements fail to have multiplicative inverses --- e.g., in $\mathbb{Z}_6$, there is no $x$ with $2x \equiv 1 \pmod 6$, since $2$ shares a common factor with $6$. This is exactly why cryptographic schemes that need a field (rather than just a ring) are built with a prime modulus $q$. (Section~4.1 gave the deeper structural reason: composite $n$ always produces zero divisors, and a ring with zero divisors can never be a field.)
 \end{rmkbox}
+
+\subsection{Composite Moduli Aren't Fields --- But Their Invertible Elements Still Form a Group}
+
+The remark above closes the door firmly: $\mathbb{Z}_n$ for composite $n$ is never a field, no matter how you look at it --- some nonzero elements simply have no multiplicative inverse, and that's disqualifying, permanently. But it's natural to ask a follow-up question: \emph{which} elements of $\mathbb{Z}_n$ \emph{do} have an inverse, and how many of them are there? That subset turns out to be extremely well-behaved --- just not a field, and not all of $\mathbb{Z}_n$.
+
+\begin{defbox}{Euler's Totient Function}
+For a positive integer $n$, \textbf{Euler's totient function} $\varphi(n)$ counts how many integers in $\{1,2,\ldots,n\}$ are \textbf{coprime} to $n$ (i.e., $\gcd(a,n)=1$). Equivalently --- recalling the ``Fact: When Does an Inverse Exist?'' remark box in the Extended Euclidean Algorithm subsection just below, $a\in\mathbb{Z}_n$ has a multiplicative inverse iff $\gcd(a,n)=1$ --- $\varphi(n)$ is exactly \textbf{the number of elements of $\mathbb{Z}_n$ that have a multiplicative inverse}.
+\end{defbox}
+
+\begin{defbox}{The Group of Units $\mathbb{Z}_n^*$}
+The set of invertible elements of $\mathbb{Z}_n$,
+$$
+\mathbb{Z}_n^* \;=\; \{a \in \mathbb{Z}_n : \gcd(a,n)=1\},
+$$
+is called the \textbf{group of units} modulo $n$. Under multiplication mod $n$, $(\mathbb{Z}_n^*, \times)$ is an abelian group (Section~3): it's closed (the product of two units is a unit --- if $a,b$ each have inverses, so does $ab$, namely $b^{-1}a^{-1}$), it has identity $1$, and by definition every element already has an inverse. By construction, $|\mathbb{Z}_n^*| = \varphi(n)$.
+\end{defbox}
+
+\begin{rmkbox}{This Is \emph{Not} a Field --- Read the Claim Carefully}
+It's tempting to summarize this as ``$\mathbb{Z}_n$ is secretly a field with only $\varphi(n)$ elements,'' but that phrasing is not correct, and it's worth being precise about why. A field needs \emph{every} nonzero element invertible, checked against the field's own addition (Section~4, axiom F1: $(F,+)$ a group over \emph{all} of $F$). $\mathbb{Z}_n^*$ is not closed under $+$ at all --- e.g., in $\mathbb{Z}_{12}^* = \{1,5,7,11\}$, $5+7=12\equiv 0 \pmod{12}$, which isn't even in $\mathbb{Z}_{12}^*$ (it's not coprime to $12$). So $\mathbb{Z}_n^*$ is a perfectly good \emph{group under multiplication alone} --- it is \textbf{not} a smaller field sitting inside $\mathbb{Z}_n$; it doesn't have an addition operation of its own at all. The correct statement is: composite $\mathbb{Z}_n$ is a ring, not a field, but its invertible elements form a multiplicative group of order $\varphi(n)$.
+\end{rmkbox}
+
+\begin{exbox}{Computing $\varphi(12)$ and $\mathbb{Z}_{12}^*$ by Hand}
+List $1$ through $12$ and check $\gcd$ with $12 = 2^2\times 3$ for each:
+\begin{center}
+\begin{tabular}{c|c|c}
+$a$ & $\gcd(a,12)$ & coprime to $12$? \\
+\hline
+1 & 1 & yes \\
+2 & 2 & no \\
+3 & 3 & no \\
+4 & 4 & no \\
+5 & 1 & yes \\
+6 & 6 & no \\
+7 & 1 & yes \\
+8 & 4 & no \\
+9 & 3 & no \\
+10 & 2 & no \\
+11 & 1 & yes \\
+12 & 12 & no (this is $0$ in $\mathbb{Z}_{12}$) \\
+\end{tabular}
+\end{center}
+So $\mathbb{Z}_{12}^* = \{1,5,7,11\}$ and $\varphi(12) = 4$. Check closure under multiplication mod $12$: $5\times7=35\equiv11$, $5\times11=55\equiv7$, $7\times11=77\equiv5$, $5\times5=25\equiv1$, $7\times7=49\equiv1$, $11\times11=121\equiv1$ --- every product of two elements of $\{1,5,7,11\}$ lands back in $\{1,5,7,11\}$, exactly as the ``group of units'' defbox above promises. Notice $\varphi(12)=4 < 12$: only $4$ of the $12$ elements of $\mathbb{Z}_{12}$ are invertible, and the other $8$ (including all the zero divisors found in the Section~4.1 example, $2$ and $3$) are permanently excluded from $\mathbb{Z}_{12}^*$.
+\end{exbox}
+
+\begin{rmkbox}{A Formula, and the Prime Sanity Check}
+For a prime $p$, every one of $1,\ldots,p-1$ is automatically coprime to $p$ (since $p$'s only divisors are $1$ and $p$ itself), so $\varphi(p) = p-1$ --- matching exactly the earlier fact that \emph{all} nonzero elements of $\mathbb{Z}_p$ are invertible when $p$ is prime. In other words, $\mathbb{Z}_p^* = \mathbb{Z}_p \setminus \{0\}$ precisely when $p$ is prime --- the group of units swallows the entire nonzero ring, which is exactly the extra guarantee that makes $\mathbb{Z}_p$ a field (Section~4) and $\mathbb{Z}_{12}$ merely a ring. For composite $n$, $\varphi(n)$ is computed from the prime factorization of $n$ (e.g., $\varphi(12)=\varphi(2^2)\varphi(3)=2\times2=4$, matching the hand count above), but the formula itself isn't needed for this course --- what matters is the concept: $\varphi(n)$ measures exactly how far $\mathbb{Z}_n$ falls short of being a field.
+\end{rmkbox}
+
+\begin{previewbox}{Why This Matters Later: RSA}
+Euler's totient function is the load-bearing quantity behind RSA (the classical, non-lattice-based scheme this thesis's cryptography ultimately aims to replace): RSA's security and correctness both hinge on $\varphi(n)$ for a composite $n=pq$ (product of two large primes), computed via $\varphi(pq)=(p-1)(q-1)$, and Euler's theorem, $a^{\varphi(n)}\equiv 1\pmod n$ for $a\in\mathbb{Z}_n^*$, which generalizes Fermat's Little Theorem from prime moduli to composite ones. This isn't needed anywhere else in this lecture series, but it's worth recognizing the totient function on sight --- it's one of the few classical-cryptography ideas that resurfaces constantly in the literature this thesis will cite.
+\end{previewbox}
+
+\begin{exercisebox}{Practice}
+Compute $\varphi(10)$ by listing $\mathbb{Z}_{10}^*$ directly (check $\gcd(a,10)=1$ for $a=1,\ldots,10$). Then verify closure under multiplication mod $10$ for at least two pairs of elements from your list, the way the $\varphi(12)$ example above did.
+\end{exercisebox}
 
 \subsection{Finding Inverses Without Guessing: The Extended Euclidean Algorithm}
 
@@ -1199,6 +1255,7 @@ Ring & 2 operations, no division needed & $(\mathbb{Z}, +, \times)$, $\mathbb{Z}
 Integral domain & Ring, no zero divisors & $\mathbb{Z}$, $\mathbb{Z}_5$ (not $\mathbb{Z}_6$) \\
 Field & Ring + division by nonzero elements & $\mathbb{Q}, \mathbb{R}, \mathbb{Z}_p$ ($p$ prime) \\
 Modulus & Wraparound arithmetic & $\mathbb{Z}_n = \{0,\ldots,n-1\}$ \\
+Group of units $\mathbb{Z}_n^*$ & Invertible elements of $\mathbb{Z}_n$, size $\varphi(n)$ & $\mathbb{Z}_{12}^* = \{1,5,7,11\}$ \\
 Vector space & Field + vectors + scalar mult. & $\mathbb{R}^n$ \\
 Basis & Independent, spanning vector set & $\{(1,0),(0,1)\}$ in $\mathbb{R}^2$ \\
 Orthogonal basis & Basis, all pairs perpendicular & Gram--Schmidt output \\
