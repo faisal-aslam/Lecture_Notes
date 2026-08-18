@@ -190,9 +190,16 @@ A set $R$ with two binary operations $+$ and $\times$ is a \textbf{ring} $(R, +,
 \begin{enumerate}[leftmargin=*, label=(R\arabic*)]
   \item $(R, +)$ is an abelian group (with identity element usually written $0$).
   \item $\times$ is associative: $(a \times b) \times c = a \times (b \times c)$.
-  \item The distributive laws hold: $a \times (b + c) = (a \times b) + (a \times c)$ and $(a+b)\times c = (a \times c) + (b \times c)$.
+  \item \textbf{Distributivity of $\times$ over $+$:} $\times$ distributes over $+$, not the other way around --- i.e., ``multiplying a sum'' can be split into ``sum of the multiplications,'' but there is no requirement (and generally no meaning) for $+$ to distribute over $\times$. This comes in two versions, since $\times$ need not be commutative (see the note below), so both the left and right versions must be stated separately:
+  $$
+  \underbrace{a \times (b + c) = (a \times b) + (a \times c)}_{\text{left distributivity}}, \qquad \underbrace{(a+b)\times c = (a \times c) + (b \times c)}_{\text{right distributivity}}.
+  $$
 \end{enumerate}
 Note: a ring does \emph{not} need multiplicative inverses, and multiplication need not be commutative in general (though in every ring we use in this thesis, it will be --- these are called \textbf{commutative rings}). If there is an element $1 \in R$ with $a \times 1 = 1 \times a = a$ for all $a$, we say $R$ is a \textbf{ring with unity}.
+
+\begin{rmkbox}{Why Two Distributive Laws, and Why Only Over $+$}
+When $\times$ is commutative (as in every ring used in this course), left and right distributivity say the same thing in different order, so either one implies the other. But the \emph{axioms} state both, because a ring is not required to be commutative in general (Section~3's matrix example under multiplication is a case where order matters). What never appears, in any ring, is a law like $a + (b\times c) = (a+b)\times(a+c)$ --- $+$ never needs to distribute over $\times$. Distributivity is a one-way bridge: it tells you how $\times$ interacts with $+$, not the reverse.
+\end{rmkbox}
 \end{defbox}
 
 \begin{rmkbox}{``$+$'' and ``$\times$'' Are Role Labels, Not a Restriction to Arithmetic}
@@ -244,7 +251,7 @@ A \textbf{field} is a set $F$ with two binary operations $+$ and $\times$ such t
 \begin{enumerate}[leftmargin=*, label=(F\arabic*)]
   \item $(F, +)$ is an abelian group, over \emph{all} of $F$ (identity element $0$).
   \item $(F \setminus \{0\}, \times)$ is an abelian group, over $F$ \textbf{with $0$ removed} (identity element $1$).
-  \item The distributive law holds: $a \times (b+c) = (a\times b) + (a \times c)$.
+  \item \textbf{Distributivity of $\times$ over $+$:} $a \times (b+c) = (a\times b) + (a \times c)$. (Only this one direction needs stating here, unlike the Ring definition above: (F2) already makes $\times$ commutative on $F\setminus\{0\}$, and $0\times x = x\times 0 = 0$ always, so left and right distributivity coincide automatically --- there's no separate ``right'' version to write down.)
 \end{enumerate}
 Informally: a field is a set where you can add, subtract, multiply, and divide (by anything except $0$) and always stay inside the set. In short --- \textbf{a field is two abelian groups sharing one set, glued together by distributivity.}
 \end{defbox}
