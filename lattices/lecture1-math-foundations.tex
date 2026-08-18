@@ -101,11 +101,58 @@ Keep the example $n\mathbb{Z} \subseteq \mathbb{Z}$ in mind. In Section~8, we wi
 
 Section~6 will introduce $\mathbb{Z}_n$ informally, as ``remainders with wraparound arithmetic.'' That's the right intuition, but it's worth seeing the fully rigorous construction now, because it is a direct, satisfying payoff of the subgroup idea --- and it is the same construction (``take a group, collapse it by a subgroup'') that shows up again later when we build the ring $R_q = \mathbb{Z}_q[x]/(x^n+1)$ that Kyber and Dilithium actually use.
 
+\begin{rmkbox}{The One-Sentence Idea, Before Any Symbols}
+\textbf{A coset is a ``shifted copy'' of a subgroup.} You take every element of $H$ and slide it over by adding a fixed amount $a$. That's all $a+H$ is: $H$, translated --- nothing more exotic than that.
+\end{rmkbox}
+
 \begin{defbox}{Coset}
 Let $H$ be a subgroup of an abelian group $(G,+)$. For $a \in G$, the \textbf{coset} $a + H$ is the set $\{a + h : h \in H\}$ --- ``shift $H$ by $a$.'' Two elements $a,b \in G$ turn out to produce the \emph{same} coset, $a+H = b+H$, exactly when $a - b \in H$. This gives a clean way to sort all of $G$ into non-overlapping ``buckets,'' each one a shifted copy of $H$.
 \end{defbox}
 
-\begin{exbox}{The Cosets of $3\mathbb{Z}$ in $\mathbb{Z}$}
+\begin{exbox}{Example 1 --- The Simplest Possible Coset: Evens and Odds}
+Let $G = \mathbb{Z}$ and $H = 2\mathbb{Z} = \{\ldots,-4,-2,0,2,4,\ldots\}$ (the even numbers; check it's a subgroup exactly as in the ``Subgroups You Can Picture'' example: contains $0$, sum of two evens is even, negative of an even is even). Now form cosets by picking different $a$'s:
+\begin{itemize}[leftmargin=*]
+  \item $0 + H = \{\ldots,-4,-2,0,2,4,\ldots\}$ --- same set as $H$ itself (the evens)
+  \item $1 + H = \{\ldots,-3,-1,1,3,5,\ldots\}$ --- the odds
+  \item $2 + H = \{\ldots,-2,0,2,4,6,\ldots\}$ --- same set as $0+H$ again!
+  \item $3 + H = \{\ldots,-1,1,3,5,7,\ldots\}$ --- same set as $1+H$ again!
+\end{itemize}
+No matter which integer you pick as $a$, you only ever land on \textbf{one of two} possible sets: ``the evens'' or ``the odds.'' Every integer belongs to exactly one of these two buckets --- that's the whole idea of cosets, in the simplest case there is.
+
+\textbf{Why did $0+H$ and $2+H$ turn out to be the same set?} This is exactly the rule from the defbox above: $a+H=b+H$ iff $a-b\in H$. Check: $2-0=2$, and $2$ is even, so $2\in H$ --- that's \emph{why} they collapsed to the same coset. Meanwhile $1-0=1$, which is odd, not in $H$ --- so $1+H$ is genuinely a different coset from $0+H$.
+\end{exbox}
+
+\begin{exbox}{Example 2 --- A ``Clock'' Version: The Cosets of $5\mathbb{Z}$ in $\mathbb{Z}$}
+Same idea as Example 1, one notch more general: let $H = 5\mathbb{Z} = \{\ldots,-10,-5,0,5,10,\ldots\}$. There are exactly \textbf{5} distinct cosets:
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Coset} & \textbf{What's in it} & \textbf{``Bucket''} \\
+\hline
+$0+5\mathbb{Z}$ & $\ldots,-5,0,5,10,\ldots$ & remainder $0$ \\
+$1+5\mathbb{Z}$ & $\ldots,-4,1,6,11,\ldots$ & remainder $1$ \\
+$2+5\mathbb{Z}$ & $\ldots,-3,2,7,12,\ldots$ & remainder $2$ \\
+$3+5\mathbb{Z}$ & $\ldots,-2,3,8,13,\ldots$ & remainder $3$ \\
+$4+5\mathbb{Z}$ & $\ldots,-1,4,9,14,\ldots$ & remainder $4$ \\
+\hline
+\end{tabular}
+\end{center}
+You have secretly been computing cosets your whole life: \textbf{a coset of $n\mathbb{Z}$ is just ``everything with the same remainder when divided by $n$.''} Every integer sorts into exactly one bucket, and there are exactly $n$ buckets. This is precisely $\mathbb{Z}_n$ (Section~6), and it's exactly the same pattern as the $3\mathbb{Z}$ case used later in this lecture --- there is nothing special about $5$ here, only that it makes the ``$n$ buckets'' pattern easy to see with more than $2$ or $3$ of them.
+\end{exbox}
+
+\begin{exbox}{Example 3 --- A Picture You Can Draw: Lines in the Plane}
+This one is worth sitting with, because it connects straight to the lattice tilings of Section~8.5. Let $G = \mathbb{R}^2$ (the plane, under vector addition) and let $H$ be a line through the origin --- say $H = \{(t,t) : t \in \mathbb{R}\}$, the line $y=x$ (check it's a subgroup: contains $(0,0)$; sum of two points on the line is on the line; negation of a point on the line is on the line).
+
+Pick a point $a=(1,0)$, not on the line, and form the coset:
+$$
+(1,0)+H = \{(1+t,\ t) : t\in\mathbb{R}\}.
+$$
+This is the line $y=x-1$ --- \textbf{the same line $H$, just shifted to pass through $(1,0)$ instead of the origin.} Pick a different point on that same shifted line, say $a'=(3,2)$: then $a'+H$ is \emph{also} the line $y=x-1$ --- same coset, different name. Check the rule: $a-a' = (1,0)-(3,2) = (-2,-2)$, and $(-2,-2)=(t,t)$ with $t=-2$, so $(-2,-2)\in H$ --- confirming $(1,0)+H = (3,2)+H$.
+
+\textbf{The picture:} the cosets of $H$ are exactly all the lines parallel to $H$. The whole plane $\mathbb{R}^2$ gets sliced into infinitely many parallel lines, and every point of the plane lies on exactly one of them. This ``slicing the whole space into non-overlapping parallel copies'' picture is \emph{exactly} the fundamental-domain tiling picture of Section~8.5 --- cosets and lattice tilings are the same idea, one dimension apart in this example.
+\end{exbox}
+
+\begin{exbox}{The Cosets of $3\mathbb{Z}$ in $\mathbb{Z}$ (the Version Used Later in This Lecture)}
 Take $G = \mathbb{Z}$ and $H = 3\mathbb{Z} = \{\ldots,-3,0,3,6,\ldots\}$ (a subgroup, per the ``Subgroups You Can Picture'' example in Section~3.1). The cosets are:
 \begin{itemize}[leftmargin=*]
   \item $0 + 3\mathbb{Z} = \{\ldots,-3,0,3,6,\ldots\}$ (multiples of 3)
@@ -114,6 +161,13 @@ Take $G = \mathbb{Z}$ and $H = 3\mathbb{Z} = \{\ldots,-3,0,3,6,\ldots\}$ (a subg
 \end{itemize}
 Every integer falls into exactly one of these three buckets --- and which bucket it falls into is precisely its remainder mod $3$. There is no fourth distinct coset: $3 + 3\mathbb{Z} = 0 + 3\mathbb{Z}$ (check: $3-0=3 \in 3\mathbb{Z}$), so the pattern repeats.
 \end{exbox}
+
+\begin{rmkbox}{The Two Facts Worth Holding Onto}
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Same-coset test:} $a+H = b+H$ if and only if $a-b \in H$ --- this is how you check whether two things you've written down are secretly the same coset (used explicitly in all three examples above).
+  \item \textbf{No partial overlap:} two cosets are either \emph{identical} or \emph{completely disjoint} --- never overlapping-but-not-equal. That's what lets cosets cleanly partition $G$ into non-overlapping buckets, with nothing left over and nothing double-counted.
+\end{enumerate}
+\end{rmkbox}
 
 \begin{defbox}{Quotient Group}
 The set of all distinct cosets of $H$ in $G$, with addition defined by $(a+H) + (b+H) := (a+b) + H$, is itself a group --- the \textbf{quotient group}, written $G/H$ (``$G$ mod $H$''). Its identity element is the coset $0 + H = H$ itself.
