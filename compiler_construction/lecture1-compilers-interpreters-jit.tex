@@ -24,11 +24,12 @@ Here is what today actually covers:
   \item Applications of compiler technology far beyond ``turning C into an executable.''
   \item Six different \textbf{kinds of compiler} you'll encounter by name in industry.
 \end{enumerate}
-This lecture is entirely conceptual --- no algorithms yet. Lecture 2 goes much deeper into the
-internal \emph{structure} (phases) of a compiler and the toolchain around it.
+This lecture is entirely conceptual --- no algorithms yet. Lecture~\ref{lec:2} goes much deeper
+into the internal \emph{structure} (phases) of a compiler.
 \end{coreidea}
 
 \section{What Is a Language Processor?}
+\label{sec:l1-language-processor}
 
 \dbtag A \textbf{language processor} is any program that takes another program written in
 some source notation and does something useful with it --- runs it, translates it, checks it,
@@ -57,9 +58,10 @@ love to test exactly this distinction:
   what the target language \emph{is} -- only that it is ``another language.'' Machine code is
   the single most common and most visible target, which is why people default to thinking
   ``compiler = produces machine code,'' but it is only one case. A compiler whose target is
-  \emph{another high-level language} is a source-to-source compiler (\S6); a compiler whose
-  target is bytecode for a virtual machine (\texttt{javac} $\to$ JVM bytecode, \S2.3) is still a
-  compiler by this same definition, even though no physical CPU can execute its output directly.
+  \emph{another high-level language} is a source-to-source compiler (\S\ref{sec:l1-kinds}); a
+  compiler whose target is bytecode for a virtual machine (\texttt{javac} $\to$ JVM bytecode,
+  \S\ref{sec:l1-java-case-study}) is still a compiler by this same definition, even though no
+  physical CPU can execute its output directly.
 \end{itemize}
 
 \begin{center}
@@ -83,24 +85,26 @@ Be able to state, in one sentence, that a compiler \emph{translates}; it does no
 \emph{execute}. A one-line definition question like ``define a compiler'' is a classic
 first-quiz question and students routinely lose marks by describing what an interpreter does
 instead -- or by adding ``\ldots into machine code'' to the definition, which is not required
-and is contradicted by transpilers and by \texttt{javac} (\S2.3).
+and is contradicted by transpilers and by \texttt{javac} (\S\ref{sec:l1-kinds}).
 \end{examfocus}
 
 \section{Compilers vs.\ Interpreters vs.\ JIT Compilation}
+\label{sec:l1-comp-interp-jit}
 
 This is the heart of today's lecture (DB \S1.4). There are three broad strategies for getting
 from source code to a running program, and almost every real language-processing system you use
 day to day is one of these three, or (very commonly) a hybrid.
 
 \subsection{Pure Compilation (Ahead-of-Time)}
+\label{sec:l1-pure-compilation}
 
 \dbtag The compiler translates the entire source program into a target program \emph{before}
 execution begins, and the target program can then be run any number of times, independently of
 the compiler. In the classic AOT case that gives this strategy its name, the target language is
 machine code for the host machine -- this is what C, C++, Rust, and (classic) Fortran compilers
 produce -- but the ``ahead-of-time, whole-program-at-once'' strategy itself is independent of
-that choice of target (a transpiler, \S6, is also AOT; it just targets another high-level
-language instead of machine code).
+that choice of target (a transpiler, \S\ref{sec:l1-kinds}, is also AOT; it just targets another
+high-level language instead of machine code).
 
 \begin{center}
 \begin{tikzpicture}[
@@ -134,8 +138,9 @@ entirely offline -- only the resulting target program's run time is on the user'
 is machine code for one specific instruction set, calling convention, and (usually) operating
 system. A binary built for x86-64 Linux will not run on ARM64 macOS: there is no
 platform-independent artifact to ship. Reaching a new target means recompiling from source for
-that target (or cross-compiling, \S6) -- unlike an interpreter, which ships the same source to
-every platform, or a bytecode/JIT system, which ships the same portable bytecode everywhere.
+that target (or cross-compiling, \S\ref{sec:l1-kinds}) -- unlike an interpreter, which ships the
+same source to every platform, or a bytecode/JIT system, which ships the same portable bytecode
+everywhere.
 
 \textbf{Trade-off, restated:} compilation itself can be slow and happens ``offline,'' but every
 run of the target program afterward is fast, because all the translation work -- and all the
@@ -143,6 +148,7 @@ optimization it enables -- has already been paid for once, at the cost of tying 
 platform.
 
 \subsection{Pure Interpretation}
+\label{sec:l1-pure-interpretation}
 
 \dbtag An \textbf{interpreter} does not produce a separate target program at all. Instead, it
 directly executes the operations specified in the source program, using the source program (or a
@@ -198,6 +204,7 @@ while a pure interpreter re-examines the source on every execution and so cannot
 \end{examfocus}
 
 \subsection{The Hybrid Reality: Bytecode + JIT}
+\label{sec:l1-hybrid-jit}
 
 \beyonddb In practice, almost no serious modern language is \emph{purely} compiled or
 \emph{purely} interpreted. DB \S1.4 briefly mentions Java's model as a hybrid; it is worth
@@ -216,12 +223,13 @@ compilation step first (described just below) that translates source into \textb
 instructions for this abstract machine -- and the VM interprets \emph{that}, not your original
 code.
 
-This is different from a ``plain'' (tree-walking) interpreter, of the kind \S2.2 first
-introduced: a tree-walking interpreter parses source into an AST and directly, recursively
-evaluates that tree (\texttt{evaluate(node)} calling \texttt{evaluate(node.left)}, and so on).
-There is no separate instruction set, no fixed opcode encoding, and no simulated CPU state --
-the evaluator's own call stack mirrors the shape of the \emph{source program}, not the shape of
-a machine. Nothing about it resembles hardware, so it does not earn the name ``virtual machine.''
+This is different from a ``plain'' (tree-walking) interpreter, of the kind
+\S\ref{sec:l1-pure-interpretation} first introduced: a tree-walking interpreter parses source
+into an AST and directly, recursively evaluates that tree (\texttt{evaluate(node)} calling
+\texttt{evaluate(node.left)}, and so on). There is no separate instruction set, no fixed opcode
+encoding, and no simulated CPU state -- the evaluator's own call stack mirrors the shape of the
+\emph{source program}, not the shape of a machine. Nothing about it resembles hardware, so it
+does not earn the name ``virtual machine.''
 
 The distinction, side by side:
 \begin{itemize}
@@ -266,10 +274,10 @@ steady-state speed of a compiler.
 \end{defbox}
 
 \begin{coreidea}[Why ``Warm-Up'' Adds a Delay]
-The ``time to reach peak speed'' row in \S2.4's table (distinct from startup latency -- see the
-exam-focus note there) has a
-concrete cause: three costs stack up, in sequence, before any piece of code reaches its fastest
-version, and none of them can be skipped.
+The ``time to reach peak speed'' row in \S\ref{sec:l1-compare-three-models}'s table (distinct
+from startup latency -- see the exam-focus note there) has a concrete cause: three costs stack
+up, in sequence, before any piece of code reaches its fastest version, and none of them can be
+skipped.
 \begin{enumerate}
   \item \textbf{Early runs pay interpreter-speed cost.} The very first time a method or loop
   executes, no compiled native code for it exists yet -- there is nothing to jump to -- so it
@@ -285,9 +293,9 @@ version, and none of them can be skipped.
   still has to go through the JIT's own pipeline -- build an IR from the bytecode, run
   optimization passes (inlining, register allocation, and more), and emit native code. This
   usually runs on a background thread so it does not block the program outright, but it still
-  competes for CPU and memory (see ``Extra runtime overhead'' in \S2.4's table), and the
-  \emph{old}, slower version keeps running until the newly compiled version is ready and swapped
-  in.
+  competes for CPU and memory (see ``Extra runtime overhead'' in \S\ref{sec:l1-compare-three-models}'s
+  table), and the \emph{old}, slower version keeps running until the newly compiled version is
+  ready and swapped in.
 \end{enumerate}
 The practical consequence: long-running processes (servers, long batch jobs) amortize this
 one-time warm-up cost over a long steady-state run and benefit enormously from JIT compilation,
@@ -342,10 +350,11 @@ startup but still keep a JIT available for code discovered or specialized at run
 ``compiled'' and ``JIT-compiled'' are not always mutually exclusive labels for one system.
 \emph{(Transpilers, cross-compilers, bootstrapping compilers, and decompilers are their own
 category of ``kind of compiler'' rather than a compiler/interpreter distinction -- we cover all
-of these properly later in this lecture.)}
+of these properly in \S\ref{sec:l1-kinds}.)}
 \end{enrichment}
 
 \subsection{Comparing the Three Models}
+\label{sec:l1-compare-three-models}
 
 \small
 \renewcommand{\arraystretch}{1.3}
@@ -387,8 +396,8 @@ The ``When translation happens'' row is the row most often misread. The hybrid p
 \begin{itemize}
   \item \textbf{Source $\to$ bytecode} (e.g.\ \texttt{javac} producing \texttt{.class} files) is
   ordinary ahead-of-time compilation. It happens once, before the program is ever run, exactly
-  like \S2.1's pure-compiler case -- it is just that its \emph{target} language is bytecode
-  instead of machine code.
+  like \S\ref{sec:l1-pure-compilation}'s pure-compiler case -- it is just that its \emph{target}
+  language is bytecode instead of machine code.
   \item \textbf{Bytecode $\to$ native code}, the actual JIT step, is \emph{never} done ahead of
   time, not even partially. The decision of \emph{which} loop or method is hot enough to be
   worth compiling is made by watching the program actually run (via profiling counters), and the
@@ -429,10 +438,12 @@ portability and safety.''
 \end{historynote}
 
 \subsection{Case Study: How Java Achieves Portability}
+\label{sec:l1-java-case-study}
 
-\beyonddb Java is the single clearest real-world illustration of everything in \S2, so it is
-worth walking through as a complete case study --- especially since Java's own design goals were
-\emph{explicitly} about the compiler/interpreter trade-off from the start.
+\beyonddb Java is the single clearest real-world illustration of everything in
+\S\ref{sec:l1-comp-interp-jit}, so it is worth walking through as a complete case study ---
+especially since Java's own design goals were \emph{explicitly} about the compiler/interpreter
+trade-off from the start.
 
 \subsubsection{From Pure Interpreter to JIT: A Short History}
 
@@ -496,8 +507,8 @@ runs unmodified on Windows/x86, Linux/ARM, or a JVM on any other platform --- as
 into the JVM implementation itself (one per platform, built once by the JVM vendor), instead of
 into every single Java program ever written. This is Sun Microsystems' famous ``Write Once, Run
 Anywhere'' pitch for Java, and it is the exact same $M + N$ argument (rather than $M \times N$)
-you will meet again with LLVM IR in Lecture 2 --- just applied to distribution instead of to
-compiler internals.
+you will meet again with LLVM IR in Lecture~\ref{lec:2} --- just applied to distribution instead
+of to compiler internals.
 \end{coreidea}
 
 \subsubsection{HotSpot's Tiered JIT in More Depth}
@@ -530,8 +541,9 @@ to be wrong.
 
 \subsubsection{JIT vs.\ AOT vs.\ Interpreter: Advantages and Disadvantages}
 
-Pulling together everything from the enhanced table in \S2.4 and the HotSpot walkthrough above,
-here is the direct trade-off summary for a JIT compiler specifically:
+Pulling together everything from the enhanced table in \S\ref{sec:l1-compare-three-models} and
+the HotSpot walkthrough above, here is the direct trade-off summary for a JIT compiler
+specifically:
 
 \begin{center}
 \renewcommand{\arraystretch}{1.3}
@@ -568,13 +580,14 @@ A \texttt{.class} file is itself a small, well-defined binary format worth knowi
 it opens with a \textbf{magic number} (\texttt{0xCAFEBABE}, a Sun Microsystems in-joke), a
 class-file version number, a \textbf{constant pool} (a table holding every literal, class name,
 and method/field reference the class uses -- similar in spirit to the symbol table we will meet
-in Lecture 2), and then the actual bytecode for each method. Tools like \texttt{javap -c
-Hello.class} let you disassemble a compiled class and read its raw JVM bytecode instructions
-directly -- a nice hands-on way to see \S2's ``token stream $\to$ bytecode'' pipeline made
-completely concrete.
+in Lecture~\ref{lec:2}), and then the actual bytecode for each method. Tools like \texttt{javap
+-c Hello.class} let you disassemble a compiled class and read its raw JVM bytecode instructions
+directly -- a nice hands-on way to see \S\ref{sec:l1-hybrid-jit}'s ``token stream $\to$
+bytecode'' pipeline made completely concrete.
 \end{enrichment}
 
 \section{Why Study Compilers? (DB \S1.1)}
+\label{sec:l1-why-study}
 
 \dbtag You may never write a production C compiler. So why is this course core, and why does
 almost every strong CS program require it? Three overlapping reasons:
@@ -608,6 +621,7 @@ representation, verify it, transform it, repeat'' shows up again and again.
 \end{enrichment}
 
 \section{Applications of Compiler Technology (DB \S1.5)}
+\label{sec:l1-applications}
 
 \dbtag DB is explicit that compiler techniques reach ``far beyond'' translating a
 general-purpose programming language into machine code. Five application areas DB highlights:
@@ -660,11 +674,12 @@ compiler-technology application areas have grown enormously since and deserve a 
   \item \textbf{LLVM as shared infrastructure.} Perhaps the biggest structural change since DB
   2nd edition: LLVM lets dozens of front-ends (Clang/C/C++, Rust, Swift, Julia, and more) share
   one very well-engineered optimizer and set of back-ends, instead of every language reinventing
-  code generation. We will return to LLVM in Lecture 25.
+  code generation. We will return to LLVM in Lecture~\ref{lec:2}.
 \end{itemize}
 \end{enrichment}
 
 \section{A Typical Language-Processing System}
+\label{sec:l1-toolchain}
 
 \dbtag The ``compiler'' most people invoke by typing \texttt{gcc file.c} is not, strictly, one
 single program at all -- it is a \textbf{driver} that coordinates several distinct tools in
@@ -710,8 +725,8 @@ invoke on the command line is really a pipeline of five distinct programs.}
   \item \textbf{Preprocessor.} Expands macros (\texttt{\#define}), includes files
   (\texttt{\#include}), and resolves conditional-compilation directives (\texttt{\#ifdef}) ---
   all as pure text substitution, before the compiler's grammar-aware phases ever run.
-  \item \textbf{Compiler (proper).} Everything from \S1: source $\to$ target assembly (today's
-  ``black box''; Lecture 2 opens it up phase by phase).
+  \item \textbf{Compiler (proper).} Everything from \S\ref{sec:l1-comp-interp-jit}: source
+  $\to$ target assembly (today's ``black box''; Lecture~\ref{lec:2} opens it up phase by phase).
   \item \textbf{Assembler.} Translates human-readable assembly instructions into
   \textbf{relocatable machine code} and packages it as an \textbf{object file}.
   \item \textbf{Linker.} Combines multiple object files and library files into one program,
@@ -720,19 +735,19 @@ invoke on the command line is really a pipeline of five distinct programs.}
 \end{itemize}
 
 \begin{enrichment}[Is an Assembler a Compiler?]
-By the definition in \S1, yes: an assembler reads a program in one language (assembly) and
-translates it into an equivalent program in another language (relocatable machine code), with no
-execution of its own along the way -- that is exactly the compiler definition. It is given its
-own name and its own box in the pipeline diagram above for practical, not definitional, reasons:
-assembly is designed to be an almost line-for-line, one-to-one notation for machine instructions,
-so an assembler's job skips most of what makes a ``full'' compiler hard (there is essentially no
-analysis phase, no optimization search, and little structural gap between source and target to
-bridge) and reduces mostly to table lookup and address bookkeeping. The lesson generalizes:
-\emph{compiler} names a \emph{role} -- translate one language into another, without executing
-either -- not a claim about how sophisticated the translation has to be. An assembler, a
-JVM-bytecode compiler like \texttt{javac}, and a heavily-optimizing tool like GCC are all
-compilers in exactly the same technical sense; they differ only in how much analysis and
-transformation the translation requires.
+By the definition in \S\ref{sec:l1-language-processor}, yes: an assembler reads a program in one
+language (assembly) and translates it into an equivalent program in another language
+(relocatable machine code), with no execution of its own along the way -- that is exactly the
+compiler definition. It is given its own name and its own box in the pipeline diagram above for
+practical, not definitional, reasons: assembly is designed to be an almost line-for-line,
+one-to-one notation for machine instructions, so an assembler's job skips most of what makes a
+``full'' compiler hard (there is essentially no analysis phase, no optimization search, and
+little structural gap between source and target to bridge) and reduces mostly to table lookup
+and address bookkeeping. The lesson generalizes: \emph{compiler} names a \emph{role} -- translate
+one language into another, without executing either -- not a claim about how sophisticated the
+translation has to be. An assembler, a JVM-bytecode compiler like \texttt{javac}, and a
+heavily-optimizing tool like GCC are all compilers in exactly the same technical sense; they
+differ only in how much analysis and transformation the translation requires.
 \end{enrichment}
 
 \begin{defbox}{Object File}
@@ -773,10 +788,8 @@ you run a program, the loader:
 \begin{enumerate}
   \item Allocates memory for the program (code, data, stack, heap regions);
   \item Copies (or memory-maps) the executable's instructions and initial data into that memory;
-  \item Performs any \emph{final} address fix-ups that were deferred until this exact moment --
-  needed both for dynamically linked libraries (previewed in Lecture 2) \emph{and}, on modern
-  systems, for the main executable itself when it is position-independent (see the box below);
-  and
+  \item Performs any \emph{final} address fix-ups that were deferred until this exact moment
+  (relevant for dynamically linked libraries, previewed in Lecture~\ref{lec:2}); and
   \item Transfers control to the program's entry point -- the actual first instruction that
   runs, which is \emph{not} always your \texttt{main} function directly (a small
   language-runtime startup routine usually runs first).
@@ -816,14 +829,82 @@ file); only the linker checks that a matching \emph{definition} actually exists 
 all the object files and libraries it was given.
 \end{examfocus}
 
-\begin{enrichment}[A Preview of What's Coming in Lecture 2]
-This is deliberately the \emph{introductory} pass over the toolchain. Lecture 2 goes much
-further: static vs.\ dynamic linking, position-independent code and ASLR, real object-file
-formats (ELF, Mach-O, PE), and how build systems like Make, Ninja, and Bazel orchestrate this
-whole pipeline across thousands of files.
+\begin{enrichment}[Extra Depth: Seeing the Real Pipeline on Your Own Machine]
+You can watch this exact pipeline happen with GCC or Clang by stopping it at each stage:
+\begin{itemize}
+  \item \texttt{gcc -E prog.c -o prog.i} --- run \emph{only} the preprocessor; inspect
+  \texttt{prog.i} to see macros expanded and headers inlined.
+  \item \texttt{gcc -S prog.i -o prog.s} --- run the compiler proper; \texttt{prog.s} is
+  human-readable target assembly.
+  \item \texttt{gcc -c prog.s -o prog.o} --- run the assembler; \texttt{prog.o} is a relocatable
+  ELF (on Linux) object file. Inspect it with \texttt{objdump -d prog.o} or \texttt{nm prog.o}.
+  \item \texttt{gcc prog.o -o prog} --- run the linker, pulling in the C runtime and any
+  libraries, producing the final executable.
+\end{itemize}
+Try this on a one-line \texttt{"hello world"} program: the jump in size and content between
+\texttt{prog.i} (hundreds of lines, from expanded standard-library headers) and \texttt{prog.c}
+(one line) is a genuinely eye-opening way to internalize what the preprocessor actually does.
+\end{enrichment}
+
+\begin{enrichment}[Extra Depth: Static vs.\ Dynamic Linking, and What the Loader Really Does]
+The linker/loader description above is simplified; two refinements matter a great deal in
+practice:
+\begin{itemize}
+  \item \textbf{Static linking} copies the code of every library function you use directly into
+  your executable at link time. The result is self-contained but larger, and does not benefit
+  when the OS wants to share one copy of, say, \texttt{libc}, across many running programs.
+  \item \textbf{Dynamic linking} instead records, in the executable, only the \emph{names} of
+  needed shared libraries (\texttt{.so} on Linux, \texttt{.dll} on Windows, \texttt{.dylib} on
+  macOS). A specialized program, the \textbf{dynamic linker/loader} (\texttt{ld.so} on Linux),
+  runs as the executable starts, finds each shared library already resident in memory or maps it
+  fresh, and \textbf{patches in} the real addresses of library functions --- a process called
+  \textbf{relocation} --- before your \texttt{main} function ever runs. This is why dynamically
+  linked executables are smaller on disk but have slightly higher startup latency and a runtime
+  dependency on the right library versions being present (colloquially, ``DLL hell'').
+  \item \textbf{Position-Independent Code (PIC)} is machine code generated so it can be loaded
+  at \emph{any} memory address, not a fixed one --- essential for shared libraries (which may be
+  mapped at different addresses in different processes) and for security features like ASLR
+  (Address Space Layout Randomization). Generating PIC is a back-end code-generation decision,
+  another example of how deep the ``compiler'' choices reach into topics normally considered OS
+  territory.
+\end{itemize}
+\end{enrichment}
+
+\begin{enrichment}[Extra Depth: Build Systems Are Compiler Orchestration at Scale]
+Everything above describes compiling \emph{one} file. Real projects have thousands. The tools
+that decide \emph{which} files need recompiling and in what order are themselves built on the
+phase model above:
+\begin{itemize}
+  \item \textbf{Make / Ninja} track file modification timestamps and a dependency graph to
+  avoid recompiling unchanged files --- essentially caching the output of the ``compiler'' node
+  in the pipeline diagram above, keyed by source-file identity and timestamp.
+  \item \textbf{ccache / sccache} go further: they hash the \emph{preprocessed} source
+  (post-preprocessor, pre-compiler) plus compiler flags, and cache the resulting object file, so
+  an unchanged file compiled with unchanged flags never re-invokes the compiler proper at all ---
+  directly exploiting the preprocessor/compiler boundary described earlier in this section.
+  \item \textbf{Bazel and other hermetic build systems} extend caching across an entire team or
+  CI fleet: if any engineer, anywhere, has already built a given (source, flags, toolchain)
+  combination, everyone else can fetch the cached object/executable instead of recompiling.
+  \item \textbf{Link-Time Optimization (LTO / ThinLTO)} deliberately \emph{breaks} the strict
+  separate-compilation model: instead of each \texttt{.c} file being optimized in isolation
+  before linking, LTO defers whole-program optimization to link time, when the optimizer can see
+  every translation unit at once and, e.g., inline a function across what used to be file
+  boundaries. This directly trades the modularity of the pipeline in \Sref{sec:l1-toolchain} for
+  better runtime performance.
+\end{itemize}
+\end{enrichment}
+
+\begin{enrichment}[Real Object-File Formats -- Beyond This Introduction]
+This lecture's treatment of object files, linking, and loading is deliberately introductory.
+Real object-file formats -- ELF on Linux, Mach-O on macOS, PE on Windows -- each encode the
+relocatable code/data, symbol tables, and section layout described above in a fully specified
+binary format, with their own tools (\texttt{readelf}, \texttt{otool}, \texttt{dumpbin}) for
+inspecting them. That level of detail is not covered in this course, but is worth exploring on
+your own with the \texttt{objdump}/\texttt{readelf} commands mentioned above.
 \end{enrichment}
 
 \section{Different Kinds of Compilers}
+\label{sec:l1-kinds}
 
 \beyonddb ``Compiler'' is used as an umbrella term across the industry for several genuinely
 different tools, distinguished by \emph{what kind of language} sits on each side of the
@@ -882,21 +963,22 @@ These two classification schemes are independent and can combine freely. A JIT c
 just one whose \emph{timing} (during execution) differs from an AOT native compiler's. A
 transpiler like Babel is almost always itself an AOT tool -- it finishes its work entirely
 before the JavaScript it produces ever runs. Don't confuse ``what kind of translation is this''
-(this section) with ``when does the translation happen'' (\S2) -- exam questions sometimes test
-both axes on the same tool deliberately.
+(this section) with ``when does the translation happen'' (\S\ref{sec:l1-comp-interp-jit}) --
+exam questions sometimes test both axes on the same tool deliberately.
 \end{enrichment}
 
 \section{A Preview: What's Next}
+\label{sec:l1-preview}
 
-Lecture 2 opens up the compiler ``black box'' from \S1 of this lecture and walks through its
-internal phases -- lexical analysis, parsing, semantic analysis, intermediate code generation,
-optimization, and final code generation -- in real depth. It also returns to the
-language-processing toolchain from \S6, going far beyond today's introduction: static vs.\
-dynamic linking, position-independent code, real object-file formats, and how build systems
-orchestrate compilation across large projects. Everything in today's lecture is about
-\emph{what} these systems do from the outside; Lecture 2 begins answering \emph{how}, in detail.
+Lecture~\ref{lec:2} opens up the compiler ``black box'' from \S\ref{sec:l1-comp-interp-jit} of
+this lecture and walks through its internal phases -- lexical analysis, parsing, semantic
+analysis, intermediate code generation, optimization, and final code generation -- in real
+depth, including how the phases group into a front-end, middle-end, and back-end. Everything in
+today's lecture is about \emph{what} these systems do from the outside; Lecture~\ref{lec:2}
+begins answering \emph{how}, in detail.
 
 \section{Self-Check Questions}
+\label{sec:l1-selfcheck}
 
 \begin{enrichment}[Practice -- Not Graded]
 \begin{enumerate}
@@ -911,8 +993,9 @@ orchestrate compilation across large projects. Everything in today's lecture is 
   reference to \texttt{compute\_total}.'' Which tool caught this, and why couldn't the compiler
   have caught it earlier?
   \item Is a transpiler (e.g.\ TypeScript $\to$ JavaScript) a compiler under DB's definition?
-  Justify your answer using the definition given in \S1, and separately, name which of the six
-  ``kinds of compiler'' from \S6 it belongs to.
+  Justify your answer using the definition given in \S\ref{sec:l1-language-processor}, and
+  separately, name which of the six ``kinds of compiler'' from \S\ref{sec:l1-kinds} it belongs
+  to.
   \item Give one example, not listed in this lecture, of a real tool on your own laptop that is
   best described as an ``interpreter'' rather than a compiler.
   \item HotSpot's C2 JIT only compiles a method after it has been \emph{interpreted} many
@@ -956,10 +1039,13 @@ orchestrate compilation across large projects. Everything in today's lecture is 
 \end{takeaways}
 
 \section*{References for This Lecture}
-\begin{itemize}
-  \item [DB] Aho, Lam, Sethi, Ullman. \textit{Compilers: Principles, Techniques, and Tools}, 2nd ed., \S1.1, \S1.2, \S1.4, \S1.5.
-  \item [ET] Cooper \& Torczon. \textit{Engineering a Compiler}, 2nd ed., \S1.1.
-  \item [AP] Appel. \textit{Modern Compiler Implementation in C/Java/ML}, Ch.\,1.
-\end{itemize}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[ET]{et} Cooper, K.~D. and Torczon, L. \textit{Engineering a Compiler}. 2nd~ed. Morgan
+Kaufmann, 2011.
+\bibitem[AP]{ap} Appel, A.~W. \textit{Modern Compiler Implementation in C/Java/ML}. Cambridge
+University Press, 2004.
+\end{thebibliography}
 
 \end{document}

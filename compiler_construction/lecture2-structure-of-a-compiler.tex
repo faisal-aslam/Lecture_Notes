@@ -2,7 +2,7 @@
 
 \begin{document}
 \lecturemeta{2}
-  {Structure of a Compiler: Phases Overview; Front-/Middle-/Back-End; Preprocessor, Assembler, Linker, Loader}
+  {Structure of a Compiler: Phases Overview; Front-/Middle-/Back-End; MLIR and Real-World IRs}
   {CLO 1}
   {\S1.2 (The Structure of a Compiler), \S2.1--\S2.8 (overview of a syntax-directed translator's stages)}
   {[PP] Programming Language Pragmatics \S1.5, \S1.6}
@@ -13,19 +13,21 @@
 \begin{coreidea}[Lecture Roadmap]
 \begin{enumerate}
   \item The classical phase pipeline of a compiler (DB Fig.\,1.6): what each phase consumes and
-  produces.
+  produces, followed all the way through on one tiny worked example.
   \item The two cross-cutting components every phase touches: the \textbf{symbol table} and
   \textbf{error handling}.
   \item Grouping the phases into \textbf{front-end / middle-end / back-end}, and why that
   grouping is an engineering decision, not just a diagram convenience.
-  \item The compiler's \textbf{neighbors} in the full toolchain: preprocessor, assembler,
-  linker, and loader --- what runs before and after the compiler proper.
+  \item How real-world intermediate representations -- \textbf{LLVM IR, JVM bytecode,
+  WebAssembly, and MLIR} -- relate to this pipeline and to each other.
 \end{enumerate}
-Today is still ``the outside view.'' From Lecture 3 onward we go phase-by-phase in depth,
-starting with lexical analysis.
+Today is still ``the outside view.'' From Lecture~\ref{lec:3} onward we go phase-by-phase in
+depth, starting with lexical analysis. (The preprocessor/assembler/linker/loader toolchain
+around the compiler was already covered in Lecture~\ref{lec:1}.)
 \end{coreidea}
 
 \section{The Phase Pipeline of a Compiler}
+\label{sec:l2-phase-pipeline}
 
 \dbtag DB organizes a compiler as a pipeline of phases, each of which takes the output of the
 previous phase as input, checks it, and produces a new representation of the program one step
@@ -75,6 +77,7 @@ MCQ pattern in compiler exams worldwide, not just here.
 \end{examfocus}
 
 \subsection{A Tiny Example, Followed Through Every Phase}
+\label{sec:l2-tiny-example}
 
 \dbtag It helps enormously to see one small piece of source code survive the \emph{entire}
 pipeline, phase by phase, before we study each phase in isolation over the coming lectures. DB
@@ -88,6 +91,30 @@ real/floating-point variables, and \texttt{60} is an ordinary integer literal):
 \begin{center}
 \ttfamily position = initial + rate * 60
 \end{center}
+
+\begin{defbox}{Token and Lexeme}
+A \textbf{lexeme} is the actual sequence of characters in the source program that the lexical
+analyzer recognizes as a single meaningful unit -- for example, the seven characters
+\texttt{p-o-s-i-t-i-o-n} form one lexeme, and the single character \texttt{=} forms another. A
+\textbf{token} is the abstract \texttt{<token-name, attribute-value>} pair the lexer emits once
+it has recognized a lexeme: the token-name records \emph{which category} was matched (e.g.\
+\texttt{ID}, \texttt{ASSIGN}, \texttt{PLUS}), and the attribute-value carries whatever extra
+information later phases need in order to tell this particular lexeme apart from other lexemes
+in the same category -- for an identifier, almost always a pointer into the symbol table.
+Lecture~\ref{lec:3} gives the full formal treatment, including \textbf{patterns} -- the rules
+that describe which lexemes belong to which token.
+\end{defbox}
+
+For this statement, the \textbf{lexemes} are the individual pieces of source text
+\texttt{position}, \texttt{=}, \texttt{initial}, \texttt{+}, \texttt{rate}, \texttt{*}, and
+\texttt{60}. Lexical analysis classifies each one as a \textbf{token}: the lexeme
+\texttt{position} becomes \texttt{<ID, ptr to symtab entry for \texttt{position}>} -- written
+\texttt{<id,1>} in the walkthrough below -- and likewise \texttt{initial} and \texttt{rate}
+become \texttt{<id,2>} and \texttt{<id,3>}; the lexeme \texttt{=} becomes an
+\texttt{<ASSIGN>} token, \texttt{+} a \texttt{<PLUS>} token, \texttt{*} a \texttt{<MULT>} token,
+and \texttt{60} a \texttt{<NUM, 60>} token. None of the three operator tokens need an
+attribute-value, since the token-name alone already tells the parser everything it needs to
+know.
 
 \begin{examplebox}{The \texttt{position} Statement, Phase by Phase}
 \begin{itemize}
@@ -131,6 +158,31 @@ MOVF   R1, id1
 \end{itemize}
 \end{examplebox}
 
+The syntax-analysis step above builds the following syntax tree -- the root \texttt{=} node
+assigns to \texttt{id,1} the value computed by its right subtree:
+
+\begin{center}
+\begin{tikzpicture}[
+  level distance=13mm,
+  sibling distance=22mm,
+  every node/.style={draw, rounded corners, minimum width=9mm, minimum height=7mm, align=center, font=\small}
+]
+\node {=}
+  child { node {id,1} }
+  child { node {+}
+    child { node {id,2} }
+    child { node {$*$}
+      child { node {id,3} }
+      child { node {60} }
+    }
+  }
+;
+\end{tikzpicture}
+\end{center}
+\begin{center}
+\small\textit{Syntax tree for \texttt{position = initial + rate * 60}.}
+\end{center}
+
 \begin{examfocus}
 This example is deliberately small enough to hold in your head. When a later lecture introduces
 the \emph{real} algorithm for a phase (Thompson's construction, LALR(1) table construction,
@@ -140,6 +192,7 @@ understood a new algorithm correctly.
 \end{examfocus}
 
 \subsection{Analysis and Synthesis: The Two Halves}
+\label{sec:l2-analysis-synthesis}
 
 \dbtag DB groups these six phases into two conceptual halves:
 
@@ -162,22 +215,48 @@ language.
 \end{defbox}
 
 \section{Symbol Table and Error Handling: The Cross-Cutting Phases}
+\label{sec:l2-symtab-error}
 
 \dbtag Two components are not steps in the pipeline --- they run \emph{alongside every phase},
-being read from and written to throughout the whole compilation.
+being read from and written to throughout the whole compilation: the \textbf{symbol table} and
+\textbf{error handling}.
 
-\begin{itemize}
-  \item \textbf{Symbol table management.} A data structure recording every identifier in the
-  program --- variables, function names, class names --- along with attributes: type, scope,
-  memory location, and (for functions) parameter/return types. Lexical analysis creates entries;
-  semantic analysis fills in type information; code generation uses it to compute memory
-  addresses.
-  \item \textbf{Error handling.} Each phase may encounter errors specific to its own level:
-  lexical analysis catches malformed tokens, syntax analysis catches grammatically invalid
-  programs, semantic analysis catches type mismatches and undeclared identifiers. A well-built
-  compiler tries to \emph{recover} from an error and keep going, so it can report several
-  distinct errors from a single compilation run instead of stopping at the first one.
-\end{itemize}
+\begin{defbox}{Symbol Table}
+A \textbf{symbol table} is a data structure that records every identifier declared in a program
+-- variables, function names, class names -- together with the attributes later phases need to
+know about it: its \textbf{type}, \textbf{scope}, \textbf{memory location}, and, for functions,
+its parameter and return types. It is not itself one of the six phases; instead every phase
+reads from it and writes to it: lexical analysis creates an entry the first time it sees a new
+identifier, semantic analysis fills in type information once it is known, and code generation
+consults it to compute final memory addresses.
+\end{defbox}
+
+\begin{examplebox}{Symbol Table Contents for the \texttt{position} Example}
+For \texttt{position = initial + rate * 60} (\Sref{sec:l2-tiny-example}), lexical analysis
+creates one entry per distinct identifier -- exactly the \texttt{id,1}, \texttt{id,2}, and
+\texttt{id,3} pointers used throughout that walkthrough:
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}l l l X@{}}
+\toprule
+\textbf{Entry} & \textbf{Name} & \textbf{Type} & \textbf{Role in this statement} \\
+\midrule
+\texttt{id,1} & \texttt{position} & real & assigned to \\
+\texttt{id,2} & \texttt{initial} & real & read \\
+\texttt{id,3} & \texttt{rate} & real & read \\
+\bottomrule
+\end{tabularx}
+\end{center}
+Notice \texttt{60} never gets its own entry -- it is a numeric \emph{literal}, not an
+identifier, so it is carried as a token attribute (\texttt{<NUM, 60>}) rather than being
+recorded in the symbol table.
+\end{examplebox}
+
+\textbf{Error handling.} Each phase may encounter errors specific to its own level: lexical
+analysis catches malformed tokens, syntax analysis catches grammatically invalid programs,
+semantic analysis catches type mismatches and undeclared identifiers. A well-built compiler
+tries to \emph{recover} from an error and keep going, so it can report several distinct errors
+from a single compilation run instead of stopping at the first one.
 
 \begin{center}
 \resizebox{0.85\textwidth}{!}{%
@@ -217,6 +296,7 @@ real symbol-table designs are compared to the simple table DB introduces.
 \end{enrichment}
 
 \section{Grouping the Phases: Front-End, Middle-End, Back-End}
+\label{sec:l2-grouping-phases}
 
 \beyonddb DB's own diagram groups phases into analysis/synthesis, but the vocabulary you will
 hear constantly in industry and in later lectures is \textbf{front-end / middle-end / back-end}.
@@ -293,7 +373,20 @@ made concrete: roughly 20+ front-ends (Clang, \texttt{rustc}, Swift, Julia, \dot
 of each of those $20 \times 20$ combinations needing its own hand-written optimizer.
 \end{enrichment}
 
+\begin{enrichment}[Extra Depth: The Front-End's Second Career --- IDEs and Language Servers]
+The front-end (lexer + parser + semantic analyzer) is valuable even when no target code is ever
+generated. This observation underlies the \textbf{Language Server Protocol (LSP)}: an editor
+like VS Code or Neovim talks to a background process (a ``language server'') that re-runs a
+language's front-end on every keystroke to provide autocomplete, jump-to-definition, and
+real-time error squiggles --- all without ever reaching code generation. \texttt{clangd} (built
+directly on Clang's front-end), \texttt{rust-analyzer}, and \texttt{gopls} are all, in effect,
+``compilers with the back end removed and an editor bolted on instead.'' This is a direct,
+practical payoff of the front-end/back-end separation described above: a front-end built for
+compilation can be repurposed wholesale for tooling.
+\end{enrichment}
+
 \section{Comparing Real-World IRs: LLVM IR, JVM Bytecode, and WebAssembly}
+\label{sec:l2-ir-comparison}
 
 \beyonddb LLVM IR, JVM bytecode, and WebAssembly are all, loosely, ``intermediate,
 machine-independent instruction sets sitting between source code and a real CPU'' --- which is
@@ -363,7 +456,7 @@ right \emph{and} one more entry in LLVM's list of back-end targets.
 \begin{examfocus}
 Do not confuse the two axes this section and the earlier ``kinds of IR'' discussion test
 separately: \emph{how low-level is it, and why} (this section) versus \emph{when is it executed
-relative to run time} (Lecture 1's AOT/interpreter/JIT distinction). LLVM IR and WebAssembly are
+relative to run time} (Lecture~\ref{lec:1}'s AOT/interpreter/JIT distinction). LLVM IR and WebAssembly are
 both low-level, but for different reasons -- LLVM IR is low-level so that generating real machine
 code from it is easy and so that no language's runtime assumptions get baked in; WebAssembly is
 low-level \emph{and} structured so that it can be validated quickly and executed safely in a
@@ -373,18 +466,20 @@ for arbitrary source languages -- was its original goal.
 \end{examfocus}
 
 \section{MLIR: A Framework for Building Compiler IRs}
+\label{sec:l2-mlir}
 
 MLIR (``Multi-Level Intermediate Representation'') is a compiler-infrastructure project started
 at Google around 2019 and merged into the official LLVM monorepo as one of its sub-projects in
-2020, first described publicly in~[MLIR]. It is worth understanding alongside LLVM IR for the same reason the
+2020, first described publicly in~\cite{mlir}. It is worth understanding alongside LLVM IR for the same reason the
 previous section compared LLVM IR, JVM bytecode, and WebAssembly: people often assume ``MLIR''
 is just another name for ``LLVM IR, but newer,'' when in fact the two solve different problems
 and sit at different points in a compiler's pipeline.
 
 \subsection{The Problem MLIR Was Built to Solve}
+\label{sec:l2-mlir-problem}
 
 LLVM IR is deliberately low-level: typed, in SSA form, organized into ordinary basic blocks --
-close to assembly, as \S5 described. That is exactly what makes it a good shared target for many
+close to assembly, as \Sref{sec:l2-ir-comparison} described. That is exactly what makes it a good shared target for many
 different \emph{source} languages once they have already been reduced to simple operations and
 control flow. It is a poor fit, however, for representing a program \emph{before} that
 reduction has happened -- for example, a matrix multiplication expressed as a single high-level
@@ -402,6 +497,7 @@ domain-specific IR is a matter of defining new operations rather than rebuilding
 infrastructure from the ground up.
 
 \subsection{Core Ideas}
+\label{sec:l2-mlir-core-ideas}
 
 \textbf{Dialects.} Instead of one fixed instruction set, MLIR defines an extensible mechanism
 for registering \textbf{dialects} -- namespaced families of operations, types, and attributes.
@@ -430,6 +526,7 @@ structure for as long as that structure remains useful, instead of being flatten
 control-flow graph immediately.
 
 \subsection{How MLIR Differs From LLVM IR}
+\label{sec:l2-mlir-vs-llvm}
 
 \begin{center}
 \renewcommand{\arraystretch}{1.4}
@@ -453,179 +550,24 @@ LLVM's own optimizer and back-ends take over & Sits \emph{upstream} of LLVM IR; 
 The last row is the point most often missed: MLIR does not replace LLVM. A program written using
 MLIR's higher-level dialects is progressively lowered, within MLIR, down to the \texttt{llvm}
 dialect; from there it is translated into ordinary LLVM IR and handed to the exact same
-optimizer passes and back-ends already described in \S3 and \S5. MLIR extends the \emph{front}
+optimizer passes and back-ends already described in \Sref{sec:l2-grouping-phases} and
+\Sref{sec:l2-ir-comparison}. MLIR extends the \emph{front}
 of the pipeline -- giving compiler writers a place to do domain-specific reasoning (tensor
 shapes, loop tiling, hardware-specific fusion) before code is flattened down to LLVM IR -- rather
 than replacing anything downstream of it.
 
 \subsection{Where MLIR Is Used}
+\label{sec:l2-mlir-adopters}
 
 MLIR's dialect mechanism has made it attractive well beyond its original use case. Notable
 adopters include Google's XLA and IREE (compiling machine-learning computation graphs to CPUs,
 GPUs, and custom accelerators), PyTorch's Torch-MLIR, Triton (a language for writing GPU
 kernels), CIRCT (an MLIR-based toolchain for hardware design, playing a role similar to parts of
 a Verilog toolchain), and Flang, LLVM's own Fortran front end, which lowers through an
-MLIR dialect called FIR before reaching LLVM IR.
-
-\subsection*{References for This Section}
-\begin{itemize}
-  \item[{[MLIR]}] Lattner, C., Amini, M., Bondhugula, U., Cohen, A., Davis, A., Pienaar, J.,
-  Riddle, R., Shpeisman, T., Vasilache, N., Zinenko, O. \textit{MLIR: A Compiler Infrastructure
-  for the End of Moore's Law}. arXiv:2002.11054, 2020.
-  \item[{[MLIR-DOCS]}] The MLIR Project. Official documentation. \url{https://mlir.llvm.org/}
-\end{itemize}
-
-\section{The Compiler's Neighbors: Preprocessor, Assembler, Linker \& Loader}
-
-\dbtag The ``compiler'' most people mean when they say \texttt{gcc file.c} is actually a
-\textbf{driver program} that invokes several distinct tools in sequence. DB \S2.1--\S2.8 places
-the compiler proper in the context of this larger \textbf{language-processing system}.
-
-\begin{center}
-\resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[
-  box/.style={draw, thick, rounded corners, minimum height=1.1cm, minimum width=2.6cm, align=center, font=\small},
-  tool/.style={box, fill=dbGreenBg, draw=dbGreen},
-  data/.style={box, fill=nuLight, draw=nuNavy},
-  >=Latex
-]
-  % Row 1: source through target assembly
-  \node[data]                       at (0,0)    (src)  {Source Program\\\texttt{prog.c}};
-  \node[tool]                       at (4,0)    (cpp)  {Preprocessor};
-  \node[data]                       at (8,0)    (isrc) {Preprocessed\\Source};
-  \node[tool]                       at (12,0)   (comp) {Compiler\\\emph{(today's pipeline)}};
-  \node[data]                       at (16,0)   (asmf) {Target\\Assembly Code};
-
-  % Row 2: assembler through linker
-  \node[tool]                       at (2,-2.4) (asm)  {Assembler};
-  \node[data]                       at (6,-2.4) (obj)  {Relocatable\\Object Code};
-  \node[tool]                       at (10,-2.4)(link) {Linker};
-  \node[data]                       at (14,-2.4)(exe)  {Executable\\Machine Code};
-  \node[data, font=\small\scriptsize] at (10,-4.4)(lib){Relocatable\\Library Files};
-
-  % Row 3: loader through running program
-  \node[tool]                       at (2,-6.4) (load) {Loader};
-  \node[data]                       at (6,-6.4) (mem)  {Program in\\Memory, Running};
-
-  \draw[->, thick] (src) -- (cpp);
-  \draw[->, thick] (cpp) -- (isrc);
-  \draw[->, thick] (isrc) -- (comp);
-  \draw[->, thick] (comp) -- (asmf);
-  \draw[->, thick] (asmf.south) -- ++(0,-0.5) -| (asm.north);
-  \draw[->, thick] (asm) -- (obj);
-  \draw[->, thick] (obj) -- (link);
-  \draw[->, thick] (lib) -- (link);
-  \draw[->, thick] (link) -- (exe);
-  \draw[->, thick] (exe.south) -- ++(0,-0.5) -| (load.north);
-  \draw[->, thick] (load) -- (mem);
-\end{tikzpicture}}
-\end{center}
-
-\begin{itemize}
-  \item \textbf{Preprocessor.} Handles macro expansion (\texttt{\#define}), file inclusion
-  (\texttt{\#include}), and conditional compilation (\texttt{\#ifdef}) \emph{before} the
-  compiler proper ever sees the code. It works on raw text, with no notion of the language's
-  grammar.
-  \item \textbf{Compiler (proper).} Everything in \S1 of this lecture: source $\to$ target
-  assembly (or directly to object code, in many modern compilers, skipping a textual assembly
-  step).
-  \item \textbf{Assembler.} Translates (textual) assembly instructions into \textbf{relocatable
-  machine code} --- binary instructions, but with addresses left as symbolic placeholders to be
-  filled in later, since the assembler does not yet know the final memory layout.
-  \item \textbf{Linker.} Resolves references \emph{between} separately compiled object files and
-  libraries --- e.g.\ your \texttt{main.o} calling \texttt{printf}, defined in the C standard
-  library, not in your own source. Produces one combined \textbf{executable} with all addresses
-  resolved (or marked for the dynamic linker, see below).
-  \item \textbf{Loader.} Takes the executable file, allocates memory for it, and places its
-  instructions and data into memory so the operating system can begin executing it --- the very
-  last step before your program actually runs.
-\end{itemize}
-
-\begin{examfocus}
-Know precisely which of preprocessor/assembler/linker/loader are considered \emph{part of} ``the
-compiler'' in the narrow sense (none of them --- the compiler proper is only the six-phase
-pipeline from \S1) versus which are separate programs in the surrounding toolchain that DB
-still expects you to know the role of. A common exam trap: ``which phase resolves a call to a
-library function like \texttt{printf}?'' --- the answer is the \textbf{linker}, not the compiler.
-\end{examfocus}
-
-\begin{enrichment}[Extra Depth: Seeing the Real Pipeline on Your Own Machine]
-You can watch this exact pipeline happen with GCC or Clang by stopping it at each stage:
-\begin{itemize}
-  \item \texttt{gcc -E prog.c -o prog.i} --- run \emph{only} the preprocessor; inspect
-  \texttt{prog.i} to see macros expanded and headers inlined.
-  \item \texttt{gcc -S prog.i -o prog.s} --- run the compiler proper; \texttt{prog.s} is
-  human-readable target assembly.
-  \item \texttt{gcc -c prog.s -o prog.o} --- run the assembler; \texttt{prog.o} is a relocatable
-  ELF (on Linux) object file. Inspect it with \texttt{objdump -d prog.o} or \texttt{nm prog.o}.
-  \item \texttt{gcc prog.o -o prog} --- run the linker, pulling in the C runtime and any
-  libraries, producing the final executable.
-\end{itemize}
-Try this on a one-line \texttt{"hello world"} program: the jump in size and content between
-\texttt{prog.i} (hundreds of lines, from expanded standard-library headers) and \texttt{prog.c}
-(one line) is a genuinely eye-opening way to internalize what the preprocessor actually does.
-\end{enrichment}
-
-\begin{enrichment}[Extra Depth: Static vs.\ Dynamic Linking, and What the Loader Really Does]
-DB's loader description is simplified; two refinements matter a great deal in practice:
-\begin{itemize}
-  \item \textbf{Static linking} copies the code of every library function you use directly into
-  your executable at link time. The result is self-contained but larger, and does not benefit
-  when the OS wants to share one copy of, say, \texttt{libc}, across many running programs.
-  \item \textbf{Dynamic linking} instead records, in the executable, only the \emph{names} of
-  needed shared libraries (\texttt{.so} on Linux, \texttt{.dll} on Windows, \texttt{.dylib} on
-  macOS). A specialized program, the \textbf{dynamic linker/loader} (\texttt{ld.so} on Linux),
-  runs as the executable starts, finds each shared library already resident in memory or maps it
-  fresh, and \textbf{patches in} the real addresses of library functions --- a process called
-  \textbf{relocation} --- before your \texttt{main} function ever runs. This is why dynamically
-  linked executables are smaller on disk but have slightly higher startup latency and a runtime
-  dependency on the right library versions being present (colloquially, ``DLL hell'').
-  \item \textbf{Position-Independent Code (PIC)} is machine code generated so it can be loaded
-  at \emph{any} memory address, not a fixed one --- essential for shared libraries (which may be
-  mapped at different addresses in different processes) and for security features like ASLR
-  (Address Space Layout Randomization). Generating PIC is a back-end code-generation decision,
-  another example of how deep the ``compiler'' choices reach into topics normally considered OS
-  territory.
-\end{itemize}
-\end{enrichment}
-
-\begin{enrichment}[Extra Depth: Build Systems Are Compiler Orchestration at Scale]
-Everything above describes compiling \emph{one} file. Real projects have thousands. The tools
-that decide \emph{which} files need recompiling and in what order are themselves built on the
-phase model above:
-\begin{itemize}
-  \item \textbf{Make / Ninja} track file modification timestamps and a dependency graph to
-  avoid recompiling unchanged files --- essentially caching the output of the ``compiler'' node
-  in the pipeline diagram above, keyed by source-file identity and timestamp.
-  \item \textbf{ccache / sccache} go further: they hash the \emph{preprocessed} source
-  (post-preprocessor, pre-compiler) plus compiler flags, and cache the resulting object file, so
-  an unchanged file compiled with unchanged flags never re-invokes the compiler proper at all ---
-  directly exploiting the preprocessor/compiler boundary from \S4.
-  \item \textbf{Bazel and other hermetic build systems} extend caching across an entire team or
-  CI fleet: if any engineer, anywhere, has already built a given (source, flags, toolchain)
-  combination, everyone else can fetch the cached object/executable instead of recompiling.
-  \item \textbf{Link-Time Optimization (LTO / ThinLTO)} deliberately \emph{breaks} the strict
-  separate-compilation model: instead of each \texttt{.c} file being optimized in isolation
-  before linking, LTO defers whole-program optimization to link time, when the optimizer can see
-  every translation unit at once and, e.g., inline a function across what used to be file
-  boundaries. This directly trades the modularity of the pipeline in \S4 for better runtime
-  performance.
-\end{itemize}
-\end{enrichment}
-
-\begin{enrichment}[Extra Depth: The Front-End's Second Career --- IDEs and Language Servers]
-The front-end (lexer + parser + semantic analyzer) is valuable even when no target code is ever
-generated. This observation underlies the \textbf{Language Server Protocol (LSP)}: an editor
-like VS Code or Neovim talks to a background process (a ``language server'') that re-runs a
-language's front-end on every keystroke to provide autocomplete, jump-to-definition, and
-real-time error squiggles --- all without ever reaching code generation. \texttt{clangd} (built
-directly on Clang's front-end), \texttt{rust-analyzer}, and \texttt{gopls} are all, in effect,
-``compilers with the back end removed and an editor bolted on instead.'' This is a direct,
-practical payoff of the front-end/back-end separation from \S3: a front-end built for compilation
-can be repurposed wholesale for tooling.
-\end{enrichment}
+MLIR dialect called FIR before reaching LLVM IR (see \cite{mlir,mlirdocs} for further reading).
 
 \section{Self-Check Questions}
+\label{sec:l2-selfcheck}
 
 \begin{enrichment}[Practice -- Not Graded]
 \begin{enumerate}
@@ -641,13 +583,19 @@ can be repurposed wholesale for tooling.
   linking does the opposite?
   \item \texttt{clangd} never performs code generation. Which phases of the pipeline does it
   still need to run, and why are those enough to power features like ``jump to definition''?
-  \item For the \texttt{position} example in \S1.1, write out what the three-address code would
+  \item For the \texttt{position} example in \Sref{sec:l2-tiny-example}, write out what the three-address code would
   look like if \texttt{60} were replaced by \texttt{count}, an already-integer variable (so no
   \texttt{inttoreal} conversion is needed). Which of the six phases changes as a result, and
   which stay exactly the same?
   \item JVM bytecode assumes garbage collection; LLVM IR does not. Explain why this makes JVM
   bytecode a natural fit for Kotlin but a poor natural fit for a language like C, and explain why
   WebAssembly's core spec makes the same choice as LLVM IR here rather than the JVM's.
+  \item For the statement \texttt{count = count + step}, list its lexemes, give the
+  \texttt{<token-name, attribute-value>} pair for each one, and sketch the symbol table entries
+  lexical analysis would create (assuming \texttt{count} and \texttt{step} are both integers).
+  \item Draw the syntax tree for \texttt{count = count + step} in the same style as the
+  \texttt{position} example's tree, and identify which single node the semantic analyzer would
+  need to annotate if \texttt{step} were declared \texttt{real} instead of integer.
 \end{enumerate}
 \end{enrichment}
 
@@ -661,8 +609,9 @@ can be repurposed wholesale for tooling.
   tiny statement: tokens $\to$ syntax tree $\to$ annotated tree (type conversion inserted)
   $\to$ three-address code $\to$ optimized three-address code (constant folded) $\to$ target
   assembly.
-  \item The \textbf{symbol table} and \textbf{error handler} are not phases in the pipeline ---
-  they run alongside every phase.
+  \item A \textbf{token} is an abstract \texttt{<name, attribute>} pair emitted for a recognized
+  \textbf{lexeme} (the actual matched source text). A \textbf{symbol table} records one entry
+  per declared identifier and is read from and written to by every phase -- not a phase itself.
   \item The \textbf{front-end/middle-end/back-end} split (language-specific $\to$
   language-and-target-agnostic $\to$ target-specific) is what lets one shared IR (like LLVM IR)
   turn an $M \times N$ language/target problem into an $M + N$ problem.
@@ -670,18 +619,26 @@ can be repurposed wholesale for tooling.
   sets but were built for three different goals -- reusable compiler infrastructure, portability
   for GC'd object-oriented languages, and safe sandboxed execution, respectively -- and that goal
   explains how high- or low-level each one is and what it assumes about memory and objects.
-  \item The compiler proper sits inside a larger toolchain: \textbf{preprocessor} (before) and
-  \textbf{assembler, linker, loader} (after) are separate programs, not phases of the compiler
-  itself, though DB expects you to know each one's job.
-  \item Front-ends have value beyond compilation: build caching, LTO, and language servers
-  (\texttt{clangd}, \texttt{rust-analyzer}) all repurpose pieces of this pipeline for other ends.
+  \item \textbf{MLIR} is not a fixed IR but a framework for defining many \textbf{dialects} at
+  different abstraction levels, progressively lowered down to LLVM IR -- it extends the front of
+  the pipeline rather than replacing anything downstream of it.
+  \item Front-ends have value beyond compilation: language servers (\texttt{clangd},
+  \texttt{rust-analyzer}) repurpose the same lexer/parser/semantic-analyzer pipeline for IDE
+  tooling, without ever reaching code generation.
 \end{itemize}
 \end{takeaways}
 
 \section*{References for This Lecture}
-\begin{itemize}
-  \item [DB] Aho, Lam, Sethi, Ullman. \textit{Compilers: Principles, Techniques, and Tools}, 2nd ed., \S1.2, \S2.1--\S2.8.
-  \item [PP] Scott. \textit{Programming Language Pragmatics}, \S1.5, \S1.6.
-\end{itemize}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[PP]{pp} Scott, M.~L. \textit{Programming Language Pragmatics}. 4th~ed. Morgan
+Kaufmann.
+\bibitem[MLIR]{mlir} Lattner, C., Amini, M., Bondhugula, U., Cohen, A., Davis, A., Pienaar, J.,
+Riddle, R., Shpeisman, T., Vasilache, N., and Zinenko, O. \textit{MLIR: A Compiler
+Infrastructure for the End of Moore's Law}. arXiv:2002.11054, 2020.
+\bibitem[MLIR-DOCS]{mlirdocs} The MLIR Project. \textit{Official Documentation}.
+\url{https://mlir.llvm.org/}
+\end{thebibliography}
 
 \end{document}

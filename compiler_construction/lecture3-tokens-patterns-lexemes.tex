@@ -20,10 +20,11 @@
   \item \textbf{Lexical errors}: what a lexer really can and cannot catch, and how it recovers.
 \end{enumerate}
 This lecture builds the vocabulary and mental model. \emph{How} patterns are written --
-regular expressions and finite automata -- is Lectures 4--6.
+regular expressions and finite automata -- is Lecture~\ref{lec:4} onward.
 \end{coreidea}
 
 \section{Where Lexical Analysis Fits}
+\label{sec:l3-where-lexical-fits}
 
 \dbtag The \textbf{lexical analyzer} (also called a \textbf{scanner} or \textbf{lexer}) is the
 first phase of a compiler. It reads the raw stream of characters making up the source program
@@ -61,6 +62,7 @@ work one token at a time.
 \end{coreidea}
 
 \subsection{Why Not Just One Phase?}
+\label{sec:l3-why-separate}
 
 \dbtag DB gives three concrete engineering reasons for splitting lexical analysis out as its own
 phase rather than folding it into the parser:
@@ -70,8 +72,8 @@ phase rather than folding it into the parser:
   numbers, string literals) lets the parser work purely with grammatical structure, using
   tokens as its atomic symbols, instead of also worrying about individual characters.
   \item \textbf{Improved efficiency.} Specialized, table-driven techniques for recognizing
-  tokens (built from finite automata, Lectures 5--6) are considerably faster than the
-  general-purpose parsing techniques (Lectures 8 onward) would be if forced to operate
+  tokens (built from finite automata, covered once we reach Lecture~\ref{lec:4} and beyond) are
+  considerably faster than the general-purpose parsing techniques would be if forced to operate
   character-by-character.
   \item \textbf{Enhanced portability.} Input-device and operating-system-specific quirks ---
   end-of-line conventions (\texttt{\textbackslash n} vs.\ \texttt{\textbackslash r\textbackslash n}), character
@@ -85,6 +87,7 @@ question. Be able to name and briefly justify all three, not just one.
 \end{examfocus}
 
 \section{Tokens, Patterns, and Lexemes}
+\label{sec:l3-tokens-patterns-lexemes}
 
 \dbtag These three terms are used precisely and are easy to blur together. Getting the
 distinction exactly right is one of the most exam-tested ideas in this entire unit.
@@ -96,7 +99,7 @@ distinction exactly right is one of the most exam-tested ideas in this entire un
   token-name is an abstract symbol used by the parser.
   \item A \textbf{pattern} is the rule that describes the \emph{set of possible lexemes} that
   can produce a given token -- for identifiers, informally, ``a letter followed by any number of
-  letters and digits.'' Lectures 4--6 make patterns precise using regular expressions.
+  letters and digits.'' Lecture~\ref{lec:4} makes patterns precise using regular expressions.
   \item A \textbf{lexeme} is the actual sequence of characters in the source program that
   \emph{matches} a pattern and is classified as an instance of some token.
 \end{itemize}
@@ -133,6 +136,7 @@ distinction exactly right is one of the most exam-tested ideas in this entire un
 \end{examplebox}
 
 \subsection{Worked Example 1: Tokenizing a Function Call}
+\label{sec:l3-worked-example-1}
 
 Consider the following line of C-like source code:
 
@@ -166,6 +170,7 @@ Consider the following line of C-like source code:
 \end{center}
 
 \section{Attributes for Tokens}
+\label{sec:l3-attributes}
 
 \dbtag When more than one lexeme can match a token's pattern (as with \texttt{ID} or
 \texttt{NUM}), the lexer must pass along enough extra information -- the \textbf{attribute-value}
@@ -202,6 +207,7 @@ This is the single most common long-answer question style for this unit.
 \end{examfocus}
 
 \subsection{Worked Example 3: A Complete Statement Block}
+\label{sec:l3-worked-example-3}
 
 \begin{center}
 \begin{minipage}{0.5\textwidth}
@@ -256,6 +262,7 @@ variable `x' at line 42}.''
 \end{coreidea}
 
 \section{Lexical Errors}
+\label{sec:l3-lexical-errors}
 
 \dbtag It is surprisingly rare for a lexer to be able to detect an error entirely on its own,
 \emph{by itself, in isolation} -- because almost any short character sequence is a \emph{prefix}
@@ -286,6 +293,7 @@ input at all, or where a token's own internal structure is malformed:
 \end{itemize}
 
 \subsection{Error Recovery Strategies}
+\label{sec:l3-error-recovery}
 
 \dbtag A production-quality lexer does not simply stop at the first error --- it tries to
 recover and keep going, so the programmer can see \emph{several} distinct errors from one
@@ -340,6 +348,7 @@ illegal character) and describe panic-mode recovery in one sentence.
 \end{examfocus}
 
 \section{Beyond the Dragon Book: How Real Lexers Handle Harder Cases}
+\label{sec:l3-beyond-db}
 
 \begin{enrichment}[The Reserved-Word Trick]
 A naive lexer might need a separate hand-written check for every keyword (\texttt{if},
@@ -362,7 +371,8 @@ prematurely cut off as an identifier before the lexer has looked far enough ahea
 rest of the word. C's \texttt{-{}-{}} (decrement) versus \texttt{-} \texttt{-} (two unary
 minuses) and \texttt{-{}>} (member access through a pointer) are further classic examples where
 getting the lookahead right matters. We formalize \emph{why} this rule is needed, and how a
-scanner implements it efficiently, once we cover finite automata in Lectures 5--6.
+scanner implements it efficiently, once we cover finite automata in Lecture~\ref{lec:4} and
+beyond.
 \end{enrichment}
 
 \begin{enrichment}[Numeric Literals Are Far Messier Than ``a Sequence of Digits'']
@@ -384,8 +394,9 @@ Complex/imaginary literals & \texttt{3+4j} (Python) \\
 \end{tabularx}
 \end{center}
 Each of these is its own regular pattern (or family of patterns) that a real scanner's
-specification must include -- one more reason lexer-generator tools (Lecture 7) are preferred
-over hand-written code once a language's literal syntax grows this rich.
+specification must include -- one more reason lexer-generator tools (covered once we reach the
+lexer-generator lecture later in the course) are preferred over hand-written code once a
+language's literal syntax grows this rich.
 \end{enrichment}
 
 \begin{enrichment}[String Literals: Escapes, Raw Strings, and Interpolation]
@@ -442,6 +453,7 @@ it silently accepts and passes on to the parser.
 \end{enrichment}
 
 \section{Self-Check Questions}
+\label{sec:l3-selfcheck}
 
 \begin{enrichment}[Practice -- Not Graded]
 \begin{enumerate}
@@ -482,9 +494,11 @@ it silently accepts and passes on to the parser.
 \end{takeaways}
 
 \section*{References for This Lecture}
-\begin{itemize}
-  \item [DB] Aho, Lam, Sethi, Ullman. \textit{Compilers: Principles, Techniques, and Tools}, 2nd ed., \S3.1, \S3.3.
-  \item [AP] Appel. \textit{Modern Compiler Implementation in C/Java/ML}, Ch.\,2.
-\end{itemize}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[AP]{ap} Appel, A.~W. \textit{Modern Compiler Implementation in C/Java/ML}. Cambridge
+University Press, 2004.
+\end{thebibliography}
 
 \end{document}

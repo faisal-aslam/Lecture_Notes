@@ -21,11 +21,12 @@
   \item \textbf{Regular vs.\ non-regular languages}: what a lexer's patterns fundamentally
   cannot express, and why that is exactly the job handed to the parser.
 \end{enumerate}
-Today makes ``pattern'' from Lecture 3 completely precise. Lectures 5--6 show \emph{how} a
-machine matches a regular expression, via finite automata.
+Today makes ``pattern'' from Lecture~\ref{lec:3} completely precise. Later lectures show
+\emph{how} a machine matches a regular expression, via finite automata.
 \end{coreidea}
 
 \section{Strings, Alphabets, and Languages}
+\label{sec:l4-strings-alphabets-languages}
 
 \dbtag Before regular expressions can be defined precisely, three primitive terms need to be
 pinned down exactly as DB uses them.
@@ -48,6 +49,7 @@ strings; $\{\varepsilon\}$ contains \emph{one} string (the empty one). Keep them
 \end{examfocus}
 
 \subsection{Operations on Languages}
+\label{sec:l4-operations-on-languages}
 
 \dbtag Given two languages $L$ and $M$ over the same alphabet, DB defines four operations that
 build new languages out of old ones. These four operations are the entire foundation regular
@@ -83,11 +85,12 @@ Let $L = \{a, b, c, \dots, z, A, \dots, Z\}$ (the 52 letters) and $D = \{0, 1, \
   infinitely many strings.
   \item $L(L \cup D)^{*}$ -- one letter, followed by zero or more letters-or-digits. This is
   \emph{exactly} the language of identifiers in most C-like languages! We will turn this
-  directly into a regular expression in \S3.
+  directly into a regular expression in \Sref{sec:l4-regular-expressions}.
 \end{itemize}
 \end{examplebox}
 
 \section{Regular Expressions}
+\label{sec:l4-regular-expressions}
 
 \dbtag A \textbf{regular expression} is a compact notation for describing a language. DB
 defines regular expressions \emph{inductively}: a small set of base cases, plus rules for
@@ -118,6 +121,7 @@ $a \mid (b(c^{*}))$.
 \end{coreidea}
 
 \subsection{Worked Example: Building Up a Regular Expression}
+\label{sec:l4-worked-example-build-up}
 
 DB's running example: the language of all strings of \texttt{a}'s and \texttt{b}'s that
 \emph{end in} \texttt{abb}. Let's build the regular expression piece by piece.
@@ -175,6 +179,7 @@ common exam pattern for this topic.
 \end{examfocus}
 
 \subsection{More Worked Examples}
+\label{sec:l4-more-worked-examples}
 
 \begin{center}
 \renewcommand{\arraystretch}{1.4}
@@ -195,6 +200,7 @@ C-style single-line comment & \texttt{//}$(\Sigma \setminus \{\text{newline}\})^
 \end{center}
 
 \section{Regular Definitions}
+\label{sec:l4-regular-definitions}
 
 \dbtag Writing out a complex regular expression as one giant unreadable formula is painful. A
 \textbf{regular definition} lets us name intermediate regular expressions and reuse those names
@@ -208,6 +214,7 @@ but never itself or a later name (no recursive or forward references).
 \end{defbox}
 
 \subsection{Worked Example: Identifiers}
+\label{sec:l4-worked-example-identifiers}
 
 \begin{center}
 \begin{tikzpicture}[
@@ -222,11 +229,12 @@ but never itself or a later name (no recursive or forward references).
 \end{tikzpicture}
 \end{center}
 
-This is exactly $L(L\cup D)^{*}$ from the worked example in \S1.1, now written as a named,
-reusable regular definition -- and it is the pattern for token \texttt{ID} in almost every
-C-family language.
+This is exactly $L(L\cup D)^{*}$ from the worked example in \Sref{sec:l4-operations-on-languages},
+now written as a named, reusable regular definition -- and it is the pattern for token
+\texttt{ID} in almost every C-family language.
 
 \subsection{Worked Example: Unsigned Numbers (DB's Classic Definition)}
+\label{sec:l4-worked-example-numbers}
 
 Numbers like \texttt{5280}, \texttt{0.01}, \texttt{6.336E4}, or \texttt{1.89E-4} all need to be
 matched by a single token pattern. DB builds this up from four named pieces:
@@ -265,6 +273,7 @@ does. This is DB's single most frequently examined regular-definition example.
 \end{examfocus}
 
 \section{Extensions of Regular Expressions}
+\label{sec:l4-extensions}
 
 \beyonddb Modern regex notation (and DB \S3.3.5) adds a few extra operators. Formally, none of
 these add any expressive power beyond plain union/concatenation/closure --- they are
@@ -294,16 +303,18 @@ operators (union, concatenation, closure), which is precisely this substitution.
 \end{examfocus}
 
 \section{Regular vs.\ Non-Regular Languages}
+\label{sec:l4-regular-vs-nonregular}
 
 \dbtag Not every language can be described by a regular expression. This matters enormously for
 compiler design: it is exactly \emph{why} a single lexer pass is not enough, and why we need an
-entirely different, more powerful formalism (context-free grammars, Lecture 8) for parsing.
+entirely different, more powerful formalism (context-free grammars, covered once the course
+reaches parsing) for parsing.
 
 \begin{coreidea}[The Central Limitation: No Counting]
-A regular expression (equivalently, a finite automaton, Lectures 5--6) has no way to
-\emph{count} an unbounded quantity and later check that count against something else. It can
-verify local, bounded patterns, but it cannot verify \emph{global balance}. This single
-limitation explains every classic example of a non-regular language.
+A regular expression (equivalently, a finite automaton, covered once the course reaches finite
+automata) has no way to \emph{count} an unbounded quantity and later check that count against
+something else. It can verify local, bounded patterns, but it cannot verify \emph{global
+balance}. This single limitation explains every classic example of a non-regular language.
 \end{coreidea}
 
 \begin{center}
@@ -345,14 +356,15 @@ string and you break the balance, proving no finite automaton can recognize it.
   \item Nested and recursive structure -- matched parentheses, balanced braces, nested
   expressions, \texttt{if}/\texttt{else} matching -- is fundamentally \emph{beyond} what regular
   expressions can express, no matter how cleverly you write them.
-  \item This is precisely why Lecture 8 introduces \textbf{context-free grammars}: a strictly
-  more powerful formalism (using a stack, conceptually) that \emph{can} count and match nested
-  structure, and precisely why the compiler needs \emph{two} separate formalisms --- one per
-  phase --- instead of one universal one.
+  \item This is precisely why the course introduces \textbf{context-free grammars} once parsing
+  begins: a strictly more powerful formalism (using a stack, conceptually) that \emph{can}
+  count and match nested structure, and precisely why the compiler needs \emph{two} separate
+  formalisms --- one per phase --- instead of one universal one.
 \end{itemize}
 \end{takeaways}
 
 \section{Beyond the Dragon Book: Regex in Practice}
+\label{sec:l4-regex-in-practice}
 
 \begin{enrichment}[Not All ``Regex'' Is Actually Regular]
 This is a genuinely important and often-missed subtlety. Tools like Perl, Python's \texttt{re},
@@ -363,9 +375,9 @@ recognizing it requires comparing two substrings for equality, which needs unbou
 just like the palindrome example above. Backreference-supporting engines use
 \textbf{backtracking search}, not finite automata, under the hood; they are more accurately
 called ``backtracking pattern matchers'' than true regular-expression engines. Meanwhile,
-lexer-generator tools like Flex (Lecture 7) implement only \emph{true} regular expressions,
-compiled to genuine finite automata, precisely because lexical analysis needs the speed and
-predictability guarantees only real finite automata provide.
+lexer-generator tools like Flex implement only \emph{true} regular expressions, compiled to
+genuine finite automata, precisely because lexical analysis needs the speed and predictability
+guarantees only real finite automata provide.
 \end{enrichment}
 
 \begin{enrichment}[Catastrophic Backtracking (ReDoS)]
@@ -387,33 +399,32 @@ Illustrative matching steps (order of magnitude) & $\sim 10^5$ & $\sim 10^6$ & $
 \bottomrule
 \end{tabular}
 \end{center}
-This is exactly why the DFA-based matching you will learn in Lectures 5--6 -- which is
-\emph{provably} linear in input length, with no possibility of this blow-up -- is not just a
-theoretical nicety but the actual engineering reason production lexers never use a naive
-backtracking matcher.
+This is exactly why DFA-based matching -- which is \emph{provably} linear in input length, with
+no possibility of this blow-up -- is not just a theoretical nicety but the actual engineering
+reason production lexers never use a naive backtracking matcher.
 \end{enrichment}
 
 \begin{enrichment}[Modern Guaranteed-Linear Engines]
 Google's \textbf{RE2} library and Rust's \texttt{regex} crate deliberately give up
 backreferences and a handful of other backtracking-only features specifically so that they can
 guarantee linear-time matching via automata-based execution, immune to ReDoS by construction.
-This is the industrial embodiment of the regular-vs-non-regular distinction from \S5: by
-refusing to support genuinely non-regular features, these libraries buy back the performance
-guarantee that true finite automata provide.
+This is the industrial embodiment of the regular-vs-non-regular distinction from
+\Sref{sec:l4-regular-vs-nonregular}: by refusing to support genuinely non-regular features,
+these libraries buy back the performance guarantee that true finite automata provide.
 \end{enrichment}
 
 \begin{enrichment}[Brzozowski Derivatives -- An Alternative to Automata]
-Lectures 5--6 build a matcher for a regex by first converting it to a finite automaton (via
-Thompson's construction). There is a completely different, more recent technique worth knowing
-about: the \textbf{derivative} of a regular expression $r$ with respect to a symbol $a$,
-written $\partial_a(r)$, is a new regular expression describing ``what still needs to match
-after consuming an $a$.'' Repeatedly taking derivatives, one input symbol at a time, and
-checking whether the final derivative accepts $\varepsilon$, matches a string \emph{without ever
-building an explicit automaton at all}. Janusz Brzozowski introduced this in 1964; it fell out
-of fashion for decades, then saw a resurgence starting around 2010 in functional-programming
-circles (Scala's and Racket's parser-combinator libraries use derivative-based matching), because
-derivatives compose beautifully with recursive data types in a way that hand-built automata do
-not.
+The standard way to build a matcher for a regex is to first convert it to a finite automaton
+(via Thompson's construction), covered later in the course. There is a completely different,
+more recent technique worth knowing about: the \textbf{derivative} of a regular expression $r$
+with respect to a symbol $a$, written $\partial_a(r)$, is a new regular expression describing
+``what still needs to match after consuming an $a$.'' Repeatedly taking derivatives, one input
+symbol at a time, and checking whether the final derivative accepts $\varepsilon$, matches a
+string \emph{without ever building an explicit automaton at all}. Janusz Brzozowski introduced
+this in 1964; it fell out of fashion for decades, then saw a resurgence starting around 2010 in
+functional-programming circles (Scala's and Racket's parser-combinator libraries use
+derivative-based matching), because derivatives compose beautifully with recursive data types
+in a way that hand-built automata do not.
 \end{enrichment}
 
 \begin{enrichment}[Real-World Regex Flavors Differ]
@@ -432,7 +443,7 @@ classes like \texttt{[:digit:]}. \\
 PCRE / Python \texttt{re} / JavaScript & Add backreferences, lookahead/lookbehind assertions,
 non-greedy \texttt{*?}, named groups -- genuinely more expressive than regular languages. \\
 Flex / lex specifications & Core regular expressions plus start conditions and direct
-integration with symbol-table actions -- built to compile to a real DFA (Lecture 7). \\
+integration with symbol-table actions -- built to compile to a real DFA. \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -441,14 +452,15 @@ Flex \texttt{.l} file may silently mean something different, or fail to compile 
 \end{enrichment}
 
 \section{Self-Check Questions}
+\label{sec:l4-selfcheck}
 
 \begin{enrichment}[Practice -- Not Graded]
 \begin{enumerate}
   \item Write a regular expression for all strings over $\{0,1\}$ that \emph{start} with
   \texttt{1}. Then write one for strings that \emph{do not contain} the substring \texttt{00}.
-  \item Using DB's \texttt{num} regular definition from \S3.2, trace the match for the literal
-  \texttt{1.89E-4}, showing what each of \texttt{digits}, \texttt{optionalFraction}, and
-  \texttt{optionalExponent} matches.
+  \item Using DB's \texttt{num} regular definition from \Sref{sec:l4-worked-example-numbers},
+  trace the match for the literal \texttt{1.89E-4}, showing what each of \texttt{digits},
+  \texttt{optionalFraction}, and \texttt{optionalExponent} matches.
   \item Rewrite $r^{+}$ and $r^{?}$ using only union, concatenation, and Kleene closure (no
   extension operators allowed).
   \item Explain, in your own words and without using the word ``count,'' why balanced
@@ -482,9 +494,11 @@ Flex \texttt{.l} file may silently mean something different, or fail to compile 
 \end{takeaways}
 
 \section*{References for This Lecture}
-\begin{itemize}
-  \item [DB] Aho, Lam, Sethi, Ullman. \textit{Compilers: Principles, Techniques, and Tools}, 2nd ed., \S3.3.
-  \item [PP] Scott. \textit{Programming Language Pragmatics}, \S3.3.
-\end{itemize}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[PP]{pp} Scott, M.~L. \textit{Programming Language Pragmatics}. 4th~ed. Morgan
+Kaufmann.
+\end{thebibliography}
 
 \end{document}
