@@ -86,6 +86,10 @@ if [ -f full-course-notes.tex ]; then
     echo "=============================================="
     echo "All lectures compiled. Building full-course-notes.tex"
     echo "=============================================="
+    # Two passes: first pass writes the .toc/.aux (chapter titles,
+    # section numbers, labels); second pass reads them back in so
+    # the table of contents and any cross-references are correct.
+    pdflatex -interaction=nonstopmode full-course-notes.tex
     pdflatex -interaction=nonstopmode full-course-notes.tex
     echo "Done! Combined output: full-course-notes.pdf"
 else
