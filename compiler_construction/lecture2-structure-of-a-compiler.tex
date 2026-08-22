@@ -258,6 +258,85 @@ semantic analysis catches type mismatches and undeclared identifiers. A well-bui
 tries to \emph{recover} from an error and keep going, so it can report several distinct errors
 from a single compilation run instead of stopping at the first one.
 
+\subsection{Lexical, Syntax, and Semantic Errors}
+\label{sec:l2-error-kinds}
+
+\dbtag The three kinds of errors above are easy to name but easy to blur together in practice.
+Getting the distinction right matters because it tells you \emph{which phase} is responsible for
+catching a given mistake -- and, just as importantly, which phases are \emph{not} responsible
+for it and will happily let it through.
+
+\begin{defbox}{Lexical, Syntax, and Semantic Errors}
+\begin{itemize}
+  \item A \textbf{lexical error} occurs when the lexer meets a character sequence that matches
+  \emph{no pattern for any token at all} -- e.g.\ an illegal character, an unterminated string
+  or comment, or a malformed numeric literal. The lexer fails before the parser ever sees this
+  part of the input.
+  \item A \textbf{syntax error} occurs when the token stream -- with every individual token
+  itself perfectly valid -- does not conform to the grammar: e.g.\ a missing semicolon, an
+  unbalanced parenthesis, or an operator with no right-hand operand.
+  \item A \textbf{semantic error} occurs when the program is grammatically well formed but
+  violates a rule about \emph{meaning} that the language enforces: e.g.\ using an undeclared
+  identifier, assigning incompatible types, or calling a function with the wrong number of
+  arguments.
+\end{itemize}
+Each is caught by a different phase, in this order, because each phase can only see what the
+phase before it has already built: lexical analysis sees individual characters, syntax analysis
+sees the shape of the token stream, and semantic analysis is the first phase that understands
+what the program actually \emph{means} (using the symbol table above to check declarations,
+types, and scope).
+\end{defbox}
+
+\begin{examplebox}{One Error of Each Kind, in One Function}
+\begin{verbatim}
+int main() {
+    int count = 0;
+    int limit = 10           /* (1) */
+
+    while (count < limit) {
+        count = count # 1;   /* (2) */
+        total = total + count;   /* (3) */
+    }
+
+    printf("Final count = %d", count);
+    return 0;
+}
+\end{verbatim}
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Line} & \textbf{Error Kind} & \textbf{Why} \\
+\midrule
+(1) & Syntax & \texttt{int limit = 10} is missing the terminating \texttt{;}. Every token on
+this line is individually a valid token -- the parser is the one that fails, because it cannot
+complete the grammar rule for a declaration statement without a semicolon before the next
+statement begins. \\
+(2) & Lexical & \texttt{\#} is not a valid character inside a C expression. No token pattern
+matches it at all, so the \emph{lexer itself} fails right here -- the parser never even gets a
+chance to see this line. \\
+(3) & Semantic & \texttt{total} is used but was never declared anywhere in this function. Every
+token is valid and the statement is a grammatically perfect assignment, so only semantic
+analysis -- which checks the symbol table for declarations and scope -- can catch this. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+Notice the ordering this implies: if line (2)'s illegal character were fixed but line (1)'s
+missing semicolon were not, the compiler would still stop at the syntax error before ever
+reaching semantic analysis and reporting the undeclared \texttt{total} on line (3) -- each phase
+only gets to run once the phase before it has accepted its input.
+\end{examplebox}
+
+\begin{examfocus}
+Given a short, broken code snippet, be able to classify each mistake as lexical, syntax, or
+semantic, and justify the classification the way the table above does -- this is one of the most
+common short-answer formats for this topic. A frequent trap: a misspelled \emph{keyword} (like
+\texttt{fi} for \texttt{if}) is \textbf{not} a lexical error, because it is still a perfectly
+valid lexeme for token \texttt{ID} -- the mistake only surfaces later, as a syntax error (if
+\texttt{fi} appears somewhere no identifier is grammatically valid) or a semantic error (if it is
+used as if it were a declared function or variable).
+\end{examfocus}
+
 \begin{center}
 \resizebox{0.85\textwidth}{!}{%
 \begin{tikzpicture}[
@@ -596,6 +675,10 @@ MLIR dialect called FIR before reaching LLVM IR (see \cite{mlir,mlirdocs} for fu
   \item Draw the syntax tree for \texttt{count = count + step} in the same style as the
   \texttt{position} example's tree, and identify which single node the semantic analyzer would
   need to annotate if \texttt{step} were declared \texttt{real} instead of integer.
+  \item For each of the following, classify the mistake as a lexical, syntax, or semantic error,
+  and justify your answer in one sentence: (a) \texttt{int x = 5\$;} (b) \texttt{if (x > 0}
+  \texttt{\{ y = 1; \}} (missing a closing parenthesis) (c) calling \texttt{compute(x, y)} when
+  \texttt{compute} was declared to take only one parameter.
 \end{enumerate}
 \end{enrichment}
 
@@ -612,6 +695,13 @@ MLIR dialect called FIR before reaching LLVM IR (see \cite{mlir,mlirdocs} for fu
   \item A \textbf{token} is an abstract \texttt{<name, attribute>} pair emitted for a recognized
   \textbf{lexeme} (the actual matched source text). A \textbf{symbol table} records one entry
   per declared identifier and is read from and written to by every phase -- not a phase itself.
+  \item \textbf{Lexical, syntax, and semantic errors} are caught by three different phases, in
+  that order: a lexical error means no token pattern matches at all (e.g.\ an illegal
+  character); a syntax error means every token is valid but their arrangement breaks the grammar
+  (e.g.\ a missing semicolon); a semantic error means the program is grammatically fine but
+  violates a meaning-level rule the language enforces (e.g.\ an undeclared identifier). A
+  misspelled keyword is usually \emph{not} a lexical error, since it is still a valid identifier
+  lexeme.
   \item The \textbf{front-end/middle-end/back-end} split (language-specific $\to$
   language-and-target-agnostic $\to$ target-specific) is what lets one shared IR (like LLVM IR)
   turn an $M \times N$ language/target problem into an $M + N$ problem.
