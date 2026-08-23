@@ -36,9 +36,15 @@ fi
 
 # Auto-discover all lectureN-*.tex files (e.g. lecture1-math-foundations.tex,
 # lecture2-lwe-foundations.tex, ...), sorted in natural numeric order so
-# lecture2 always comes before lecture10. full-course-notes.tex itself is
-# excluded on purpose -- it's handled separately at the end.
-LECTURE_FILES=$(ls lecture[0-9]*-*.tex 2>/dev/null | sort -V)
+# lecture2 always comes before lecture10. Excludes two kinds of files that
+# match the same naming pattern but are NOT standalone compilable documents:
+#   - lectureN-*-body.tex: the actual content, \input by both the standalone
+#     shell below AND full-course-notes.tex. Living flat (not in a content/
+#     subfolder) makes downloading the project as a single zip work without
+#     any manual folder reassembly -- but it means this glob must explicitly
+#     skip them, since "lectureN-*-body.tex" also matches "lecture[0-9]*-*.tex".
+#   - full-course-notes.tex itself -- handled separately at the end.
+LECTURE_FILES=$(ls lecture[0-9]*-*.tex 2>/dev/null | grep -v -- '-body\.tex$' | sort -V)
 
 if [ -z "$LECTURE_FILES" ]; then
     echo "Error: no lectureN-*.tex files found in $(pwd)"

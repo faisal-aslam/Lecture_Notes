@@ -8,6 +8,14 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{times}
 \usepackage{amsmath,amssymb,amsthm}
+% algorithm/algpseudocode must load *before* hyperref: algorithm.sty
+% pulls in the `float` package internally (via \newfloat), and
+% float+hyperref have a well-known load-order incompatibility that
+% causes hyperref to register a duplicate PDF destination for every
+% single caption in the document (not just algorithms) if hyperref
+% loads first. Loading order here is deliberate -- don't reorder.
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{hyperref}
 \usepackage{xr-hyper}
 % xr-hyper lets \ref{} pull a number from another lecture's .aux file.
@@ -25,8 +33,6 @@
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric}
 \usepackage[most]{tcolorbox}
 \usepackage{xcolor}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
 
 \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
 \titlespacing*{\section}{0pt}{14pt}{6pt}

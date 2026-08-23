@@ -7,7 +7,7 @@
 %   - Each lectureN-*.tex file is still a fully independent,
 %     standalone document (own title page, own table of
 %     contents) -- it just now gets its actual content from
-%     content/lectureN-*-body.tex via \input, instead of
+%     lectureN-*-body.tex via \input, instead of
 %     writing that content inline.
 %   - This file (full-course-notes.tex) \input's the exact same
 %     body files directly, wrapped in \chapter{Lesson N: ...}
@@ -38,6 +38,12 @@
 \titleformat{\chapter}[block]{\normalfont\huge\bfseries}{}{0pt}{}
 \titlespacing*{\chapter}{0pt}{-20pt}{30pt}
 
+% book class's default page style prints "CHAPTER N. <title>" in
+% the running header, uppercased -- with our long lesson titles
+% that overflows the header's width on every page of the chapter.
+% Plain page numbers only, matching the standalone lecture PDFs.
+\pagestyle{plain}
+
 \title{\textbf{Lattice-Based Post-Quantum Cryptography}\\[6pt]
 \large Complete Lecture Notes}
 \author{Dr.\ Faisal Aslam}
@@ -52,27 +58,27 @@
 \large\itshape Groups, Rings, Fields, Modular Arithmetic, Vector Spaces, Basis, and Lattices
 \end{center}
 \vspace{0.4cm}
-\input{content/lecture1-math-foundations-body}
+\input{lecture1-math-foundations-body}
 
 \chapter{Lesson 2: From Lattices to Learning With Errors}
 \begin{center}
 \large\itshape SVP, CVP, SIS, LWE, Ring-LWE, and Module-LWE
 \end{center}
 \vspace{0.4cm}
-\input{content/lecture2-lwe-foundations-body}
+\input{lecture2-lwe-foundations-body}
 
 \chapter{Lesson 3: ML-KEM (Kyber) --- A Real Scheme, End to End}
 \begin{center}
 \large\itshape Parameters, Compression, CPA-Secure Encryption, and the Route to CCA Security
 \end{center}
 \vspace{0.4cm}
-\input{content/lecture3-mlkem-body}
+\input{lecture3-mlkem-body}
 
 \chapter{Lesson 4: ML-DSA (Dilithium) and FN-DSA (Falcon)}
 \begin{center}
 \large\itshape Signing With Lattices: Fiat--Shamir-with-Aborts and Trapdoor Sampling
 \end{center}
 \vspace{0.4cm}
-\input{content/lecture4-dilithium-falcon-body}
+\input{lecture4-dilithium-falcon-body}
 
 \end{document}
