@@ -153,30 +153,33 @@ SIS and LWE, met later in this lecture, are exactly this fix. Each one starts fr
 \begin{figure}[ht]
 \centering
 \begin{tikzpicture}[scale=1, every node/.style={font=\small}]
-  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=gray!10, align=center] (svp) at (0,6.2) {\textbf{SVP}\\ \tiny find a short vector};
-  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=gray!10, align=center] (cvp) at (5.2,6.2) {\textbf{CVP}\\ \tiny find a nearby vector};
+  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=gray!10, align=center] (svp) at (0,7.6) {\textbf{SVP}\\ \tiny find a short vector};
+  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=gray!10, align=center] (cvp) at (5.2,7.6) {\textbf{CVP}\\ \tiny find a nearby vector};
 
-  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=green!8, align=center] (sis) at (0,4.1) {\textbf{SIS}\\ \tiny same idea, random $A$};
-  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=blue!8, align=center] (lwe) at (5.2,4.1) {\textbf{LWE}\\ \tiny same idea, plus noise};
+  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=green!8, align=center] (sis) at (0,5.7) {\textbf{SIS}\\ \tiny same idea, random $A$};
+  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=blue!8, align=center] (lwe) at (5.2,5.7) {\textbf{LWE}\\ \tiny same idea, plus noise};
 
-  \node[draw, minimum width=6.6cm, minimum height=1.1cm, fill=purple!6, align=center] (owf) at (2.6,2.0) {\textbf{One-way function}\\ \tiny average-case, provably as hard as SVP/CVP};
+  \node[draw, minimum width=3.3cm, minimum height=1.3cm, text width=3.0cm, fill=orange!12, align=center] (trap) at (5.2,3.5) {\textbf{Trapdoor}\\ \tiny a secret ($\vec s$) lets the owner invert; no one else can};
 
-  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=green!8, align=center] (hash) at (0,-0.1) {\textbf{Hash \& Signatures}\\ \tiny no secret to hide};
-  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=blue!8, align=center] (enc) at (5.2,-0.1) {\textbf{Encryption}\\ \tiny secret only owner recovers};
+  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=green!8, align=center] (hash) at (0,1.5) {\textbf{Hash Functions}\\ \tiny no secret to hide};
+  \node[draw, minimum width=3.1cm, minimum height=1cm, fill=blue!8, align=center] (enc) at (5.2,1.5) {\textbf{Encryption}\\ \tiny secret only owner recovers};
 
   \draw[-{Latex[length=2mm]}] (svp) -- (sis);
   \draw[-{Latex[length=2mm]}] (cvp) -- (lwe);
-  \draw[-{Latex[length=2mm]}] (sis.south) -- (owf.north west);
-  \draw[-{Latex[length=2mm]}] (lwe.south) -- (owf.north east);
-  \draw[-{Latex[length=2mm]}] (owf.south west) -- (hash.north);
-  \draw[-{Latex[length=2mm]}] (owf.south east) node[right, font=\tiny, text width=2.4cm, align=left, xshift=2pt, yshift=6pt] {LWE's branch also carries a trapdoor} -- (enc.north);
+  \draw[-{Latex[length=2mm]}, green!35!black] (sis.south) -- (hash.north)
+    node[midway, right, font=\tiny, text width=2.3cm, align=left, xshift=5pt] {no extra step needed};
+  \draw[-{Latex[length=2mm]}, blue!45!black] (lwe.south) -- (trap.north);
+  \draw[-{Latex[length=2mm]}, orange!70!black] (trap.south) -- (enc.north);
+
+  \draw[dashed, gray!55] (-1.8,4.4) -- (7.0,4.4)
+    node[midway, font=\tiny, gray!55, fill=white, inner sep=3pt] {both already one-way: same 3 requirements};
 \end{tikzpicture}
-\caption{SIS and LWE are not a detour from SVP and CVP --- they \emph{are} SVP and CVP, restricted to a random, easy-to-sample family of lattices built from a matrix $A$. SIS lives on the kernel lattice $\Lambda^\perp(A)$ (Section~\ref{sec:L2:the-short-integer-solution-sis-problem}) and keeps SVP's ``find a short vector'' shape; LWE lives on the image lattice $\Lambda_q(A)$ (Section~\ref{sec:L2:why-lwe-is-believed-hard-the-lattice-con}) and keeps CVP's ``find a nearby point'' shape. That structural difference is exactly why the two problems power different cryptographic jobs: SIS's kernel/short-vector shape gives you ``no two things collide'' (hash functions, signatures --- nothing to hide), while LWE's image/nearby-point shape gives you ``there's a hidden secret only the trapdoor-holder can recover'' (encryption).}
+\caption{SIS and LWE are not a detour from SVP and CVP --- they \emph{are} SVP and CVP, restricted to a random, easy-to-sample family of lattices built from a matrix $A$. SIS lives on the kernel lattice $\Lambda^\perp(A)$ (Section~\ref{sec:L2:the-short-integer-solution-sis-problem}) and keeps SVP's ``find a short vector'' shape; LWE lives on the image lattice $\Lambda_q(A)$ (Section~\ref{sec:L2:why-lwe-is-believed-hard-the-lattice-con}) and keeps CVP's ``find a nearby point'' shape. Both already satisfy the three requirements above the dashed line --- that alone makes each a plain one-way function. The paths then diverge: SIS's kernel/short-vector shape needs nothing further to give you ``no two things collide'' (hash functions --- nothing to hide), while LWE's image/nearby-point shape only becomes \emph{encryption} once a trapdoor is layered on top, giving one party (and only that party) an efficient inverse.}
 \label{fig:svp-cvp-to-sis-lwe}
 \end{figure}
 
 \begin{rmkbox}{A Trapdoor Is a Fourth, Optional Ingredient --- Not Part of the Three Requirements}
-It's tempting to read the merged box above as claiming every one-way function built this way needs a trapdoor --- it doesn't. The three requirements from Section~\ref{sec:L2:one-way-functions-the-idea-behind-all-of} (a sampleable random instance, a worst-case reduction, an easy forward direction) are exactly what a plain one-way function needs, and that's already enough for \textbf{SIS-based hashing}: nobody --- not even whoever generated $A$ --- can efficiently find a collision. There is no secret held by any party, and none is needed; that's the entire point of a hash function. A \textbf{trapdoor} is a separate, optional fourth ingredient, needed only when some designated party must be able to invert efficiently while everyone else can't: exactly what \textbf{LWE-based encryption} needs (the key-owner decrypts; nobody else can), and what Falcon's GPV sampling (Lecture 4) needs on the signing side. SIS's branch of Figure~\ref{fig:svp-cvp-to-sis-lwe} never uses a trapdoor at all; only LWE's does.
+The explicit \textbf{Trapdoor} box in Figure~\ref{fig:svp-cvp-to-sis-lwe} sits only on LWE's path, and that placement is the point. The three requirements from Section~\ref{sec:L2:one-way-functions-the-idea-behind-all-of} (a sampleable random instance, a worst-case reduction, an easy forward direction) are exactly what a plain one-way function needs, and that's already enough for \textbf{SIS-based hashing}: nobody --- not even whoever generated $A$ --- can efficiently find a collision. There is no secret held by any party, and none is needed; that's the entire point of a hash function, which is why SIS's path skips the trapdoor box entirely. A \textbf{trapdoor} is a separate, optional fourth ingredient, needed only when some designated party must be able to invert efficiently while everyone else can't: exactly what \textbf{LWE-based encryption} needs (the key-owner decrypts; nobody else can), and what Falcon's GPV sampling (Lecture 4) needs on the signing side.
 \end{rmkbox}
 
 \begin{rmkbox}{Where the Two Halves of This Figure Get Made Rigorous}
