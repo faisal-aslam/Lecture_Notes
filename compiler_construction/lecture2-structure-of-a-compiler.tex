@@ -44,7 +44,7 @@ closer to executable code.
   \node[fe] (lex) {Lexical Analysis (Scanning)};
   \node[fe, below=of lex] (syn) {Syntax Analysis (Parsing)};
   \node[fe, below=of syn] (sem) {Semantic Analysis};
-  \node[mid, below=of sem] (icg) {Intermediate Code Generation};
+  \node[fe, below=of sem] (icg) {Intermediate Code Generation};
   \node[mid, below=of icg] (opt) {Machine-Independent Code Optimization};
   \node[be, below=of opt] (cg) {Code Generation};
   \node[be, below=of cg] (mopt) {Machine-Dependent Code Optimization};
@@ -118,20 +118,20 @@ know.
 
 \begin{examplebox}{The \texttt{position} Statement, Phase by Phase}
 \begin{itemize}
-  \item \textbf{Lexical analysis (Lectures 3--7).} The character stream is grouped into tokens:
+  \item \textbf{Lexical analysis.} The character stream is grouped into tokens:
   \texttt{<id,1> <=> <id,2> <+> <id,3> <*> <60>} -- where \texttt{id,1}, \texttt{id,2}, and
   \texttt{id,3} are pointers to the symbol-table entries for \texttt{position}, \texttt{initial},
   and \texttt{rate} respectively.
-  \item \textbf{Syntax analysis (Lectures 8--17).} The token stream is organized into a syntax
+  \item \textbf{Syntax analysis.} The token stream is organized into a syntax
   tree that reflects the grammatical structure of an assignment: an \texttt{=} node whose left
   child is \texttt{id,1} and whose right child is a \texttt{+} node, which in turn has children
   \texttt{id,2} and a \texttt{*} node with children \texttt{id,3} and \texttt{60}.
-  \item \textbf{Semantic analysis (Lectures 18--21).} Types are checked, and where necessary,
+  \item \textbf{Semantic analysis.} Types are checked, and where necessary,
   made explicit. Here, \texttt{60} is an integer literal but \texttt{rate} is real, so the
   semantic analyzer inserts an explicit conversion: the \texttt{*} node's right child becomes
   \texttt{inttoreal(60)} instead of the bare integer \texttt{60}. The result is an
   \emph{annotated} (``decorated'') tree.
-  \item \textbf{Intermediate code generation (Lectures 22--25).} The annotated tree is
+  \item \textbf{Intermediate code generation.} The annotated tree is
   translated into three-address code, one operation per instruction:
 \begin{verbatim}
 t1 = inttoreal(60)
@@ -139,14 +139,14 @@ t2 = id3 * t1
 t3 = id2 + t2
 id1 = t3
 \end{verbatim}
-  \item \textbf{Code optimization (Lectures 28--29).} \texttt{inttoreal(60)} does not depend on
+  \item \textbf{Machine-independent code optimization.} \texttt{inttoreal(60)} does not depend on
   any variable, so it can be computed once, at compile time, instead of being recomputed by the
   generated program every single time this line runs:
 \begin{verbatim}
 t1 = id3 * 60.0
 id1 = id2 + t1
 \end{verbatim}
-  \item \textbf{Code generation (Lecture 30).} The optimized IR becomes target assembly, using
+  \item \textbf{Code generation.} The optimized IR becomes target assembly, using
   real machine registers and instructions (illustrative syntax, not tied to one specific ISA):
 \begin{verbatim}
 MOVF   id3, R2
@@ -355,11 +355,18 @@ used as if it were a declared function or variable).
   \node[side, fill=takeawayTealBg, draw=takeawayTeal, left=1.6cm of syn, yshift=-1.1cm] (st) {Symbol Table};
   \node[side, fill=examRedBg, draw=examRed, right=1.6cm of syn, yshift=-1.1cm] (eh) {Error Handler};
 
-  \foreach \p in {lex, syn, sem, icg, cg}{
+  \foreach \p in {lex, syn, sem, icg, cg}
     \draw[-{Latex[length=2mm]}, gray, dashed] (\p.west) -- (st.east |- \p.west);
+  \foreach \p in {lex, syn, sem}
     \draw[-{Latex[length=2mm]}, gray, dashed] (\p.east) -- (eh.west |- \p.east);
-  }
 \end{tikzpicture}}
+\end{center}
+\begin{center}
+\small\textit{The symbol table is read and written by every phase, but only lexical, syntax,
+and semantic analysis report to the error handler -- those are the three error categories this
+course teaches (\Sref{sec:l2-error-kinds}). Intermediate code generation and code generation
+run only once the tree is already fully checked and error-free, so they are not shown wired to
+the error handler here.}
 \end{center}
 
 \begin{enrichment}[Extra Depth: What Real Symbol Tables Store]
@@ -387,8 +394,9 @@ This is not just relabeling --- it reflects a real engineering strategy.
 \toprule
 \textbf{Group} & \textbf{Contains / Responsibility} \\
 \midrule
-\textbf{Front-end} & Lexical, syntax, semantic analysis. Language-\emph{specific}: knows the
-grammar and type rules of exactly one source language, and lowers it to a common IR. \\
+\textbf{Front-end} & Lexical, syntax, and semantic analysis, plus intermediate code
+generation. Language-\emph{specific}: knows the grammar and type rules of exactly one source
+language, and lowers it to a common IR. \\
 \textbf{Middle-end} & Machine-independent optimization on the IR. Language-\emph{agnostic} and
 target-\emph{agnostic}: the same optimization passes (constant folding, dead-code elimination,
 inlining) apply no matter which source language or target CPU is involved. \\
