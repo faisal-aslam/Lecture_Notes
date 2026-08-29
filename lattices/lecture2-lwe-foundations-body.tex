@@ -2,6 +2,102 @@
 \small\textbf{Purpose of this lecture.} Lecture 1 built the algebraic toolkit --- \emph{Group $\to$ Subgroup $\to$ Ring $\to$ Field $\to$ Modular Arithmetic $\to$ Vector Space $\to$ Basis $\to$ Lattice $\to$ Determinant} --- and ended by naming the Shortest Vector Problem (SVP) as one of the hard problems lattice cryptography rests on. This lecture finishes the job: we state SVP and CVP formally, meet the \textbf{Short Integer Solution (SIS)} and \textbf{Learning With Errors (LWE)} problems precisely, and then generalize LWE to \textbf{Ring-LWE} and \textbf{Module-LWE} --- the exact hard problems underneath Kyber (ML-KEM) and Dilithium (ML-DSA). By the end, the public key of a real post-quantum scheme should look to you like ``just an LWE sample,'' not a mysterious block of numbers.
 \end{notebox}
 
+\section{Symmetric vs.\ Asymmetric Cryptography}
+\label{sec:L2:symmetric-vs-asymmetric-cryptography}
+
+Before any hard problem, any lattice, or any one-way function, cryptography splits into two families that solve two different problems. It's worth being precise about the split once, right at the start, since everything else in this course --- and everything Kyber, Dilithium, and Falcon do --- is building a piece of one specific family.
+
+\begin{defbox}{Symmetric-Key Cryptography}
+Both parties share the \emph{same} secret key $k$, used both to encrypt and to decrypt (or to generate and to verify a message authentication code). Algorithms like AES and ChaCha20 are symmetric. Symmetric cryptography is fast --- often gigabytes per second on ordinary hardware --- but it has a bootstrapping problem built in: both parties need $k$ \emph{before} they can communicate securely, and getting $k$ from one party to the other, over a channel an attacker might be watching, is exactly the problem symmetric cryptography alone cannot solve.
+\end{defbox}
+
+\begin{defbox}{Asymmetric (Public-Key) Cryptography}
+Each party generates a \emph{pair} of mathematically linked keys: a \textbf{public key}, safe to hand to anyone, including an attacker, and a \textbf{private key}, kept secret forever. Anyone with Bob's public key can encrypt a message only Bob's private key can decrypt --- or verify a signature only Bob's private key could have produced. No shared secret is ever needed in advance; the public key can be shouted across a room an eavesdropper is listening to, and security holds anyway. This is exactly the one-way-function machinery Section~\ref{sec:L2:one-way-functions-the-idea-behind-all-of} builds next: the public key is the ``easy forward direction,'' and only the matching private key makes the ``hard backward direction'' easy.
+\end{defbox}
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.82, every node/.style={font=\small}]
+  \node[draw, minimum width=2.2cm, minimum height=1cm, fill=blue!8] (a) at (0,0) {Alice};
+  \node[draw, minimum width=2.2cm, minimum height=1cm, fill=green!8] (b) at (5,0) {Bob};
+  \node[draw, minimum width=1.6cm, minimum height=0.9cm, fill=orange!12] (k) at (2.5,-1.6) {key $k$};
+  \draw[-{Latex[length=2mm]}, thick] (a) -- (b) node[midway, above, font=\tiny] {Encrypt$(m,k)$};
+  \draw[-{Latex[length=2mm]}, thick, dashed] (k) -- (a);
+  \draw[-{Latex[length=2mm]}, thick, dashed] (k) -- (b);
+  \node[font=\tiny, align=center] at (2.5,-2.35) {same secret $k$,\\ known to both, no one else};
+\end{tikzpicture}
+\\[2pt]
+{\small \textbf{Symmetric:} one shared key does both jobs.}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.82, every node/.style={font=\small}]
+  \node[draw, minimum width=2.2cm, minimum height=1cm, fill=blue!8] (a) at (0,0) {Alice};
+  \node[draw, minimum width=2.2cm, minimum height=1cm, fill=green!8] (b) at (5,0) {Bob};
+  \node[draw, minimum width=1.9cm, minimum height=0.8cm, fill=green!15] (pk) at (2.5,-1.5) {$pk_B$ (public)};
+  \node[draw, minimum width=1.9cm, minimum height=0.8cm, fill=red!10] (sk) at (5,-2.6) {$sk_B$ (private)};
+  \draw[-{Latex[length=2mm]}, thick] (a) -- (b) node[midway, above, font=\tiny] {Encrypt$(m,pk_B)$};
+  \draw[-{Latex[length=2mm]}, thick] (pk) -- (a);
+  \draw[-{Latex[length=2mm]}, thick] (sk) -- (b);
+  \node[font=\tiny, align=center] at (0,-1.5) {anyone may\\ hold $pk_B$};
+  \node[font=\tiny, align=center] at (5,-3.35) {only Bob\\ ever holds $sk_B$};
+\end{tikzpicture}
+\\[2pt]
+{\small \textbf{Asymmetric:} two different keys, only one ever secret.}
+\end{minipage}
+\caption{The structural difference in one picture. Symmetric encryption needs the same secret on both ends before anything can happen. Asymmetric encryption lets Alice encrypt using a key that was never secret at all --- only decryption needs the private half, and only Bob ever has it.}
+\label{fig:symmetric-vs-asymmetric}
+\end{figure}
+
+\subsection{What Lattice-Based Crypto, RSA, and ECC Each Offer}
+\label{sec:L2:what-lattice-rsa-ecc-each-offer}
+
+All three of RSA, elliptic-curve cryptography (ECC), and lattice-based cryptography live on the asymmetric side --- but ``asymmetric cryptography'' isn't one single service. It covers (at least) three distinct jobs: \textbf{encryption} (hide a message so only the private-key holder reads it), \textbf{key exchange} (two parties agree on a shared secret over a public channel, with no prior relationship), and \textbf{digital signatures} (prove a message came from the private-key holder, without hiding anything). Not every family offers all three the same way.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Family} & \textbf{Encryption / KEM} & \textbf{Key exchange} & \textbf{Signatures} \\
+\hline
+RSA & RSA-OAEP & (via encryption) & RSA-PSS \\
+ECC & ECIES (uncommon) & ECDH & ECDSA, EdDSA \\
+Lattice-based & ML-KEM (Kyber) & via the KEM & ML-DSA, FN-DSA \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{rmkbox}{One Scheme Doing Two Jobs, vs.\ Two Schemes Doing One Job Each}
+RSA is famous for a specific reason worth naming explicitly: the \emph{exact same} trapdoor permutation underlies both RSA-OAEP encryption and RSA-PSS signing --- one hard problem (factoring), one mathematical object, two uses. Lattice-based cryptography does not do this. ML-KEM (encryption) is built from Module-LWE with a trapdoor (Section~\ref{sec:L2:the-big-picture-from-worst-case-geometry} covers exactly why a trapdoor is optional, not universal); ML-DSA (signatures) is also built from Module-LWE, but via a completely different mechanism, Fiat--Shamir-with-Aborts, with no trapdoor at all; FN-DSA (signatures again) abandons Module-LWE entirely for a different lattice family and a GPV trapdoor. Three schemes, three distinct engineering answers, not one dual-purpose object. This isn't a weakness of lattice cryptography --- it's a direct consequence of exactly the SIS-vs-LWE, trapdoor-vs-no-trapdoor split this lecture builds toward.
+\end{rmkbox}
+
+\subsection{Why Real Protocols Use Asymmetric Crypto First, Then Switch to Symmetric}
+\label{sec:L2:why-real-protocols-switch-to-symmetric}
+
+Given both families exist, an obvious question follows: why not just use asymmetric encryption for everything, and skip symmetric crypto altogether? Two practical reasons say no.
+
+\begin{rmkbox}{Speed and Size}
+Asymmetric encryption is computationally expensive --- modular exponentiation (RSA), elliptic-curve point multiplication (ECC), or matrix-vector arithmetic over $R_q$ (lattices) all cost far more per byte than symmetric ciphers like AES, which are often implemented directly in CPU hardware. Asymmetric schemes are also awkward at scale: RSA can only directly encrypt messages shorter than its modulus, and none of the three families are designed to efficiently churn through gigabytes of streaming data the way AES is. Symmetric crypto is fast and handles arbitrary volumes of data; asymmetric crypto is slow and, in various ways, size-limited.
+\end{rmkbox}
+
+\begin{rmkbox}{The Standard Fix: Hybrid Encryption}
+Nearly every real protocol --- TLS (the padlock in your browser), SSH, Signal --- uses \textbf{both}, in a fixed order: run an asymmetric key exchange or KEM \emph{once}, briefly, to establish a shared symmetric key between two parties who have never met; then switch to fast symmetric encryption (typically AES or ChaCha20) for the actual data, using that newly shared key. Asymmetric crypto solves the one problem symmetric crypto structurally cannot (agreeing on a secret with no prior relationship); symmetric crypto then does the actual heavy lifting, fast. This is precisely why ML-KEM is called a \textbf{Key Encapsulation Mechanism} rather than an encryption scheme in its own right --- as you'll see in Lecture 3, its entire output is a short, fresh symmetric key, handed off to exactly this kind of hybrid handshake, not a general-purpose way to encrypt arbitrary messages.
+\end{rmkbox}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node[draw, minimum width=8.4cm, minimum height=1.05cm, fill=orange!10, align=center] (phase1) at (0,2.4) {\textbf{Phase 1 --- Asymmetric (once, slow)}\\ \tiny key exchange / KEM: Alice and Bob, no prior shared secret, agree on session key $K$};
+  \node[draw, minimum width=8.4cm, minimum height=1.05cm, fill=blue!8, align=center] (phase2) at (0,0.4) {\textbf{Phase 2 --- Symmetric (repeated, fast)}\\ \tiny AES/ChaCha20 under $K$: encrypt all the actual traffic, both directions};
+  \draw[-{Latex[length=2mm]}, thick] (phase1) -- (phase2) node[midway, right, font=\tiny] {hand off $K$};
+\end{tikzpicture}
+\caption{The hybrid pattern nearly every real protocol follows: a single, expensive asymmetric step establishes a shared key, then cheap symmetric encryption handles everything after. Kyber's role in ML-KEM is entirely Phase 1 --- Lecture 3 picks this up in full.}
+\label{fig:hybrid-handshake}
+\end{figure}
+
 \section{Quick Recap of Lecture 1}
 \label{sec:L2:quick-recap-of-lecture-1}
 
@@ -211,7 +307,7 @@ Let $n=1$, $m=4$, $q=17$, and $A = \begin{pmatrix}3 & 5 & 8 & 1\end{pmatrix} \in
 \end{exbox}
 
 \begin{rmkbox}{What SIS Is Used For}
-SIS is the workhorse behind lattice-based \textbf{hash functions} and was historically the basis of early lattice signature schemes. Section~\ref{sec:L2:a-concrete-application-sis-based-hash-fu} below builds the hash-function connection explicitly, right now, while the SIS instance above is still fresh. You will meet SIS's signature-adjacent side again in Session 3 (Dilithium/ML-DSA) and again in Session 5, since Dilithium's fault-attack surface is closely tied to how it uses a SIS-flavored rejection-sampling step.
+SIS is the workhorse behind lattice-based \textbf{hash functions} and was historically the basis of early lattice signature schemes. Section~\ref{sec:L2:a-concrete-application-sis-based-hash-fu} below builds the hash-function connection explicitly, right now, while the SIS instance above is still fresh. You will meet SIS's signature-adjacent side again in Session 3 (Dilithium/ML-DSA) and again in Lesson 6, since Dilithium's fault-attack surface is closely tied to how it uses a SIS-flavored rejection-sampling step.
 \end{rmkbox}
 
 \subsection{A Concrete Application: SIS-Based Hash Functions}
@@ -362,7 +458,7 @@ For a parameter $\sigma>0$ (roughly, how spread out the noise is), the discrete 
 \end{center}
 
 \begin{rmkbox}{Why a Bell Curve, and Not (Say) a Coin Flip $\{-1,0,1\}$?}
-Our worked examples below use a crude stand-in ($e\in\{-1,0,1\}$, each roughly equally likely) purely because it's easy to compute by hand. Real schemes use something bell-curve-shaped (a true discrete Gaussian, or in Kyber's case a closely related and cheaper-to-sample \emph{centered binomial distribution}) for a precise mathematical reason: the hardness proofs connecting LWE back to worst-case lattice problems (Regev's reduction, Section~\ref{sec:L2:why-lwe-is-believed-hard-the-lattice-con}) require the noise to behave like a Gaussian. Swap in a different-shaped distribution and those proofs may simply no longer apply --- ``small errors'' alone isn't enough; their \emph{shape} matters too. This is a recurring theme you'll meet again in Session 5: real implementations must sample from exactly the right distribution, and subtle sampling mistakes (or side-channel leakage \emph{during} sampling) can quietly undermine security guarantees that look airtight on paper.
+Our worked examples below use a crude stand-in ($e\in\{-1,0,1\}$, each roughly equally likely) purely because it's easy to compute by hand. Real schemes use something bell-curve-shaped (a true discrete Gaussian, or in Kyber's case a closely related and cheaper-to-sample \emph{centered binomial distribution}) for a precise mathematical reason: the hardness proofs connecting LWE back to worst-case lattice problems (Regev's reduction, Section~\ref{sec:L2:why-lwe-is-believed-hard-the-lattice-con}) require the noise to behave like a Gaussian. Swap in a different-shaped distribution and those proofs may simply no longer apply --- ``small errors'' alone isn't enough; their \emph{shape} matters too. This is a recurring theme you'll meet again in Lessons 5 and 6: real implementations must sample from exactly the right distribution, and subtle sampling mistakes (or side-channel leakage \emph{during} sampling) can quietly undermine security guarantees that look airtight on paper.
 \end{rmkbox}
 
 \subsection{A Fully Worked Numeric Example}
@@ -467,7 +563,7 @@ A landmark 2005 result (Oded Regev) shows: if there existed an efficient algorit
 
 
 \begin{previewbox}{Search vs.\ Decision --- Also Provably Equivalent}
-It's also a known theorem (not proven here) that search-LWE and decision-LWE are polynomially equivalent: an efficient solver for one can be converted into an efficient solver for the other. This matters practically because security \emph{proofs} for encryption schemes are usually stated against decision-LWE (``ciphertexts are indistinguishable from random''), while \emph{attacks} usually aim at search-LWE (``recover the actual secret key''). Session 5 will use both framings, so it's worth knowing they're two views of the same underlying hardness.
+It's also a known theorem (not proven here) that search-LWE and decision-LWE are polynomially equivalent: an efficient solver for one can be converted into an efficient solver for the other. This matters practically because security \emph{proofs} for encryption schemes are usually stated against decision-LWE (``ciphertexts are indistinguishable from random''), while \emph{attacks} usually aim at search-LWE (``recover the actual secret key''). Lessons 5 and 6 will use both framings, so it's worth knowing they're two views of the same underlying hardness.
 \end{previewbox}
 
 \section{From Plain LWE to Ring-LWE}

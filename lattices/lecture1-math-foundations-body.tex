@@ -591,7 +591,7 @@ where $\overline{a+bi} = a-bi$. Now $\langle x,x\rangle = \sum_i x_i\overline{x_
 \end{rmkbox}
 
 \begin{previewbox}{Where Complex Vectors Actually Show Up (Preview of Falcon, Lecture 4)}
-This isn't a hypothetical fix-it-just-in-case. Falcon's signing step (``fast Fourier sampling,'' Lecture 4) embeds a ring element of $R_q = \mathbb{Z}_q[x]/(x^n+1)$ into $\mathbb{C}^n$ using the $n$ complex roots of $x^n+1$ --- the \textbf{canonical embedding} --- because in that embedding, the otherwise-awkward polynomial multiplication in $R_q$ becomes simple coordinate-wise multiplication of complex numbers, which is exactly what makes fast Fourier sampling fast. Every norm and inner product computed inside that embedding \emph{is} the Hermitian version defined above, not the plain real dot product. Keep this box in mind when Falcon's sampler resurfaces in Session 5: part of why its floating-point implementation is so delicate to secure is that it's performing real, finite-precision arithmetic on quantities that are conceptually complex-number computations underneath.
+This isn't a hypothetical fix-it-just-in-case. Falcon's signing step (``fast Fourier sampling,'' Lecture 4) embeds a ring element of $R_q = \mathbb{Z}_q[x]/(x^n+1)$ into $\mathbb{C}^n$ using the $n$ complex roots of $x^n+1$ --- the \textbf{canonical embedding} --- because in that embedding, the otherwise-awkward polynomial multiplication in $R_q$ becomes simple coordinate-wise multiplication of complex numbers, which is exactly what makes fast Fourier sampling fast. Every norm and inner product computed inside that embedding \emph{is} the Hermitian version defined above, not the plain real dot product. Keep this box in mind when Falcon's sampler resurfaces in Lesson 6: part of why its floating-point implementation is so delicate to secure is that it's performing real, finite-precision arithmetic on quantities that are conceptually complex-number computations underneath.
 \end{previewbox}
 
 \begin{previewbox}{Quantifying ``Good'' vs.\ ``Bad'' Bases}
@@ -701,140 +701,40 @@ Consider $\mathbb{Q} \subseteq \mathbb{R}$ (the rational numbers) under addition
 \label{fig:discrete}
 \end{figure}
 
-\subsection{Examples of Lattices}
+\begin{exbox}{$\mathbb{Z}$ and $\mathbb{Z}^n$ Are Lattices}
+$\mathbb{Z} \subseteq \mathbb{R}$ is a subgroup (trivially --- and recall from Section~\ref{sec:L1:subgroups} that $n\mathbb{Z}$ is a subgroup of $\mathbb{Z}$ for any $n$; here we're just looking at $\mathbb{Z}$ itself sitting inside $\mathbb{R}$), and it is discrete: taking $\varepsilon = 0.5$, $B(0, 0.5) \cap \mathbb{Z} = \{0\}$, since the nearest other integers ($\pm 1$) are a full unit away. So $\mathbb{Z}$ is a lattice in $\mathbb{R}$ --- the simplest possible example. The same argument, coordinate by coordinate, shows $\mathbb{Z}^n \subseteq \mathbb{R}^n$ (all integer-coordinate points) is a lattice in $\mathbb{R}^n$; it is often called \textbf{the integer lattice}.
+\end{exbox}
 
-We now give a range of examples to illustrate the concept of a lattice, starting with the most basic and then moving to more interesting constructions.
+\begin{factbox}{Lattices Beyond Cryptography}
+Every example so far has been a rectangular grid, which can make ``lattice'' feel like a synonym for graph paper. It isn't --- a lattice is any discrete, evenly-repeating set of points, and they show up constantly outside cryptography. A crystal (table salt, diamond, quartz) is, physically, atoms sitting at the points of a lattice in $\mathbb{R}^3$; the specific lattice shape determines the crystal's physical properties. The densest possible way to pack circles in the plane, or spheres in $8$ and $24$ dimensions (the famous $E_8$ and Leech lattices), is a lattice-packing question. Error-correcting codes used in deep-space communication have been built directly from lattices. None of this is needed for the rest of the course --- it's just worth knowing that ``lattice'' is a genuinely fundamental geometric object, not a structure cryptographers invented for their own purposes.
+\end{factbox}
 
-\medskip
-
-\noindent\textbf{The Integer Lattice $\mathbb{Z}^n$.} 
-The simplest lattice in $\mathbb{R}^n$ is the set of all integer-coordinate points:
-\[
-\mathbb{Z}^n = \{ (x_1, \dots, x_n) \in \mathbb{R}^n : x_i \in \mathbb{Z} \text{ for all } i \}.
-\]
-This is a discrete subgroup: for $\varepsilon = 0.5$, the open ball $B(0, 0.5)$ contains only the origin, since any nonzero integer vector has Euclidean norm at least $1$. Hence $\mathbb{Z}^n$ is a lattice in $\mathbb{R}^n$, often called \textbf{the integer lattice}. In dimension $1$, this reduces to $\mathbb{Z} \subset \mathbb{R}$.
-
-\medskip
-
-\noindent\textbf{Scaled and Rectangular Lattices.} 
-For any nonzero real number $a$, the set
-\[
-a\mathbb{Z} = \{ a k : k \in \mathbb{Z} \}
-\]
-is a lattice in $\mathbb{R}$, with basis $\{a\}$. More generally, in $\mathbb{R}^n$, we can take
-\[
-L = a_1 \mathbb{Z} \times a_2 \mathbb{Z} \times \cdots \times a_n \mathbb{Z}
-\]
-for positive reals $a_i$. This is a rectangular (or orthorhombic) lattice with basis $\{a_1 e_1, \dots, a_n e_n\}$, where $e_i$ are the standard basis vectors. For example, in $\mathbb{R}^2$,
-\[
-L = \{ (2m, 3n) : m,n \in \mathbb{Z} \}
-\]
-gives a rectangular grid with horizontal spacing $2$ and vertical spacing $3$.
-
-\medskip
-
-\noindent\textbf{General Lattices from Bases.} 
-Let $v_1, \dots, v_n \in \mathbb{R}^n$ be linearly independent. Then their integer span
-\[
-L = \left\{ \sum_{i=1}^n a_i v_i : a_i \in \mathbb{Z} \right\}
-\]
-is a lattice in $\mathbb{R}^n$. The set $\{v_1, \dots, v_n\}$ is called a \emph{basis} of $L$. 
-
-Different sets of linearly independent vectors can generate different lattices. For instance, in $\mathbb{R}^2$, the basis
-\[
-v_1 = (1,0), \quad v_2 = (0,1)
-\]
-generates $\mathbb{Z}^2$, while
-\[
-w_1 = (1,1), \quad w_2 = (1,-1)
-\]
-generates the proper sublattice
-\[
-L = \{ (x,y) \in \mathbb{Z}^2 : x \equiv y \pmod{2} \},
-\]
-consisting of integer points with both coordinates of the same parity. This shows that different bases can yield different lattices.
-
-On the other hand, the same lattice can have many different bases. For example, in $\mathbb{Z}^2$, both
-\[
-\{(1,0), (0,1)\} \quad \text{and} \quad \{(2,1), (1,1)\}
-\]
-are valid bases, since the corresponding basis matrices have determinant $\pm 1$. In general, two bases generate the same lattice iff they are related by a unimodular transformation (an integer matrix with determinant $\pm 1$).
-
-\medskip
-
-\noindent\textbf{The Triangular (Hexagonal) Lattice in $\mathbb{R}^2$.} 
-Take the basis
-\[
-v_1 = (1,0), \qquad v_2 = \left(\frac{1}{2}, \frac{\sqrt{3}}{2}\right).
-\]
-Then
-\[
-L = \{ a v_1 + b v_2 : a,b \in \mathbb{Z} \}
-\]
-is the well-known triangular lattice. It has shortest distance $1$ between distinct points, and each point has six nearest neighbors. This lattice is not a Cartesian product of one-dimensional lattices; it is an example of a non-rectangular lattice with high symmetry.
-
-\medskip
-
-\noindent\textbf{Lattices with Irrational Entries.} 
-A lattice need not be contained in $\mathbb{Q}^n$. For instance, in $\mathbb{R}^2$, let
-\[
-v_1 = (1,0), \qquad v_2 = \left(\frac{1}{\sqrt{2}}, \frac{1}{\sqrt{2}}\right).
-\]
-These vectors are linearly independent, so
-\[
-L = \{ a v_1 + b v_2 : a,b \in \mathbb{Z} \}
-\]
-is a lattice. It contains points with irrational coordinates, e.g., $v_2$ itself. To see that $L$ is discrete: the matrix $B = [v_1 \ v_2]$ is invertible, so $B^{-1}$ is continuous and maps bounded sets to bounded sets. Hence only finitely many integer pairs $(a,b)$ can produce lattice points in any bounded region of $\mathbb{R}^2$. Therefore $L$ has no accumulation points and is discrete.
-
-\medskip
-
-\noindent\textbf{Important 3D Lattices (Crystallographic).} 
-In $\mathbb{R}^3$, beyond the cubic lattice $\mathbb{Z}^3$, we have:
-\begin{itemize}
-\item \textbf{Body-centered cubic (BCC)}: lattice basis
-\[
-v_1 = (1,0,0), \quad v_2 = (0,1,0), \quad v_3 = \left(\frac{1}{2}, \frac{1}{2}, \frac{1}{2}\right).
-\]
-This generates the set of points whose coordinates are either all integers or all of the form $k + \tfrac12$ for each coordinate, i.e.,
-\[
-(x,y,z) \in \mathbb{Z}^3 \quad \text{or} \quad (x,y,z) \in \left(\mathbb{Z}+\tfrac12\right)^3.
-\]
-These half-integer points are precisely the centers of the cubes in the standard cubic lattice. (Note: in crystallography, this lattice is often described as a cubic lattice with a two-point basis; here we are using ``basis'' in the lattice-theoretic sense: a set of linearly independent vectors whose integer span gives the lattice.)
-\item \textbf{Face-centered cubic (FCC)}: lattice basis
-\[
-v_1 = (1,1,0), \quad v_2 = (1,0,1), \quad v_3 = (0,1,1).
-\]
-These vectors have length $\sqrt{2}$ (relative to the standard cubic cell of side length $1$) and generate the FCC lattice. Both BCC and FCC are important in solid-state physics and chemistry.
-\end{itemize}
-
-\medskip
-
-\noindent\textbf{Sublattices.} 
-If $L \subset \mathbb{R}^n$ is a lattice and $M \subset L$ is a subgroup that is also discrete and of rank $n$ (i.e., full rank in $\mathbb{R}^n$), then $M$ is called a \emph{full-rank sublattice} of $L$. For example, in $\mathbb{Z}^2$,
-\[
-M = \{ (2a, 2b) : a,b \in \mathbb{Z} \}
-\]
-is a sublattice (a scaled version). Also,
-\[
-M = \{ (a,b) \in \mathbb{Z}^2 : a+b \text{ is even} \}
-\]
-is a sublattice of index $2$ in $\mathbb{Z}^2$. Sublattices arise naturally when we change basis by an integer matrix with determinant $>1$ in absolute value.
-
-\medskip
-
-\noindent\textbf{Bases and the Geometry of a Lattice.} 
-A fundamental fact is that the intrinsic geometric properties of a lattice --- such as its shortest vectors, its symmetry group, and its packing density --- are independent of the choice of basis. These are properties of the set $L$ itself, not of any particular generating set.
-
-However, the \emph{choice of basis} can greatly affect how easily these properties are recognized or computed. For example, the triangular lattice has a very simple description with the basis $(1,0)$ and $(1/2, \sqrt{3}/2)$, but if we choose a less symmetric basis, its hexagonal symmetry becomes obscured. Thus, while the geometry does not depend on the basis, a clever basis choice can make that geometry transparent.
-
-\medskip
-
-\noindent These examples show that lattices are far more varied than just $\mathbb{Z}^n$. The study of their geometric and arithmetic properties is a rich area with applications in number theory, coding theory, crystallography, and optimization.
+\begin{exbox}{The Hexagonal Lattice: a Genuinely Non-Rectangular Example}
+Every lattice so far has had a basis of perpendicular (or near-perpendicular) vectors. That's not required. Let $b_1 = (1,0)$ and $b_2 = \left(\tfrac12, \tfrac{\sqrt3}{2}\right)$ in $\mathbb{R}^2$ --- both length exactly $1$, but at a $60^\circ$ angle to each other, not $90^\circ$. The resulting lattice $\mathcal{L}(b_1,b_2)$ tiles the plane with equilateral triangles instead of squares:
+\begin{center}
+\begin{tikzpicture}[scale=0.95]
+  \foreach \b in {-2,...,2} {
+    \foreach \a in {-3,...,3} {
+      \pgfmathsetmacro{\xx}{\a+0.5*\b}
+      \pgfmathsetmacro{\yy}{0.866*\b}
+      \fill[gray!60] (\xx,\yy) circle (1.6pt);
+    }
+  }
+  \draw[-{Latex[length=2mm]}, thick, blue] (0,0) -- (1,0);
+  \node[blue, font=\small, below] at (1,-0.15) {$b_1=(1,0)$};
+  \draw[-{Latex[length=2mm]}, thick, blue] (0,0) -- (0.5,0.866);
+  \node[blue, font=\small, above left] at (0.45,0.87) {$b_2=(\tfrac12,\tfrac{\sqrt3}{2})$};
+  \fill[blue] (0,0) circle (2.2pt);
+\end{tikzpicture}
+\end{center}
+This is the \textbf{hexagonal (or triangular) lattice} --- the densest possible way to pack circles in the plane, and the pattern honeycombs and hexagonal close-packed crystals actually use. Its shortest vector is easy to name by eye here: $\lambda_1(L)=1$, achieved by $b_1$, $b_2$, and four other neighbors of the origin (every point has exactly $6$ nearest neighbors, all at distance $1$ --- try spotting them in the picture). Its determinant is $\det(L) = |\det\begin{pmatrix}1 & 1/2 \\ 0 & \sqrt3/2\end{pmatrix}| = \tfrac{\sqrt3}{2} \approx 0.866$. Compare this to $\mathbb{Z}^2$: same $\lambda_1=1$, but $\det(\mathbb{Z}^2)=1$ --- a strictly \emph{larger} determinant for the \emph{same} shortest-vector length. That's not a coincidence: packing points as densely as the geometry allows (small determinant) while keeping them as far apart as possible (large $\lambda_1$) is exactly what makes the hexagonal lattice optimal, and it's the same tension Minkowski's theorem (Section~\ref{sec:L1:minkowski-s-first-theorem-volume-forces}) quantifies in general.
+\end{exbox}
 
 \subsection{The Shortest Vector and the Minimum Distance \texorpdfstring{$\lambda_1(L)$}{lambda\_1(L)}}
 \label{sec:L1:the-shortest-vector-and-the-minimum-dist}
 
 Before going further, it's worth naming one basic quantity attached to every lattice: how close together its points actually are. We will use this constantly for the rest of the lecture (and the rest of the course), so it earns a formal definition rather than staying an informal aside.
+
 
 \begin{defbox}{Shortest Vector and Minimum Distance $\lambda_1(L)$}
 Let $L \subseteq \mathbb{R}^n$ be a lattice. A \textbf{shortest vector} of $L$ is a nonzero vector $v \in L$ whose norm is minimal among all nonzero lattice vectors. The length of a shortest vector is called the lattice's \textbf{minimum distance}, or \textbf{first successive minimum}, and is defined by
@@ -907,6 +807,14 @@ A single lattice has \emph{many} different valid bases (just as a vector space d
 
 \begin{exbox}{A Tiny Lattice by Hand}
 Let $b_1 = (2,0)$ and $b_2 = (0,3)$ in $\mathbb{R}^2$. The lattice $\mathcal{L}(b_1,b_2)$ consists of every point $(2a_1, 3a_2)$ for integers $a_1, a_2$ --- so it includes $(0,0)$, $(2,0)$, $(-2,0)$, $(0,3)$, $(2,3)$, $(4,-3)$, and so on, but \emph{not} $(1,1)$ or $(1,0)$, since those cannot be written as $(2a_1, 3a_2)$ for integer $a_1, a_2$. As a sanity check against the subgroup definition directly: is this set a subgroup? Yes --- closed under addition and negation, contains $(0,0)$. Is it discrete? Yes --- the nearest point to the origin is at distance $2$, so any $\varepsilon < 2$ isolates $\vec 0$. (Equivalently: $\lambda_1(L) = 2$, achieved by $b_1$ itself.)
+\end{exbox}
+
+\begin{exbox}{A Lattice With a Deliberately Bad Basis (the Running Example for This Section)}
+The lattice above had an obviously good basis --- $\lambda_1$ was just sitting there, equal to one of the given vectors. That's not always true, and it's worth seeing a case where it fails, since ``the shortest vector is hiding behind a combination of your basis vectors, not equal to any one of them'' is precisely the situation real cryptographic bases are designed to create. Let $b_1' = (2,1)$ and $b_2' = (5,3)$. Check $|\det(B')| = |2\times 3 - 5\times 1| = 1$, so by the unimodular test (Section~\ref{sec:L1:unimodular-equivalence-when-do-two-bases}) this basis generates \emph{exactly} $\mathbb{Z}^2$ --- the same lattice as the standard basis $\{(1,0),(0,1)\}$, with $\lambda_1=1$. But look only at $b_1'$ and $b_2'$ themselves: $\|b_1'\|=\sqrt5\approx2.24$ and $\|b_2'\|=\sqrt{34}\approx5.83$ --- neither one is anywhere near length $1$, and a glance at this basis alone gives no hint that $\lambda_1(L)=1$. The short vectors are still there, but only reachable through a non-obvious combination: direct substitution confirms
+$$
+3b_1' - b_2' = 3(2,1)-(5,3) = (1,0), \qquad -5b_1'+2b_2' = -5(2,1)+2(5,3) = (0,1),
+$$
+recovering the standard basis --- and $\lambda_1=1$ --- but only after combining the given vectors with coefficients as large as $5$. \textbf{This is exactly what ``bad basis'' means}: not that the lattice is different or harder, only that its short vectors are algebraically disguised. Section~\ref{sec:L1:the-lll-algorithm} picks this exact example back up and shows an algorithm that undisguises it automatically.
 \end{exbox}
 
 \subsection{The Determinant (Volume) of a Lattice}
@@ -1359,12 +1267,57 @@ For each pair of bases below (columns are the basis vectors), form $U = B^{-1}B'
 \end{enumerate}
 \end{exercisebox}
 
+\subsection{The LLL Algorithm: Turning a Bad Basis Into a Good One}
+\label{sec:L1:the-lll-algorithm}
+
+\begin{rmkbox}{The Question You Should Be Asking}
+Section~\ref{sec:L1:recovering-the-basis-picture}'s bad-basis example needed an integer combination with a coefficient as large as $5$ just to uncover a length-$1$ vector. A natural question follows immediately: if a \emph{good} basis makes $\lambda_1(L)$ obvious, is there an efficient algorithm that takes a bad basis and hands back a good one --- effectively solving SVP? The answer is yes and no, and the precise shape of that ``yes and no'' is one of the most important facts in this entire course.
+\end{rmkbox}
+
+\begin{defbox}{The LLL Algorithm (Lenstra--Lenstra--Lov\'asz, 1982)}
+Given any basis $b_1,\ldots,b_n$ of a lattice $L$, the LLL algorithm runs in time polynomial in $n$ and the size of the input, and outputs a new basis $b_1',\ldots,b_n'$ of the \emph{same} lattice $L$ that is \textbf{reduced}: informally, each $b_i'$ is not too much longer than it needs to be, and the whole basis is not too far from orthogonal. The output's first vector satisfies a guarantee of the form
+$$
+\|b_1'\| \;\le\; 2^{(n-1)/2}\,\lambda_1(L).
+$$
+\end{defbox}
+
+\begin{rmkbox}{Reading the Guarantee Two Ways}
+\textbf{The good news:} LLL runs in polynomial time and \emph{always} finds \emph{some} genuinely short vector, for \emph{any} lattice, with no restriction at all --- a remarkable, unconditional guarantee, and exactly why LLL is a standard tool in every computational algebra system. \textbf{The catch:} the approximation factor $2^{(n-1)/2}$ grows \emph{exponentially} with the dimension $n$. For $n=10$ that's already a factor of about $16$; for $n=100$ (nowhere near cryptographic scale) it's a number with about $15$ digits. LLL is not solving SVP --- it's solving a version of SVP with the approximation gap $\gamma$ thrown wide open, and cryptographic hardness (the polynomial-$\gamma$ regime Lecture 2 builds SIS and LWE on top of) lives nowhere near that wide-open end.
+\end{rmkbox}
+
+\begin{exbox}{LLL Reduction by Hand, on This Section's Running Example}
+Recall $b_1'=(2,1)$, $b_2'=(5,3)$ from Section~\ref{sec:L1:recovering-the-basis-picture}, generating $\mathbb{Z}^2$. LLL's core move, repeated until nothing changes: use Gram--Schmidt (Section~\ref{sec:L1:gram-schmidt-orthogonalization}) to measure the current basis, \emph{shrink} each vector by rounding off an integer multiple of the previous one, and \emph{swap} two vectors whenever that shrinks the basis. Watch it happen:
+
+\textbf{Step 1 --- measure.} $b_1^*=b_1'=(2,1)$, $\|b_1^*\|^2=5$. $\mu_{2,1}=\dfrac{\langle b_2',b_1^*\rangle}{\|b_1^*\|^2}=\dfrac{5(2)+3(1)}{5}=\dfrac{13}{5}=2.6$.
+
+\textbf{Step 2 --- shrink (size-reduce).} Round $2.6$ to $3$ and subtract: $b_2'' = b_2' - 3b_1' = (5,3)-(6,3) = (-1,0)$. New basis: $\{(2,1),\,(-1,0)\}$.
+
+\textbf{Step 3 --- swap.} $\|(-1,0)\|=1$ is far shorter than $\|(2,1)\|=\sqrt5$ --- exactly the situation that makes LLL swap the two vectors to keep the basis ordered short-to-long. New basis: $\{(-1,0),\,(2,1)\}$.
+
+\textbf{Step 4 --- measure and shrink again.} $b_1^*=(-1,0)$, $\|b_1^*\|^2=1$. $\mu_{2,1}=\dfrac{(2)(-1)+(1)(0)}{1}=-2$. Subtract: $(2,1)-(-2)(-1,0) = (2,1)-(2,0)=(0,1)$.
+
+\textbf{Result.} $\{(-1,0),\,(0,1)\}$ --- length $1$ each, perfectly orthogonal. Up to sign, this \emph{is} the standard basis, and $\lambda_1=1$ is now unmissable. Four short, mechanical steps recovered exactly what Section~\ref{sec:L1:recovering-the-basis-picture} had to find by guessing an integer coefficient as large as $5$.
+\end{exbox}
+
+\begin{rmkbox}{Why the $n=2$ Case Feels Like It Solves SVP --- Because It Basically Does}
+The worked example above didn't just find \emph{a} short vector; it found \emph{the} shortest one, exactly. That's not a fluke of these particular numbers: in dimension $n=2$, LLL (really a much older algorithm, Gauss--Lagrange reduction) is provably \emph{exact} --- it always outputs a genuine shortest vector, not merely an approximation. The reason traces directly to the reduction step's structure: LLL's swap-and-shrink rule only ever compares \emph{adjacent} vectors, $b_i$ against $b_{i+1}$. With only two vectors total, there is exactly one adjacent pair --- so ``locally reduced'' (what LLL checks) and ``globally shortest'' (what SVP asks for) are the same statement. Once $n\ge3$, this stops being true: LLL still only directly compares neighboring pairs, and a long chain of locally-fine relationships can still hide a globally short vector nowhere near where any single local check would find it. That gap, compounding across $n-1$ pairwise comparisons, is exactly where the $2^{(n-1)/2}$ factor comes from.
+\end{rmkbox}
+
+\begin{factbox}{BKZ: The One Knob LLL Doesn't Have}
+If LLL's weakness is that it only ever looks at pairs, the natural fix is to look at \emph{more than pairs} --- and that is exactly what \textbf{BKZ} (Blockwise Korkine--Zolotarev) does. BKZ takes a \textbf{block size} $k$ as a parameter and, instead of reducing one vector against its immediate neighbor, solves SVP \emph{exactly} within each sliding window of $k$ consecutive basis vectors, then moves the window along. Two extremes make the whole picture click into place:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{$k=2$:} each window is just a pair --- BKZ collapses to exactly LLL. Polynomial time, $2^{(n-1)/2}$-style approximation.
+  \item \textbf{$k=n$:} the single window is the \emph{whole} basis --- BKZ becomes exhaustive enumeration, provably exact ($\gamma=1$), at a cost that grows exponentially in $n$.
+\end{itemize}
+Every value of $k$ in between is a genuine trade-off point: larger $k$ buys a better approximation factor at the cost of more time per window, and real attacks against lattice cryptography are, in large part, a search for the largest block size $k$ that stays computationally affordable against a given parameter set. \textbf{This is the direct answer to ``how do you change LLL to get closer to the real shortest vector'':} you don't change LLL's swap-and-shrink rule at all --- you widen how many vectors it's allowed to look at during each local comparison, sliding along the entire spectrum from LLL's efficient-but-loose end to enumeration's exact-but-slow end, with no known algorithm reaching \emph{both} efficient \emph{and} exact at once, at cryptographic dimensions.
+\end{factbox}
+
 \begin{previewbox}{Optional / Advanced: Minkowski's Second Theorem}
 The First Theorem only talks about $\lambda_1(L)$, the \emph{single} shortest vector. It says nothing about the second-shortest independent direction, the third, and so on. \textbf{Minkowski's Second Theorem} fills that gap: recall the \textbf{successive minima} $\lambda_1(L) \le \lambda_2(L) \le \cdots \le \lambda_n(L)$ flagged in the defbox above, where $\lambda_i(L)$ is the smallest radius $r$ such that the ball of radius $r$ contains $i$ \emph{linearly independent} lattice vectors. The theorem bounds their \emph{product}:
 $$
 \frac{2^n}{n!}\det(L) \;\le\; \lambda_1(L)\cdots\lambda_n(L) \;\le\; 2^n \det(L).
 $$
-This is not core material --- everything in Sessions 1--6 (understanding LWE, the algorithms, and the physical attacks in Section 2 of the proposal) only ever leans on the First Theorem's intuition: ``small determinant $\Rightarrow$ short vector must exist.'' The Second Theorem becomes genuinely useful only once the research moves toward analyzing \emph{trapdoor} lattices and Gaussian sampling in depth --- which is exactly what underlies Falcon's signing procedure (flagged for Session 5). A trapdoor basis needs \emph{all} of its vectors short, not just the shortest one, for Gaussian sampling to be both efficient and secure; that ``all vectors short together'' requirement is precisely what the successive minima $\lambda_1,\ldots,\lambda_n$ capture, and the Second Theorem is the tool that ties them back to $\det(L)$. This box is worth returning to \emph{if and only if} the Phase 2 research direction (Section~4 of the proposal) ends up involving Falcon's sampler or trapdoor generation in detail --- otherwise, the First Theorem alone is sufficient background.
+This is not core material --- everything in Lessons 1--6 (understanding LWE, the algorithms, and the physical attacks in Section 2 of the proposal) only ever leans on the First Theorem's intuition: ``small determinant $\Rightarrow$ short vector must exist.'' The Second Theorem becomes genuinely useful only once the research moves toward analyzing \emph{trapdoor} lattices and Gaussian sampling in depth --- which is exactly what underlies Falcon's signing procedure (flagged for Lesson 6). A trapdoor basis needs \emph{all} of its vectors short, not just the shortest one, for Gaussian sampling to be both efficient and secure; that ``all vectors short together'' requirement is precisely what the successive minima $\lambda_1,\ldots,\lambda_n$ capture, and the Second Theorem is the tool that ties them back to $\det(L)$. This box is worth returning to \emph{if and only if} the Phase 2 research direction (Section~4 of the proposal) ends up involving Falcon's sampler or trapdoor generation in detail --- otherwise, the First Theorem alone is sufficient background.
 \end{previewbox}
 
 \begin{exercisebox}{Practice}
@@ -1398,6 +1351,8 @@ Orthogonal basis & Basis, all pairs perpendicular & Gram--Schmidt output \\
 Lattice & Discrete additive subgroup of $\mathbb{R}^n$ & $\mathbb{Z}^n$; grid of points \\
 $\lambda_1(L)$ & Length of the shortest nonzero lattice vector & $\lambda_1(\mathbb{Z}^2) = 1$ \\
 $\det(L)$ & Volume of the fundamental domain & $|\det(B)|$, any basis $B$ \\
+LLL & Poly-time basis reduction, exponential $\gamma$ & Exact for $n=2$ (Gauss--Lagrange) \\
+BKZ & LLL generalized with block size $k$ & $k=2$: LLL; $k=n$: exact, exponential time \\
 \hline
 \end{tabular}
 \end{center}
@@ -1420,5 +1375,7 @@ $\det(L)$ & Volume of the fundamental domain & $|\det(B)|$, any basis $B$ \\
   \item Let $L = \{(x,y) \in \mathbb{Z}^2 : x + y \text{ is even}\}$. (a) Show $L$ is a subgroup of $(\mathbb{R}^2, +)$. (b) Show $L$ is discrete (find an $\varepsilon$ that isolates $\vec 0$). (c) Since $L$ is therefore a lattice, find a basis $\{b_1, b_2\}$ for it, and compute $\det(L)$.
   \item In your own words (3--4 sentences): why does the definition of a lattice need \emph{both} ``subgroup'' and ``discrete''? Use the $\mathbb{Q}$ example from Section~\ref{sec:L1:the-definition} to explain what goes wrong if you drop the discreteness requirement.
   \item In your own words (3--4 sentences), explain why a ``good basis'' and a ``bad basis'' for the same lattice can make the same mathematical object feel completely different to work with computationally, now that you can measure this with norms (Section~\ref{sec:L1:inner-products-norms-and-orthogonality}).
+  \item Run the LLL reduction procedure by hand (Section~\ref{sec:L1:the-lll-algorithm}) on $b_1=(3,1)$, $b_2=(7,2)$: compute $\mu_{2,1}$, size-reduce, check whether a swap is needed, and continue until the basis is fully reduced. Confirm your final basis matches the standard basis of $\mathbb{Z}^2$ (check $|\det(B)|=1$ first to confirm this is the right lattice to expect that from).
+  \item In 3--4 sentences: why is LLL provably exact for $n=2$ but only guaranteed within a factor of $2^{(n-1)/2}$ for larger $n$? Then, in 2--3 more sentences, explain what BKZ's block size $k$ actually trades off, and why $k=n$ is not a practical algorithm even though it's an exact one.
 \end{enumerate}
 \end{exercisebox}

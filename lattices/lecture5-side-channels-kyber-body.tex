@@ -1,0 +1,215 @@
+\begin{notebox}
+\small\textbf{Purpose of this lecture.} Lectures 1--4 built the mathematics: worst-case lattice problems, SIS, LWE, and three real, standardized schemes built on top of them. None of that math is what most published attacks on lattice cryptography actually break. This lecture turns to the other half of the threat model: what an attacker can learn by watching \emph{how} a scheme is computed --- its timing, its power draw, its electromagnetic emissions --- or by deliberately corrupting that computation with a fault, rather than by attacking the underlying hard problem at all. We build the general framework once, then spend the rest of the lecture on ML-KEM (Kyber) specifically: its one named ``riskiest step'' from Lecture 3's summary table, unpacked into two concrete, fully worked attacks. Lesson 6 completes the picture with ML-DSA (Dilithium) and FN-DSA (Falcon).
+\end{notebox}
+
+\section{Attacking the Math vs.\ Attacking the Implementation}
+\label{sec:L5:attacking-the-math-vs-the-implementation}
+
+\subsection{Two Threat Models}
+\label{sec:L5:two-threat-models}
+
+Every attack on a cryptographic scheme falls into one of two categories, and it matters enormously which one you're doing.
+
+\begin{defbox}{Cryptanalysis vs.\ Implementation Attacks}
+A \textbf{cryptanalytic} (mathematical) attack works entirely from public information --- the public key, some ciphertexts or signatures --- and unlimited computation, exactly as if the scheme were an abstract mathematical object with no physical existence at all. Lattice reduction (LLL, BKZ) attacking an LWE instance directly is cryptanalysis. An \textbf{implementation attack} instead exploits \emph{how} a specific piece of software or hardware computes the algorithm: its timing, its power consumption, its electromagnetic emissions, or its behavior when deliberately corrupted. It says nothing about whether the underlying math is broken --- and, as this lecture and the next will show, a scheme can have a rock-solid worst-case hardness proof and still fall apart in seconds against the right implementation attack.
+\end{defbox}
+
+\begin{rmkbox}{Why This Course Cares}
+Nothing in Lectures 1--4 is wrong or weakened by anything in this lecture. GapSVP, LWE, and SIS are exactly as hard as Lecture 2 said. What changes is the question: instead of ``can an attacker solve the math problem,'' it's ``can an attacker learn something about the secret \emph{without ever solving it}, just by watching the computer compute?'' Both threat models have to be defended against simultaneously --- a scheme immune to the first but not the second is not secure in practice, which is exactly why implementation security is its own, entire subfield, and exactly why your thesis has a whole project's worth of material to work with.
+\end{rmkbox}
+
+Implementation attacks split further, along a second axis: whether the attacker only \emph{observes}, or actively \emph{interferes}.
+
+\begin{defbox}{Passive vs.\ Active Implementation Attacks}
+A \textbf{passive} attack (side-channel analysis) only observes a physical side-effect of a correct computation --- how long it took, how much power it drew, what it radiated electromagnetically, which cache lines it touched --- without disturbing the computation itself. An \textbf{active} attack (fault injection) deliberately corrupts the computation --- via a voltage glitch, a clock glitch, an electromagnetic pulse, or a laser pulse aimed at the chip --- and learns something from \emph{how the output differs} from what a correct execution would have produced.
+\end{defbox}
+
+\subsection{The General Recipe: Leak, Then Combine}
+\label{sec:L5:the-general-recipe-leak-then-combine}
+
+Almost every implementation attack you will ever read about, however exotic the physical mechanism, follows the same two-step shape.
+
+\begin{rmkbox}{The Recipe}
+\textbf{Step 1 --- Leak.} Find some observable (a timing difference, a power trace, a fault's effect on the output) that depends, even very slightly, on the secret. One observation rarely reveals the whole secret --- often just one bit, or one noisy equation involving it, or a small bias in a distribution that should have been secret-independent. \textbf{Step 2 --- Combine.} Repeat Step 1 many times --- once per chosen ciphertext, once per captured power trace, once per induced fault --- and combine the results. Sometimes this combination is purely algebraic (solve a system of equations, exactly the way Lecture 4's practice exercise solved for $\vec s_1$ from two equations). Sometimes it's statistical (average many power traces against a guessed secret byte and look for correlation --- the classical technique is called \textbf{Differential} or \textbf{Correlation Power Analysis}, DPA/CPA). Occasionally it's a hybrid: use the leak to pin down \emph{most} of the secret, then hand the small remaining uncertainty to a lattice-reduction algorithm like BKZ (Lecture 2) to finish the job --- turning a partial side-channel leak into full key recovery even when no single observation was clean enough to do it alone.
+\end{rmkbox}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node[draw, minimum width=6.4cm, minimum height=1cm, fill=blue!8, align=center] (comp) at (0,5) {\textbf{Secret-dependent computation}\\ \tiny e.g.\ Decaps, Sign};
+  \node[draw, minimum width=6.4cm, minimum height=1cm, fill=orange!10, align=center] (leak) at (0,3.3) {\textbf{Physical side-effect, or induced fault}\\ \tiny timing / power / EM / glitch};
+  \node[draw, minimum width=6.4cm, minimum height=1cm, fill=red!8, align=center] (bit) at (0,1.6) {\textbf{One bit, or one noisy equation, about the secret}};
+  \node[draw, minimum width=6.4cm, minimum height=1.05cm, fill=purple!6, align=center] (combine) at (0,-0.2) {\textbf{Combine over many queries/traces}\\ \tiny algebraically, statistically, or via lattice reduction};
+
+  \draw[-{Latex[length=2mm]}] (comp) -- (leak);
+  \draw[-{Latex[length=2mm]}] (leak) -- (bit);
+  \draw[-{Latex[length=2mm]}] (bit) -- (combine);
+  \draw[-{Latex[length=2mm]}, dashed, gray] (combine.east) to[out=0,in=0,looseness=2.2] node[right, font=\tiny, gray, text width=2cm] {repeat many times} (leak.east);
+\end{tikzpicture}
+\caption{Every attack in this lecture and the next is one instance of this same two-step loop: leak a little, then combine a lot. What differs between attacks is only what fills each box.}
+\label{fig:attack-recipe}
+\end{figure}
+
+\begin{exbox}{A Toy Timing Leak, Before Any Lattices}
+Here's the recipe at its simplest, with no cryptography-specific machinery at all. Suppose a program checks a secret 4-digit PIN against a guess by comparing digits one at a time and returning \texttt{false} the instant it finds a mismatch:
+$$
+\texttt{for } i = 1..4: \texttt{ if guess}[i] \ne \texttt{secret}[i]: \texttt{ return false} \qquad \texttt{return true}
+$$
+\textbf{Leak:} a guess that's wrong in digit 1 exits almost immediately; a guess that happens to get digit 1 \emph{right} takes measurably longer, since the loop proceeds to check digit 2. Timing alone reveals \emph{how many leading digits were correct} --- one bit of information (``was this guess's timing longer than that guess's?'') per query. \textbf{Combine:} try all 10 values for digit 1, keep whichever one measurably takes longer; that's digit 1, solved with at most 10 queries instead of the $10^4$ a truly blind guesser would need. Repeat for digit 2, then 3, then 4: the total cost drops from $10^4$ to about $4\times 10$. This exact bug --- an early-exit comparison where it should have been constant-time --- has been found in real production cryptographic code more than once. Section~\ref{sec:L5:from-bit-to-match-mismatch-decaps} below is the same idea, aimed at Kyber's \texttt{Decaps}.
+\end{exbox}
+
+\section{A Chosen-Ciphertext Oracle Near the Decoding Boundary}
+\label{sec:L5:a-chosen-ciphertext-oracle}
+
+Recall Kyber's decryption step, exactly as Lecture 3 wrote it: given secret key $\vec s$ and ciphertext $c=(u,v)$ (we work with the uncompressed $k=1$ toy version from Lecture 3, Section~\ref{sec:L3:the-cpa-secure-core-kyber-cpapke}, to keep the arithmetic hand-tractable), decryption computes $m' = v - s\cdot u$ and then \textbf{decodes} each coefficient: output bit $1$ if that coefficient is closer to $\lceil q/2\rceil$ than to $0$ (mod $q$), else bit $0$.
+
+\begin{rmkbox}{The Idealized Oracle for This Section}
+For this section only, imagine an attacker who can submit any ciphertext $c=(u,v)$ of their choosing and simply \emph{read off} the decoded bits of $m'$ --- as if they had a copy of the receiver's decryption function sitting on their own desk. This is a stronger oracle than a real attacker gets against Kyber's actual \texttt{Decaps} (which never outputs decoded plaintext bits at all --- that's exactly what the FO transform in Lecture 3, Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}, is for). We use it here purely to see the underlying mechanism cleanly, with real numbers; Section~\ref{sec:L5:from-bit-to-match-mismatch-decaps} shows how a real attacker gets an equivalent oracle out of the actual, FO-transformed scheme.
+\end{rmkbox}
+
+\begin{exbox}{Recovering $\vec s$ Coefficient by Coefficient, $q=17$ (Verified by Hand)}
+Reuse Lecture 3's exact toy secret, $s = 1-x = (1,16,0,0)$ in $R_{17}=\mathbb{Z}_{17}[x]/(x^4+1)$ (recall $-1\equiv16\pmod{17}$) --- unknown to the attacker, who wants to recover it. \textbf{Choose $u^*=1$} (the constant ring element). Since $1$ is the multiplicative identity, $s\cdot u^* = s\cdot 1 = s$ exactly, with no computation needed. So
+$$
+m' = v^* - s\cdot u^* = \big(v^*_0-1,\ v^*_1-16,\ v^*_2,\ v^*_3\big) \bmod 17 = \big(v^*_0-1,\ v^*_1+1,\ v^*_2,\ v^*_3\big) \bmod 17.
+$$
+\textbf{Recovering $s_0=1$.} Fix $v^*=(v_0^*,0,0,0)$ and sweep $v_0^*=1,2,3,\ldots$, watching only the first coefficient of $m'$. Working out $\text{Decode}$ for $q=17$ directly from the defbox rule shows it outputs $1$ exactly for $m'$-values $\{5,\ldots,12\}$ and $0$ for $\{0,\ldots,4\}\cup\{13,\ldots,16\}$ (with $13$ an exact tie, unused below). So:
+\begin{center}
+\begin{tabular}{c|c|c|c|c|c|c}
+$v_0^*$ & 1 & 2 & 3 & 4 & 5 & \textbf{6} \\
+\hline
+$m'_0 = v_0^*-1$ & 0 & 1 & 2 & 3 & 4 & \textbf{5} \\
+\hline
+Decode & 0 & 0 & 0 & 0 & 0 & \textbf{1 (flip!)}
+\end{tabular}
+\end{center}
+The flip happens at $v_0^*=6$. Since decode flips to $1$ exactly when $m'_0$ first reaches $5$, we have $6 - s_0 \equiv 5\pmod{17}$, so $s_0 = (6-5)\bmod 17 = 1$ --- \textbf{exactly the true value.}
+
+\textbf{Recovering $s_1=16$.} Same idea on the second coordinate: $m'_1 = v_1^*+1$.
+\begin{center}
+\begin{tabular}{c|c|c|c|c}
+$v_1^*$ & 1 & 2 & 3 & \textbf{4} \\
+\hline
+$m'_1=v_1^*+1$ & 2 & 3 & 4 & \textbf{5} \\
+\hline
+Decode & 0 & 0 & 0 & \textbf{1 (flip!)}
+\end{tabular}
+\end{center}
+Flip at $v_1^*=4$, so $s_1 = (4-5)\bmod 17 = -1 \bmod 17 = 16$ --- again exactly right. The same sweep on coordinates $2$ and $3$ recovers $s_2=0$ and $s_3=0$ (try it), reconstructing the entire secret $s=1-x$ from nothing but the decoded bits of chosen ciphertexts --- never touching lattice reduction, never solving LWE.
+\end{exbox}
+
+\begin{rmkbox}{Making the Sweep Fully General}
+The worked sweep above starts at $v_i^*=1$ and happens to hit the flip within a handful of queries --- convenient for a by-hand example, but not guaranteed for every possible value of $s_i$ (if $s_i$ itself already sits inside the ``decode to $1$'' zone, the very first probe can already read $1$, with no visible flip yet). The fully general, always-correct version: sweep $v_i^*$ across the \emph{entire} range $0,\ldots,q-1$ (at most $q$ queries, or $O(\log q)$ with binary search, since the boundary positions are fixed and known in advance) and specifically locate the point where Decode goes from $0$ to $1$ as $v_i^*$ increases by one --- as opposed to the far boundary, where it goes back from $1$ to $0$. Get that direction right and the same equation, $s_i = (v_i^* - 5)\bmod q$, holds unconditionally. Either way: at most $O(n\log q)$ oracle queries recover an entire secret polynomial of degree $n$ exactly.
+\end{rmkbox}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=0.78, every node/.style={font=\small}]
+  \foreach \i in {0,...,16} {
+    \pgfmathsetmacro{\ang}{90-\i*(360/17)}
+    \ifnum\i>4
+      \ifnum\i<13
+        \node[circle, draw, fill=green!25, minimum size=0.62cm, font=\tiny] at (\ang:2.6) {\i};
+      \else
+        \node[circle, draw, fill=red!12, minimum size=0.62cm, font=\tiny] at (\ang:2.6) {\i};
+      \fi
+    \else
+      \node[circle, draw, fill=red!12, minimum size=0.62cm, font=\tiny] at (\ang:2.6) {\i};
+    \fi
+  }
+  \node[font=\tiny, green!40!black] at (0,0.35) {decode $=1$};
+  \node[font=\tiny, red!50!black] at (0,-0.35) {decode $=0$};
+  \pgfmathsetmacro{\angA}{90-4*(360/17)}
+  \pgfmathsetmacro{\angB}{90-5*(360/17)}
+  \pgfmathsetmacro{\angMid}{(\angA+\angB)/2}
+  \draw[-{Latex[length=1.8mm]}, blue, thick] (\angA:2.95) arc (\angA:\angB:2.95);
+  \node[blue, font=\tiny] at (\angMid:4.05) {lower boundary crossed here};
+\end{tikzpicture}
+\caption{The $17$ possible values of a coefficient of $m'$, arranged in a circle exactly as modular arithmetic wraps around (Lecture 1, Section~\ref{sec:L1:the-modulus-arithmetic-that-wraps-around}). Decode outputs $1$ for the green arc $\{5,\ldots,12\}$ and $0$ for the red arc --- a single contiguous region on each side. Sweeping $v_i^*$ walks a probe around this circle; the moment it crosses from red into green pins down $s_i$ exactly.}
+\label{fig:decode-boundary}
+\end{figure}
+
+\section{From ``See the Bit'' to ``See Match or Mismatch'': The Real Oracle in \texttt{Decaps}}
+\label{sec:L5:from-bit-to-match-mismatch-decaps}
+
+Real Kyber never lets an attacker read $m'$'s decoded bits directly --- that is exactly the problem the Fujisaki--Okamoto transform (Lecture 3, Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}) exists to solve. \texttt{Decaps} only ever outputs a symmetric key $K$: either $H(m')$, if re-encrypting the recovered $m'$ reproduces the submitted ciphertext exactly, or a pseudorandom-looking $H(sk,c)$ if it doesn't (\emph{implicit rejection}). So where does an attacker's oracle actually come from?
+
+\begin{rmkbox}{The Bridge}
+An attacker who cannot see $K$ itself can often still learn \emph{which branch} \texttt{Decaps} took --- via \textbf{timing} (the match-check and the two key-derivation paths are natural places for a non-constant-time implementation to take measurably different amounts of time), \textbf{power} (the re-encryption step touches different data on each branch), or, in some deployment models, an explicit \textbf{protocol-level signal} that a handshake failed. That single bit --- match vs.\ mismatch --- is a coarser version of the same information Section~\ref{sec:L5:a-chosen-ciphertext-oracle} used directly: for a ciphertext crafted to sit exactly at a decode boundary, whichever side of that boundary the true decoding lands on determines \emph{both} the decoded bit \emph{and}, almost always, whether re-encryption reproduces $c$. Getting a coarser, binary signal instead of the exact decoded bits costs the attacker more queries, not a different attack --- the boundary-sweep procedure and the underlying algebra are unchanged.
+\end{rmkbox}
+
+\begin{previewbox}{A Second, Independent Leak Hiding in the Same Step}
+Lecture 3's preview box already flagged this precisely: the intermediate value $m'$ is computed, in full, \emph{before} the match-check ever runs --- for every ciphertext, including ones that will ultimately be rejected. If that computation itself leaks (say, via power analysis of the $\vec s^{\,T}\vec u$ multiply inside CPAPKE.Dec, independent of any timing difference in the comparison afterward), an attacker gets information about $\vec s$ regardless of whether implicit rejection kicks in. Implicit rejection hides \emph{which branch was taken}; it does nothing to hide what happened while computing $m'$ in the first place. This is exactly why constant-time coding of the comparison alone is not a complete fix (Section~\ref{sec:L5:kyber-specific-countermeasures} returns to this).
+\end{previewbox}
+
+\section{Decryption Failures as a Naturally Occurring Version of the Same Leak}
+\label{sec:L5:decryption-failures}
+
+Section~\ref{sec:L5:a-chosen-ciphertext-oracle}'s attacker deliberately crafted ciphertexts to sit at a decode boundary. A second, related attack surface doesn't need to construct anything so precise --- it exploits noise that was already there.
+
+Recall from Lecture 3, Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}: decryption recovers $m$ correctly as long as the total noise term $\varepsilon$ stays under $q/4$ in absolute value; ML-KEM's real parameters keep the \emph{probability} of a decryption failure astronomically small (below $2^{-100}$), but not literally zero. That tiny residual failure probability is not secret-independent.
+
+\begin{rmkbox}{Why Failures Correlate With the Secret}
+$\varepsilon$ is built from $\vec e, \vec r, e_2, \vec s, \vec e_1$ (Lecture 3's derivation). An attacker who can influence any of the public, attacker-chosen quantities in that mix ($\vec r$, $e_2$, and, via the ciphertext, effectively the compression rounding too) --- while $\vec s$ stays fixed across many queries --- controls the \emph{distribution} of $\varepsilon$ relative to the fixed, unknown $\vec s$. Sending many ciphertexts engineered to push $\varepsilon$ as close to the $q/4$ boundary as compression and encoding allow, and recording which ones happen to fail, produces a dataset whose failure pattern is a statistical function of $\vec s$ --- the same underlying idea as Section~\ref{sec:L5:a-chosen-ciphertext-oracle}'s boundary sweep, but read off through \emph{failure rate over many trials} instead of a single crisp decode bit. This is precisely what Lecture 3 called Kyber's \textbf{central-reduction leak}: published decryption-failure and plaintext-checking-oracle attacks against LWE-based encryption schemes follow exactly this template, differing mainly in how cleverly the chosen ciphertexts are constructed to maximize how much each query reveals.
+\end{rmkbox}
+
+\begin{rmkbox}{The Two Kyber Attack Surfaces, Side by Side}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Attack surface 1 (Sections~\ref{sec:L5:a-chosen-ciphertext-oracle}--\ref{sec:L5:from-bit-to-match-mismatch-decaps}):} the FO re-encryption check's match/mismatch outcome, and the $m'$-before-the-check leak underneath it --- exploited via \emph{deliberately crafted} boundary ciphertexts.
+  \item \textbf{Attack surface 2 (this section):} the natural decryption-failure margin --- exploited \emph{statistically}, over many ciphertexts, without needing a single ciphertext to sit exactly on a boundary.
+\end{itemize}
+Both are instances of the same recipe from Section~\ref{sec:L5:the-general-recipe-leak-then-combine}: leak a little (one bit, or one failure/success outcome) per query, combine over many queries. Together they make up Kyber's share of the ``six risky steps'' promised back in Lecture 4 --- Lesson 6 supplies the remaining four, for Dilithium and Falcon.
+\end{rmkbox}
+
+\section{Countermeasures, Kyber-Specific}
+\label{sec:L5:kyber-specific-countermeasures}
+
+\begin{rmkbox}{Constant-Time Comparison and Decoding}
+The most direct fix for Section~\ref{sec:L5:from-bit-to-match-mismatch-decaps}'s leak is making the re-encryption check --- and the Decode step feeding it --- take exactly the same time and touch exactly the same memory regardless of whether the values match, typically via bitwise operations (AND/OR/XOR across the full byte string, then a final constant-time reduction to one bit) instead of a short-circuiting equality test like the toy PIN-checker in Section~\ref{sec:L5:the-general-recipe-leak-then-combine}. Reference implementations of ML-KEM do exactly this.
+\end{rmkbox}
+
+\begin{rmkbox}{Why That Alone Isn't Enough}
+Constant-time comparison closes the \emph{match-vs-mismatch} leak, but, as the preview box in Section~\ref{sec:L5:from-bit-to-match-mismatch-decaps} stressed, it does nothing about power or EM leakage from computing $m'$ itself, \emph{before} any comparison happens. That requires a different, harder tool: \textbf{masking} --- splitting every secret-dependent intermediate value into two or more random shares, computed on separately, so that no single physical measurement ever sees anything statistically correlated with $\vec s$ alone. Masking arithmetic mod $q$ (and the rounding/compression steps built on top of it) is substantially harder to get right than masking the bitwise operations of a cipher like AES. Lesson 6 picks this up properly, once Dilithium's and Falcon's attack surfaces are on the table too and a single, shared countermeasures discussion can cover all three schemes at once.
+\end{rmkbox}
+
+\section{Bridge to Your Thesis}
+\label{sec:L5:bridge-to-your-thesis}
+
+\begin{previewbox}{A Starting Checklist for Kyber}
+For any implementation you might analyze, three questions from this lecture translate directly into a research starting point: (1) Is the FO re-encryption check implemented in constant time, and does that constant-time property survive compiler optimization? (2) Does the CPAPKE decryption arithmetic itself ($\vec s^{\,T}\vec u$) show measurable data-dependent timing or power variation, independent of the comparison afterward? (3) Under repeated, adversarially chosen ciphertexts, does the empirical decryption-failure rate show \emph{any} detectable dependence on the ciphertext's structure? A clean, well-documented answer to any one of these --- even a purely negative one, confirming a specific implementation resists a specific attack --- is exactly the kind of floor-level contribution your thesis's ``Analysis'' framing was built to accommodate; a genuinely novel variant of any of them is the ceiling.
+\end{previewbox}
+
+\section{Summary Table}
+\label{sec:L5:summary-table}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Concept} & \textbf{What it is} & \textbf{Where it lives} \\
+\hline
+Cryptanalysis & Attacks the hard problem itself & Public info only, unlimited compute \\
+Implementation attack & Attacks how the algorithm is computed & Timing / power / EM / faults \\
+Passive attack & Observes without disturbing & Side-channel analysis (SCA) \\
+Active attack & Deliberately corrupts the computation & Fault injection \\
+Leak, then combine & The general recipe (Fig.~\ref{fig:attack-recipe}) & Every attack in this lecture \\
+Boundary-sweep oracle & Craft $c$ at a decode boundary & Kyber attack surface 1 \\
+Decryption-failure leak & Exploit the natural noise margin & Kyber attack surface 2 \\
+Constant-time comparison & Fixes the match/mismatch leak only & Necessary, not sufficient \\
+Masking & Splits secrets into random shares & Fixes leaks \emph{before} the check \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{Exercises (Assign as Homework Before Lesson 6)}
+\label{sec:L5:exercises}
+
+\begin{exercisebox}{Homework Set}
+\begin{enumerate}[leftmargin=*]
+  \item In your own words (2--3 sentences), explain the difference between a cryptanalytic attack and an implementation attack, and give one example of each that does \emph{not} appear in this lecture.
+  \item Redo the toy PIN-checker timing analysis (Section~\ref{sec:L5:the-general-recipe-leak-then-combine}) for a 6-digit PIN instead of 4. How many queries does the timing attack need in the worst case, versus a blind brute-force guesser? Express both as a function of the number of digits.
+  \item Using the same toy Kyber instance ($q=17$, secret $s=1-x$) as Section~\ref{sec:L5:a-chosen-ciphertext-oracle}'s worked example: complete the sweep for coordinates $2$ and $3$ by hand, and confirm you recover $s_2=0$ and $s_3=0$.
+  \item Pick any $s_i \in \{6,\ldots,13\}$ (a value for which the naive sweep starting at $v_i^*=1$ shows decode$=1$ immediately, with no visible flip). Using the fully general procedure from the ``Making the Sweep Fully General'' remark, find the correct boundary crossing and recover $s_i$ --- confirming the formula still works once you sweep the full range and identify the correct (entering) direction.
+  \item In 3--4 sentences: why does making the re-encryption check constant-time \emph{not} fully close Kyber's attack surface, even though it closes the specific leak described in Section~\ref{sec:L5:from-bit-to-match-mismatch-decaps}?
+  \item \textbf{Looking ahead:} Section~\ref{sec:L5:decryption-failures} describes Kyber's decryption-failure attack surface at the conceptual level only. Find one published paper (search terms like ``decryption failure attack LWE encryption'' or ``plaintext-checking oracle Kyber'' are a good start) and identify, in 3--4 sentences, which specific part of the ciphertext that paper's authors chose to manipulate, and why.
+\end{enumerate}
+\end{exercisebox}
