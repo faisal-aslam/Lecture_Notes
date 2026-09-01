@@ -1,0 +1,425 @@
+\documentclass[full-course-notes.tex]{subfiles}
+
+\begin{document}
+\lecturemeta{5}
+  {Finite Automata: Deterministic and Nondeterministic; Thompson's Construction (Regular
+   Expression $\to$ NFA)}
+  {CLO 1, CLO 2}
+  {\S3.6 (Recognition of Tokens), \S3.7 (Finite Automata; From a Regular Expression to an
+   Automaton), Alg.\,3.23 (Thompson's Construction)}
+  {[AP] Modern Compiler Implementation, \S2.3--2.4; [HMU] Introduction to Automata Theory,
+   Languages, and Computation, Ch.\,2}
+\lecshort{Finite Automata \& Thompson's Construction}
+\setcounter{section}{0}
+\makelecturetitle
+
+\tikzset{
+  st/.style={draw, circle, minimum size=0.85cm, font=\small, fill=nuLight, draw=nuNavy},
+  fin/.style={st, double, double distance=2pt, fill=dbGreenBg, draw=dbGreen},
+  fragst/.style={draw, circle, minimum size=0.7cm, font=\scriptsize, fill=nuLight, draw=nuNavy},
+  fragfin/.style={fragst, double, double distance=1.5pt, fill=dbGreenBg, draw=dbGreen},
+}
+
+\begin{coreidea}[Lecture Roadmap]
+\begin{enumerate}
+  \item Why a regular expression alone isn't something a computer can \emph{run} -- and what
+  we need instead.
+  \item \textbf{Finite automata}, formally: the 5-tuple definition, transition diagrams, and
+  what it means for a string to be ``accepted.''
+  \item \textbf{DFA vs.\ NFA}: exactly one choice per step vs.\ several (or none) -- and why
+  Lecture~\ref{lec:3}'s Chomsky-hierarchy table already told you these have \emph{equal} power.
+  \item \textbf{Thompson's construction}: a purely mechanical algorithm that builds an NFA
+  directly from the structure of a regular expression, one small piece per operator -- worked
+  all the way through on the running example from Lecture~\ref{lec:4}, $(a\mid b)^{*}abb$.
+\end{enumerate}
+This lecture builds the second arrow in Lecture~\ref{lec:3}'s big-picture diagram: regular
+expression $\to$ NFA. The next lecture builds the rest: NFA $\to$ DFA $\to$ minimized DFA
+$\to$ an actual running lexer.
+\end{coreidea}
+
+\section{Why We Need an Actual Machine}
+\label{sec:l5-why-a-machine}
+
+\dbtag A regular expression is a piece of notation -- it describes a language on paper, but a
+computer cannot ``run'' a piece of algebra directly. To actually scan a source file character
+by character and decide, in real time, which token pattern (if any) the input matches, we need
+something a processor can execute: a small, fixed set of states, and a rule for how to move
+between them as each character arrives. That is exactly what a \textbf{finite automaton} is,
+and Lecture~\ref{lec:3}'s big-picture diagram (\Sref{sec:l3-big-picture}) already named the
+first mechanical step that gets us there: \textbf{Thompson's construction}, which converts any
+regular expression into an equivalent finite automaton. This lecture builds that step in full;
+the next lecture finishes the journey to a working, table-driven lexer.
+
+\section{Finite Automata, Formally}
+\label{sec:l5-fa-formal}
+
+\dbtag Before comparing deterministic and nondeterministic versions, it helps to pin down what
+a finite automaton actually \emph{is} -- the same formal-definition instinct
+\Sref{sec:l3-regular-languages-formal} used for regular languages themselves.
+
+\begin{defbox}{Finite Automaton}
+A \textbf{finite automaton} is a 5-tuple $(Q, \Sigma, \delta, q_0, F)$ where:
+\begin{itemize}
+  \item $Q$ is a finite set of \textbf{states};
+  \item $\Sigma$ is the input \textbf{alphabet} (the same notion from
+  \Sref{sec:l4-strings-alphabets-languages});
+  \item $\delta$ is the \textbf{transition function}, describing how to move between states as
+  input symbols arrive (its exact type differs for DFAs and NFAs -- see below);
+  \item $q_0 \in Q$ is the \textbf{start state};
+  \item $F \subseteq Q$ is the set of \textbf{accepting} (or \emph{final}) states.
+\end{itemize}
+\end{defbox}
+
+A \textbf{transition diagram} is simply this 5-tuple drawn as a picture: a circle per state, a
+double circle for each accepting state, an arrow (labeled with an input symbol) per transition,
+and an unlabeled incoming arrow marking the start state -- exactly matching the ``transition
+diagram vs.\ transition table'' distinction from \Sref{sec:l3-big-picture}'s exam-focus box:
+same underlying automaton, two different ways of writing it down.
+
+\begin{examplebox}{Worked Example: Even Number of 0's}
+Recall from \Sref{sec:l4-more-worked-examples} that $1^{*}(01^{*}01^{*})^{*}$ describes binary
+strings with an even number of \texttt{0}'s. Here is a two-state automaton for exactly that
+language: $Q = \{q_0, q_1\}$, $\Sigma = \{0,1\}$, start state $q_0$, accepting states
+$F = \{q_0\}$ (start \emph{and} accept -- zero \texttt{0}'s is even).
+\begin{center}
+\begin{tikzpicture}[node distance=2.6cm, >=Latex]
+  \node[fin] (q0) {$q_0$};
+  \node[st, right=of q0] (q1) {$q_1$};
+  \draw[trans, ->] (-1.3,0) -- (q0);
+  \draw[trans, ->] (q0) to[bend left=25] node[above, font=\small]{0} (q1);
+  \draw[trans, ->] (q1) to[bend left=25] node[below, font=\small]{0} (q0);
+  \draw[trans, ->] (q0) to[out=135, in=225, looseness=6] node[left, font=\small]{1} (q0);
+  \draw[trans, ->] (q1) to[out=45, in=-45, looseness=6] node[right, font=\small]{1} (q1);
+\end{tikzpicture}
+\end{center}
+Reading a \texttt{0} always \emph{flips} which state you're in (tracking odd/even \texttt{0}'s
+seen so far); reading a \texttt{1} never changes the count, so it's a self-loop either way. Try
+tracing \texttt{1010}: start at $q_0$, read \texttt{1} (stay $q_0$), read \texttt{0} (move
+$q_1$), read \texttt{1} (stay $q_1$), read \texttt{0} (move $q_0$) -- ends at $q_0 \in F$,
+accepted, matching that \texttt{1010} does indeed have an even number (two) of \texttt{0}'s.
+\end{examplebox}
+
+\begin{coreidea}[What ``Accepts'' Means, Formally]
+Extend $\delta$ to $\hat\delta$, a function on \emph{strings} rather than single symbols, by
+$\hat\delta(q, \varepsilon) = q$ and $\hat\delta(q, xa) = \delta(\hat\delta(q, x), a)$ for a
+string $x$ followed by one more symbol $a$ -- in plain words, ``follow the transitions one
+symbol at a time, starting from $q$.'' A string $w$ is \textbf{accepted} by the automaton if
+$\hat\delta(q_0, w) \in F$: start at the start state, follow $w$ symbol by symbol, and end up
+somewhere in the accepting set. The \textbf{language of the automaton}, written $L(\text{automaton})$,
+is the set of all strings it accepts -- and for every automaton we build in this course,
+$L(\text{automaton})$ will turn out to be exactly the regular language we started with.
+\end{coreidea}
+
+\section{DFA vs.\ NFA: Two Models, Equal Power}
+\label{sec:l5-dfa-vs-nfa}
+
+\dbtag The automaton above had exactly one arrow leaving each state for each symbol -- no
+ambiguity about where to go next. That property has a name.
+
+\begin{defbox}{Deterministic Finite Automaton (DFA)}
+A finite automaton is \textbf{deterministic} if $\delta$ is a genuine function
+$Q \times \Sigma \to Q$: for every state and every input symbol, there is \emph{exactly one}
+transition, and no transitions are labeled with $\varepsilon$. At every step, a DFA's next move
+is completely determined -- hence the name.
+\end{defbox}
+
+Real regular expressions, though, are built from \emph{union} -- ``match $r$ \emph{or} $s$''
+-- which is naturally ambiguous: from a given state, on a given symbol, there might genuinely be
+more than one place a matcher could go. Rather than resolve that ambiguity immediately, it is
+far more convenient (as Thompson's construction, \Sref{sec:l5-thompson}, will show) to allow it
+explicitly in the automaton itself.
+
+\begin{defbox}{Nondeterministic Finite Automaton (NFA)}
+A finite automaton is \textbf{nondeterministic} if $\delta$ is a function
+$Q \times (\Sigma \cup \{\varepsilon\}) \to 2^{Q}$ (the power set of $Q$): for a given state and
+input symbol (or $\varepsilon$, the empty string), there can be \textbf{zero, one, or many}
+next states. Two new abilities appear here that a DFA does not have:
+\begin{itemize}
+  \item \textbf{Multiple choices.} From one state, on one symbol, the automaton may be able to
+  move to several different states at once.
+  \item \textbf{$\varepsilon$-transitions.} The automaton may move between states
+  \emph{without reading any input at all} -- these are the glue Thompson's construction uses to
+  wire smaller automata together.
+\end{itemize}
+A string $w$ is accepted by an NFA if \emph{at least one} sequence of choices, following the
+symbols of $w$ (and optionally taking any number of $\varepsilon$-transitions in between), ends
+in an accepting state -- not every path has to succeed, just one.
+\end{defbox}
+
+\begin{examplebox}{A Small NFA: Strings Ending in \texttt{ab}}
+$Q = \{p_0, p_1, p_2\}$, $\Sigma = \{a,b\}$, start $p_0$, accept $F = \{p_2\}$:
+\begin{center}
+\begin{tikzpicture}[node distance=2.4cm, >=Latex]
+  \node[st] (p0) {$p_0$};
+  \node[st, right=of p0] (p1) {$p_1$};
+  \node[fin, right=of p1] (p2) {$p_2$};
+  \draw[trans, ->] (-1.3,0) -- (p0);
+  \draw[trans, ->] (p0) to[out=135, in=225, looseness=6] node[left, font=\small]{$a,b$} (p0);
+  \draw[trans, ->] (p0) -- node[above, font=\small]{$a$} (p1);
+  \draw[trans, ->] (p1) -- node[above, font=\small]{$b$} (p2);
+\end{tikzpicture}
+\end{center}
+From $p_0$, on an \texttt{a}, there are \emph{two} valid moves: stay at $p_0$ (self-loop) or
+advance to $p_1$ -- exactly the nondeterminism a DFA cannot express directly. To accept
+\texttt{aab}: stay at $p_0$ reading the first \texttt{a} (via the self-loop), then move
+$p_0\to p_1$ reading the second \texttt{a}, then $p_1 \to p_2$ reading \texttt{b} -- one
+successful path is all it takes, even though \emph{guessing wrong} (always taking the self-loop)
+would never reach $p_2$.
+\end{examplebox}
+
+\begin{examfocus}
+This ``one successful path is enough'' rule is exactly why simulating an NFA directly is
+awkward: naively, you'd have to try every possible sequence of choices to know whether
+\emph{any} of them accepts. Lecture~\ref{lec:6}'s subset construction sidesteps this entirely,
+by tracking \emph{every reachable state at once} as a single set -- turning ``does some path
+accept?'' into an ordinary DFA question. That NFA-to-DFA conversion is also the constructive
+proof that NFAs and DFAs recognize exactly the same class of languages (Lecture~\ref{lec:3}'s
+Chomsky-hierarchy table already told you this fact; Lecture~\ref{lec:6} shows \emph{why} it's
+true).
+\end{examfocus}
+
+\section{Thompson's Construction: Regular Expression $\to$ NFA}
+\label{sec:l5-thompson}
+
+\dbtag Thompson's construction (DB Algorithm 3.23) builds an NFA from a regular expression by
+\emph{structural recursion} -- exactly mirroring the six-rule inductive definition of a regular
+expression itself from \Sref{sec:l4-regular-expressions}. Every rule below produces a fragment
+with exactly \textbf{one} start state and exactly \textbf{one} accept state, which is what
+makes the rules compose so cleanly: a bigger fragment is always built by wiring together
+smaller fragments' single start/accept points, never by reaching inside them.
+
+\subsection{The Five Construction Rules}
+\label{sec:l5-thompson-rules}
+
+\textbf{Base case 1: $\varepsilon$.} A two-state fragment connected by a single
+$\varepsilon$-edge.
+\begin{center}
+\begin{tikzpicture}[node distance=1.8cm, >=Latex]
+  \node[fragst] (i) {};
+  \node[fragfin, right=of i] (f) {};
+  \draw[trans, ->] (i) -- node[above, font=\scriptsize]{$\varepsilon$} (f);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Base case 2: a single symbol $a \in \Sigma$.} A two-state fragment connected by one
+$a$-edge.
+\begin{center}
+\begin{tikzpicture}[node distance=1.8cm, >=Latex]
+  \node[fragst] (i) {};
+  \node[fragfin, right=of i] (f) {};
+  \draw[trans, ->] (i) -- node[above, font=\scriptsize]{$a$} (f);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Inductive case: union $r \mid s$.} Given fragments $N(r)$ and $N(s)$ (each with its own
+start/accept), build a new start and new accept state, and wire in \emph{both} old fragments
+with $\varepsilon$-edges. The old accept states stop being accepting -- only the new one is.
+\begin{center}
+\begin{tikzpicture}[node distance=1.6cm, >=Latex]
+  \node[fragst] (i) {};
+  \node[draw, rounded corners, minimum width=1.6cm, minimum height=0.8cm, right=1.3cm of i, yshift=0.9cm, font=\scriptsize, align=center] (Nr) {$N(r)$};
+  \node[draw, rounded corners, minimum width=1.6cm, minimum height=0.8cm, right=1.3cm of i, yshift=-0.9cm, font=\scriptsize, align=center] (Ns) {$N(s)$};
+  \node[fragfin, right=3.6cm of i] (f) {};
+  \draw[trans, ->] (i) -- node[above, sloped, font=\scriptsize]{$\varepsilon$} (Nr.west);
+  \draw[trans, ->] (i) -- node[below, sloped, font=\scriptsize]{$\varepsilon$} (Ns.west);
+  \draw[trans, ->] (Nr.east) -- node[above, sloped, font=\scriptsize]{$\varepsilon$} (f);
+  \draw[trans, ->] (Ns.east) -- node[below, sloped, font=\scriptsize]{$\varepsilon$} (f);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Inductive case: concatenation $rs$.} Given $N(r)$ and $N(s)$, connect $N(r)$'s accept
+state to $N(s)$'s start state with a single $\varepsilon$-edge. $N(r)$'s start becomes the
+overall start; $N(s)$'s accept becomes the overall accept.
+\begin{center}
+\begin{tikzpicture}[node distance=1.6cm, >=Latex]
+  \node[draw, rounded corners, minimum width=1.8cm, minimum height=0.8cm, font=\scriptsize, align=center] (Nr) {$N(r)$};
+  \node[draw, rounded corners, minimum width=1.8cm, minimum height=0.8cm, right=1.9cm of Nr, font=\scriptsize, align=center] (Ns) {$N(s)$};
+  \draw[trans, ->] (Nr.east) -- node[above, font=\scriptsize]{$\varepsilon$} (Ns.west);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Inductive case: closure $r^{*}$.} Given $N(r)$, build a new start and new accept state.
+Wire the new start directly to the new accept ($\varepsilon$, for zero repetitions) and to
+$N(r)$'s start ($\varepsilon$, to begin a repetition); wire $N(r)$'s accept back to $N(r)$'s
+start ($\varepsilon$, to loop again) and forward to the new accept ($\varepsilon$, to stop).
+\begin{center}
+\begin{tikzpicture}[node distance=1.6cm, >=Latex]
+  \node[fragst] (i) {};
+  \node[draw, rounded corners, minimum width=1.8cm, minimum height=0.8cm, right=1.6cm of i, font=\scriptsize, align=center] (Nr) {$N(r)$};
+  \node[fragfin, right=1.6cm of Nr] (f) {};
+  \draw[trans, ->] (i) -- node[above, font=\scriptsize]{$\varepsilon$} (Nr.west);
+  \draw[trans, ->] (Nr.east) -- node[above, font=\scriptsize]{$\varepsilon$} (f);
+  \draw[trans, ->] (i) to[bend right=45] node[below, font=\scriptsize]{$\varepsilon$} (f);
+  \draw[trans, ->] (Nr.south) to[out=250, in=290, looseness=6] node[below, font=\scriptsize]{$\varepsilon$} (Nr.south west);
+\end{tikzpicture}
+\end{center}
+
+\begin{examfocus}
+Every fragment above has exactly \textbf{one} start and \textbf{one} accept state -- even after
+combining fragments. This invariant is what makes the recursion work at all: at every step, you
+always know exactly which single state to wire the \emph{next} $\varepsilon$-edge into, no
+matter how deeply nested the regular expression is. Losing track of this (e.g.\ trying to wire
+a new edge into ``one of the accept states'' of a union fragment) is the most common mistake
+when doing this construction by hand.
+\end{examfocus}
+
+\subsection{Worked Example: Building the NFA for $(a\mid b)^{*}abb$}
+\label{sec:l5-thompson-worked}
+
+\dbtag This is exactly the regular expression \Sref{sec:l4-worked-example-build-up} built up
+piece by piece with a syntax tree. We now build its NFA the same way, stage by stage, applying
+one construction rule per stage.
+
+\begin{examplebox}{Stage 1 -- The Atoms}
+Build the two-state fragments for the individual symbols first. We'll need four of them: one
+for \texttt{a} inside the $(a\mid b)$, one for \texttt{b} inside the $(a\mid b)$, and one more
+each for the trailing \texttt{a}, \texttt{b}, \texttt{b}.
+\begin{center}
+\begin{tikzpicture}[node distance=1.6cm, >=Latex]
+  \node[fragst] (1) {1};
+  \node[fragfin, right=of 1] (2) {2};
+  \draw[trans, ->] (1) -- node[above, font=\scriptsize]{$a$} (2);
+  \node[fragst, right=1.6cm of 2] (3) {3};
+  \node[fragfin, right=of 3] (4) {4};
+  \draw[trans, ->] (3) -- node[above, font=\scriptsize]{$b$} (4);
+\end{tikzpicture}
+\end{center}
+(States 1--2 recognize just \texttt{a}; states 3--4 recognize just \texttt{b}.)
+\end{examplebox}
+
+\begin{examplebox}{Stage 2 -- Union: $(a\mid b)$}
+Apply the union rule to the two fragments above: new start state 5, new accept state 6.
+\begin{center}
+\begin{tikzpicture}[node distance=1.5cm, >=Latex]
+  \node[fragst] (5) {5};
+  \node[fragst, right=2.3cm of 5, yshift=0.9cm] (1) {1};
+  \node[fragfin, right=of 1] (2) {2};
+  \node[fragst, right=2.3cm of 5, yshift=-0.9cm] (3) {3};
+  \node[fragfin, right=of 3] (4) {4};
+  \node[fragfin, right=2.3cm of 2] (6) {6};
+  \draw[trans, ->] (5) -- node[above, sloped, font=\scriptsize]{$\varepsilon$} (1);
+  \draw[trans, ->] (5) -- node[below, sloped, font=\scriptsize]{$\varepsilon$} (3);
+  \draw[trans, ->] (1) -- node[above, font=\scriptsize]{$a$} (2);
+  \draw[trans, ->] (3) -- node[above, font=\scriptsize]{$b$} (4);
+  \draw[trans, ->] (2) -- node[above, sloped, font=\scriptsize]{$\varepsilon$} (6);
+  \draw[trans, ->] (4) -- node[below, sloped, font=\scriptsize]{$\varepsilon$} (6);
+\end{tikzpicture}
+\end{center}
+(States 2 and 4 are no longer accepting -- only the new state 6 is.)
+\end{examplebox}
+
+\begin{examplebox}{Stage 3 -- Closure: $(a\mid b)^{*}$}
+Apply the closure rule to the union fragment above (states 5--6): new start state 7, new accept
+state 8.
+\begin{center}
+\begin{tikzpicture}[node distance=1.4cm, >=Latex]
+  \node[fragst] (7) {7};
+  \node[draw, rounded corners, minimum width=2.6cm, minimum height=1.9cm, right=1.6cm of 7, font=\scriptsize, align=center] (U) {$(a\mid b)$\\\emph{states 5--6}};
+  \node[fragfin, right=1.6cm of U] (8) {8};
+  \draw[trans, ->] (7) -- node[above, font=\scriptsize]{$\varepsilon$} (U.west);
+  \draw[trans, ->] (U.east) -- node[above, font=\scriptsize]{$\varepsilon$} (8);
+  \draw[trans, ->] (7) to[bend right=50] node[below, font=\scriptsize]{$\varepsilon$ (skip)} (8);
+  \draw[trans, ->] (U.south) to[out=260, in=280, looseness=5] node[below, font=\scriptsize]{$\varepsilon$ (loop)} (U.south west);
+\end{tikzpicture}
+\end{center}
+State 7 is now the start of everything built so far; state 8 is the accept state for
+$(a\mid b)^{*}$.
+\end{examplebox}
+
+\begin{examplebox}{Stages 4--6 -- Concatenating $a$, $b$, $b$}
+Three more single-symbol fragments (states 9--10 for \texttt{a}, 11--12 for \texttt{b}, 13--14
+for \texttt{b}), concatenated on one at a time: state 8 connects to state 9, state 10 connects
+to state 11, state 12 connects to state 13 -- each via a single $\varepsilon$-edge, exactly the
+concatenation rule.
+\begin{center}
+\begin{tikzpicture}[node distance=1.3cm, >=Latex]
+  \node[draw, rounded corners, minimum width=2.6cm, minimum height=1.1cm, font=\scriptsize, align=center] (star) {$(a\mid b)^{*}$\\\emph{states 7--8}};
+  \node[fragst, right=1.4cm of star] (9) {9};
+  \node[fragfin, right=of 9] (10) {10};
+  \node[fragst, right=1.4cm of 10] (11) {11};
+  \node[fragfin, right=of 11] (12) {12};
+  \node[fragst, right=1.4cm of 12] (13) {13};
+  \node[fragfin, right=of 13] (14) {14};
+  \draw[trans, ->] (star.east) -- node[above, font=\scriptsize]{$\varepsilon$} (9);
+  \draw[trans, ->] (9) -- node[above, font=\scriptsize]{$a$} (10);
+  \draw[trans, ->] (10) -- node[above, font=\scriptsize]{$\varepsilon$} (11);
+  \draw[trans, ->] (11) -- node[above, font=\scriptsize]{$b$} (12);
+  \draw[trans, ->] (12) -- node[above, font=\scriptsize]{$\varepsilon$} (13);
+  \draw[trans, ->] (13) -- node[above, font=\scriptsize]{$b$} (14);
+\end{tikzpicture}
+\end{center}
+The complete NFA for $(a\mid b)^{*}abb$ has 14 states, start state 7, and a single accept
+state, 14. Every edge in every stage above is still present -- concatenation only ever
+\emph{adds} an edge, it never removes or renames anything from the fragments it connects.
+\end{examplebox}
+
+\begin{examplebox}{Tracing \texttt{"babb"} Through the Finished NFA}
+Recall from \Sref{sec:l4-worked-example-build-up} that \texttt{babb} should be accepted. One
+successful path: $7 \xrightarrow{\varepsilon} 5 \xrightarrow{\varepsilon} 3 \xrightarrow{b} 4
+\xrightarrow{\varepsilon} 6 \xrightarrow{\varepsilon} 8 \xrightarrow{\varepsilon} 9
+\xrightarrow{a} 10 \xrightarrow{\varepsilon} 11 \xrightarrow{b} 12 \xrightarrow{\varepsilon} 13
+\xrightarrow{b} 14$. Reading off just the symbols consumed along this path --
+$b, a, b, b$ -- reproduces \texttt{babb} exactly, and the path ends at state 14, the accept
+state. One successful path is all an NFA needs.
+\end{examplebox}
+
+\section{Self-Check Questions}
+\label{sec:l5-selfcheck}
+
+\begin{enrichment}[Practice -- Not Graded]
+\begin{enumerate}
+  \item Write out the formal 5-tuple $(Q, \Sigma, \delta, q_0, F)$ for the ``even number of
+  0's'' automaton in \Sref{sec:l5-fa-formal}, giving $\delta$ as an explicit table (one row per
+  state, one column per symbol).
+  \item Using $\hat\delta$ from the coreidea box in \Sref{sec:l5-fa-formal}, trace whether the
+  string \texttt{0110} is accepted by the same automaton. Show each intermediate state.
+  \item Explain, without using the word ``choice,'' what it means for an NFA's transition
+  function to have type $Q \times (\Sigma \cup \{\varepsilon\}) \to 2^{Q}$ rather than
+  $Q \times \Sigma \to Q$.
+  \item In the ``strings ending in \texttt{ab}'' NFA (\Sref{sec:l5-dfa-vs-nfa}), list \emph{all}
+  paths (successful or not) that consume the string \texttt{aab}, and confirm exactly one of
+  them ends in the accepting state.
+  \item Apply Thompson's construction by hand to the regular expression $ab^{*}$: draw the
+  fragment for \texttt{a}, the fragment for $b^{*}$, and the concatenation that joins them.
+  \item Why does every fragment in Thompson's construction have \emph{exactly one} start state
+  and \emph{exactly one} accept state, even after several rounds of union, concatenation, and
+  closure? What would go wrong with the concatenation rule if a fragment were allowed more than
+  one accept state?
+  \item For the finished 14-state NFA in \Sref{sec:l5-thompson-worked}, find one string of
+  length 5 that is accepted and one string of length 5 that is \emph{not} accepted, and briefly
+  justify each.
+\end{enumerate}
+\end{enrichment}
+
+\begin{takeaways}
+\begin{itemize}
+  \item A \textbf{finite automaton} is a 5-tuple $(Q, \Sigma, \delta, q_0, F)$; a
+  \textbf{transition diagram} is just its picture, and a \textbf{transition table} is the same
+  information as an array -- interchangeable representations, not different machines.
+  \item A \textbf{DFA} has exactly one transition per state per symbol and no
+  $\varepsilon$-edges; an \textbf{NFA} allows several transitions (or none) per state per
+  symbol, plus $\varepsilon$-edges that move without consuming input.
+  \item An NFA accepts a string if \emph{at least one} sequence of choices reaches an accepting
+  state -- not every path has to succeed.
+  \item \textbf{Thompson's construction} builds an NFA from a regular expression using five
+  rules ($\varepsilon$, a single symbol, union, concatenation, closure), each producing a
+  fragment with exactly one start and one accept state -- which is exactly what lets the rules
+  compose recursively, mirroring the regular expression's own inductive definition rule for
+  rule.
+  \item The worked $(a\mid b)^{*}abb$ NFA (14 states) is the same running example from
+  Lecture~\ref{lec:4} -- Lecture~\ref{lec:6} converts this exact automaton into a DFA and then
+  minimizes it, so it is worth understanding this construction solidly before moving on.
+\end{itemize}
+\end{takeaways}
+
+\section*{References for This Lecture}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[AP]{ap} Appel, A.~W. \textit{Modern Compiler Implementation in C/Java/ML}. Cambridge
+University Press, 2004.
+\bibitem[HMU]{hmu} Hopcroft, J.~E., Motwani, R., and Ullman, J.~D. \textit{Introduction to
+Automata Theory, Languages, and Computation}. 3rd~ed. Pearson, 2006.
+\end{thebibliography}
+
+\end{document}
