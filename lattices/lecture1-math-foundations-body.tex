@@ -881,37 +881,45 @@ x\in\mathcal{P}(B)
 The shape and volume do not change; only the location changes.
 \medskip
 \noindent
-\textbf{Example: the lattice $\mathbb{Z}^2$.}
+
+
+
+\paragraph{Example: A non-standard lattice in $\mathbb{R}^2$.}
 Consider the lattice
 \[
-L=\mathbb{Z}^2
+L = \{ m b_1 + n b_2 \mid m,n \in \mathbb{Z} \}
 \]
 with basis
 \[
-b_1=(1,0),
-\qquad
-b_2=(0,1).
+b_1 = (1,0), \qquad b_2 = \left(\tfrac12, \tfrac{\sqrt{3}}{2}\right).
 \]
-According to the definition,
+These vectors have length $1$ and are separated by $60^\circ$, so they generate the familiar \emph{triangular} (or hexagonal) lattice.
+
+\medskip
+\noindent
+\textbf{Step 1: Write the definition.}
+The fundamental parallelepiped for this basis is
 \[
 \mathcal{P}(B)
 =
 \left\{
-t_1b_1+t_2b_2
+t_1 b_1 + t_2 b_2
 \;\middle|\;
-0\leq t_1,t_2<1
+0 \le t_1 < 1,\; 0 \le t_2 < 1
 \right\}.
 \]
-Substituting the basis vectors gives
+Here $t_1, t_2$ are real numbers in $[0,1)$.
+
+\medskip
+\noindent
+\textbf{Step 2: Substitute the basis vectors.}
+Substituting $b_1=(1,0)$ and $b_2=\left(\tfrac12, \tfrac{\sqrt{3}}{2}\right)$ gives
 \[
 \begin{aligned}
-t_1b_1+t_2b_2
-&=
-t_1(1,0)+t_2(0,1)\\
-&=
-(t_1,0)+(0,t_2)\\
-&=
-(t_1,t_2).
+t_1 b_1 + t_2 b_2
+&= t_1(1,0) + t_2\left(\tfrac12, \tfrac{\sqrt{3}}{2}\right) \\
+&= \left(t_1, 0\right) + \left(\tfrac{t_2}{2}, \tfrac{\sqrt{3}\,t_2}{2}\right) \\
+&= \left(t_1 + \tfrac{t_2}{2},\; \tfrac{\sqrt{3}\,t_2}{2}\right).
 \end{aligned}
 \]
 Therefore,
@@ -919,62 +927,134 @@ Therefore,
 \mathcal{P}(B)
 =
 \left\{
-(t_1,t_2)
+\left(t_1 + \tfrac{t_2}{2},\; \tfrac{\sqrt{3}\,t_2}{2}\right)
 \;\middle|\;
-0\leq t_1,t_2<1
-\right\}
+0 \le t_1 < 1,\; 0 \le t_2 < 1
+\right\}.
+\]
+
+\medskip
+\noindent
+\textbf{Step 3: Understand the shape geometrically.}
+The set $\mathcal{P}(B)$ is a \emph{parallelogram} with vertices at:
+\[
+\begin{aligned}
+t_1=0,\ t_2=0 &\mapsto (0,0), \\
+t_1=1,\ t_2=0 &\mapsto (1,0), \\
+t_1=0,\ t_2=1 &\mapsto \left(\tfrac12, \tfrac{\sqrt{3}}{2}\right), \\
+t_1=1,\ t_2=1 &\mapsto \left(\tfrac32, \tfrac{\sqrt{3}}{2}\right).
+\end{aligned}
+\]
+So $\mathcal{P}(B)$ is the parallelogram spanned by $b_1$ and $b_2$, with the top edge excluded (because $t_2=1$ is not allowed) and the right edge excluded (because $t_1=1$ is not allowed).
+
+\medskip
+\noindent
+\textbf{Step 4: Check some example points inside.}
+Since $t_1, t_2$ are real, we can pick non-integer values:
+\[
+0.3b_1 + 0.7b_2
+= 0.3(1,0) + 0.7\left(\tfrac12, \tfrac{\sqrt{3}}{2}\right)
+= (0.3 + 0.35,\; 0.35\sqrt{3})
+= (0.65,\; 0.35\sqrt{3}).
+\]
+This point lies strictly inside the parallelogram. Similarly,
+\[
+0b_1 + 0b_2 = (0,0) \in \mathcal{P}(B)
+\]
+lies on the bottom-left corner (included), but
+\[
+1b_1 + 0b_2 = (1,0) \notin \mathcal{P}(B), \qquad
+0b_1 + 1b_2 = \left(\tfrac12, \tfrac{\sqrt{3}}{2}\right) \notin \mathcal{P}(B)
+\]
+because $t_1=1$ or $t_2=1$ is not allowed.
+
+\medskip
+\noindent
+\textbf{Step 5: Translate by a lattice point.}
+Take the lattice point $\ell = b_1 + b_2 = \left(\tfrac32, \tfrac{\sqrt{3}}{2}\right)$. Then
+\[
+\ell + \mathcal{P}(B)
 =
-[0,1)\times[0,1).
+\left(
+\tfrac32 + t_1 + \tfrac{t_2}{2},\;
+\tfrac{\sqrt{3}}{2} + \tfrac{\sqrt{3}\,t_2}{2}
+\right),
+\quad 0 \le t_1,t_2 < 1.
 \]
-Notice that $t_1$ and $t_2$ are not restricted to the values $0$ and
-$1$. They can take any real values between $0$ and $1$. For example,
+This is the parallelogram with vertices:
 \[
-0.3b_1+0.7b_2
-=
-(0.3,0.7)
-\in\mathcal{P}(B).
+\left(\tfrac32, \tfrac{\sqrt{3}}{2}\right),\;
+\left(\tfrac52, \tfrac{\sqrt{3}}{2}\right),\;
+\left(2, \sqrt{3}\right),\;
+\left(3, \sqrt{3}\right).
 \]
-Thus, $\mathcal{P}(B)$ contains every point in the unit square
-$[0,1)\times[0,1)$.
-Now consider the lattice point
+So it is the original parallelogram shifted by $b_1+b_2$.
+
+For example, the point
 \[
-\ell=(2,1).
+0.3b_1 + 0.7b_2 = (0.65,\; 0.35\sqrt{3})
 \]
-Shifting the fundamental parallelepiped by $\ell$ gives
+maps to
 \[
-\ell+\mathcal{P}(B)
-=
-[2,3)\times[1,2).
+\ell + (0.3b_1+0.7b_2)
+= \left(\tfrac32 + 0.65,\; \tfrac{\sqrt{3}}{2} + 0.35\sqrt{3}\right)
+= (2.15,\; 0.85\sqrt{3}).
 \]
-For example,
+
+\medskip
+\noindent
+\textbf{Step 6: Disjointness of translates.}
+The original parallelogram $\mathcal{P}(B)$ and its translate by $\ell$ are disjoint: they share only boundary points (which are excluded by the half-open convention). In fact, the entire plane is tiled by these parallelograms:
 \[
-(0,0)\mapsto(2,1),
+\mathbb{R}^2 = \bigcup_{\ell \in L} (\ell + \mathcal{P}(B)),
+\]
+with the union being disjoint.
+
+To see this visually, imagine placing copies of this parallelogram so that their bottom-left corners are at every lattice point. They fit together perfectly because $b_1$ and $b_2$ are not parallel and their lengths/angles are chosen so that the parallelograms interlock without gaps.
+
+\medskip
+\noindent
+\textbf{Step 7: Unique decomposition.}
+Every point $x \in \mathbb{R}^2$ can be written \emph{uniquely} as
+\[
+x = \ell + p,
 \qquad
-(0.3,0.7)\mapsto(2.3,1.7).
+\ell \in L,\quad p \in \mathcal{P}(B).
 \]
-Thus, shifting by $(2,1)$ simply moves the entire unit square two
-units to the right and one unit upward. Notice that
-$\mathcal{P}(B)=[0,1)\times[0,1)$ and
-$\ell+\mathcal{P}(B)=[2,3)\times[1,2)$ are entirely different sets of
-points: they do not share any point in common, illustrating the
-disjointness of the tiling above.
-More generally, every point $x\in\mathbb{R}^n$ can be written
-\emph{uniquely} as
+For example, take $x = (2.15,\; 0.85\sqrt{3})$. Then:
 \[
-x=\ell+p,
-\qquad
-\ell\in L,\quad p\in\mathcal{P}(B).
+x = \left(\tfrac32, \tfrac{\sqrt{3}}{2}\right) + (0.65,\; 0.35\sqrt{3}),
 \]
-The lattice point $\ell$ determines the translated copy of the
-fundamental parallelepiped, while $p$ determines the position of $x$
-within that copy.
-Since translation does not change volume, every translated copy
-$\ell+\mathcal{P}(B)$ has the same volume as $\mathcal{P}(B)$. Thus,
-the determinant of the lattice can be interpreted geometrically as
-the volume of one fundamental ``cell'' of the lattice:
+so $\ell = b_1 + b_2$ and $p = 0.3b_1 + 0.7b_2$.
+
+\medskip
+\noindent
+\textbf{Step 8: Volume (area) and determinant.}
+The area of the parallelogram spanned by $b_1$ and $b_2$ is
 \[
-\boxed{\det(L)=|\det(B)|.}
+\text{Area}(\mathcal{P}(B)) = |\det(b_1, b_2)|
+= \left| \det \begin{pmatrix} 1 & \tfrac12 \\ 0 & \tfrac{\sqrt{3}}{2} \end{pmatrix} \right|
+= \left| 1 \cdot \tfrac{\sqrt{3}}{2} - \tfrac12 \cdot 0 \right|
+= \tfrac{\sqrt{3}}{2}.
 \]
+This is the area of a rhombus with side length $1$ and angle $60^\circ$.
+
+The determinant of the lattice is therefore
+\[
+\det(L) = |\det(B)| = \frac{\sqrt{3}}{2}.
+\]
+
+\medskip
+\noindent
+Thus,
+\[
+\boxed{\det(L) = |\det(B)| = \frac{\sqrt{3}}{2} = \text{Area}(\mathcal{P}(B)).}
+\]
+
+\medskip
+\noindent
+\textbf{Key takeaway:} The fundamental parallelepiped is the parallelogram spanned by the basis vectors. Its shape and area come directly from the basis, and translating it by all lattice points tiles the entire plane without overlap. The determinant of the lattice is exactly the area of this fundamental cell.
+
 
 \begin{rmkbox}{Why $\det(L)$ Doesn't Depend on Which Basis You Pick}
 Recall from the ``Same Lattice, Different Basis'' remark above: any two bases of the same lattice are related by a unimodular matrix $U$ (integer entries, $\det(U) = \pm 1$), i.e., $B' = UB$. Then $\det(B') = \det(U)\det(B) = \pm \det(B)$, so $|\det(B')| = |\det(B)|$. This confirms $\det(L)$ is a genuine property of the lattice itself, not an artifact of which basis happened to be used to compute it --- exactly the kind of basis-independence you should expect from something called ``the volume of the lattice.''
