@@ -1,0 +1,686 @@
+\documentclass[full-course-notes.tex]{subfiles}
+
+\begin{document}
+\lecturemeta{6}
+  {From NFA to a Working Scanner: Subset Construction, DFA Minimization, NFA vs.\ DFA
+   Trade-offs, and the Design of a Lexical-Analyzer Generator}
+  {CLO 1, CLO 2, CLO 3}
+  {\S3.7 (Alg.\,3.20, Subset Construction), \S3.9 (Alg.\,3.36, DFA Minimization); \S3.2
+   (Input Buffering), \S3.5, \S3.8 (Design of a Lexical-Analyzer Generator)}
+  {[ET] Engineering a Compiler, \S2.4--2.5; [AP] Modern Compiler Implementation, \S2.5}
+\lecshort{Subset Construction, Minimization \& Lexer Generators}
+\setcounter{section}{0}
+\makelecturetitle
+
+\tikzset{
+  st/.style={draw, circle, minimum size=0.85cm, font=\small, fill=nuLight, draw=nuNavy},
+  fin/.style={st, double, double distance=2pt, fill=dbGreenBg, draw=dbGreen},
+  dst/.style={draw, rounded corners, minimum height=0.85cm, minimum width=1.7cm, font=\scriptsize, align=center, fill=nuLight, draw=nuNavy},
+  dfin/.style={dst, double, double distance=2pt, fill=dbGreenBg, draw=dbGreen},
+  dead/.style={dst, fill=examRedBg, draw=examRed},
+  trans/.style={thick},
+}
+
+\begin{coreidea}[Lecture Roadmap]
+\begin{enumerate}
+  \item \textbf{Subset construction} (Algorithm 3.20): the mechanical algorithm that turns any
+  NFA into an equivalent DFA, worked all the way through on Lecture~\ref{lec:5}'s 14-state NFA
+  for $(a\mid b)^{*}abb$.
+  \item \textbf{DFA minimization} (Algorithm 3.36): merging behaviorally-identical states to
+  produce the smallest possible DFA for the same language -- applied to the very DFA we just
+  built.
+  \item \textbf{NFA vs.\ DFA, revisited}: same recognizing power (Lecture~\ref{lec:5} already
+  proved this constructively), but a real space/time trade-off in practice -- worth
+  understanding concretely, not just as a slogan.
+  \item Zooming out from theory to engineering: \textbf{how a lexical-analyzer generator is
+  actually built} -- combining many token patterns into one automaton, implementing maximal
+  munch by simulating a DFA, resolving pattern ties by rule order, and buffering the input
+  stream efficiently. This is the generic architecture that \emph{any} scanner-generator tool
+  (Flex included) implements under the hood.
+\end{enumerate}
+This lecture completes the pipeline Lecture~\ref{lec:3}'s big picture
+(\Sref{sec:l3-big-picture}) promised: regular expression $\to$ NFA (done in
+Lecture~\ref{lec:5}) $\to$ DFA $\to$ minimized DFA $\to$ transition table $\to$ an actual,
+running lexer (all done here). By the end of today you will have followed one regular
+expression all the way from formal notation to working scanner code, and you will understand
+exactly what a tool like Flex is doing on your behalf when you hand it a \texttt{.l} file --
+the concrete Flex syntax itself is covered separately in the supplementary Flex notes, not
+here.
+\end{coreidea}
+
+\section{From an NFA to a DFA: The Subset Construction}
+\label{sec:l6-subset-construction}
+
+\dbtag Lecture~\ref{lec:5} left us with a working NFA, but simulating an NFA directly is
+awkward: at every step there can be several possible next states, so a naive simulator would
+have to explore every possible sequence of choices to know whether \emph{any} of them accepts
+(\Sref{sec:l5-dfa-vs-nfa}'s exam-focus box already flagged this). The \textbf{subset
+construction} sidesteps the problem entirely with one elegant idea: instead of asking ``which
+\emph{one} state am I in?'', track the entire \emph{set} of NFA states that are reachable so
+far, all at once. A set of NFA states is itself just one state of a new automaton -- and moving
+between these sets, one input symbol at a time, turns out to be completely deterministic.
+
+\subsection{Two Helper Operations}
+\label{sec:l6-subset-helpers}
+
+\begin{defbox}{$\varepsilon$-closure and \texttt{move}}
+Let $T$ be a set of NFA states.
+\begin{itemize}
+  \item $\varepsilon\text{-closure}(T)$ is the set of all NFA states reachable from \emph{any}
+  state in $T$ using \textbf{zero or more} $\varepsilon$-transitions alone -- ``every state you
+  could drift into for free, without reading any input.'' Every state in $T$ is trivially in
+  its own $\varepsilon$-closure (zero transitions is allowed).
+  \item $\text{move}(T, a)$ is the set of NFA states reachable by taking \textbf{exactly one}
+  transition labeled $a \in \Sigma$ from \emph{some} state in $T$ -- ``every state you could be
+  in immediately after consuming one $a$, before taking any further $\varepsilon$-transitions.''
+\end{itemize}
+Every DFA state the subset construction builds is, underneath, one of these
+$\varepsilon\text{-closure}$ sets -- which is exactly why DFA states are conventionally drawn or
+labeled as \emph{sets} of NFA state numbers throughout this section.
+\end{defbox}
+
+\begin{coreidea}[Algorithm 3.20 -- Subset Construction]
+\begin{enumerate}
+  \item \textbf{Start state.} Compute $D_0 = \varepsilon\text{-closure}(\{n_0\})$, where $n_0$
+  is the NFA's start state. $D_0$ becomes the DFA's start state, and is added to a worklist of
+  DFA states still needing their outgoing transitions computed.
+  \item \textbf{Process the worklist.} While the worklist is nonempty, remove one unmarked DFA
+  state $T$ from it. For \emph{every} input symbol $a \in \Sigma$:
+  \begin{enumerate}[label=(\alph*)]
+    \item Compute $U = \varepsilon\text{-closure}(\text{move}(T, a))$.
+    \item If $U$ is empty, there is no transition on $a$ from $T$ -- skip it (this becomes an
+    implicit ``error''/dead transition, \Sref{sec:l6-dead-states}).
+    \item If $U$ is a \emph{new} set not seen before, add it as a new DFA state and place it on
+    the worklist.
+    \item Either way, record the transition $\delta_{\mathrm{DFA}}(T, a) = U$.
+  \end{enumerate}
+  \item \textbf{Accepting states.} A DFA state $T$ (itself a set of NFA states) is accepting if
+  and only if $T$ contains \emph{at least one} accepting NFA state -- one successful NFA path
+  reaching an accept state is exactly what ``the set contains an accepting state'' captures.
+  \item \textbf{Termination.} Since the NFA has only finitely many states, it has only finitely
+  many \emph{subsets} of states ($2^{|Q|}$ of them, at most) -- so this process, which only ever
+  creates DFA states out of such subsets, is guaranteed to terminate; it cannot generate new DFA
+  states forever.
+\end{enumerate}
+\end{coreidea}
+
+\begin{examfocus}
+The single most common hand-execution mistake: forgetting to take the $\varepsilon$-closure
+\emph{after} \texttt{move}, not just at the very start. Every new DFA state is
+$\varepsilon\text{-closure}(\text{move}(T,a))$, \emph{not} just $\text{move}(T,a)$ -- if you skip
+the closure step, you will silently drop reachable NFA states and build an incorrect DFA that
+rejects strings it should accept.
+\end{examfocus}
+
+\subsection{Worked Example: Building the DFA for $(a\mid b)^{*}abb$}
+\label{sec:l6-subset-worked}
+
+\dbtag We continue directly from Lecture~\ref{lec:5}'s 14-state NFA
+(\Sref{sec:l5-thompson-worked}): start state 7, single accept state 14, and the $\varepsilon$-
+and symbol-transitions built stage by stage in that lecture. Applying subset construction:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{}l X l l@{}}
+\toprule
+\textbf{DFA State} & \textbf{Set of NFA States (after $\varepsilon$-closure)} & \textbf{On $a$}
+& \textbf{On $b$} \\
+\midrule
+$A$ (start) & $\{7, 5, 3, 1, 8, 9\}$ -- everything reachable from 7 with no input at all & $B$ &
+$C$ \\
+$B$ & $\varepsilon\text{-closure}(\text{move}(A,a)) = \{2, 10, 6, 11, 8, 5, 1, 3, 9\}$ & $B$ & $D$ \\
+$C$ & $\varepsilon\text{-closure}(\text{move}(A,b)) = \{4, 6, 8, 9, 5, 3, 1\}$ & $B$ & $C$ \\
+$D$ & $\varepsilon\text{-closure}(\text{move}(B,b)) = \{4, 12, 6, 13, 8, 5, 1, 3, 9\}$ & $B$ & $E$ \\
+$E$ (accepting) & $\varepsilon\text{-closure}(\text{move}(D,b)) = \{4, 14, 6, 8, 5, 1, 3, 9\}$ & $B$
+& $C$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[node distance=3.1cm, >=Latex]
+  \node[dfin] (A) {$A$\\$\{7,5,3,1,8,9\}$};
+  \node[dst, right=of A] (B) {$B$\\$\{2,10,6,11,8,5,1,3,9\}$};
+  \node[dst, below=2.1cm of A] (C) {$C$\\$\{4,6,8,9,5,3,1\}$};
+  \node[dst, right=of B] (D) {$D$\\$\{4,12,6,13,8,5,1,3,9\}$};
+  \node[dfin, right=of D] (E) {$E$\\$\{4,14,6,8,5,1,3,9\}$};
+  \draw[trans, ->] (-1.6,0) -- (A);
+  \draw[trans, ->] (A) -- node[above, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (A) -- node[left, font=\scriptsize]{$b$} (C);
+  \draw[trans, ->] (B) to[out=60, in=120, looseness=5] node[above, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (B) -- node[above, font=\scriptsize]{$b$} (D);
+  \draw[trans, ->] (D) -- node[above, font=\scriptsize]{$b$} (E);
+  \draw[trans, ->] (D) to[bend right=35] node[below, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (E) to[bend left=45] node[above, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (E) to[out=200, in=340, looseness=1.1] node[below, font=\scriptsize, pos=0.5]{$b$} (C);
+  \draw[trans, ->] (C) to[bend right=25] node[below, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (C) to[out=250, in=290, looseness=5] node[below, font=\scriptsize]{$b$} (C);
+\end{tikzpicture}}
+\end{center}
+
+\begin{examplebox}{Reading This DFA in Plain English}
+Only state $E$ is accepting, and $E$ is reached only by seeing an $a$ then two $b$'s in a row
+($D \xrightarrow{b} E$, and $D$ is reached only via $B\xrightarrow{b}D$, and $B$ is reached only
+by having just read an $a$) -- in other words, exactly ``the last three characters read were
+\texttt{abb}.'' This is a direct, mechanical confirmation that the DFA really does recognize
+$(a\mid b)^{*}abb$: no hand-waving, just five states and the two helper operations above, run to
+completion.
+\end{examplebox}
+
+\begin{examfocus}
+Notice the NFA had \textbf{14 states} but the DFA has only \textbf{5}. This is \emph{not} a
+general rule -- subset construction can just as easily \emph{blow up} the state count
+(\Sref{sec:l6-nfa-vs-dfa-tradeoffs} works through why) -- it simply happened to shrink here
+because many of this NFA's 14 states were $\varepsilon$-only ``glue'' states that collapse into
+the same reachable set. Do not assume the DFA is always smaller; always run the algorithm.
+\end{examfocus}
+
+\subsection{Dead States and the Implicit Error Transition}
+\label{sec:l6-dead-states}
+
+\dbtag Step 2(b) of the algorithm above quietly skips any $\varepsilon\text{-closure}(\text{move}(T,a))$
+that comes out empty. In a real scanner, ``no valid transition on this symbol'' cannot simply be
+ignored -- it is exactly how a lexical error, or the end of the current token, gets detected. The
+standard way to make this explicit is to add one extra, non-accepting \textbf{dead state} $D_{\text{err}}$
+with a self-loop on every symbol, and route every missing transition to it.
+
+\begin{center}
+\begin{tikzpicture}[node distance=3.8cm, >=Latex]
+  \node[dfin] (A) {$A$ (accepting)};
+  \node[dead, right=of A] (dead) {$D_{\text{err}}$};
+  \draw[trans, ->] (-1.6,0) -- (A);
+  \draw[trans, ->] (A) -- node[above, font=\scriptsize, align=center]{\emph{any symbol with no other transition}} (dead);
+  \draw[trans, ->] (dead) to[out=45, in=-45, looseness=6] node[right, font=\scriptsize]{\emph{any symbol}} (dead);
+\end{tikzpicture}
+\end{center}
+
+Reaching $D_{\text{err}}$ means the automaton is certain no continuation can ever lead back to
+an accepting state -- so a real scanner treats arrival at $D_{\text{err}}$ as the signal to stop
+extending the current match immediately, without even reading further input (there is no reason
+to; every path from $D_{\text{err}}$ dead-ends). \Sref{sec:l6-lexgen-maximal-munch} shows exactly
+how this plugs into maximal-munch matching.
+
+\section{DFA Minimization}
+\label{sec:l6-minimization}
+
+\dbtag Subset construction guarantees a DFA, but not the \emph{smallest} DFA for the language --
+different DFA states can behave identically in every possible future, making some of them
+redundant. \textbf{DFA minimization} (DB Algorithm 3.36) finds and merges exactly these
+redundant states, producing the unique smallest DFA (up to renaming states) recognizing the same
+language.
+
+\begin{defbox}{Distinguishable States}
+Two DFA states $p$ and $q$ are \textbf{distinguishable} if there exists \emph{some} input
+string $w$ such that following $w$ from $p$ ends in an accepting state while following $w$ from
+$q$ does not (or vice versa) -- i.e.\ some future input reveals a difference in behavior between
+them. States that are \emph{not} distinguishable by \emph{any} string are
+\textbf{indistinguishable}, and can be safely merged into a single state without changing which
+strings the automaton accepts.
+\end{defbox}
+
+\begin{coreidea}[Algorithm 3.36 -- Partition Refinement]
+Minimization works by repeatedly \emph{refining} a partition of the states into groups that are
+\emph{provisionally} treated as indistinguishable, splitting a group apart the moment a symbol
+is found that sends its members to genuinely different groups.
+\begin{enumerate}
+  \item \textbf{Initial partition.} Split all states into exactly two groups: the accepting
+  states $F$, and the non-accepting states $Q \setminus F$ (including the dead state, if one was
+  added). This is the coarsest split that could possibly be correct, since an accepting and a
+  non-accepting state are always distinguishable by the empty string $w = \varepsilon$ alone.
+  \item \textbf{Refine, repeatedly.} For each current group $G$ and each input symbol $a$, check
+  where each state in $G$ goes on $a$. If every state in $G$ lands in the \emph{same} other
+  group on every symbol, $G$ stays together. If some states in $G$ land in a \emph{different}
+  group than others (on some symbol $a$), split $G$ into sub-groups accordingly -- states now
+  provably distinguishable (via that one symbol $a$) must never end up merged.
+  \item \textbf{Repeat until stable.} Keep refining until one full pass over every group and
+  every symbol produces \emph{no} further splits -- at that point the partition has stabilized:
+  every two states remaining in the same group really are indistinguishable by \emph{any}
+  string, not just the symbols checked so far.
+  \item \textbf{Build the minimized DFA.} Each final group becomes one state of the minimized
+  DFA. The start state is the group containing the original start state; a group is accepting
+  if it contains (any, and therefore every) original accepting state; transitions are inherited
+  directly, since every state in a stable group agrees on where each symbol leads.
+  \item \textbf{Drop the dead state.} If minimization merges everything unreachable/hopeless
+  into the dead-state group, that group is simply omitted from the final diagram -- a missing
+  transition in the minimized DFA is understood to mean ``go to the (implicit) dead state and
+  reject,'' exactly as \Sref{sec:l6-dead-states} already described.
+\end{enumerate}
+\end{coreidea}
+
+\begin{examfocus}
+The refinement in step 2 must be applied \emph{simultaneously} across every symbol before
+deciding a group is stable -- a group only survives a round if it agrees on \emph{every} symbol
+in $\Sigma$, not just one. A common hand-execution error is stopping as soon as one symbol
+doesn't split a group, without checking the rest of $\Sigma$ too.
+\end{examfocus}
+
+\subsection{Worked Example: Minimizing the $(a\mid b)^{*}abb$ DFA}
+\label{sec:l6-minimization-worked}
+
+\dbtag Apply the algorithm to the 5-state DFA built in \Sref{sec:l6-subset-worked}
+($A,B,C,D,E$; only $E$ accepting):
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Round} & \textbf{Partition} \\
+\midrule
+Initial & $G_1 = \{A,B,C,D\}$ (non-accepting), $G_2 = \{E\}$ (accepting) \\
+Round 1 & Check $G_1$'s members on each symbol. On $a$: $A\to B$, $B\to B$, $C\to B$, $D\to B$
+-- all land in $G_1$ (specifically all in $B$'s group so far, fine). On $b$: $A\to C \in G_1$,
+$B\to D \in G_1$, $C\to C \in G_1$, but $D\to E \in G_2$ -- \textbf{different group!} $D$ must
+split off: $G_1$ becomes $G_{1a}=\{A,B,C\}$ and $G_{1b}=\{D\}$. \\
+Round 2 & Re-check $G_{1a}=\{A,B,C\}$: on $a$, all three go to $B \in G_{1a}$ -- consistent. On
+$b$: $A\to C\in G_{1a}$, $B\to D\in G_{1b}$, $C\to C\in G_{1a}$ -- \textbf{$B$ disagrees!} Split
+again: $G_{1a}$ becomes $\{A,C\}$ and $\{B\}$. \\
+Round 3 & Re-check $\{A,C\}$: on $a$, both go to $B$'s group -- consistent. On $b$: $A\to C$,
+$C\to C$ -- both land in the \emph{same} group $\{A,C\}$ itself -- consistent. No further split
+needed for this group. All other groups are singletons, so they are trivially stable. \\
+Stable & $\{A,C\}$, $\{B\}$, $\{D\}$, $\{E\}$ -- four groups, no further splits possible. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{examplebox}{Why $A$ and $C$ Merge}
+Intuitively: $A$ (``seen nothing useful yet, or just finished a full \texttt{abb} and are
+starting over'') and $C$ (``just saw a \texttt{b} that isn't continuing an \texttt{ab}
+prefix'') behave \emph{identically} from here on -- from both, an $a$ starts a fresh attempt at
+matching \texttt{abb}, and a $b$ leaves you in exactly the same ``waiting'' situation. No future
+string can ever tell $A$ and $C$ apart, which is precisely the formal definition of
+indistinguishable states being applied.
+\end{examplebox}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[node distance=3.3cm, >=Latex]
+  \node[dfin] (AC) {$\{A,C\}$};
+  \node[dst, right=of AC] (B) {$\{B\}$};
+  \node[dst, right=of B] (D) {$\{D\}$};
+  \node[dfin, right=of D] (E) {$\{E\}$};
+  \draw[trans, ->] (-1.4,0) -- (AC);
+  \draw[trans, ->] (AC) to[out=135, in=225, looseness=6] node[left, font=\scriptsize]{$b$} (AC);
+  \draw[trans, ->] (AC) -- node[above, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (B) to[out=60, in=120, looseness=5] node[above, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (B) -- node[above, font=\scriptsize]{$b$} (D);
+  \draw[trans, ->] (D) -- node[above, font=\scriptsize]{$b$} (E);
+  \draw[trans, ->] (D) to[bend right=35] node[below, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (E) to[bend left=45] node[above, font=\scriptsize]{$a$} (B);
+  \draw[trans, ->] (E) to[out=200, in=340, looseness=1.1] node[below, font=\scriptsize, pos=0.5]{$b$} (AC);
+\end{tikzpicture}}
+\end{center}
+
+\begin{center}
+\small\textit{The minimized DFA: 4 states instead of 5 -- $A$ and $C$ have collapsed into one
+state, and every transition is inherited unchanged (e.g.\ $E\xrightarrow{b}C$ becomes
+$E\xrightarrow{b}\{A,C\}$). This is provably the \emph{smallest possible} DFA for
+$(a\mid b)^{*}abb$: DB Algorithm 3.36 guarantees minimality, not just a smaller result.}
+\end{center}
+
+\begin{examfocus}
+``Smallest possible'' is a real, provable guarantee, not just ``smaller than before.'' Two
+different minimized DFAs for the \emph{same} language are always identical up to renaming
+states -- there is exactly one minimal DFA (isomorphism aside), which is why minimization is
+sometimes described as computing a \emph{canonical form} for a regular language.
+\end{examfocus}
+
+\section{NFA vs.\ DFA, Revisited: Power and Performance}
+\label{sec:l6-nfa-vs-dfa-tradeoffs}
+
+\dbtag Lecture~\ref{lec:5} and \Sref{sec:l3-chomsky-hierarchy} already established that NFAs
+and DFAs recognize \emph{exactly} the same class of languages -- the subset construction above
+is the constructive proof of that fact, run by hand. Equal recognizing power does \emph{not}
+mean equal practical cost, though, and this distinction is worth making concrete now that you
+have built both an NFA and a DFA for the same language.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+ & \textbf{NFA (simulated directly)} & \textbf{DFA (pre-built, table-driven)} \\
+\midrule
+\textbf{States tracked per input symbol} & A \emph{set} of up to $|Q_{\text{NFA}}|$ states must
+be tracked and updated at every step (recomputing an $\varepsilon$-closure each time) &
+Exactly \textbf{one} state at all times -- a single array index \\
+\textbf{Work per input symbol} & $O(|Q_{\text{NFA}}|)$ or worse, since every state in the
+current set may need its own transitions and closure explored & $O(1)$ -- one table lookup,
+\texttt{table[state][symbol]} \\
+\textbf{Number of automaton states} & Exactly as many as Thompson's construction produced --
+linear in the size of the regular expression & Can be \textbf{exponentially larger}
+($2^{|Q_{\text{NFA}}|}$ in the worst case) -- see the classic blow-up example below \\
+\textbf{When the cost is paid} & Every single run, on every input, pays the per-symbol
+simulation overhead & Paid \textbf{once}, offline, when the DFA (and its table) is built; every
+subsequent run is just table lookups \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{examplebox}{The Classic Exponential Blow-up}
+Consider the regular expression $(a\mid b)^{*}a(a\mid b)^{n}$ for some fixed $n$ -- ``the
+$n$-th-from-last character is an \texttt{a}.'' Its NFA (via Thompson's construction) has only
+$O(n)$ states. But its \emph{minimal} DFA needs $2^{n}$ states: intuitively, the DFA must
+remember the \emph{last $n$ characters seen} (to know, once $n$ more characters arrive, whether
+that remembered character really was $n$-from-last), and there are $2^{n}$ possible values for
+``the last $n$ characters,'' each requiring a genuinely distinguishable state. This is a real,
+provable worst case, not a contrived edge case -- it is exactly why some lexer generators offer
+a choice between DFA-based and NFA-based matching for pathological patterns.
+\end{examplebox}
+
+\begin{coreidea}[Why Lexer Generators Overwhelmingly Choose the DFA Side]
+For \emph{ordinary} lexical tokens (identifiers, numbers, keywords, operators), the exponential
+worst case above essentially never triggers in practice -- real token patterns are small and
+well-behaved, so their DFAs stay modest in size. Given that, the DFA's $O(1)$-per-character,
+pre-paid-once cost is a clear win for a component like a lexer that runs on \emph{every single
+character} of every source file, potentially billions of times across a large codebase. This is
+precisely why every mainstream lexer generator (Flex included) compiles down to a DFA rather
+than simulating an NFA at scan time, even though building that DFA (subset construction, then
+minimization) is itself extra one-time work at generator-build time.
+\end{coreidea}
+
+\begin{examfocus}
+Contrast this with \Sref{sec:l4-regex-in-practice}'s discussion of backtracking regex engines
+(Perl, Python, JavaScript): those engines simulate something closer to an NFA \emph{with
+backreferences} at match time, which is exactly why they can suffer ReDoS
+(\Sref{sec:l4-regex-in-practice}) -- unlike a lexer generator, they cannot always fall back to a
+pre-built DFA, because backreferences push the language being matched outside the regular
+languages entirely (\Sref{sec:l4-regex-in-practice} again). A lexer's patterns, by contrast, are
+always \emph{genuinely} regular by construction, so the DFA route is always available.
+\end{examfocus}
+
+\begin{examfocus}
+Lazy (``on-the-fly'') DFA construction is the practical middle ground worth knowing by name:
+tools like Google's RE2 and many \texttt{grep} implementations build DFA states
+\emph{on demand}, the first time they are actually reached during a real match, and cache them
+for reuse -- getting the DFA's fast steady-state lookup without paying to build every
+theoretically-possible state up front. This matters most for patterns where the full DFA would
+be large but any single input only ever visits a small fraction of its states.
+\end{examfocus}
+
+\section{Designing a Lexical-Analyzer Generator}
+\label{sec:l6-lexgen-design}
+
+\dbtag Everything so far in this lecture -- and the two before it -- has been about turning
+\emph{one} regular expression into \emph{one} DFA. A real lexer, though, must recognize
+\emph{dozens} of different token patterns (\texttt{ID}, \texttt{NUM}, every keyword, every
+operator, \dots) at once, decide which pattern produced the \emph{longest} match at every
+position (maximal munch, \Sref{sec:l3-beyond-db}), and hand the winning token off to the parser.
+This section builds that generic architecture -- exactly what a lexer-generator tool constructs
+for you, and exactly what \emph{any} such tool (Flex included) is doing under the hood, whatever
+its concrete input syntax looks like. \emph{(The concrete \texttt{.l}-file syntax for Flex
+specifically is covered in the separate supplementary Flex notes, not here.)}
+
+\subsection{Combining Many Patterns Into One Automaton}
+\label{sec:l6-lexgen-combining}
+
+\dbtag A lexer-generator's input is fundamentally a list of \textbf{(pattern, action)} pairs --
+one regular expression per token, paired with the code that should run when that token is
+matched (typically: build the right \texttt{<token-name, attribute-value>} pair and return it).
+The combining step is a direct generalization of the union rule from Thompson's construction
+(\Sref{sec:l5-thompson-rules}):
+
+\begin{enumerate}
+  \item Build (or imagine) a separate small NFA fragment $N(r_i)$ for each individual pattern
+  $r_1, r_2, \dots, r_k$, exactly as in Lecture~\ref{lec:5}.
+  \item Introduce one new overall start state, with an $\varepsilon$-transition to \emph{every}
+  fragment's own start state -- precisely the union construction, generalized from two
+  fragments to $k$.
+  \item \textbf{Critically, do \emph{not} merge the fragments' accept states into one shared
+  accept state} the way an ordinary two-way union would. Instead, each fragment $N(r_i)$ keeps
+  its \emph{own} accept state, tagged with \emph{which} token $r_i$ corresponds to.
+  \item Run subset construction (\Sref{sec:l6-subset-construction}) on this combined NFA exactly
+  as before. A resulting DFA state is accepting if its underlying set of NFA states contains
+  \emph{any} tagged accept state -- and it is tagged with \emph{that} token (or, if more than
+  one tagged accept state appears in the same set, with whichever pattern is listed
+  \emph{first} in the original specification -- see \Sref{sec:l6-lexgen-ties} below).
+\end{enumerate}
+
+\begin{examplebox}{A Miniature Combined Lexer: Two Patterns}
+Suppose a lexer needs only two token patterns: \texttt{KEYWORD\_IF} for the literal string
+\texttt{if}, and \texttt{ID} for \texttt{letter(letter|digit)*}. Thompson's construction gives
+two small fragments; the combining step wires a shared start state into both, with each
+fragment's own accept state tagged \texttt{IF} or \texttt{ID} respectively. Subset construction
+then merges these into one DFA. Scanning the input \texttt{if5}: after \texttt{i}, then
+\texttt{f}, the DFA is in a state whose underlying NFA-state set includes \emph{both} the
+\texttt{IF} fragment's accept state \emph{and} the \texttt{ID} fragment's accept state
+simultaneously (since \texttt{if} is a valid lexeme for \emph{both} patterns) -- but reading one
+more character, \texttt{5}, only the \texttt{ID} fragment has anywhere left to go, so the DFA
+continues and eventually accepts \texttt{if5} as a single \texttt{ID} token, illustrating
+exactly why maximal munch (next subsection) has to keep reading past an early, shorter
+match.
+\end{examplebox}
+
+\subsection{Maximal Munch, Implemented as DFA Simulation}
+\label{sec:l6-lexgen-maximal-munch}
+
+\dbtag \Sref{sec:l3-beyond-db} introduced the longest-match rule informally. With a combined DFA
+in hand, it has a precise, mechanical implementation:
+
+\begin{coreidea}[The Maximal-Munch Scanning Loop]
+\begin{enumerate}
+  \item Starting from the DFA's start state and the current input position, repeatedly follow
+  transitions on successive input characters, \textbf{remembering the most recent point at
+  which the current state was accepting} (and which token it was tagged with).
+  \item Keep advancing as long as a transition exists for the next character -- \emph{even past}
+  an accepting state, since a longer match might still be possible (exactly the \texttt{if5}
+  example above: the DFA is accepting for \texttt{IF} right after \texttt{if}, but a real
+  scanner does not stop there).
+  \item Stop advancing the moment either (a) the input is exhausted, or (b) the next character
+  has no valid transition from the current state -- i.e.\ the only remaining move is to the
+  implicit dead state $D_{\text{err}}$ from \Sref{sec:l6-dead-states}. There is never a reason
+  to enter $D_{\text{err}}$ itself: once every remaining transition would lead there, the scan
+  is over.
+  \item \textbf{Roll back} to the \emph{last remembered accepting state} (step 1), emit a token
+  for whichever pattern that state was tagged with, and resume scanning from the character right
+  after that point.
+  \item If the current state was \emph{never} accepting at any point during the scan (no
+  remembered position exists at all), this is a genuine lexical error
+  (\Sref{sec:l3-lexical-errors}): report it and invoke panic-mode recovery
+  (\Sref{sec:l3-error-recovery}).
+\end{enumerate}
+\end{coreidea}
+
+\begin{examplebox}{Tracing \texttt{<=} Against a Combined \texttt{RELOP} DFA}
+Suppose the DFA has transitions recognizing both \texttt{<} (alone, tagged \texttt{LT}) and
+\texttt{<=} (tagged \texttt{LE}). Scanning \texttt{<=10}: after \texttt{<}, the DFA is already
+in an accepting state (tagged \texttt{LT}) -- remember this position. Reading \texttt{=} still
+has a valid transition (to the \texttt{LE}-tagged accepting state) -- so keep going and update
+the remembered position to \emph{here} instead (a strictly longer match was just found). Reading
+the next character, \texttt{1}, has \emph{no} transition from the \texttt{LE} state -- stop.
+Roll back to the last remembered position (right after \texttt{=}), emit \texttt{<LE, -->}, and
+resume scanning at \texttt{1}. This is exactly \emph{why} \texttt{<=} is never mis-split into
+\texttt{<} followed by \texttt{=}, made completely mechanical.
+\end{examplebox}
+
+\subsection{Resolving Ties: What Happens When Two Patterns Match Equally Long}
+\label{sec:l6-lexgen-ties}
+
+\dbtag Maximal munch resolves \emph{length} ties (always prefer the longer match), but a
+different kind of tie remains possible: two \emph{different} patterns matching the \emph{exact
+same} lexeme, of the exact same length. The reserved-word trick from \Sref{sec:l3-beyond-db} is
+one instance of this (\texttt{while} matches both a specific keyword pattern and the generic
+\texttt{ID} pattern) -- and lexer generators resolve it with one simple, memorize-able rule:
+
+\begin{coreidea}[Priority by Order of Declaration]
+When several patterns match a lexeme of the \emph{same} maximal length, the lexer-generator
+convention is to prefer whichever pattern was \textbf{listed first} in the original
+specification. This is exactly why, in practice, keyword patterns like \texttt{if} and
+\texttt{while} are always written \emph{before} the generic \texttt{ID} pattern in a lexer
+specification's rule list -- listing them first guarantees the keyword-specific token wins the
+tie, without needing the reserved-word symbol-table trick from \Sref{sec:l3-beyond-db} at all
+(both techniques solve the same problem; a lexer generator typically uses rule ordering, while a
+hand-written lexer more often uses the symbol-table trick).
+\end{coreidea}
+
+\begin{examfocus}
+Rule order controls only \emph{same-length} ties. It never overrides maximal munch itself: a
+\emph{longer} match from a pattern listed \emph{later} in the file still wins over a
+\emph{shorter} match from a pattern listed earlier. Get the two straight: \textbf{length} beats
+\textbf{position in the file}; position in the file is only the tie-breaker when lengths are
+\emph{equal}.
+\end{examfocus}
+
+\subsection{Input Buffering: Reading Characters Efficiently}
+\label{sec:l6-lexgen-buffering}
+
+\dbtag Maximal munch (\Sref{sec:l6-lexgen-maximal-munch}) has one uncomfortable-sounding
+consequence: the scanner sometimes reads several characters \emph{past} the eventual end of a
+token before it knows to roll back (the \texttt{<=} example needed to peek at \texttt{1} before
+committing to \texttt{<=}). A na\"ive implementation that requests one character at a time from
+the operating system, and that can only look one step ahead, would need awkward, slow
+special-casing to support this ``read ahead, then roll back'' behavior. DB's classic fix is a
+purely mechanical buffering scheme that makes rollback essentially free.
+
+\begin{defbox}{Double Buffering with Sentinels}
+Maintain \emph{two} buffers of equal, fixed size (each, e.g., one disk block), laid out
+contiguously in memory, plus two pointers:
+\begin{itemize}
+  \item \texttt{lexemeBegin} marks the start of the lexeme currently being matched;
+  \item \texttt{forward} scans ahead, one character at a time, exactly as maximal munch's
+  simulation loop (\Sref{sec:l6-lexgen-maximal-munch}) advances the DFA.
+\end{itemize}
+When \texttt{forward} reaches the end of one buffer, the \emph{other} buffer is refilled (one
+system call, one full block) while scanning continues seamlessly across the boundary. Once a
+token is recognized, \texttt{lexemeBegin} jumps forward to just past it, and the cycle repeats.
+Rolling back \texttt{forward} to a remembered accepting position (\Sref{sec:l6-lexgen-maximal-munch})
+is therefore just moving a pointer \emph{backward within already-buffered memory} -- no re-read
+from disk, no special-casing at all.
+\end{defbox}
+
+A further trick avoids testing ``have I run off the end of the buffer?'' on \emph{every single}
+character read (which would otherwise double the cost of the scanner's innermost loop): place a
+special \textbf{sentinel} character (conventionally \texttt{eof}, distinct from every real input
+character) at the very end of \emph{each} buffer. The scanner's inner loop then needs only
+\emph{one} check per character -- ``did I just read the sentinel?'' -- and only in that
+comparatively rare case does it do the extra work of figuring out \emph{which} buffer's sentinel
+was hit (real end of file) versus a routine buffer-swap point.
+
+\begin{examfocus}
+Be able to explain \emph{why} double buffering (rather than a single buffer, or reading one
+character at a time from the OS) is necessary specifically because of maximal munch's
+``read-ahead-then-roll-back'' behavior -- this input-buffering material is frequently tested as
+a short conceptual question (``why can't a lexer just read one character at a time from disk?'')
+rather than as a diagram-drawing exercise.
+\end{examfocus}
+
+\subsection{Putting It All Together: The Generic Lexer-Generator Pipeline}
+\label{sec:l6-lexgen-pipeline}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw, thick, rounded corners, minimum height=1.05cm, minimum width=3.0cm, align=center, font=\small},
+  tool/.style={box, fill=dbGreenBg, draw=dbGreen},
+  data/.style={box, fill=nuLight, draw=nuNavy},
+  >=Latex
+]
+  \node[data] (rules) at (0,0) {Rules:\\(pattern$_i$, action$_i$)\\for $i=1,\dots,k$};
+  \node[tool] (combine) at (4.3,0) {Combine into\\one NFA\\(tagged accepts)};
+  \node[tool] (subset) at (8.6,0) {Subset\\Construction};
+  \node[tool] (min) at (12.9,0) {DFA\\Minimization};
+  \node[data] (table) at (17.2,0) {Transition Table\\+ Action Table};
+  \node[tool, below=1.4cm of table] (scanner) {Generated\\Scanner Code};
+
+  \draw[->, thick] (rules) -- (combine);
+  \draw[->, thick] (combine) -- (subset);
+  \draw[->, thick] (subset) -- (min);
+  \draw[->, thick] (min) -- (table);
+  \draw[->, thick] (table) -- (scanner);
+\end{tikzpicture}}
+\end{center}
+
+\begin{center}
+\small\textit{Everything left of ``Generated Scanner Code'' happens once, offline, when the
+lexer-generator tool runs on your rules file. What actually ships and runs on every source file
+afterward is only the rightmost box: a tight loop implementing
+\Sref{sec:l6-lexgen-maximal-munch}'s maximal-munch simulation over the pre-built table, driven
+by the double-buffered input of \Sref{sec:l6-lexgen-buffering}, and exposed to the parser via
+exactly the \texttt{getNextToken()} interface \Sref{sec:l3-where-lexical-fits} described. This
+is the complete answer to ``what does a lexer-generator tool actually do'' -- Flex is one
+concrete implementation of this exact pipeline, and its own \texttt{.l}-file syntax for
+expressing the \emph{Rules} box is covered separately.}
+\end{center}
+
+\begin{coreidea}[Closing the Loop Back to Lecture 3's Big Picture]
+Lay \Sref{sec:l3-big-picture}'s original roadmap diagram next to this section's pipeline and
+they match exactly, with one addition: Lecture~\ref{lec:3} promised \emph{regular expression
+$\to$ NFA $\to$ DFA $\to$ minimized DFA $\to$ transition table $\to$ lexer}, for \emph{one}
+pattern. This lecture generalizes every arrow in that promise to \emph{many} patterns at once
+(via the tagged-union combining step) and fills in the one detail the original diagram left
+implicit -- how ``transition table $\to$ lexer'' actually happens, via maximal-munch simulation
+over double-buffered input. Nothing new was invented to make this jump; the entire generalization
+is the union rule from Thompson's construction, applied $k$ times instead of twice.
+\end{coreidea}
+
+\section{Self-Check Questions}
+\label{sec:l6-selfcheck}
+
+\begin{enrichment}[Practice -- Not Graded]
+\begin{enumerate}
+  \item Apply subset construction by hand to the NFA for $ab^{*}$ (built in
+  Lecture~\ref{lec:5}'s self-check question 5). List each DFA state as a set of NFA states, and
+  draw the resulting DFA.
+  \item For the DFA you built in the previous question, apply DFA minimization. Are any states
+  mergeable? Justify your answer in terms of distinguishability.
+  \item Explain, in your own words, why $\varepsilon\text{-closure}$ must be applied \emph{both}
+  when computing the start state \emph{and} again after every single \texttt{move}, not just
+  once at the beginning.
+  \item Construct a small regular expression of your own (different from
+  $(a\mid b)^{*}a(a\mid b)^{n}$) where you believe the DFA will have \emph{more} states than the
+  NFA, and explain your reasoning informally.
+  \item Trace the maximal-munch scanning loop (\Sref{sec:l6-lexgen-maximal-munch}) on the input
+  \texttt{intx} against a combined DFA for the two patterns \texttt{int} (keyword) and
+  \texttt{letter(letter|digit)*} (\texttt{ID}), assuming keyword patterns are listed first. What
+  single token is emitted, and why?
+  \item Two patterns, \texttt{a+} and \texttt{a+b?}, are both listed in a lexer specification,
+  with \texttt{a+} listed first. For the input \texttt{aaa} (with no trailing \texttt{b}
+  anywhere), which pattern's action fires, and is this a length tie or a maximal-munch decision?
+  \item Explain why a lexer cannot safely process input one character at a time, read directly
+  from disk on every single character, given how maximal munch works -- and explain concretely
+  what a sentinel character saves the scanner's inner loop from having to do on every iteration.
+\end{enumerate}
+\end{enrichment}
+
+\begin{takeaways}
+\begin{itemize}
+  \item \textbf{Subset construction} converts any NFA into an equivalent DFA by tracking
+  \emph{sets} of NFA states as single DFA states, using $\varepsilon\text{-closure}$ and
+  \texttt{move} as its two building blocks; termination is guaranteed because a finite NFA has
+  only finitely many state subsets.
+  \item A \textbf{dead state} makes the ``no valid transition'' case explicit, and is exactly
+  the signal maximal-munch scanning uses to know a match cannot be extended any further.
+  \item \textbf{DFA minimization} (partition refinement) merges states that no future input
+  string could ever tell apart, producing the provably smallest DFA for a language -- a
+  canonical form, unique up to state renaming.
+  \item NFAs and DFAs recognize \emph{exactly} the same languages, but the practical trade-off
+  is real: DFA simulation is $O(1)$ per character with a pre-paid one-time build cost, while NFA
+  simulation pays a per-character cost proportional to the current state set on \emph{every}
+  run -- and a DFA can, in the worst case, be \textbf{exponentially larger} than its source NFA.
+  \item A lexer-generator tool builds \emph{one} combined DFA out of \emph{many} token patterns
+  by generalizing Thompson's union rule to $k$ patterns, tagging each pattern's own accept
+  state; \textbf{maximal munch} is then just a DFA-simulation loop that remembers the last
+  accepting position seen and rolls back to it; \textbf{same-length ties} between patterns are
+  broken by whichever pattern was listed first.
+  \item \textbf{Double buffering with sentinels} is what makes maximal munch's read-ahead
+  practical: rollback becomes a cheap pointer move within already-buffered memory, and the
+  sentinel collapses the scanner's per-character bounds check into a single, rare-case test.
+  \item This lecture completes Lecture~\ref{lec:3}'s original big-picture promise in full:
+  regular expression $\to$ NFA $\to$ DFA $\to$ minimized DFA $\to$ transition table $\to$
+  working, table-driven, maximal-munch lexer -- every arrow now built, worked by hand, and tied
+  back to a concrete implementation architecture.
+\end{itemize}
+\end{takeaways}
+
+\section*{References for This Lecture}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[ET]{et} Cooper, K.~D. and Torczon, L. \textit{Engineering a Compiler}. 2nd~ed. Morgan
+Kaufmann, 2011.
+\bibitem[AP]{ap} Appel, A.~W. \textit{Modern Compiler Implementation in C/Java/ML}. Cambridge
+University Press, 2004.
+\end{thebibliography}
+
+\end{document}
