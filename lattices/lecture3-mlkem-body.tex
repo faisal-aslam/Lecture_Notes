@@ -1,11 +1,31 @@
 \begin{notebox}
-\small\textbf{Purpose of this lecture.} Lecture 2 ended with a promise: a real Kyber public key would turn out to be ``just an MLWE sample.'' This lecture cashes that promise in. We fix concrete parameters, define the compression functions real ciphertexts use, write out Kyber's core encryption scheme (KeyGen / Enc / Dec) algorithm-by-algorithm, prove --- with real numbers --- why decryption actually recovers the message, and then explain the one extra transformation (Fujisaki--Okamoto) that turns this into the standardized, chosen-ciphertext-secure \textbf{ML-KEM (FIPS 203)}. That last step deserves special attention: it is exactly the part of the scheme most often targeted by the physical attacks in Section 2 of the proposal.
+\small\textbf{Purpose of this lecture.} Lecture 2 ended with a promise: a real Kyber public key would turn out to be ``just an MLWE sample.'' This lecture cashes that promise in, slowly and completely. We fix concrete parameters, explain exactly what shape every object has (matrix vs.\ vector vs.\ scalar, and how big), define the compression functions real ciphertexts use, write out Kyber's core encryption scheme (KeyGen / Enc / Dec) algorithm-by-algorithm, prove --- with real numbers, \emph{twice}, once for the simplest possible case and once with an actual vector --- why decryption recovers the message, and then explain the one extra transformation (Fujisaki--Okamoto) that turns this into the standardized, chosen-ciphertext-secure \textbf{ML-KEM (FIPS 203)}. That last step deserves special attention: it is exactly the part of the scheme most often targeted by the physical attacks in Section 2 of the proposal.
 \end{notebox}
 
 \section{Recap: What You Already Have}
 \label{sec:L3:recap-what-you-already-have}
 
 From Lecture 2: Module-LWE says that, for a small integer $k$ and $R_q = \mathbb{Z}_q[x]/(x^n+1)$, the pair $(\vec a, b = \langle \vec a,\vec s\rangle + e)$ is computationally indistinguishable from uniform random, for secret $\vec s \in R_q^k$ and small error $e$. Today, $\vec a$ becomes a whole \emph{matrix} $A$ of ring elements (one MLWE sample per row), $\vec s$ becomes the actual Kyber secret key, and $b$'s vector analogue $\vec t = A\vec s + \vec e$ becomes the actual Kyber public key. Nothing new needs to be invented --- we are about to watch Lecture 2's abstract object become a working encryption scheme.
+
+\begin{rmkbox}{A Dictionary Between Lecture 2 and Today}
+It's worth pinning the translation down explicitly before diving into algorithms, since the rest of this lecture will use Kyber's own variable names ($\vec t$, $\vec u$, $v$, $\vec s$) rather than Lecture 2's generic ones ($A$, $s$, $e$, $b$).
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Lecture 2's MLWE object} & \textbf{Kyber's name for it} \\
+\hline
+Module rank $k$ & Same, $k$ --- fixed per parameter set (Section~\ref{sec:L3:concrete-parameters}) \\
+Ring $R_q$, dimension $n$ & Same, $n=256$ for every ML-KEM parameter set \\
+Public matrix $A \in R_q^{k\times k}$ & Same letter, $A$ --- expanded from a short seed $\rho$ \\
+Secret $\vec s \in R_q^k$ & Same letter, $\vec s$ --- the Kyber \emph{secret key} \\
+Error $\vec e \in R_q^k$ & Same letter, $\vec e$ --- used only during KeyGen \\
+Sample $b = A\vec s + \vec e$ & Renamed $\vec t = A\vec s+\vec e$ --- the Kyber \emph{public key}, alongside $A$ \\
+\hline
+\end{tabular}
+\end{center}
+Everything on the right is literally the object on the left, just with a name that matches the FIPS 203 standard's own notation. Encryption (Section~\ref{sec:L3:the-cpa-secure-core-kyber-cpapke}) will introduce a \emph{second}, independent MLWE sample --- $\vec u$ --- built the same way but with a fresh secret $\vec r$ that only the encryptor ever knows.
+\end{rmkbox}
 
 \section{Concrete Parameters}
 \label{sec:L3:concrete-parameters}
@@ -23,14 +43,42 @@ ML-KEM-1024 & 4 & 2 & 2 & 1{,}568 bytes \\
 \hline
 \end{tabular}
 \end{center}
+Roughly: ML-KEM-512 targets security comparable to AES-128, ML-KEM-768 to AES-192 (this is NIST's own recommended default), and ML-KEM-1024 to AES-256. Larger $k$ means a bigger, harder MLWE problem, at the cost of a bigger key and slower arithmetic.
 \end{defbox}
 
-\begin{rmkbox}{Reading This Table With Lecture 2's Eyes}
-$k$ is exactly the module rank from Lecture 2, Section~\ref{sec:L2:module-lwe-the-middle-ground-kyber-and-d} --- the secret key is a length-$k$ vector of ring elements, $\vec s \in R_q^k$, and the public matrix $A$ is $k \times k$ (ring elements). Larger $k$ means more MLWE ``dimensions'' to search over, hence higher security --- and a bigger public key, since you're now storing $k$ ring elements (each $256$ coefficients) instead of one. This is the size/security dial promised back in Lecture 2's Figure~\ref{fig:mlwe-dial}.
+\begin{exbox}{Sanity-Checking $q \equiv 1 \pmod{256}$}
+$3329 / 256 = 13.00390625$, and $13 \times 256 = 3328$, so $3329 - 3328 = 1$ --- confirming $3329 \equiv 1 \pmod{256}$ directly by division, exactly as claimed above. This single arithmetic fact is the entire reason $q=3329$ looks like a strange, specific number instead of a round one: it was chosen to make the NTT (a fast multiplication algorithm) work, not for any security reason on its own.
+\end{exbox}
+
+\begin{rmkbox}{Why $n$ Stays Fixed at $256$ While $k$ Changes}
+A natural question: why not just grow $n$ instead of $k$ to get more security, the way Lecture 2's Ring-LWE section suggested rings could absorb dimension? Two practical reasons. First, $n=256$ was chosen so that the NTT-based fast multiplication algorithm works cleanly for this specific ring; changing $n$ per security level would mean re-deriving and re-implementing that machinery three times over. Second, Lecture 2's ``MLWE dial'' remark applies directly here: growing $k$ (module rank) instead of $n$ (ring dimension) gives designers a much finer-grained security knob --- $k\in\{2,3,4\}$ --- than jumping between a small number of practical ring dimensions would. This is a genuine engineering choice, not a mathematical necessity; it is, however, the choice all three standardized ML-KEM parameter sets make.
 \end{rmkbox}
 
-\begin{rmkbox}{Why $k\times k$, Not $k\times n$}
-It's tempting to expect a $k\times n$ shape here, since the secret is ``$k$ polynomials, each of degree $<n$.'' But $n$ never appears as a matrix \emph{dimension} in the module setting --- it's absorbed \emph{inside} each entry. Every entry $A_{ij}$ is not a scalar; it is itself a full ring element of $R_q$, i.e.\ an $n$-coefficient polynomial. The matrix's outer shape, $k\times k$, only tracks how many ring-element \emph{equations} and ring-element \emph{unknowns} there are --- exactly the same shape logic as ordinary linear algebra, just with scalars replaced by ring elements throughout. Concretely: the total count of $\mathbb{Z}_q$ numbers stored in $A$ is $k\times k\times n$ (not $k\times n$) --- $k^2$ ring elements, each carrying $n$ coefficients. You already saw the smallest possible case of this in Lecture 2 and again below: with $k=1$, $A$ is a single ring element, e.g.\ $A=3+5x+2x^2+x^3$ --- one ``$1\times1$ matrix of ring elements,'' but that one entry already has $n=4$ coefficients packed inside it. (If you ``unfolded'' $A$ all the way down to plain scalars, each ring-element entry would expand into its own $n\times n$ block --- a structured, easy-to-multiply matrix --- so the true scalar picture is $kn\times kn$-ish underneath. Module-LWE's entire efficiency trick is hiding that internal $n\times n$ structure inside one opaque ring multiplication, so the matrix you actually write down only needs to track $k$.)
+\subsection{Keeping Track of Dimensions (Read This Before the Algorithms)}
+\label{sec:L3:dimension-bookkeeping}
+
+The single most common source of confusion when first reading the KeyGen/Enc/Dec algorithms below is losing track of \emph{which objects are matrices, which are vectors, and which are single ring elements}. It's worth fixing this once, explicitly, before a single line of algorithm is written.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Object} & \textbf{Shape} & \textbf{Meaning} \\
+\hline
+$A$ & $k \times k$ matrix of ring elements & Public, random (expanded from seed $\rho$) \\
+$\vec s, \vec e$ & length-$k$ vectors of ring elements & Secret key and its keygen noise \\
+$\vec t$ & length-$k$ vector of ring elements & Public key (alongside $A$) \\
+$\vec r, \vec e_1$ & length-$k$ vectors of ring elements & Fresh, per-encryption randomness/noise \\
+$e_2$ & a single ring element & Fresh, per-encryption scalar noise \\
+$\vec u$ & length-$k$ vector of ring elements & First half of the ciphertext \\
+$v$ & a single ring element & Second half of the ciphertext (carries the message) \\
+$m$ & a bit string of length $n=256$ & The plaintext, one bit per coefficient \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{rmkbox}{The One Rule That Makes Every Line Type-Check}
+Matrix--vector and vector--vector products always follow ordinary linear-algebra shape rules, just with ``numbers'' replaced by ``ring elements'' and ordinary multiplication replaced by polynomial multiplication in $R_q$: a $k\times k$ matrix times a length-$k$ vector gives a length-$k$ vector ($A\vec s$); a length-$k$ vector transposed times a length-$k$ vector gives a single ring element ($\vec t^{\,T}\vec r$). If a line of an algorithm below ever looks like it's adding a vector to a scalar, re-read it --- that never actually happens; it's always vector+vector or scalar+scalar. When $k=1$ (the toy examples in this lecture), every vector collapses to a single ring element and every matrix collapses to a single ring element too --- which is exactly why the $k=1$ worked example in Section~\ref{sec:L3:a-fully-worked-example-by-hand} looks so much simpler than the real scheme: it genuinely \emph{is} simpler, with $k=2$'s worked example in Section~\ref{sec:L3:a-vector-worked-example} restoring the vector structure you'd see at real parameter sizes.
 \end{rmkbox}
 
 \section{Compression: Trading Precision for Size}
@@ -44,17 +92,29 @@ $$
 \mathrm{Compress}_d(x) = \left\lceil \frac{2^d}{q}\cdot x \right\rfloor \bmod 2^d, \qquad
 \mathrm{Decompress}_d(y) = \left\lceil \frac{q}{2^d}\cdot y \right\rfloor,
 $$
-where $\lceil \cdot \rfloor$ denotes rounding to the nearest integer. Compression maps a $\mathbb{Z}_q$ value down to a $d$-bit value; decompression maps it back up to (approximately) the original value. Applied coefficient-by-coefficient, these extend to compressing/decompressing an entire ring element.
+where $\lceil \cdot \rfloor$ denotes rounding to the nearest integer. Compression maps a $\mathbb{Z}_q$ value down to a $d$-bit value; decompression maps it back up to (approximately) the original value. Applied coefficient-by-coefficient, these extend to compressing/decompressing an entire ring element (all $n$ coefficients at once), and further to an entire vector of ring elements (apply it to every coefficient of every entry).
 \end{defbox}
 
 \begin{exbox}{Compressing and Decompressing by Hand, $q=17$, $d=2$}
 With $q=17$ and $d=2$ (so values get squeezed down to $2$ bits $\in\{0,1,2,3\}$): take $x=9$. Then $\mathrm{Compress}_2(9) = \lceil \frac{4}{17}\cdot 9 \rfloor = \lceil 2.12 \rfloor = 2$. Decompressing: $\mathrm{Decompress}_2(2) = \lceil \frac{17}{4}\cdot 2\rfloor = \lceil 8.5 \rfloor = 9$ (or $8$, depending on rounding convention for the exact half-way case) --- in this instance we land back exactly on $9$. In general you do \emph{not} get back the original value exactly --- that's the entire point: $\mathrm{Compress}$ then $\mathrm{Decompress}$ introduces a small, bounded rounding error, in exchange for needing only $d=2$ bits instead of $\lceil\log_2 17\rceil = 5$ bits to store or transmit $x$.
 \end{exbox}
 
-\begin{rmkbox}{Why Deliberately Add More Error?}
-This seems backwards --- Lecture 2 spent an entire lecture explaining that noise is what makes LWE hard, and now we're adding \emph{more} noise on purpose. First, a scope check: compression here is applied to the \textbf{ciphertext} --- the $\mathrm{Compress}_{d_u}(\vec u)$, $\mathrm{Compress}_{d_v}(v)$ steps at the end of Enc, Section~\ref{sec:L3:the-cpa-secure-core-kyber-cpapke} below --- \emph{not} to the public key. The public-key sizes in the parameter table above come entirely from $k$ and $n$ (how many ring elements get stored), not from any compression step; $(A,\vec t)$ is never run through Compress/Decompress anywhere in this scheme. Compression matters most for the ciphertext specifically because a fresh ciphertext is produced on \emph{every single encryption}, while a public key is typically generated and transmitted once per session.
+\begin{exbox}{A Second Example, Showing \emph{Why} Larger $d$ Means Smaller Error}
+Same $q=17$, but now take $x=6$ and compare $d=2$ against $d=3$.
 
-The resolution to the ``more noise on purpose'' worry: encryption already tolerates a noise budget (Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat} below shows exactly how much, and exactly where that $q/4$ threshold comes from). Compression consumes a small, carefully bounded slice of that budget in exchange for a large reduction in ciphertext size. Being safe to do this is \emph{not} simply a matter of ``the failure probability happens to be low'' --- a low-but-unaccounted-for probability would not, by itself, be trustworthy. The real safety argument has two parts: (1) decryption fails only if the \emph{total} noise $\varepsilon$ (original LWE-style noise, from Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}) exceeds $q/4$ in absolute value --- a hard threshold fixed by the algebra, not a design choice; and (2) $d_u,d_v$ and the noise parameters $\eta_1,\eta_2$ are chosen at design time specifically so that the \emph{combined} error (original noise plus compression's rounding error) clears that $q/4$ bar with overwhelming margin. The astronomically small failure probability ML-KEM actually achieves (below $2^{-100}$) is the \emph{consequence} of that accounting, not an independent justification standing on its own. Push $d$ too low, though, and the accounted-for margin shrinks and decryption starts failing for real --- this is a real, quantifiable trade-off the standard's parameters were chosen to balance, and it's also precisely the kind of margin that a chosen-ciphertext attack (Lesson 5) tries to push past its limit on purpose.
+\textbf{With $d=2$:} $\mathrm{Compress}_2(6) = \lceil \frac{4}{17}\cdot 6\rfloor = \lceil 1.41\rfloor = 1$. Decompressing: $\mathrm{Decompress}_2(1) = \lceil \frac{17}{4}\cdot 1\rfloor = \lceil 4.25\rfloor = 4$. Round-trip error: $|6-4| = 2$.
+
+\textbf{With $d=3$:} $\mathrm{Compress}_3(6) = \lceil \frac{8}{17}\cdot 6\rfloor = \lceil 2.82\rfloor = 3$. Decompressing: $\mathrm{Decompress}_3(3) = \lceil \frac{17}{8}\cdot 3\rfloor = \lceil 6.375\rfloor = 6$. Round-trip error: $|6-6| = 0$ --- \textbf{exact}, this time.
+
+Doubling the number of representable levels (from $4$ to $8$) roughly halved the worst-case rounding error, exactly as you'd expect from cutting the gap between adjacent representable values in half. This is the entire compression/error trade-off in miniature: bigger $d$ $\Rightarrow$ more bits transmitted per coefficient $\Rightarrow$ smaller rounding error $\Rightarrow$ less of the noise budget (Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}) consumed by compression alone.
+\end{exbox}
+
+\begin{rmkbox}{Why Deliberately Add More Error?}
+This seems backwards --- Lecture 2 spent an entire lecture explaining that noise is what makes LWE hard, and now we're adding \emph{more} noise on purpose. The resolution: encryption already tolerates a noise budget (Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat} below shows exactly how much). Compression consumes a small, carefully bounded slice of that budget in exchange for a large reduction in ciphertext size --- as long as the total noise (compression error \emph{plus} the original LWE error) stays under the budget, decryption still succeeds. Push $d$ too low, though, and decryption starts failing --- this is a real, quantifiable trade-off the standard's parameters were chosen to balance, and it's also precisely the kind of margin that a chosen-ciphertext attack (Lesson 5) tries to push past its limit on purpose.
+\end{rmkbox}
+
+\begin{rmkbox}{Which $d$ Does Real Kyber Actually Use?}
+Real ML-KEM uses two different compression levels: $d_u$ for $\vec u$ (typically $10$ or $11$ bits, depending on the parameter set) and a smaller $d_v$ for $v$ (typically $4$ or $5$ bits). $\vec u$ gets more bits because it's a whole vector of $k$ ring elements and any error in it gets multiplied by $\vec s$ during decryption (Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat} shows exactly where); $v$ can tolerate a coarser encoding because it's compared only against the two widely-separated targets $0$ and $\lceil q/2\rceil$ (Section~\ref{sec:L3:the-cpa-secure-core-kyber-cpapke}'s Decode step), which leaves a comparatively generous margin for rounding error. This lecture's worked examples (Section~\ref{sec:L3:a-fully-worked-example-by-hand} onward) skip compression entirely to keep the hand arithmetic focused --- everything about \emph{why} decryption works is already fully visible without it.
 \end{rmkbox}
 
 \section{The CPA-Secure Core: Kyber.CPAPKE}
@@ -97,6 +157,25 @@ We now write out the actual scheme. To keep hand-computation possible later, we 
 Line 4 of KeyGen, $\vec t = A\vec s + \vec e$, is exactly an MLWE sample, verbatim, from Lecture 2 Section~\ref{sec:L2:module-lwe-the-middle-ground-kyber-and-d}. Encryption generates a \emph{second}, independent MLWE-style sample ($\vec u$) using a fresh secret $\vec r$, and hides the message inside a third quantity $v$ that mixes the public key with that same $\vec r$. Nothing about the shape of these equations is new --- only the bookkeeping (which noise term uses which name, and the extra $\mathrm{Encode}$/$\mathrm{Compress}$ steps) is specific to Kyber.
 \end{rmkbox}
 
+\begin{rmkbox}{Walking Through KeyGen, Line by Line}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Line 1} produces the ``random matrix'' every MLWE instance needs (Lecture 2, Section~\ref{sec:L2:module-lwe-the-middle-ground-kyber-and-d}). It is genuinely public --- anyone, including an attacker, may see $A$ (or the seed $\rho$ it's expanded from) with zero loss of security, exactly as Lecture 2 explained a one-way function's ``easy forward direction'' input can be.
+  \item \textbf{Lines 2--3} sample the two things that must never become public: the secret $\vec s$ itself, and the keygen noise $\vec e$ that will help hide it. Both are drawn small on purpose --- Lecture 2's centered binomial distribution, parameterized by $\eta_1$, is deliberately much narrower than the full range $\{0,\ldots,q-1\}$.
+  \item \textbf{Line 4} is the MLWE sample itself. This is the only line that touches both $A$ and $\vec s$ together --- everything downstream in Enc/Dec is built to eventually cancel this exact term (Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat} shows precisely how).
+  \item \textbf{Line 5} splits the output into what's shared ($pk$) and what's kept secret forever ($sk$). Notice $\vec e$ itself is \emph{not} part of $sk$ --- once it's baked into $\vec t$, it has done its job and is discarded; only $\vec s$ needs to survive for decryption.
+\end{itemize}
+\end{rmkbox}
+
+\begin{rmkbox}{Walking Through Enc, Line by Line}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Line 1} draws three \emph{fresh} small random/noise objects, generated independently for every single encryption call, and never reused (Lecture 4's fault-attack discussion, previewed there, is precisely about what goes wrong if freshness like this is ever violated in a signing context; encryption has an analogous freshness requirement).
+  \item \textbf{Line 2} builds $\vec u$, a second MLWE sample --- structurally identical to KeyGen's $\vec t = A\vec s+\vec e$, just with $A^T$ in place of $A$ and $\vec r,\vec e_1$ in place of $\vec s,\vec e$. This is deliberate: $\vec u$ needs to be the ``other half'' of an equation that will let the two copies of $A$ cancel during decryption.
+  \item \textbf{Line 3} turns the plaintext bit string into a ring element whose coefficients are either $0$ (bit $0$) or $\lceil q/2\rceil$ (bit $1$) --- the two points on the ``clock face'' of $\mathbb{Z}_q$ (Lecture 1, Section~\ref{sec:L1:the-modulus-arithmetic-that-wraps-around}) that are as far apart as possible, which is exactly what gives Decode the most room to tolerate noise later.
+  \item \textbf{Line 4} hides $\mathrm{Encode}(m)$ inside $\vec t^{\,T}\vec r$ (public key mixed with fresh randomness) plus a bit more noise $e_2$. To anyone without $\vec s$, $\vec t^{\,T}\vec r$ is computationally indistinguishable from uniform random (that's exactly what MLWE's hardness guarantees), so $v$ as a whole reveals nothing about $m$ without the secret key.
+  \item \textbf{Line 5} compresses both ciphertext halves before transmission --- purely a size optimization (Section~\ref{sec:L3:compression-trading-precision-for-size}), with no effect on which algebraic identity makes decryption work, only on how much noise budget is left over for it.
+\end{itemize}
+\end{rmkbox}
+
 \section{Why Decryption Works: the Noise-Cancellation Argument}
 \label{sec:L3:why-decryption-works-the-noise-cancellat}
 
@@ -112,11 +191,20 @@ m' &= \big(\vec t^{\,T}\vec r + e_2 + \mathrm{Encode}(m)\big) - \vec s^{\,T}\big
 The two copies of $\vec s^{\,T}A^T\vec r$ \textbf{cancel exactly} --- this is the whole trick, and it's why the scheme is designed around $A$ appearing on both sides (once via $\vec t$, once via $\vec u$). What's left is the message, plus a total noise term $\varepsilon$ built entirely from small quantities ($\vec e, \vec r, e_2, \vec s, \vec e_1$ are all ``small'' by construction). As long as every coefficient of $\varepsilon$ stays smaller than $q/4$ in absolute value, $m'$'s coefficients land close enough to $0$ or $\lceil q/2\rceil$ that $\mathrm{Decode}$ recovers $m$ exactly.
 \end{rmkbox}
 
-\begin{rmkbox}{Where the $q/4$ Threshold Actually Comes From}
-It's worth deriving this bound rather than just asserting it. $\mathrm{Encode}$ places every message bit at one of two ``poles'' on the circle $\mathbb{Z}_q$, as far apart as possible: bit $0\mapsto 0$, bit $1\mapsto \lceil q/2\rceil$. $\mathrm{Decode}$ then simply asks, for each noisy coefficient $m_i' = \mathrm{Encode}(m)_i + \varepsilon_i$: \emph{which pole is this closer to?} Picture $\mathbb{Z}_q$ as a clock face with $0$ at 12 o'clock and $q/2$ at 6 o'clock --- the two points exactly \emph{midway} between the poles sit at $q/4$ (3 o'clock) and $3q/4$ (9 o'clock). Those midpoints are precisely where ``closer to $0$'' flips over into ``closer to $q/2$,'' and vice versa.
-
-So: if the true encoded value was $0$, $\mathrm{Decode}$ still returns the correct bit as long as the noisy coefficient hasn't crossed either nearby midpoint --- i.e.\ as long as $|\varepsilon_i| < q/4$. By the same symmetric argument around the other pole, a true value of $\lceil q/2\rceil$ still decodes correctly under the same condition, $|\varepsilon_i| < q/4$. In short, $q/4$ is not an arbitrary safety margin --- it is exactly \emph{half the gap between the two encoding poles} ($q/2$ apart, so $q/4$ of margin on each side before crossing into the other bit's territory). Push any coefficient of $\varepsilon$ past $q/4$ in absolute value, and that coefficient crosses a decision boundary, and $\mathrm{Decode}$ silently returns the wrong bit.
+\begin{rmkbox}{Why $A$ Cancels, Restated Without the Algebra}
+It's worth saying the cancellation in plain words too, since the symbol manipulation above can obscure the idea. $\vec t = A\vec s+\vec e$ is ``$A$, mixed with the secret, plus a little noise.'' $\vec u = A^T\vec r + \vec e_1$ is ``$A^T$, mixed with a fresh throwaway secret $\vec r$, plus a little noise.'' When decryption computes $v - \vec s^{\,T}\vec u$, it is really computing $(\vec t^{\,T}\vec r) - (\vec s^{\,T}A^T\vec r)$ underneath everything else, and $\vec t^{\,T}\vec r = (A\vec s)^T\vec r + \vec e^{\,T}\vec r = \vec s^{\,T}A^T\vec r+\vec e^{\,T}\vec r$ (using $(A\vec s)^T = \vec s^{\,T}A^T$, ordinary matrix-transpose algebra). So $\vec s^{\,T}A^T\vec r$ shows up with a $+$ sign from one path and a $-$ sign from the other, and disappears. \textbf{Only someone who knows $\vec s$ can perform this exact subtraction} --- an eavesdropper who sees only $A$, $\vec t$, $\vec u$, $v$ has no way to make the two copies of $A$ line up and cancel, which is precisely the asymmetry a public-key scheme needs (Lecture 2, Section~\ref{sec:L2:symmetric-vs-asymmetric-cryptography}).
 \end{rmkbox}
+
+\subsection{Putting an Actual Number on the Noise Budget}
+\label{sec:L3:noise-budget-in-numbers}
+
+\begin{rmkbox}{From ``Small'' to a Concrete Bound}
+Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}'s derivation says decryption succeeds as long as every coefficient of $\varepsilon = \vec e^{\,T}\vec r + e_2 - \vec s^{\,T}\vec e_1$ stays under $q/4$ in absolute value. It's worth seeing, at least roughly, why real ML-KEM parameters are nowhere close to that edge. Take ML-KEM-512 ($k=2$, $\eta_1=3$, $\eta_2=2$, $q=3329$, so $q/4 \approx 832$). The centered binomial distribution with parameter $\eta_1=3$ produces individual coefficients bounded by $\pm\eta_1=\pm3$ (never larger, by construction); $\eta_2=2$ bounds $e_2$'s coefficients by $\pm 2$. Each term in $\varepsilon$ is a \emph{sum of $n=256$ products} of such small values (from the inner products $\vec e^{\,T}\vec r$ and $\vec s^{\,T}\vec e_1$, each itself a sum over $k=2$ ring multiplications, each ring multiplication itself summing up to $n=256$ coefficient-products via the polynomial convolution). Even though any \emph{individual} product of two $\eta$-bounded values is tiny (at most $\eta_1\times\eta_1=9$ or so), summing hundreds of such small, roughly independent, roughly-zero-mean terms produces a value whose \emph{typical} size grows only like the square root of the number of terms (a standard fact about sums of independent random variables) --- landing comfortably in the tens or low hundreds, not anywhere near $q/4\approx832$. This is exactly why ML-KEM's decryption-failure probability is kept below $2^{-100}$ per Lecture 3's earlier remark: the parameters ($n$, $k$, $\eta_1$, $\eta_2$, and the compression depths $d_u,d_v$) were chosen with this square-root-growth behavior explicitly in mind, leaving a comfortable safety margin between ``typical'' noise and the $q/4$ failure boundary.
+\end{rmkbox}
+
+\begin{exbox}{The Toy Examples Deliberately Sidestep This Calculation}
+The worked examples below (Sections~\ref{sec:L3:a-fully-worked-example-by-hand}--\ref{sec:L3:a-vector-worked-example}) use $n=4$ and hand-picked single-digit noise values, precisely so every number can be checked by hand in a few lines. They are not meant to demonstrate the square-root concentration argument above --- for that, $n$ needs to be genuinely large (real Kyber's $n=256$). What the toy examples \emph{do} demonstrate, exactly and completely, is the algebraic cancellation itself: that $m'=\mathrm{Encode}(m)+\varepsilon$ for some correctly-computed small $\varepsilon$, and that $\mathrm{Decode}$ recovers $m$ whenever $\varepsilon$ stays small enough. Both worked examples below verify $\varepsilon$ two different ways --- by direct subtraction $m'-\mathrm{Encode}(m)$, and by evaluating the formula $\varepsilon = \vec e^{\,T}\vec r+e_2-\vec s^{\,T}\vec e_1$ independently --- and confirm the two agree, which is the best hand-checkable evidence that the algebra above is not a typo.
+\end{exbox}
 
 \begin{rmkbox}{Decryption Failure: a Real, Quantifiable Possibility}
 If $\varepsilon$'s coefficients happen to be unusually large (all the small noise terms landing far from $0$ by chance, or compression eating too much of the remaining budget), decryption can output the \emph{wrong} bit. This isn't a flaw --- it's an accepted, carefully bounded probability (ML-KEM's parameters keep it astronomically small, far below $2^{-100}$ per ciphertext) baked into the design. It matters for your project for a specific reason: some physical attacks work by \emph{deliberately inducing} decryption failures (via faults, or via chosen ciphertexts that sit right at the edge of the noise budget) and then use the pattern of failures to leak information about $\vec s$ --- Lesson 5's material on Kyber's central-reduction leak and CCA-style attacks builds directly on this margin.
@@ -126,7 +214,7 @@ If $\varepsilon$'s coefficients happen to be unusually large (all the small nois
 \label{sec:L3:a-fully-worked-example-by-hand}
 
 \begin{exbox}{Kyber-Style Encryption/Decryption, $k=1$, $n=4$, $q=17$ (Verified by Hand)}
-Take $R_{17} = \mathbb{Z}_{17}[x]/(x^4+1)$ and module rank $k=1$ (so everything below is a single ring element, not a vector --- this is really Ring-LWE-flavored Kyber, kept at $k=1$ purely so the arithmetic stays hand-tractable).
+Take $R_{17} = \mathbb{Z}_{17}[x]/(x^4+1)$ and module rank $k=1$ (so everything below is a single ring element, not a vector --- this is really Ring-LWE-flavored Kyber, kept at $k=1$ purely so the arithmetic stays hand-tractable; Section~\ref{sec:L3:a-vector-worked-example} below redoes this with $k=2$ to restore the vector structure).
 
 \textbf{KeyGen.} Let $A = 3+5x+2x^2+x^3$ (public). Let $s = 1-x$ (secret, small coefficients) and $e=1$ (small error). Multiplying in $R_{17}$ (using $x^4\equiv -1$, exactly as in Lecture 2's polynomial-multiplication example):
 $$
@@ -152,6 +240,79 @@ $$
 Decode each coefficient (closer to $9$ than to $0$, mod $17$, means bit $1$): $7\to 1$, $2\to 0$, $9\to 1$, $0\to 0$. \textbf{Recovered message: $(1,0,1,0)$ --- exactly the original.} Every step above is real Kyber structure, just at toy scale; nothing was simplified away except using $k=1$ instead of $k\in\{2,3,4\}$ and full $256$-coefficient rings.
 \end{exbox}
 
+\begin{exbox}{Double-Checking Section~\ref{sec:L3:a-fully-worked-example-by-hand}'s Example Against the Noise Formula}
+As a consistency check on the general derivation of Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}, let's confirm $m' = \mathrm{Encode}(m)+\varepsilon$ with $\varepsilon = e\cdot r+e_2-s\cdot e_1$ (the $k=1$ specialization, with no transposes needed since everything is a scalar ring element).
+
+\textbf{Direct subtraction.} $m'-\mathrm{Encode}(m) = (7+2x+9x^2+0x^3)-(9+0x+9x^2+0x^3) = -2+2x+0x^2+0x^3 \equiv 15+2x \pmod{17}$.
+
+\textbf{Via the formula.} $e\cdot r = 1\cdot x = x$. $e_2=-1$. $s\cdot e_1 = (1-x)\cdot 1 = 1-x$. So $\varepsilon = x + (-1) - (1-x) = x-1-1+x = 2x-2 \equiv 2x+15 \pmod{17}$ (since $-2\equiv15$).
+
+Both routes give $\varepsilon = 15+2x+0x^2+0x^3$ --- \textbf{they match exactly}, confirming the general algebra of Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat} against this specific hand-computed instance.
+\end{exbox}
+
+\subsection{A Second Worked Example With a Real Vector ($k=2$)}
+\label{sec:L3:a-vector-worked-example}
+
+The $k=1$ example above is correct but, precisely because $k=1$, every matrix and vector in it silently collapses to a single ring element --- so it never actually exercises the ``vector of ring elements'' structure that real ML-KEM (with $k\in\{2,3,4\}$) depends on. This subsection redoes the same computation with $k=2$, so you can see a genuine matrix--vector product, a genuine inner product, and a genuine transpose, all by hand.
+
+\begin{exbox}{Kyber-Style Encryption/Decryption, $k=2$, $n=4$, $q=17$ (Verified by Hand)}
+Still $R_{17}=\mathbb{Z}_{17}[x]/(x^4+1)$, now with module rank $k=2$. To keep the polynomial arithmetic simple, choose the public matrix to have entries that are single monomials:
+$$
+A = \begin{pmatrix} 1 & x \\ x^2 & 1 \end{pmatrix} \in R_{17}^{2\times2}.
+$$
+
+\textbf{KeyGen.} Secret $\vec s = (s_1,s_2) = (1+x,\ 2)$, keygen noise $\vec e=(e_1,e_2)=(1,\,-1)\equiv(1,16)$. Compute $\vec t = A\vec s+\vec e$ entry by entry:
+\begin{align*}
+t_1 &= A_{11}s_1+A_{12}s_2+e_1 = 1\cdot(1+x) + x\cdot 2 + 1 = (1+x)+2x+1 = 2+3x, \\
+t_2 &= A_{21}s_1+A_{22}s_2+e_2 = x^2\cdot(1+x) + 1\cdot2 + 16 = (x^2+x^3)+18 \equiv 1+x^2+x^3 \pmod{17}.
+\end{align*}
+Public key: $(A,\vec t)=\big(A,\ (2+3x,\ 1+x^2+x^3)\big)$. Secret key: $\vec s=(1+x,\,2)$.
+
+\textbf{Enc.} Message $m=(1,1,0,0)$, so $\mathrm{Encode}(m) = 9+9x+0x^2+0x^3$. Fresh randomness $\vec r=(r_1,r_2)=(1,\,x)$, $\vec e_1=(e_{1,1},e_{1,2})=(0,\,1)$, $e_2=0$.
+
+First, $A^T = \begin{pmatrix}1 & x^2\\ x & 1\end{pmatrix}$ (swap the off-diagonal entries). Compute $\vec u = A^T\vec r+\vec e_1$:
+\begin{align*}
+u_1 &= 1\cdot r_1 + x^2\cdot r_2 + e_{1,1} = 1\cdot1+x^2\cdot x+0 = 1+x^3, \\
+u_2 &= x\cdot r_1 + 1\cdot r_2 + e_{1,2} = x\cdot1+1\cdot x+1 = 2x+1 = 1+2x.
+\end{align*}
+Now compute $v = \vec t^{\,T}\vec r + e_2 + \mathrm{Encode}(m) = (t_1r_1+t_2r_2) + e_2+\mathrm{Encode}(m)$:
+\begin{align*}
+t_1r_1 &= (2+3x)\cdot1 = 2+3x, \\
+t_2r_2 &= (1+x^2+x^3)\cdot x = x+x^3+x^4 \equiv x+x^3-1 \equiv 16+x+x^3 \pmod{17}, \\
+t_1r_1+t_2r_2 &= (2+3x)+(16+x+x^3) = 18+4x+x^3 \equiv 1+4x+x^3 \pmod{17}, \\
+v &= (1+4x+x^3)+0+(9+9x) = 10+13x+0x^2+x^3.
+\end{align*}
+Ciphertext: $c=(\vec u,v)=\big((1+x^3,\,1+2x),\ 10+13x+x^3\big)$ (compression skipped again, as in Section~\ref{sec:L3:a-fully-worked-example-by-hand}).
+
+\textbf{Dec.} Compute $\vec s^{\,T}\vec u = s_1u_1+s_2u_2$:
+\begin{align*}
+s_1u_1 &= (1+x)(1+x^3) = 1+x^3+x+x^4 \equiv 1+x+x^3-1 = x+x^3 \pmod{17} \quad\text{(the $\pm1$'s cancel!)}, \\
+s_2u_2 &= 2\cdot(1+2x) = 2+4x, \\
+s_1u_1+s_2u_2 &= (x+x^3)+(2+4x) = 2+5x+0x^2+x^3.
+\end{align*}
+Then
+$$
+m' = v-(s_1u_1+s_2u_2) = (10+13x+0x^2+x^3)-(2+5x+0x^2+x^3) = 8+8x+0x^2+0x^3.
+$$
+Decode: $8\to1$ (in the ``closer to $9$'' zone), $8\to1$, $0\to0$, $0\to0$. \textbf{Recovered message: $(1,1,0,0)$ --- exactly the original.}
+\end{exbox}
+
+\begin{exbox}{Double-Checking the $k=2$ Example Against the Noise Formula}
+Same consistency check as before, now with genuine vectors. $\varepsilon = \vec e^{\,T}\vec r+e_2-\vec s^{\,T}\vec e_1$.
+
+\textbf{Direct subtraction.} $m'-\mathrm{Encode}(m) = (8+8x)-(9+9x) = -1-x \equiv 16+16x \pmod{17}$.
+
+\textbf{Via the formula.} $\vec e^{\,T}\vec r = e_1r_1+e_2r_2 = 1\cdot1+16\cdot x = 1+16x$. Plus $e_2=0$. Minus $\vec s^{\,T}\vec e_1 = s_1e_{1,1}+s_2e_{1,2} = (1+x)\cdot0+2\cdot1=2$. So
+$$
+\varepsilon = (1+16x)+0-2 = -1+16x \equiv 16+16x \pmod{17}.
+$$
+Both routes give $\varepsilon=16+16x+0x^2+0x^3$ --- \textbf{matching exactly}, and this time genuinely exercising the vector inner product $\vec e^{\,T}\vec r$ and $\vec s^{\,T}\vec e_1$, not just a single scalar multiplication.
+\end{exbox}
+
+\begin{rmkbox}{What Changed Going From $k=1$ to $k=2$, and What Didn't}
+\textbf{What changed:} $A$ became an actual $2\times2$ matrix, not a single ring element; computing $\vec t$, $\vec u$, and $\vec s^{\,T}\vec u$ each involved a genuine sum of two ring products, not one; $A^T$ genuinely swapped off-diagonal entries rather than being a no-op. \textbf{What didn't change:} the cancellation argument itself, the shape of $\mathrm{Encode}/\mathrm{Decode}$, and --- most importantly --- the final outcome, decryption recovering the exact original message. This is the entire point of writing Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}'s derivation in vector notation from the start: it was already proven for general $k$, and this example is simply the first time $k>1$ made that generality visible rather than invisible.
+\end{rmkbox}
+
 \section{From CPA-Secure Encryption to a CCA-Secure KEM}
 \label{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}
 
@@ -161,8 +322,8 @@ Kyber.CPAPKE, as just described, is only secure against an attacker who never ge
 A KEM replaces ``encrypt an arbitrary message'' with a narrower, safer interface: $\mathrm{Encaps}(pk)$ outputs \emph{both} a ciphertext $c$ \emph{and} a fresh shared secret $K$; $\mathrm{Decaps}(sk, c)$ recovers the same $K$. Neither party ever chooses $K$ directly --- it's generated as a by-product of encapsulation. $K$ is then used as a symmetric key for the rest of the session (e.g., to key AES inside TLS).
 \end{defbox}
 
-\begin{rmkbox}{Chosen-Ciphertext Access Is Broader Than ``Man-in-the-Middle''}
-It's tempting to read ``CCA'' as ``secure against a man-in-the-middle,'' but that undersells the threat model, and it's worth being precise here before the defbox above becomes the FO transform below. What CCA security actually defends against is any setting where an attacker can submit ciphertexts of their own choosing --- not necessarily honestly produced by $\mathrm{Enc}$ --- to a decryption oracle and observe what comes back, whether that's the decrypted plaintext, an error, or just how long the operation took. A literal on-path man-in-the-middle is only \emph{one} way to get that access. Others include: a malicious server that a victim's client submits KEM ciphertexts against; one endpoint in a protocol who can replay or tamper with messages before they reach decryption; or, as Lesson 5 covers in detail, an attacker with physical access to a device and its side channels, with no network position at all. CPA security only ever assumes the weaker, more idealized attacker who watches outputs of $\mathrm{Enc}$ and never gets a decryption oracle in any of these forms --- a threat model too optimistic for essentially any real deployment, not merely one that happens to be vulnerable to MITM specifically. This is exactly why TLS, SSH, and every other real protocol require CCA security as a baseline, and why ML-KEM applies the FO transform below \emph{unconditionally} rather than as an optional hardening step reserved for ``risky'' settings.
+\begin{rmkbox}{Why ``Narrower'' Is Exactly the Point}
+It's worth pausing on why a KEM's interface is deliberately more restrictive than plain encryption. Plain public-key encryption lets the sender pick \emph{any} message $m$ and encrypt it --- which is exactly the freedom a CCA attacker abuses: they get to choose ciphertexts (or influence what gets encrypted) adversarially and watch how the receiver reacts. A KEM removes that freedom at the interface level: nobody, not even the honest sender, ever chooses $K$ directly. $K$ falls out as a side-effect of a randomized process the sender doesn't fully control. This isn't a limitation in practice --- Section~\ref{sec:L2:why-real-protocols-switch-to-symmetric} already established that real protocols only ever need a \emph{fresh, unpredictable, shared} key, never a specific chosen one --- but it is precisely the design space that makes the Fujisaki--Okamoto transform below possible.
 \end{rmkbox}
 
 \begin{rmkbox}{The Fujisaki--Okamoto (FO) Transform, Informally}
@@ -188,6 +349,14 @@ The key idea: instead of encrypting a message chosen by an attacker, \textbf{enc
 \label{fig:fo-transform}
 \end{figure}
 
+\begin{rmkbox}{Answering the Obvious Question: ``Why Not Just Error Out?''}
+A first instinct is that Decaps should simply return an error when the re-encryption check fails --- $c$ was malformed, so say so. The problem is exactly what an \emph{observable} error reveals. If ``error'' and ``success'' are distinguishable outcomes at all --- even just by whether a message arrives, without any timing information --- an attacker submitting many chosen, slightly-malformed ciphertexts learns one bit per query (``did this particular malformation get accepted or rejected?''), and Lesson 5's boundary-sweep attack (Section~\ref{sec:L5:a-chosen-ciphertext-oracle}) shows exactly how a string of such bits reconstructs the entire secret key. \textbf{Implicit rejection removes the distinguishable outcome entirely}: every ciphertext, valid or not, produces \emph{some} $K$ that looks equally random to an outside observer, with no error message, no missing response, and (if implemented correctly) no timing difference between the two branches. The attacker's oracle isn't just harder to use --- ideally, it doesn't exist at all.
+\end{rmkbox}
+
+\begin{rmkbox}{A Second Obvious Question: Doesn't the Receiver Just Waste Work Encrypting Twice?}
+Yes, deliberately. $\mathrm{Decaps}$ always performs a full CPAPKE decryption \emph{and} a full CPAPKE re-encryption, on \emph{every} ciphertext, whether it turns out to be valid or not --- there is no shortcut that skips the re-encryption for ``obviously malformed'' inputs, because deciding what counts as ``obviously malformed'' without doing the full check would itself leak information. The extra computation is the price of removing the observable branch described above. This is also exactly why Lecture 3's earlier preview flagged the FO check as one of the most attack-relevant few lines of any ML-KEM implementation: it is simultaneously the step that removes one entire attack surface (the plaintext/error oracle) and the step most likely to accidentally reopen a narrower version of it (via timing) if implemented carelessly --- Lesson 5 makes this precise.
+\end{rmkbox}
+
 \begin{previewbox}{Why This One Step Gets an Entire Attack Literature (Preview of Lesson 5)}
 Two properties make the FO re-encryption check a magnet for physical attacks. First, it is a \emph{comparison} whose outcome (match vs.\ mismatch) must never leak --- if an attacker can learn, via timing or power consumption, whether a chosen malformed ciphertext passed or failed this check, they can often turn many such queries into a full key-recovery attack (this is the shape of several published Kyber side-channel results). Second, the intermediate value $m'$ computed on line 1 (\emph{before} the check) briefly exists in memory even for a ciphertext that will ultimately be rejected --- if that intermediate computation itself leaks (e.g.\ through the CPAPKE decryption arithmetic touching the secret $\vec s$), the rejection branch doesn't help you, because the damage already happened one step earlier. Keep both of these observations in mind; Lesson 5 names specific published attacks that exploit exactly this structure.
 \end{previewbox}
@@ -196,6 +365,10 @@ Two properties make the FO re-encryption check a magnet for physical attacks. Fi
 \label{sec:L3:deployment-status}
 
 ML-KEM is not experimental. It was finalized by NIST as \textbf{FIPS 203} in August 2024, alongside ML-DSA (FIPS 204) and SLH-DSA (FIPS 205).\footnote{NIST, \emph{Module-Lattice-Based Key-Encapsulation Mechanism Standard}, FIPS 203, August 2024.} It is already deployed at scale: Chrome enabled hybrid ML-KEM by default in late 2024, Apple's iMessage uses it as part of PQ3, and the major cloud providers (AWS, Google Cloud, Microsoft Azure) support PQC-enabled TLS endpoints. In these hybrid deployments, ML-KEM typically runs \emph{alongside} a classical algorithm like X25519 rather than replacing it outright, so that security holds even if one of the two turns out to have an unforeseen weakness.
+
+\begin{rmkbox}{What ``Hybrid'' Means Concretely}
+A hybrid TLS handshake runs \emph{both} X25519 (classical elliptic-curve Diffie--Hellman) \emph{and} ML-KEM, and combines the two resulting shared secrets (typically by hashing them together) into the one symmetric key actually used. The security argument is a simple ``AND'': an attacker needs to break \emph{both} the classical problem \emph{and} the lattice problem to recover the final key, not just one or the other. This is a deliberate hedge against the (currently believed unlikely, but not zero-probability) event that a classical or quantum weakness is later found in ML-KEM specifically, while post-quantum cryptography as a field is still comparatively young. It is not a statement of doubt about the material in this lecture --- it's standard, conservative cryptographic engineering practice during any transition to a new primitive.
+\end{rmkbox}
 
 \section{Summary Table}
 \label{sec:L3:summary-table}
@@ -210,8 +383,11 @@ Public key $(A,\vec t)$ & An MLWE sample: $\vec t = A\vec s+\vec e$ \\
 Secret key $\vec s$ & The MLWE secret \\
 Ciphertext part $\vec u$ & A second, independent MLWE sample using fresh randomness $\vec r$ \\
 Ciphertext part $v$ & Public key mixed with $\vec r$, plus the message, plus noise \\
-Decryption & Noise cancels algebraically, leaving message $+$ small residual noise \\
+Decryption & Noise cancels algebraically, leaving message $+$ small residual noise $\varepsilon$ \\
+Compression ($d_u,d_v$) & Deliberate extra rounding error, traded for smaller ciphertexts \\
+Noise budget & Decryption succeeds iff every coefficient of $\varepsilon$ stays under $q/4$ \\
 CPAPKE $\to$ ML-KEM & Fujisaki--Okamoto transform: re-encrypt and check, or implicitly reject \\
+Hybrid deployment & ML-KEM run alongside a classical scheme (e.g.\ X25519), keys combined \\
 \hline
 \end{tabular}
 \end{center}
@@ -221,10 +397,12 @@ CPAPKE $\to$ ML-KEM & Fujisaki--Okamoto transform: re-encrypt and check, or impl
 
 \begin{exercisebox}{Homework Set}
 \begin{enumerate}[leftmargin=*]
-  \item Redo the compression worked example (Section~\ref{sec:L3:compression-trading-precision-for-size}) with $d=3$ instead of $d=2$ (still $q=17$). Is the recovered value after decompression closer to the original $9$ than it was with $d=2$? Explain why, in general, larger $d$ means smaller compression error.
+  \item Redo the compression worked example (Section~\ref{sec:L3:compression-trading-precision-for-size}) with $d=3$ instead of $d=2$, this time for $x=9$ (still $q=17$). Is the recovered value after decompression closer to the original $9$ than it was with $d=2$? Explain why, in general, larger $d$ means smaller compression error.
   \item In the noise-cancellation derivation (Section~\ref{sec:L3:why-decryption-works-the-noise-cancellat}), identify by name every term that ends up inside $\varepsilon$. Which of these terms come from key generation, and which come from encryption?
-  \item Using the worked example in Section~\ref{sec:L3:a-fully-worked-example-by-hand}, redo encryption with a \emph{different} message $m=(0,1,0,1)$, keeping the same $A$, $s$, $e$, $r$, $e_1$, $e_2$. Compute $u$, $v$, and confirm decryption recovers $(0,1,0,1)$.
+  \item Using the $k=1$ worked example in Section~\ref{sec:L3:a-fully-worked-example-by-hand}, redo encryption with a \emph{different} message $m=(0,1,0,1)$, keeping the same $A$, $s$, $e$, $r$, $e_1$, $e_2$. Compute $u$, $v$, and confirm decryption recovers $(0,1,0,1)$.
+  \item Using the $k=2$ worked example in Section~\ref{sec:L3:a-vector-worked-example}, redo encryption with fresh randomness $\vec r=(0,\,1)$ instead of $(1,\,x)$, keeping $\vec e_1=(0,1)$, $e_2=0$, and the same message $m=(1,1,0,0)$. Compute $\vec u$ and $v$, then decrypt and confirm you recover $(1,1,0,0)$ again. (Hint: with $r_1=0$, several terms drop out entirely --- use that to check your work as you go.)
   \item In your own words (4--5 sentences): why is it not enough for ML-KEM's Decaps to simply ``return an error'' when the re-encryption check fails, instead of the implicit-rejection mechanism in Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}? Think about what an attacker could learn from the mere presence or timing of an error message.
+  \item Using Section~\ref{sec:L3:dimension-bookkeeping}'s table, state the shape (matrix, vector, or scalar ring element, and how many entries) of each of the following ML-KEM-768 objects: $A$, $\vec s$, $\vec t$, $\vec u$, $v$. (Recall ML-KEM-768 uses $k=3$.)
   \item \textbf{Looking ahead:} skim the abstract of one published Kyber side-channel paper of your choosing (we will assign specific ones in Lesson 5) and identify which single line of the algorithms in Section~\ref{sec:L3:the-cpa-secure-core-kyber-cpapke} of this lecture it targets --- KeyGen, Enc, Dec, or the FO check in Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}.
 \end{enumerate}
 \end{exercisebox}
