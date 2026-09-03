@@ -1,0 +1,458 @@
+\documentclass[full-course-notes.tex]{subfiles}
+
+\begin{document}
+\lecturemeta{7}
+  {Transition Diagrams and Lexer Implementation Strategies: Ad Hoc vs.\ Table-Driven Scanning}
+  {CLO 1, CLO 3}
+  {\S3.4 (Recognition of Tokens: transition diagrams for \texttt{relop}, identifiers/keywords,
+   and whitespace; sketching a lexical analyzer directly from transition diagrams)}
+  {[ET] Engineering a Compiler, \S2.2--2.3 (hand-written scanners); [AP] Modern Compiler
+   Implementation, \S2.5}
+\lecshort{Transition Diagrams; Ad Hoc vs.\ Table-Driven Lexers}
+\setcounter{section}{0}
+\makelecturetitle
+
+\tikzset{
+  st/.style={draw, circle, minimum size=0.85cm, font=\small, fill=nuLight, draw=nuNavy},
+  fin/.style={st, double, double distance=2pt, fill=dbGreenBg, draw=dbGreen},
+  trans/.style={thick},
+}
+
+\begin{coreidea}[Lecture Roadmap]
+\begin{enumerate}
+  \item \textbf{Transition diagrams}: a lighter-weight, one-pattern-at-a-time cousin of the
+  DFAs built in Lecture~\ref{lec:6} -- exactly the tool DB \S3.4 uses to go from ``here is a
+  regular expression'' to ``here is code,'' worked through on \texttt{relop}, identifiers/keywords,
+  and whitespace.
+  \item \textbf{Retraction}: what it means for a state to need to ``look one character too far
+  ahead,'' and how that connects directly back to Lecture~\ref{lec:6}'s double-buffering
+  scheme.
+  \item \textbf{The ad hoc approach}: translating a set of transition diagrams straight into
+  hand-written scanning code, one routine per token category, the way many real compilers'
+  lexers are actually built.
+  \item \textbf{Ad hoc vs.\ table-driven, head to head}: the two genuinely different ways to
+  \emph{implement} a lexer -- hand-coded diagrams (today) vs.\ the generic, generated DFA
+  simulation Lecture~\ref{lec:6} already built in full -- and when a real engineer reaches for
+  each one.
+\end{enumerate}
+Lectures~\ref{lec:5}--\ref{lec:6} gave you the \emph{formal} machinery (NFA, subset
+construction, minimization) that a lexer-generator tool runs automatically. This lecture asks a
+different, very practical question: what if you are writing the scanner \emph{by hand}, without
+a generator at all? DB introduces transition diagrams for exactly this reason, and -- not
+coincidentally -- this is also where Project Phase~1 and Assignment~1 begin.
+\end{coreidea}
+
+\section{From Formal Automata to a Concrete Scanner}
+\label{sec:l7-motivation}
+
+\dbtag DB actually introduces transition diagrams (\S3.4) \emph{before} it formalizes NFAs and
+DFAs -- historically, hand-drawn diagrams like these are how lexers were built for years before
+subset construction and minimization were automated into generator tools. Having already done
+Lectures~\ref{lec:5}--\ref{lec:6} in full formal generality, we are in a good position to see
+transition diagrams for what they really are: \textbf{a deliberately simplified, by-hand DFA},
+drawn separately for \emph{one} token category at a time, skipping the machinery
+(\Sref{sec:l6-lexgen-combining}'s tagged-union combination, full subset construction) that a
+generator needs to merge \emph{many} categories into a single automaton automatically.
+
+\begin{coreidea}[Why Bother, Given Lecture~\ref{lec:6} Already Solved This?]
+Lecture~\ref{lec:6} answered ``how does a lexer-generator tool build a scanner automatically.''
+This lecture answers a different, equally real question: ``what does a programmer actually
+\emph{write}, by hand, when no generator tool is used at all?'' Both questions matter --
+production compilers are built both ways, sometimes even the \emph{same} compiler mixing both
+strategies for different parts of its lexer (\Sref{sec:l7-hybrid-reality} returns to this).
+Understanding the hand-written route also makes the generated route feel less like magic: every
+diagram in this lecture is exactly the kind of small DFA fragment that subset construction
+(\Sref{sec:l6-subset-construction}) would have produced for you, had you chosen to generate
+instead of hand-write it.
+\end{coreidea}
+
+\section{Transition Diagrams for Individual Token Patterns}
+\label{sec:l7-diagrams}
+
+\begin{defbox}{Transition Diagram (DB \S3.4 Sense)}
+A \textbf{transition diagram} here is a DFA-like picture built for \emph{one} token category at
+a time: circles for states, labeled arrows for the character(s) that trigger each transition,
+and one or more accepting states. It differs from the general DFAs of Lecture~\ref{lec:6} in
+one specific way: some accepting states are marked with a \textbf{$*$}, meaning ``this state
+accepts, but only after the scanner has already read one character \emph{too far} to know that
+-- that extra character must be pushed back before the token is considered complete.'' This
+extra bookkeeping step is called \textbf{retraction}, covered in \Sref{sec:l7-retraction}
+below.
+\end{defbox}
+
+\subsection{Worked Example: Identifiers and Keywords}
+\label{sec:l7-diagram-id}
+
+\dbtag The simplest and most-reused diagram: one letter, then any number of letters or digits
+-- exactly Lecture~\ref{lec:4}'s \texttt{id} regular definition
+(\Sref{sec:l4-worked-example-identifiers}), just drawn as a picture instead of written as a
+formula.
+
+\begin{center}
+\begin{tikzpicture}[node distance=2.6cm, >=Latex]
+  \node[st] (s0) {$0$};
+  \node[st, right=of s0] (s8) {$8$};
+  \node[fin, right=of s8] (s9) {$9^{*}$};
+  \draw[trans, ->] (-1.3,0) -- (s0);
+  \draw[trans, ->] (s0) -- node[above, font=\small]{letter} (s8);
+  \draw[trans, ->] (s8) to[out=135, in=225, looseness=6] node[left, font=\small]{letter, digit} (s8);
+  \draw[trans, ->] (s8) -- node[above, font=\small, align=center]{other\\(retract)} (s9);
+\end{tikzpicture}
+\end{center}
+
+\begin{examplebox}{Reading Diagram: Identifier/Keyword}
+State~8 self-loops on every letter or digit -- exactly maximal munch, one character at a time.
+The moment a character arrives that is \emph{neither} a letter nor a digit (a space, an
+operator, end of file), that character cannot be part of the identifier, so state~9 accepts --
+but state~9 is marked $*$, because the scanner already consumed that one extra, non-identifier
+character to \emph{discover} the identifier was finished. \Sref{sec:l7-retraction} explains
+exactly what happens to that character next. Once the lexeme is known, the reserved-word trick
+from \Sref{sec:l3-beyond-db} decides \texttt{ID} vs.\ a specific keyword token via a symbol-table
+lookup -- the diagram itself cannot tell \texttt{while} apart from \texttt{score}; only the
+lookup afterward can.
+\end{examplebox}
+
+\subsection{Worked Example: \texttt{relop} (DB's Classic Diagram)}
+\label{sec:l7-diagram-relop}
+
+\dbtag DB's single most-cited transition-diagram example: the six relational operators
+\texttt{<}, \texttt{<=}, \texttt{<>}, \texttt{=}, \texttt{>}, \texttt{>=}. It is worth tracing
+by hand once, since it is the clearest possible illustration of \emph{why} retraction is
+needed at all -- some branches consume exactly one extra character to confirm a longer match,
+others don't.
+
+\begin{center}
+\begin{tikzpicture}[node distance=2.55cm, >=Latex]
+  \node[st] (s0) {$0$};
+  \node[st, above right=1.5cm and 2.3cm of s0] (sA) {$A$};
+  \node[fin, right=of s0, yshift=0cm] (sB) {$B$};
+  \node[st, below right=1.5cm and 2.3cm of s0] (sC) {$C$};
+
+  \node[fin, right=2.55cm of sA] (sD) {$D$};
+  \node[fin, below=1.1cm of sD] (sE) {$E$};
+  \node[fin, below=1.1cm of sE] (sF) {$F^{*}$};
+
+  \node[fin, right=2.55cm of sC] (sG) {$G$};
+  \node[fin, below=1.1cm of sG] (sH) {$H^{*}$};
+
+  \draw[trans, ->] (-1.6,0) -- (s0);
+  \draw[trans, ->] (s0) -- node[above, sloped, font=\small]{$<$} (sA);
+  \draw[trans, ->] (s0) -- node[above, font=\small]{$=$} (sB);
+  \draw[trans, ->] (s0) -- node[below, sloped, font=\small]{$>$} (sC);
+
+  \draw[trans, ->] (sA) -- node[above, font=\small]{$=$} (sD);
+  \draw[trans, ->] (sA) -- node[right, font=\small]{$>$} (sE);
+  \draw[trans, ->] (sA) -- node[right, font=\small, align=center]{other\\(retract)} (sF);
+
+  \draw[trans, ->] (sC) -- node[above, font=\small]{$=$} (sG);
+  \draw[trans, ->] (sC) -- node[right, font=\small, align=center]{other\\(retract)} (sH);
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{State} & \textbf{Token, Attribute} & \textbf{Retract Needed?} \\
+\midrule
+$B$ & \texttt{RELOP}, EQ (\texttt{=}) & No -- \texttt{=} alone is never a prefix of a longer
+\texttt{relop} in this language, so the very next character read is already known to belong to
+whatever comes \emph{after} this token. \\
+$D$ & \texttt{RELOP}, LE (\texttt{<=}) & No -- both characters of the lexeme were consumed and
+both were needed. \\
+$E$ & \texttt{RELOP}, NE (\texttt{<>}) & No -- same reasoning as $D$. \\
+$F^{*}$ & \texttt{RELOP}, LT (\texttt{<}) & \textbf{Yes} -- reaching $F$ means the scanner read
+\texttt{<} \emph{and then} some other character (to rule out \texttt{<=} and \texttt{<>|}) that
+turned out not to belong to this token at all. \\
+$G$ & \texttt{RELOP}, GE (\texttt{>=}) & No. \\
+$H^{*}$ & \texttt{RELOP}, GT (\texttt{>}) & \textbf{Yes} -- same reasoning as $F$. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{examfocus}
+Notice \emph{exactly} which states need the asterisk, and why: only the two states ($F$, $H$)
+reached by taking the ``other'' branch out of a two-character lookahead need retraction. States
+reached by consuming a character that was itself part of a \emph{necessary}, meaningful
+transition ($B$, $D$, $E$, $G$) never need it. A very common exam mistake is marking every
+accepting state with a $*$ out of caution -- retraction is needed \emph{only} when a character
+was read purely to \emph{rule out} a longer match and then turned out not to belong to the
+token at all.
+\end{examfocus}
+
+\subsection{Worked Example: Whitespace}
+\label{sec:l7-diagram-whitespace}
+
+\dbtag One more diagram worth seeing explicitly, because it is the one diagram that produces
+\emph{no token at all} -- exactly \Sref{sec:l3-tokens-patterns-lexemes}'s ``housekeeping''
+point that whitespace and comments are consumed and discarded, not emitted as tokens.
+
+\begin{center}
+\begin{tikzpicture}[node distance=2.6cm, >=Latex]
+  \node[st] (w0) {$0$};
+  \node[fin] (w1) at ($(w0) + (2.6,0)$) {$1^{*}$};
+  \draw[trans, ->] (-1.3,0) -- (w0);
+  \draw[trans, ->] (w0) to[out=135, in=225, looseness=6] node[left, font=\small, align=center]{blank,\\tab,\\newline} (w0);
+  \draw[trans, ->] (w0) -- node[above, font=\small, align=center]{other\\(retract)} (w1);
+\end{tikzpicture}
+\end{center}
+
+\begin{examplebox}{Why Whitespace Still Needs Retraction}
+State~0 self-loops through any run of spaces, tabs, or newlines. The instant a non-whitespace
+character appears, that is exactly the retract situation again: the scanner has read one
+character belonging to the \emph{next} real token, purely to discover whitespace has ended.
+State $1^{*}$ ``accepts,'' but instead of emitting a token, the scanner simply \textbf{restarts}
+matching from state~0 of whichever diagram applies to the retracted character -- whitespace is
+the one pattern in a real lexer specification whose successful match produces zero tokens, not
+one.
+\end{examplebox}
+
+\section{Retraction and the Buffer, Revisited}
+\label{sec:l7-retraction}
+
+\dbtag Every $*$ in the diagrams above means the same concrete thing:
+\Sref{sec:l6-lexgen-maximal-munch}'s maximal-munch loop already described this exact situation
+generically (``keep advancing... roll back to the last remembered accepting position''), and
+\Sref{sec:l6-lexgen-buffering}'s double-buffering scheme is precisely what makes that rollback
+cheap. Nothing new is being invented here -- transition diagrams just make the \emph{single
+most common form} of that rollback (exactly one character of overshoot) visible and explicit,
+state by state, instead of leaving it implicit inside a generic simulation loop.
+
+\begin{coreidea}[Retraction, Concretely]
+Reaching a $*$ state means: move the \texttt{forward} pointer (\Sref{sec:l6-lexgen-buffering})
+back by exactly one position before recording where the lexeme ends. Because
+\Sref{sec:l6-lexgen-buffering}'s buffers keep recently-read characters in memory, this is a
+pointer decrement, not a re-read from disk -- exactly why double buffering was worth building
+in the first place. In hand-written, ad hoc code (\Sref{sec:l7-adhoc} below), this is often
+implemented even more directly: use a \textbf{non-consuming lookahead} (a \texttt{peekChar()}
+that reads the next character \emph{without} advancing the input pointer) instead of an
+advance-then-retract pair. The two are behaviorally identical -- ``peek, then only advance if
+the character turns out to belong to this token'' never overshoots in the first place, so
+there is nothing left to retract.
+\end{coreidea}
+
+\section{From Diagrams to Code: The Ad Hoc Approach}
+\label{sec:l7-adhoc}
+
+\dbtag With a transition diagram in hand for every token category, \textbf{ad hoc} lexer
+construction is exactly what the name suggests: translate each diagram directly into ordinary
+code, by hand, one routine (or one block of a larger routine) per category, dispatched by
+inspecting the first character of whatever remains in the input.
+
+\begin{defbox}{Ad Hoc Lexer}
+An \textbf{ad hoc lexer} is a hand-written scanner in which each transition diagram becomes an
+explicit block of code -- typically an \texttt{if}/\texttt{switch} dispatch on the first
+character, followed by a small loop or a short chain of character tests that walks that one
+diagram's states directly, with no shared, generic ``simulate a table'' loop underneath. The
+programmer, not a generator tool, is responsible for combining the diagrams (deciding dispatch
+order, handling the reserved-word trick, wiring in retraction) correctly.
+\end{defbox}
+
+\begin{examplebox}{A Small Ad Hoc Scanner, Sketched}
+The three diagrams from \Sref{sec:l7-diagrams} translate almost line for line:
+\begin{verbatim}
+Token getNextToken() {
+    skipWhitespace();          // Sec. l7-diagram-whitespace, inlined
+    c = peekChar();            // non-consuming lookahead (Sec. l7-retraction)
+
+    if (isLetter(c)) {         // Sec. l7-diagram-id
+        lexemeBegin = forward;
+        do { advance(); c = peekChar(); }
+        while (isLetter(c) || isDigit(c));
+        lexeme = getLexeme(lexemeBegin, forward);
+        if (isKeyword(lexeme))
+            return makeToken(keywordTokenFor(lexeme));
+        return makeToken(ID, installID(lexeme));
+    }
+
+    if (c == '<') {            // Sec. l7-diagram-relop, the '<' branch
+        advance();
+        if (peekChar() == '=') { advance(); return makeToken(RELOP, LE); }
+        if (peekChar() == '>') { advance(); return makeToken(RELOP, NE); }
+        return makeToken(RELOP, LT);   // F*/H*: peek already IS the retraction
+    }
+    if (c == '=') { advance(); return makeToken(RELOP, EQ); }
+    if (c == '>') {
+        advance();
+        if (peekChar() == '=') { advance(); return makeToken(RELOP, GE); }
+        return makeToken(RELOP, GT);
+    }
+
+    // ... one block per remaining category (NUM, LITERAL, ...) ...
+
+    reportLexicalError(c);
+}
+\end{verbatim}
+Notice the $F^{*}$/$H^{*}$ states from \Sref{sec:l7-diagram-relop} never actually call an
+explicit ``retract'' function here at all -- using \texttt{peekChar()} throughout means the
+input pointer only ever moves forward past a character once that character is confirmed to
+belong to the current token, so there is nothing to undo. This is the standard real-world way
+ad hoc scanners sidestep explicit retraction bookkeeping, exactly as
+\Sref{sec:l7-retraction}'s coreidea box described.
+\end{examplebox}
+
+\begin{examfocus}
+Be able to translate a small transition diagram (given to you on an exam) directly into
+pseudocode of this shape: one \texttt{if}/\texttt{switch} branch per outgoing edge from the
+start state, a loop for any self-loop, and a clear point where each accepting state either
+returns a token or (for whitespace) simply restarts the dispatch. This diagram-to-code
+translation is exactly what Assignment~1 and Project Phase~1 ask you to do by hand.
+\end{examfocus}
+
+\section{The Table-Driven Approach, Revisited}
+\label{sec:l7-tabledriven-recap}
+
+\dbtag Lecture~\ref{lec:6} already built this approach in full, so this section is a short
+recap, not new material: combine \emph{every} token pattern's NFA into one, via the tagged-union
+construction (\Sref{sec:l6-lexgen-combining}); run subset construction
+(\Sref{sec:l6-subset-construction}) and minimization (\Sref{sec:l6-minimization}) once, offline;
+encode the result as a transition table; and drive that table with \emph{one generic loop} --
+\Sref{sec:l6-lexgen-maximal-munch}'s maximal-munch simulation -- that has no idea, and does not
+need to know, how many token categories it is handling. A lexer-generator tool like Flex
+automates this entire pipeline (\Sref{sec:l6-lexgen-pipeline}) from a rules file you write, and
+never once produces or reasons about a hand-drawn diagram like today's.
+
+\begin{examfocus}
+Keep straight which lecture built \emph{which} half: Lecture~\ref{lec:6} built the
+\textbf{table-driven} half (one combined automaton, one generic simulation loop, machine-built
+via subset construction). \emph{This} lecture built the \textbf{ad hoc} half (many small,
+separately hand-drawn diagrams, each translated into its own bespoke code). Both are complete,
+correct ways to end up with a working lexer -- they differ in \emph{how} the lexer is
+constructed, not in what it ultimately does.
+\end{examfocus}
+
+\section{Ad Hoc vs.\ Table-Driven: A Head-to-Head Comparison}
+\label{sec:l7-comparison}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.45}
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+ & \textbf{Ad Hoc (this lecture)} & \textbf{Table-Driven (Lecture~\ref{lec:6})} \\
+\midrule
+\textbf{How it's built} & By hand: draw one diagram per token category, translate each into its
+own block of code & Automatically: combine all patterns' NFAs, run subset construction and
+minimization once \\
+\textbf{Combining many patterns} & The programmer's responsibility -- dispatch order,
+reserved-word handling, and retraction must all be gotten right by hand for \emph{every}
+diagram & Handled uniformly by the tagged-union construction
+(\Sref{sec:l6-lexgen-combining}) and rule-order tie-breaking
+(\Sref{sec:l6-lexgen-ties}) -- correct by construction \\
+\textbf{Adding a new token} & Write (and correctly integrate) a new block of code, ordered
+correctly relative to every existing block & Add one line to the rules file and regenerate --
+the tool re-derives the whole combined automaton \\
+\textbf{Performance} & Can be \emph{very} fast -- a human can special-case the hottest patterns
+(e.g.\ single-character operators) with no generic overhead at all & Also fast ($O(1)$ per
+character via table lookup, \Sref{sec:l6-nfa-vs-dfa-tradeoffs}), but pays for whatever the
+combined table's size turns out to be \\
+\textbf{Correctness guarantees} & None automatic -- a forgotten retraction, a keyword checked
+after (not before) the generic \texttt{ID} branch, or a missed edge case is a real, easy-to-make
+bug & Strong -- subset construction and minimization are provably correct algorithms; if the
+rules file is right, the generated scanner is right \\
+\textbf{Debuggability} & Ordinary source code -- step through it in any debugger, exactly like
+any other hand-written function & A generic loop over an opaque table -- debugging usually means
+inspecting \emph{table contents} and current state number, one level more abstract \\
+\textbf{Best fit} & Small, fixed, performance-critical token sets where hand-tuning pays off, or
+where no generator tool is available/desired & Larger or evolving token sets, and any situation
+where the specification (the rules file) should be the single source of truth \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{enrichment}[Extra Depth: The Hybrid Reality]
+\label{sec:l7-hybrid-reality}
+Just as Lecture~\ref{lec:1} showed that ``compiled vs.\ interpreted'' is rarely a pure either/or
+choice in practice (most real systems are hybrids), the same is true here. CPython's own
+tokenizer and V8's (Chrome/Node.js JavaScript engine) lexer are both, in large part,
+\textbf{hand-written} C/C++ code -- not output from Flex or a similar tool -- precisely because
+a hand-tuned fast path for the handful of hottest patterns (identifiers, common operators,
+string-literal boundaries) can outperform a fully generic table-driven loop, while still calling
+out to smaller, more mechanically-generated pieces (e.g.\ Unicode category tables) for the parts
+where hand-tuning would not pay off. GCC's own lexer has, at different points in its history,
+used both strategies. The lesson: ``ad hoc vs.\ table-driven'' is a real engineering choice with
+real trade-offs (as the table above lays out), not a solved question with one universally
+correct answer -- exactly why this course teaches both.
+\end{enrichment}
+
+\begin{coreidea}[Where This Fits: Project Phase~1 and Assignment~1]
+This lecture is deliberately timed to sit right before you start writing code of your own.
+\textbf{Assignment~1} (regular expressions and finite automata) and \textbf{Project Phase~1}
+(the lexer stage of your semester project, first due around Lecture~7 in the master course
+outline) both draw directly on today's material: you will draw transition diagrams for your own
+language's tokens, and then choose -- or be told to use -- one of the two implementation
+strategies above to turn those diagrams into a running scanner, before Lecture~\ref{lec:6}'s
+Opt.~1 hands-on session shows the alternative, generator-based route (Flex) side by side with
+what you just built by hand.
+\end{coreidea}
+
+\section{Self-Check Questions}
+\label{sec:l7-selfcheck}
+
+\begin{enrichment}[Practice -- Not Graded]
+\begin{enumerate}
+  \item Draw a transition diagram, in the style of \Sref{sec:l7-diagram-relop}, for a
+  hypothetical \texttt{arrow} token family: \texttt{-}, \texttt{->}, \texttt{--} (decrement).
+  Mark every state that needs retraction, and justify each marking.
+  \item For DB's \texttt{relop} diagram (\Sref{sec:l7-diagram-relop}), trace the input
+  \texttt{<>=} character by character. Which token is emitted first, and what happens to the
+  remaining \texttt{=}?
+  \item Explain, without saying ``because DB says so,'' why state $B$ (matching bare \texttt{=})
+  in \Sref{sec:l7-diagram-relop} never needs retraction, while states $F^{*}$ and $H^{*}$ always
+  do.
+  \item Translate the whitespace diagram (\Sref{sec:l7-diagram-whitespace}) into pseudocode in
+  the same style as \Sref{sec:l7-adhoc}'s worked example, and explain why it never calls
+  \texttt{makeToken(...)}.
+  \item A classmate's ad hoc lexer checks the generic identifier pattern \emph{before} checking
+  for specific keywords like \texttt{while}. What token does their lexer incorrectly emit for
+  the lexeme \texttt{while}, and how does \Sref{sec:l3-beyond-db}'s reserved-word trick fix
+  this, concretely, in code?
+  \item Using \Sref{sec:l7-comparison}'s comparison table, argue \emph{for} using an ad hoc
+  lexer for a small teaching language with 15 fixed token types, and separately argue
+  \emph{against} using ad hoc for a language whose token set is still actively evolving (like an
+  in-development scripting language). What changes between the two scenarios?
+  \item Explain concretely how using a non-consuming \texttt{peekChar()} (\Sref{sec:l7-retraction})
+  avoids ever needing an explicit ``move the pointer back one'' operation, even though every
+  $*$-marked state in this lecture's diagrams conceptually represents exactly that situation.
+\end{enumerate}
+\end{enrichment}
+
+\begin{takeaways}
+\begin{itemize}
+  \item A \textbf{transition diagram} is a small, by-hand DFA for \emph{one} token category;
+  states marked $*$ are exactly the states Lecture~\ref{lec:6}'s maximal-munch loop reaches by
+  reading one character past the true end of the token.
+  \item \textbf{Retraction} means giving that one overshot character back, so scanning can
+  resume from the right place -- cheap in practice because of Lecture~\ref{lec:6}'s
+  double-buffered input, and often sidestepped entirely in hand-written code by using a
+  non-consuming \texttt{peekChar()} lookahead instead.
+  \item DB's classic \texttt{relop} diagram is the cleanest worked illustration of \emph{when}
+  retraction is and isn't needed: only branches that read a character purely to \emph{rule out}
+  a longer match, and then discover it doesn't belong, need it.
+  \item The \textbf{ad hoc} approach translates each diagram directly into hand-written,
+  bespoke code -- fast and fully debuggable, but every bit of correctness (dispatch order,
+  keyword handling, retraction) is the programmer's own responsibility.
+  \item The \textbf{table-driven} approach (Lecture~\ref{lec:6}, in full) combines every pattern
+  into one automaton mechanically and drives it with one generic, provably-correct simulation
+  loop -- easier to extend and to trust, at the cost of being one level more abstract to debug.
+  \item Real production lexers (CPython, V8, historically GCC) often \textbf{mix both
+  strategies}, hand-tuning the hottest patterns while generating or table-driving the rest --
+  exactly the same "no single universally correct answer" lesson Lecture~\ref{lec:1} already
+  drew for compiled vs.\ interpreted execution.
+  \item This lecture is the direct on-ramp to \textbf{Assignment~1} and \textbf{Project
+  Phase~1}: drawing your own transition diagrams and choosing an implementation strategy for
+  your own language's tokens.
+\end{itemize}
+\end{takeaways}
+
+\section*{References for This Lecture}
+\begin{thebibliography}{99}
+\bibitem[DB]{db} Aho, A.~V., Lam, M.~S., Sethi, R., and Ullman, J.~D. \textit{Compilers:
+Principles, Techniques, and Tools}. 2nd~ed. Pearson, 2006.
+\bibitem[ET]{et} Cooper, K.~D. and Torczon, L. \textit{Engineering a Compiler}. 2nd~ed. Morgan
+Kaufmann, 2011.
+\bibitem[AP]{ap} Appel, A.~W. \textit{Modern Compiler Implementation in C/Java/ML}. Cambridge
+University Press, 2004.
+\end{thebibliography}
+
+\end{document}
