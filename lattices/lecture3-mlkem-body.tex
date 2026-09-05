@@ -147,7 +147,70 @@ The two copies of $\vec s^{\,T}A^T\vec r$ cancel exactly, using $(A\vec s)^T=\ve
 \subsection{The Noise Budget}
 \label{sec:L3:noise-budget-in-numbers}
 
-$\mathrm{Encode}$ places every message bit on one of two poles of $\mathbb{Z}_q$, $0$ for bit $0$ and $\lceil q/2\rceil$ for bit $1$ --- as far apart as the modulus allows. $\mathrm{Decode}$ simply asks which pole a coefficient is closer to. The two points exactly midway between the poles, at $q/4$ and $3q/4$, are the decision boundaries: crossing either one flips which bit $\mathrm{Decode}$ reports. A coefficient encoding bit $0$ therefore still decodes correctly as long as its noise $\varepsilon_i$ satisfies $|\varepsilon_i| < q/4$, keeping it on the near side of both boundaries; by the same symmetric argument around the other pole, a coefficient encoding bit $1$ tolerates the same margin. The bound $q/4$ is thus not an arbitrary safety number --- it is exactly half the gap between the two encoding poles. Once every coefficient of $\varepsilon$ stays under this bound, $\mathrm{Decode}$ recovers $m$ exactly.
+$\mathrm{Encode}$ places every message bit on one of two poles of $\mathbb{Z}_q$, $0$ for bit $0$ and $\lceil q/2\rceil$ for bit $1$ --- as far apart as the modulus allows. $\mathrm{Decode}$ simply asks which pole a coefficient is closer to. The two points exactly midway between the poles, at $q/4$ and $3q/4$, are the decision boundaries: crossing either one flips which bit $\mathrm{Decode}$ reports. A coefficient encoding bit $0$ therefore still decodes correctly as long as its noise $\varepsilon_i$ satisfies $|\varepsilon_i| < q/4$, keeping it on the near side of both boundaries; by the same symmetric argument around the other pole, a coefficient encoding bit $1$ tolerates the same margin. The bound $q/4$ is thus not an arbitrary safety number --- it is exactly half the gap between the two encoding poles. Once every coefficient of $\varepsilon$ stays under this bound, $\mathrm{Decode}$ recovers $m$ exactly. Figure~\ref{fig:L3:decode-circle} shows this on the toy ring $q=17$ used throughout this lecture's worked examples, where the two poles are $0$ and $\lceil17/2\rceil=9$ and the boundaries sit at $q/4=4.25$ and $3q/4=12.75$.
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.78, every node/.style={font=\small}]
+  \foreach \i in {0,...,16} {
+    \pgfmathsetmacro{\ang}{90-\i*(360/17)}
+    \pgfmathtruncatemacro{\cat}{(\i==0)?0:((\i==9)?1:((\i==13)?2:((\i==3)?3:(((\i>4)&&(\i<13))?5:4))))}
+    \ifcase\cat
+      \node[circle, draw, thick, fill=red!55, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, thick, fill=blue!55, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, fill=gray!35, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, very thick, fill=red!15, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, fill=red!15, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, fill=blue!15, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \fi
+  }
+  \pgfmathsetmacro{\boundang}{90-4.5*(360/17)}
+  \draw[dashed, gray] (0,0) -- (\boundang:2.65);
+  \node[gray, font=\tiny] at (\boundang:2.95) {\small $q/4$};
+  \draw[-{Latex[length=1.8mm]}, thick] (n0) to[bend left=30] node[midway, sloped, above, font=\tiny] {$+\varepsilon=+3$} (n3);
+\end{tikzpicture}
+\\[2pt]
+{\small \textbf{Decodes correctly.} $m_i'=3$: distance to the bit-$0$ pole ($0$) is $3$; distance to the bit-$1$ pole ($9$) is $6$. Still closer to $0$ --- $\mathrm{Decode}$ outputs $0$, since $|\varepsilon|=3<q/4\approx4.25$.}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.47\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.78, every node/.style={font=\small}]
+  \foreach \i in {0,...,16} {
+    \pgfmathsetmacro{\ang}{90-\i*(360/17)}
+    \pgfmathtruncatemacro{\cat}{(\i==0)?0:((\i==9)?1:((\i==13)?2:((\i==5)?3:(((\i>4)&&(\i<13))?5:4))))}
+    \ifcase\cat
+      \node[circle, draw, thick, fill=red!55, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, thick, fill=blue!55, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, fill=gray!35, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, very thick, fill=blue!15, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, fill=red!15, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \or
+      \node[circle, draw, fill=blue!15, minimum size=0.55cm, font=\tiny] (n\i) at (\ang:2.3) {\i};
+    \fi
+  }
+  \pgfmathsetmacro{\boundang}{90-4.5*(360/17)}
+  \draw[dashed, gray] (0,0) -- (\boundang:2.65);
+  \node[gray, font=\tiny] at (\boundang:2.95) {\small $q/4$};
+  \draw[-{Latex[length=1.8mm]}, thick] (n0) to[bend left=30] node[midway, sloped, above, font=\tiny] {$+\varepsilon=+5$} (n5);
+\end{tikzpicture}
+\\[2pt]
+{\small \textbf{Decodes incorrectly.} $m_i'=5$: distance to the bit-$0$ pole ($0$) is $5$; distance to the bit-$1$ pole ($9$) is only $4$. Now closer to $9$ --- $\mathrm{Decode}$ outputs $1$, a decryption failure on this coefficient, because $|\varepsilon|=5>q/4\approx4.25$ crossed the dashed boundary.}
+\end{minipage}
+\caption{Decoding a true bit-$0$ coefficient on $\mathbb{Z}_{17}$. Red nodes decode to $0$, blue nodes decode to $1$, gray is the exact tie at $13$; the bold red and blue nodes are $\mathrm{Encode}$'s two poles, $0$ and $9$. Both panels start at the same pole and add noise $\varepsilon$ --- the only difference is whether $\varepsilon$ stays under the dashed $q/4$ boundary (left) or crosses it (right).}
+\label{fig:L3:decode-circle}
+\end{figure}
 
 Real parameters stay far from this edge. Take ML-KEM-512 ($k=2$, $\eta_1=3$, $\eta_2=2$, $q=3329$, so $q/4\approx832$). Each coefficient of $\vec e,\vec r,\vec e_1$ is bounded by $\pm\eta_1=\pm3$, and $e_2$ by $\pm\eta_2=\pm2$, by construction of the centered binomial distribution. Each entry of $\varepsilon=\vec e^{\,T}\vec r+e_2-\vec s^{\,T}\vec e_1$ sums $n=256$ such small products across $k=2$ ring multiplications; summing hundreds of small, roughly independent, roughly zero-mean terms produces a typical magnitude that grows only with the square root of the number of terms, landing in the tens or low hundreds --- comfortably inside the $q/4\approx832$ margin. This concentration behavior is exactly why ML-KEM's per-ciphertext decryption-failure probability is kept below $2^{-100}$: the parameters $n,k,\eta_1,\eta_2,d_u,d_v$ are chosen with this square-root growth explicitly in mind. If $\varepsilon$'s coefficients happen to land unusually far from $0$ --- an accepted, carefully bounded event, not a flaw --- decryption outputs the wrong bit; some physical attacks work by deliberately inducing this failure and using the resulting pattern to leak information about $\vec s$ (Lesson 5).
 
