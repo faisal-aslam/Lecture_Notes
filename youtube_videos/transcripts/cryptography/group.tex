@@ -70,34 +70,16 @@
 \maketitle
 \vspace{-2em}
 
-\say{Hi everyone, welcome back. Today we're starting a brand new topic: \textbf{abstract algebra} --- and our very first stop is an object called a \textbf{group}.
+\say{Hi everyone, welcome back. Today we're starting a brand new topic: \textbf{abstract algebra} --- and our very first stop is an object called a \textbf{group}. Groups are used in cryptography, computer graphics, and coding theory. However, our main interest is in cryptography.
 
-Now, ``group'' is a word you already use in everyday English --- a group of friends, a group of students. Forget that meaning for the next twenty minutes. In mathematics, a group is a very precise object with a very short list of rules, and once you know those rules, you'll start noticing groups everywhere: in the symmetries of a snowflake, in the buttons of a Rubik's Cube, in the arithmetic your computer uses to keep your credit card safe online, and in the way a video game engine rotates a 3D character on screen.
-
-So here's the plan. First, I'll show you a couple of very concrete, very familiar situations. Then I'll show you that they all secretly share the exact same four-rule skeleton --- and that skeleton is what we'll call a group. Once we have the definition, we'll stress-test it with a bunch of examples, including a few that \emph{look} like they should be groups but aren't. And by the end, I'll show you why this 19th-century piece of ``pure'' math is the reason your online banking is secure today. Let's get into it.}
-
-\subsection*{Two familiar warm-ups before we get formal}
-
-\say{Before I throw a wall of symbols at you, let's play with two things you already understand.}
-
-\textbf{Warm-up 1: the clock.} \figdrawnote{a clock face with 12 at the top, and an arrow going from 10, forward 4 hours, landing on 2.}
-
-\say{Think about a 12-hour clock. If it's 10 o'clock now, and 4 hours pass, what time is it? It's 2 o'clock --- not 14 o'clock. We instinctively ``wrap around'' back to 1 whenever we pass 12. This wrap-around addition is sometimes called \textbf{clock arithmetic}, and mathematicians call it \textbf{addition modulo 12}. Notice something: no matter which two hours you add, you always land back on one of the 12 numbers on the clock face. Nothing ever ``escapes'' the clock.}
-
-\textbf{Warm-up 2: turning a square.} \figdrawnote{a square with corners labelled 1, 2, 3, 4; show it rotating 90°, 180°, 270°, and back to 0°.}
-
-\say{Now picture a square piece of cardboard on a table. Rotate it $90^\circ$, and it lands on top of its own outline again --- you can't tell it moved unless you were tracking the corner labels. You can rotate it by $0^\circ$, $90^\circ$, $180^\circ$, or $270^\circ$ and it always lands back exactly on itself. Rotate it by any \emph{other} angle, like $50^\circ$, and it sticks out --- it no longer matches its own outline. So out of all possible rotations, only four of them are ``symmetries'' of the square.}
-
-\engage{groupcol}{Pause and think:}{What do the clock and the rotating square have in common? In both cases we had a fixed collection of things (12 hours; 4 rotations), a way of combining two of them to get a third (add hours; do one rotation then another), and combining two things from the collection never produced something outside the collection. Keep that feeling in mind --- it's exactly what we're about to define.}
+So here's the plan of this video. First, I'll define the group and then provide many examples to make sure everything is clear. Let's get into it.}
 
 \section{Groups}
 \label{sec:L1:groups}
 
-\say{Alright, let's turn that intuition into a precise definition. This is the single most important definition in the entire course, so I want you to really sit with it.}
+\say{Alright, let's start with the definition.}
 
 A set $G$ together with a binary operation $*$ is called a \textbf{group}, written $(G, *)$. Here $*$ can be \emph{any} binary operation --- ordinary multiplication, addition, XOR, matrix multiplication, function composition, or even some strange custom-made rule you invented yourself, as long as it takes two elements of $G$ and produces a single output. Likewise the set $G$ can contain anything: numbers, vectors, matrices, polynomials, symmetries of a shape, or any custom-built objects at all. What makes $(G,*)$ a \emph{group} is not what the elements are, but whether the pair $(G,*)$ obeys the following four rules, called \textbf{axioms}.
-
-\say{Notice the shift in mindset here: we stop asking ``what \emph{is} this object?'' and start asking ``what \emph{rules} does it obey?''. That shift is the whole spirit of abstract algebra.}
 
 A group must satisfy all four of the following axioms:
 \begin{enumerate}[leftmargin=*, label=(G\arabic*)]
@@ -107,21 +89,7 @@ A group must satisfy all four of the following axioms:
   \item \textbf{Inverses:} for every $a \in G$, there exists $a^{-1} \in G$ such that $a * a^{-1} = a^{-1} * a = e$.
 \end{enumerate}
 
-\say{Let's translate each of these back into our two warm-ups, out loud, so the symbols don't feel scary.
-
-\textbf{Closure} for the clock says: whatever hour you land on after adding, it's still one of the 12 numbers on the clock face --- you never fall off the clock. For the square, closure says: doing one allowed rotation and then another allowed rotation always lands you on \emph{another} allowed rotation. You never end up in some weird crooked position.
-
-\textbf{Associativity} says grouping doesn't matter. If I do rotation $a$, then $b$, then $c$, it doesn't matter whether I think of it as ``($a$ then $b$) then $c$'' or ``$a$ then ($b$ then $c$)'' --- the cardboard square ends up in the same final position either way. This one is almost always true for the operations we care about, so we usually check it quickly and move on.
-
-\textbf{Identity} is the ``do nothing'' element. On the clock, adding $0$ leaves every hour unchanged. For the square, rotating by $0^\circ$ leaves it exactly where it was. Every group needs exactly one such ``do nothing'' element, and it has to work for every single element of the group, not just some of them.
-
-\textbf{Inverses} say every action can be undone \emph{using another action from the same set}. If you rotated the square by $90^\circ$, rotating it by $270^\circ$ brings it right back to where it started --- and $270^\circ$ is itself one of our four allowed rotations, so we didn't have to leave the group to undo the move.}
-
 Note that the identity element is common to \emph{every} element of the group, whereas each element of the group may have its own, possibly different, inverse. If, in addition to the four axioms above, the group's binary operation is also \textbf{commutative} --- that is, $a * b = b * a$ for all $a, b \in G$, so the order in which you combine two elements doesn't matter --- then the group is called an \textbf{abelian group}, named after the Norwegian mathematician Niels Henrik Abel.
-
-\say{One quick warning before we move on: \emph{not} every group is abelian. The clock and the square rotations both happen to be abelian, but hold that thought --- a couple of examples from now, we'll meet a group where order very much matters, and swapping the order gives you a completely different answer.}
-
-\engage{groupcol}{Pause and think:}{Is the set of full-size chess moves, with ``play move $a$ then move $b$'' as the operation, a group? What about shuffling a deck of cards, where the operation is ``do shuffle $a$ then shuffle $b$''? (Hint: think about closure and inverses separately --- one of these is much closer to being a group than the other.)}
 
 \subsection{Examples}
 Let's cement our understanding of groups with a range of examples --- including a few near-misses, because seeing \emph{why} something fails an axiom teaches you the axioms far better than only seeing successes ever could.
@@ -133,7 +101,9 @@ Let's cement our understanding of groups with a range of examples --- including 
 
   \item $(\mathbb{Z}, \times)$ --- integers under multiplication --- is \textbf{not} a group: $2$ has no inverse in $\mathbb{Z}$ (we'd need $1/2$, which isn't an integer). This fails axiom (G4). \say{So close, and yet so far --- closure, associativity, and identity ($1$) all hold. It's a single missing axiom that keeps this out of the club.}
 
-  \item \textbf{The clock, formally: $(\mathbb{Z}_{12}, +)$, the integers mod 12 under addition.} \figdrawnote{the numbers $0$ through $11$ arranged in a circle like a clock face, with $0$ where $12$ would normally be.} Here $\mathbb{Z}_{12} = \{0,1,2,\dots,11\}$, and $a+b$ means: add normally, then keep subtracting $12$ until the answer is back in $\{0,\dots,11\}$. So $10+4 = 14 \to 14-12 = 2$, matching our warm-up exactly. The identity is $0$, and the inverse of $a$ is $12-a$ (check: $10 + 2 = 12 \to 0$). This is an abelian group, and more generally $(\mathbb{Z}_n,+)$ is a group for \emph{every} whole number $n \ge 1$ --- these are called \textbf{cyclic groups}, and they quietly run underneath almost every hashing and error-detection scheme you've ever used.
+  \item \textbf{$(\mathbb{Z}_{12}, + (\mod 12))$, the integers mod 12 under addition.} The group contains integers $\{0,\dots,11\}$. The operation of addition is followed by a mod 12 operation. So $10+4 = 14 \equiv 2 \pmod{12}$, matching our warm-up exactly. The identity is $0$, and the inverse of $a$ is $12-a$ (check: $10 + 2 = 12 \to 0$). This is an abelian group, and more generally $(\mathbb{Z}_n,+)$ is a group for \emph{every} whole number $n \ge 1$ --- these are called \textbf{cyclic groups}, and they quietly run underneath almost every hashing and error-detection scheme you've ever used.
+
+  \item \textbf{$(\mathbb{Z}_{p} \setminus \{0\}, \times \pmod p)$, where $p$ is a prime number.} This is a group under multiplication. These groups have lots of applications in cryptography.
 
   \item \textbf{$3\times 3$ real matrices under addition, $(\mathbb{R}^{3\times 3}, +)$, is a group.} Adding two $3\times 3$ matrices gives another $3\times 3$ matrix (closure); matrix addition is associative; the identity is the all-zeros matrix $\mathbf{0}$; the inverse of $A$ is $-A$ (negate every entry). It's even abelian, since $A+B=B+A$ entrywise. Nothing about this is different in spirit from $(\mathbb{Z},+)$ --- just $9$ numbers moving in lockstep instead of $1$.
 
@@ -146,25 +116,14 @@ Let's cement our understanding of groups with a range of examples --- including 
   \item \textbf{Degree-$<n$ polynomials under addition form a group; under multiplication they do not.} Let $P_n = \{a_0+a_1x+\cdots+a_{n-1}x^{n-1} : a_i \in \mathbb{R}\}$ (real polynomials of degree strictly less than $n$). Under addition, $(P_n,+)$ is a group exactly like matrices under addition above: closed (adding two such polynomials keeps the degree below $n$), associative, identity is the zero polynomial, and the inverse of $p(x)$ is $-p(x)$. Under multiplication, it immediately fails on \emph{two} separate grounds: closure fails (multiplying two degree-$(n-1)$ polynomials can produce degree up to $2n-2$, which is no longer in $P_n$ at all), and even ignoring that, most individual polynomials have no multiplicative inverse within polynomials (e.g., there is no polynomial $q(x)$ with $x\cdot q(x) = 1$ for every $x$). \say{Hold on to this particular example --- one operation behaving like a group and the other one refusing to is exactly the gap that motivates our \emph{next} lecture, on a structure called a \textbf{ring}, where we finally allow two operations to coexist without demanding that both of them be full groups.}
 \end{itemize}
 
-\engage{groupcol}{Pause and think:}{Before reading on: is $(\mathbb{N}, +)$ --- the natural numbers $\{0,1,2,\dots\}$ under ordinary addition --- a group? Check all four axioms yourself. (Spoiler for after you've tried: closure, associativity, and identity all hold, with $e=0$; but inverses fail, since there is no natural number you can add to $3$ to get back to $0$. So $(\mathbb{N},+)$ is \emph{not} a group --- it's an example of a weaker structure called a \textbf{monoid}, which we may return to later.)}
 
 \subsection{How big is a group? A quick word on order}
 
-\say{One more piece of vocabulary before we move to applications. Some of our groups, like $\mathbb{Z}$ or $\mathbb{R}\setminus\{0\}$, have infinitely many elements. Others, like our clock group $\mathbb{Z}_{12}$ or the square's symmetry group $D_4$, have only finitely many. The number of elements in a group $G$ is called its \textbf{order}, written $|G|$. So $|\mathbb{Z}_{12}| = 12$ and $|D_4| = 8$. This single number turns out to control a surprising amount of a group's behavior, and it will come back again and again once we start talking about subgroups.}
+\say{One more piece of vocabulary before we move to applications. Some of our groups, like $\mathbb{Z}$ or $\mathbb{R}\setminus\{0\}$, have infinitely many elements. Others, like our modolus group $\mathbb{Z}_{12}$ or the square's symmetry group $D_4$, have only finitely many. The number of elements in a group $G$ is called its \textbf{order}, written $|G|$. So $|\mathbb{Z}_{12}| = 12$ and $|D_4| = 8$. This single number turns out to control a surprising amount of a group's behavior, and it will come back again and again once we start talking about subgroups.}
 
-\subsection{Why Groups Show Up Everywhere: Cryptography, Graphics, and Coding}
+\subsection{Why Groups Show Up Everywhere in Cryptography}
 
-\say{Let's close today's lecture by earning that promise from the intro: why does anyone outside a math department care about any of this?}
-
-\textbf{Cryptography.} Many classical cryptographic schemes --- Diffie--Hellman key exchange, ElGamal encryption, and elliptic-curve cryptography --- are built directly on top of group structure. Concretely, Diffie--Hellman works inside a group like $(\mathbb{Z}_p^*, \times)$, the nonzero numbers modulo a large prime $p$ under multiplication. Two people can each pick a secret exponent, publicly exchange $g^a \bmod p$ and $g^b \bmod p$, and each computes the same shared secret $g^{ab} \bmod p$ --- while an eavesdropper who only sees $g$, $g^a$, and $g^b$ is stuck with what's called the \textbf{discrete logarithm problem}: recovering $a$ from $g^a$ inside this group is believed to be computationally very hard. Elliptic-curve cryptography (the scheme protecting most of the internet's HTTPS traffic today) replaces $\mathbb{Z}_p^*$ with a cleverer group built from points on a curve, but the underlying idea --- a hard problem living inside a group --- is identical. Lattice-based cryptography, one of the leading candidates for staying secure against future quantum computers, instead builds on richer structures (rings and modules, coming in our next lecture), but a group is always the first layer underneath.
-
-\textbf{Computer graphics.} Every time a game engine rotates, translates, or scales a 3D model, it's composing elements of a group of transformations, usually represented as matrices, exactly like our $GL_3(\mathbb{R})$ example above. The fact that these transformations form a group --- every rotation can be undone by another rotation, and combining two transformations always yields a legal transformation --- is precisely why engines can chain transformations together (parent-to-child bone hierarchies in a character rig, camera movements, physics updates) without ever ``falling off'' into some invalid state.
-
-\textbf{Coding theory.} Error-detecting and error-correcting codes, like the ones that let a scratched CD or a noisy Wi-Fi signal still deliver the right data, are typically built on cyclic groups like our $(\mathbb{Z}_n,+)$ example, or on richer group-based structures. The wrap-around ``clock'' behavior we started with today literally underlies how checksums and parity bits are computed.
-
-\say{So: same four rules, three completely different industries. That's the payoff of abstract algebra --- learn the skeleton once, and you get to reuse it everywhere the skeleton shows up, instead of relearning ``clock arithmetic,'' ``matrix rotations,'' and ``checksum bits'' as three unrelated tricks.}
-
-\engage{groupcol}{Before next time:}{Try to find one more example of a group on your own --- it can come from a game, a puzzle, or something you use every day. Check all four axioms carefully, and see if you can decide whether it's abelian. Bring it to our next lecture, where we'll build on today's definition and meet \textbf{rings}: structures with \emph{two} operations, only one of which is required to behave like a full group.}
+Many classical cryptographic schemes --- Diffie--Hellman key exchange, ElGamal encryption, and elliptic-curve cryptography --- are built directly on top of group structure. Concretely, Diffie--Hellman works inside a group like $(\mathbb{Z}_p^*, \times)$, the nonzero numbers modulo a large prime $p$ under multiplication. Two people can each pick a secret exponent, publicly exchange $g^a \bmod p$ and $g^b \bmod p$, and each computes the same shared secret $g^{ab} \bmod p$ --- while an eavesdropper who only sees $g$, $g^a$, and $g^b$ is stuck with what's called the \textbf{discrete logarithm problem}: recovering $a$ from $g^a$ inside this group is believed to be computationally very hard. Elliptic-curve cryptography (the scheme protecting most of the internet's HTTPS traffic today) replaces $\mathbb{Z}_p^*$ with a cleverer group built from points on a curve, but the underlying idea --- a hard problem living inside a group --- is identical. Lattice-based cryptography, one of the leading candidates for staying secure against future quantum computers, instead builds on richer structures (rings and modules, coming in our next lecture), but a group is always the first layer underneath.
 
 \say{That's it for today. If any of the four axioms still feels shaky, rewind and try the clock and the square examples again with a pen in hand --- abstract algebra rewards you for getting your hands dirty with small, concrete examples before trusting the general definition. See you in the next one.}
 
