@@ -174,7 +174,8 @@ $\mathrm{Encode}$ places every message bit on one of two poles of $\mathbb{Z}_q$
   \pgfmathsetmacro{\boundang}{90-4.5*(360/17)}
   \draw[dashed, gray] (0,0) -- (\boundang:2.65);
   \node[gray, font=\tiny] at (\boundang:2.95) {\small $q/4$};
-  \draw[-{Latex[length=1.8mm]}, thick] (n0) to[bend left=30] node[midway, sloped, above, font=\tiny] {$+\varepsilon=+3$} (n3);
+  \pgfmathsetmacro{\anglandA}{90-3*(360/17)}
+  \draw[-{Latex[length=1.8mm]}, thick] (90:1.3) to[bend left=15] node[midway, sloped, above, font=\tiny] {$+\varepsilon=+3$} (\anglandA:1.3);
 \end{tikzpicture}
 \\[2pt]
 {\small \textbf{Decodes correctly.} $m_i'=3$: distance to the bit-$0$ pole ($0$) is $3$; distance to the bit-$1$ pole ($9$) is $6$. Still closer to $0$ --- $\mathrm{Decode}$ outputs $0$, since $|\varepsilon|=3<q/4\approx4.25$.}
@@ -203,7 +204,8 @@ $\mathrm{Encode}$ places every message bit on one of two poles of $\mathbb{Z}_q$
   \pgfmathsetmacro{\boundang}{90-4.5*(360/17)}
   \draw[dashed, gray] (0,0) -- (\boundang:2.65);
   \node[gray, font=\tiny] at (\boundang:2.95) {\small $q/4$};
-  \draw[-{Latex[length=1.8mm]}, thick] (n0) to[bend left=30] node[midway, sloped, above, font=\tiny] {$+\varepsilon=+5$} (n5);
+  \pgfmathsetmacro{\anglandB}{90-5*(360/17)}
+  \draw[-{Latex[length=1.8mm]}, thick] (90:1.3) to[bend left=15] node[midway, sloped, above, font=\tiny] {$+\varepsilon=+5$} (\anglandB:1.3);
 \end{tikzpicture}
 \\[2pt]
 {\small \textbf{Decodes incorrectly.} $m_i'=5$: distance to the bit-$0$ pole ($0$) is $5$; distance to the bit-$1$ pole ($9$) is only $4$. Now closer to $9$ --- $\mathrm{Decode}$ outputs $1$, a decryption failure on this coefficient, because $|\varepsilon|=5>q/4\approx4.25$ crossed the dashed boundary.}
