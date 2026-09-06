@@ -3,7 +3,11 @@ This lecture makes Module-LWE concrete. We fix parameters, define the compressio
 \section{Notation and Parameters}
 \label{sec:L3:recap-what-you-already-have}
 
-Module-LWE (Lecture 2, Section~\ref{sec:L2:module-lwe-the-middle-ground-kyber-and-d}) states that, for a small integer $k$ and $R_q = \mathbb{Z}_q[x]/(x^n+1)$, the pair $(\vec a, b = \langle \vec a,\vec s\rangle + e)$ is computationally indistinguishable from uniform random, for secret $\vec s \in R_q^k$ and small error $e$. ML-KEM (Kyber) is this object made concrete: $\vec a$ becomes a public $k\times k$ matrix $A$ of ring elements (one MLWE equation per row), $\vec s$ becomes the Kyber secret key, and $\vec t = A\vec s + \vec e$ becomes the Kyber public key. The table below fixes the correspondence between Lecture 2's generic notation and the names used from here on.
+Module-LWE (Lecture 2, Section~\ref{sec:L2:module-lwe-the-middle-ground-kyber-and-d}) states that, for a small integer $k$ and $R_q = \mathbb{Z}_q[x]/(x^n+1)$, the pair $(\vec a, b = \langle \vec a,\vec s\rangle + e)$ is computationally indistinguishable from uniform random, for secret $\vec s \in R_q^k$ and small error $e$. ML-KEM (Kyber) is this object made concrete: $\vec a$ becomes a public $k\times k$ matrix $A$ of ring elements (one MLWE equation per row), $\vec s$ becomes the Kyber secret key, and $\vec t = A\vec s + \vec e$ becomes the Kyber public key.
+
+The ``$/$'' in $R_q=\mathbb{Z}_q[x]/(x^n+1)$ is a \emph{quotient}, the same construction as $\mathbb{Z}_n=\mathbb{Z}/n\mathbb{Z}$ from Lecture 1, Section~\ref{sec:L1:cosets-and-quotient-groups-where-really} --- it has nothing to do with set subtraction ($\{a,b,c\}\setminus\{c\}$). $\mathbb{Z}/n\mathbb{Z}$ declares $n\equiv0$ and reduces every integer using that fact, leaving the remainders $\{0,\ldots,n-1\}$ as canonical representatives; $\mathbb{Z}_q[x]/(x^n+1)$ does the same thing one level up, with polynomials in place of integers. It declares $x^n+1\equiv0$ --- equivalently $x^n\equiv-1$ --- and reduces every polynomial product using that rule, leaving the degree-${<}n$ polynomials as canonical representatives; two polynomials are considered equal exactly when their difference is a multiple of $(x^n+1)$, just as two integers are equal mod $n$ exactly when their difference is a multiple of $n$. This is precisely the ``$x^n\equiv-1$'' wraparound step used in every ring-multiplication example throughout this lecture: it is not an ad hoc trick, it is what the quotient notation means.
+
+The table below fixes the correspondence between Lecture 2's generic notation and the names used from here on.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.25}
@@ -92,7 +96,7 @@ Adding rounding error on purpose seems to fight Lecture 2's central point, that 
 \section{The CPA-Secure Scheme: Kyber.CPAPKE}
 \label{sec:L3:the-cpa-secure-core-kyber-cpapke}
 
-We now write out the scheme itself, at the module level, using Lecture 2's notation directly. $A^T$ denotes the transpose of the matrix of ring elements, and all arithmetic below is in $R_q$.
+\emph{CPA} stands for \textbf{chosen-plaintext attack} (Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu} gives the full threat-model definition, alongside its stronger counterpart, \emph{CCA}, chosen-ciphertext attack); ``CPA-secure'' means secure against an attacker limited to that weaker threat model. We now write out the scheme itself, at the module level, using Lecture 2's notation directly. $A^T$ denotes the transpose of the matrix of ring elements, and all arithmetic below is in $R_q$.
 
 \begin{algorithm}[ht]
 \caption{Kyber.CPAPKE.KeyGen}
