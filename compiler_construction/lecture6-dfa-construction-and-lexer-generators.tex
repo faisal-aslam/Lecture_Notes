@@ -562,8 +562,131 @@ Be able to explain \emph{why} double buffering (rather than a single buffer, or 
 character at a time from the OS) is necessary specifically because of maximal munch's
 ``read-ahead-then-roll-back'' behavior -- this input-buffering material is frequently tested as
 a short conceptual question (``why can't a lexer just read one character at a time from disk?'')
-rather than as a diagram-drawing exercise.
+rather than as a diagram-drawing exercise. A closely related follow-up, made precise in
+\Sref{sec:l6-lexgen-buffer-cycle} just below: the two buffers are \emph{reused in rotation} as
+scanning proceeds through a file of any length, not permanently assigned to ``the first half''
+and ``the second half'' of the source file.
 \end{examfocus}
+
+\subsubsection{The Two Buffers Are Recycled, Not Fixed Halves of the File}
+\label{sec:l6-lexgen-buffer-cycle}
+
+\dbtag It is tempting to picture ``Buffer 1'' and ``Buffer 2'' as two permanent halves of the
+source file -- the first half of the file lives in Buffer 1, the second half in Buffer 2, and
+that's the end of the story. That picture is wrong for any file longer than two blocks, and the
+correct picture is what actually makes double buffering useful for files of \emph{any} length.
+
+\begin{coreidea}[The Buffers Cycle: 1, 2, 1, 2, \dots]
+Buffer 1 and Buffer 2 are just two fixed physical slots in memory. As \texttt{forward} marches
+through the file, the buffer it is \emph{not} currently reading is the one that gets refilled
+with the \emph{next} unread chunk of the file -- regardless of whether that buffer's physical
+slot is labeled ``1'' or ``2''. Concretely:
+\begin{enumerate}
+  \item \texttt{forward} scans through Buffer 1's current contents.
+  \item It hits Buffer 1's sentinel $\Rightarrow$ Buffer 2 is (re)filled with the \emph{next}
+  chunk of the file, and \texttt{forward} continues into Buffer 2.
+  \item \texttt{forward} scans through Buffer 2's current contents.
+  \item It hits Buffer 2's sentinel $\Rightarrow$ Buffer 1 is now \emph{overwritten} with the
+  chunk \emph{after that} and \texttt{forward} continues into Buffer 1 again -- physically the
+  same memory slot as step 1, but holding entirely new characters.
+  \item Repeat: 1, 2, 1, 2, \dots for as long as the file has more characters left.
+\end{enumerate}
+So ``the other buffer'' at any moment just means ``the one \texttt{forward} is not currently
+in'' -- it is always safe to overwrite, because \texttt{forward} has already moved past it and
+(as the safety condition below explains) so has \texttt{lexemeBegin}.
+\end{coreidea}
+
+\begin{center}
+\resizebox{0.85\textwidth}{!}{%
+\begin{tikzpicture}[
+  buf/.style={draw, thick, rounded corners, minimum height=1.0cm, minimum width=3.6cm, align=center, font=\small, fill=nuLight, draw=nuNavy},
+  sen/.style={draw, thick, minimum height=1.0cm, minimum width=0.7cm, align=center, font=\scriptsize, fill=examRedBg, draw=examRed},
+  lbl/.style={font=\scriptsize, align=center},
+  >=Latex
+]
+  \node[buf] (b1a) at (0,0)   {Buffer 1\\\scriptsize(chunk $k$)};
+  \node[sen]  (s1a) at (2.15,0) {eof};
+  \node[buf] (b2a) at (4.9,0) {Buffer 2\\\scriptsize(chunk $k{+}1$)};
+  \node[sen]  (s2a) at (7.05,0) {eof};
+
+  \node[buf, fill=dbGreenBg, draw=dbGreen] (b1b) at (0,-3.6)   {Buffer 1\\\scriptsize(chunk $k{+}2$,\\overwritten)};
+  \node[sen]  (s1b) at (2.15,-3.6) {eof};
+  \node[buf] (b2b) at (4.9,-3.6) {Buffer 2\\\scriptsize(chunk $k{+}1$,\\unchanged)};
+  \node[sen]  (s2b) at (7.05,-3.6) {eof};
+
+  \node[lbl] (lab1) at (3.5,-1.3) {forward hits Buf.\,1's sentinel;\\fill Buf.\,2 with chunk $k{+}1$};
+  \node[lbl] (lab2) at (3.5,-2.3) {forward hits Buf.\,2's sentinel;\\\emph{overwrite} Buf.\,1 with chunk $k{+}2$};
+
+  \draw[->, thick] (s1a.south) to[out=250,in=140] (lab1.west);
+  \draw[->, thick] (lab1.east) to[out=40,in=110] (b2a.south);
+  \draw[->, thick] (s2a.south) to[out=280,in=40] (lab2.east);
+  \draw[->, thick] (lab2.west) to[out=220,in=50] (b1b.north east);
+\end{tikzpicture}}
+\end{center}
+\begin{center}
+\small\textit{Top row: scanning chunk $k$ in Buffer 1, chunk $k{+}1$ already waiting in Buffer
+2. Bottom row: once \texttt{forward} has moved into Buffer 2, Buffer 1 is free and gets
+overwritten with chunk $k{+}2$ -- the \emph{same physical slot}, new content. The cycle is
+1, 2, 1, 2, \dots, not ``first half, second half.''}
+\end{center}
+
+\begin{defbox}{The One Safety Condition}
+A buffer may only be overwritten once \emph{both} \texttt{forward} \emph{and}
+\texttt{lexemeBegin} have moved past it -- if \texttt{lexemeBegin} (marking a match still being
+rolled back to) were still sitting inside a buffer, overwriting it would destroy data a rollback
+still needs. In practice this is never a real constraint: buffers are a full disk block (e.g.\
+4~KB), and no realistic single lexeme spans anywhere near that much source text, so
+\texttt{lexemeBegin} is always still within the buffer \texttt{forward} currently occupies, or
+at worst the one just before it -- never further back than that. (Lecture~\ref{lec:7}'s
+treatment of retraction, \Sref{sec:l7-retraction}, is the sharpest illustration of this: a
+retraction only ever steps \texttt{forward} back by \emph{one} character, so it can never need
+to reach further back than the immediately preceding buffer.)
+\end{defbox}
+
+\begin{examplebox}{Worked Trace: A Token Straddling the Buffer Boundary}
+To see \emph{why} the cycle -- and not just ``two buffers exist'' -- is the point, trace
+scanning \texttt{x<=10;} with a deliberately tiny buffer size of \textbf{2 characters} (real
+buffers hold thousands; 2 is chosen purely so the boundary shows up almost immediately). Assume
+the DFA recognizes \texttt{RELOP} tokens \texttt{<} and \texttt{<=} (as in
+\Sref{sec:l6-lexgen-maximal-munch}'s earlier \texttt{<=} example) and \texttt{NUM} for digit
+sequences.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Step} & \textbf{Buffer contents} & \textbf{What happens} \\
+\midrule
+1 & Buf.\,1 = \texttt{x<|eof} & \texttt{forward} reads \texttt{x} (an \texttt{ID} on its own),
+then \texttt{<} -- already an accepting \texttt{RELOP} (\texttt{LT}); remember this position. \\
+2 & Buf.\,1 sentinel hit & Not true EOF, just Buf.\,1's end -- \textbf{fill Buf.\,2} with the
+next chunk, \texttt{=1}. \texttt{forward} continues, now physically inside Buf.\,2. \\
+3 & Buf.\,2 = \texttt{=1|eof} & \texttt{forward} reads \texttt{=} -- still a valid transition,
+to the \texttt{LE} accepting state (a \emph{longer} match than \texttt{LT}); update the
+remembered position to \emph{here}, right at the Buf.\,1/Buf.\,2 boundary. \\
+4 & & \texttt{forward} reads \texttt{1} -- no transition from \texttt{LE}. \textbf{Stop.} Roll
+\texttt{forward} back to the remembered position (right after \texttt{=}, i.e.\ Buf.\,2
+position 0). Emit \texttt{<LE, -->}. \texttt{lexemeBegin} jumps to Buf.\,2 position 1
+(the \texttt{1}). \\
+5 & Buf.\,2 sentinel hit & \texttt{forward} re-reads \texttt{1} (start of a \texttt{NUM}),
+then hits Buf.\,2's sentinel. Since \texttt{lexemeBegin} has already moved past all of Buf.\,1's
+old content, \textbf{it is now safe to overwrite Buf.\,1} with the next chunk, \texttt{0;}.
+\texttt{forward} continues, wrapping back into Buf.\,1 -- same physical slot as step 1, brand
+new characters. \\
+6 & Buf.\,1 = \texttt{0;|eof} (new) & \texttt{forward} reads \texttt{0} -- extends the
+\texttt{NUM} match to \texttt{10}. Reads \texttt{;} -- no transition. Stop, roll back, emit
+\texttt{<NUM, 10>}. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+Two things this trace makes concrete: first, the \texttt{<=} token's two characters came from
+\emph{two different physical buffers} (\texttt{<} from Buf.\,1, \texttt{=} from Buf.\,2), and
+rolling \texttt{forward} back one position across that exact boundary was still just a pointer
+move -- nothing was re-read from disk. Second, Buf.\,1 gets reused (step 5$\to$6) for entirely
+new characters (\texttt{0;}) once scanning has moved on -- confirming the 1, 2, 1 cycle, not a
+fixed first-half/second-half split.
+\end{examplebox}
 
 \subsection{Putting It All Together: The Generic Lexer-Generator Pipeline}
 \label{sec:l6-lexgen-pipeline}
@@ -643,6 +766,9 @@ weighing that choice honestly against everything built here.
   \item Explain why a lexer cannot safely process input one character at a time, read directly
   from disk on every single character, given how maximal munch works -- and explain concretely
   what a sentinel character saves the scanner's inner loop from having to do on every iteration.
+  \item A file is 10 KB long and each buffer holds 4 KB. In terms of the 1, 2, 1, 2, \dots
+  cycle from \Sref{sec:l6-lexgen-buffer-cycle}, which buffer holds the \emph{final} chunk of the
+  file, and how many times in total does each physical buffer get filled?
 \end{enumerate}
 \end{enrichment}
 
@@ -668,7 +794,11 @@ weighing that choice honestly against everything built here.
   broken by whichever pattern was listed first.
   \item \textbf{Double buffering with sentinels} is what makes maximal munch's read-ahead
   practical: rollback becomes a cheap pointer move within already-buffered memory, and the
-  sentinel collapses the scanner's per-character bounds check into a single, rare-case test.
+  sentinel collapses the scanner's per-character bounds check into a single, rare-case test. The
+  two physical buffers are \textbf{reused in rotation} (1, 2, 1, 2, \dots) as scanning proceeds
+  through a file of any length -- not permanently assigned to the file's first and second
+  halves -- and a buffer is only ever overwritten once both \texttt{forward} and
+  \texttt{lexemeBegin} have moved past it.
   \item This lecture completes Lecture~\ref{lec:3}'s original big-picture promise in full:
   regular expression $\to$ NFA $\to$ DFA $\to$ minimized DFA $\to$ transition table $\to$
   working, table-driven, maximal-munch lexer -- every arrow now built, worked by hand, and tied

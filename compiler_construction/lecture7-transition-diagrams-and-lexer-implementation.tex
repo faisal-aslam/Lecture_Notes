@@ -232,6 +232,15 @@ the character turns out to belong to this token'' never overshoots in the first 
 there is nothing left to retract.
 \end{coreidea}
 
+\begin{examfocus}
+Retraction is also the cleanest illustration of \Sref{sec:l6-lexgen-buffer-cycle}'s safety
+condition for reusing a buffer. Every retraction in this lecture steps \texttt{forward} back by
+exactly \emph{one} character, so \texttt{lexemeBegin} is never more than one character behind
+the last-read position -- meaning it can never sit further back than the buffer immediately
+before the one \texttt{forward} currently occupies. That is exactly why it is always safe to
+have already overwritten anything two or more buffers back by the time a retraction happens.
+\end{examfocus}
+
 \section{From Diagrams to Code: The Ad Hoc Approach}
 \label{sec:l7-adhoc}
 
