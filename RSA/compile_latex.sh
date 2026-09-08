@@ -44,9 +44,16 @@ if [ $CLEAN_ONLY -eq 1 ]; then
     echo "Clean completed. Exiting."
     exit 0
 fi
-# Compile twice
-echo "Compiling $1 (first pass)..."
+# Three passes: this project uses xr-hyper for cross-lecture \ref's plus
+# ordinary forward/backward \ref's within a single lecture, and on a cold
+# build (no .aux yet) that combination can need one pass more than the
+# usual LaTeX "compile twice" rule of thumb to fully settle. A 3rd pass
+# is cheap and guarantees every \ref/\label is resolved rather than
+# leaving an occasional "??" in the PDF after a from-scratch build.
+echo "Compiling $1 (pass 1/3)..."
 pdflatex -interaction=nonstopmode "$1"
-echo "Compiling $1 (second pass)..."
+echo "Compiling $1 (pass 2/3)..."
+pdflatex -interaction=nonstopmode "$1"
+echo "Compiling $1 (pass 3/3)..."
 pdflatex -interaction=nonstopmode "$1"
 echo "Done! Output file: ${BASENAME}.pdf"
