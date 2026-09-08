@@ -1,21 +1,20 @@
 \vspace{0.5cm}
-\begin{keybox}{Lecture Roadmap}
+\subsection*{Roadmap}
 \begin{enumerate}[label=(\arabic*)]
 \item Wiener's Attack: recovering a small private exponent $d$ from $(n,e)$ alone, via continued fractions
 \item Håstad's Broadcast Attack: recovering $m$ from low-exponent encryptions to multiple recipients, via CRT
 \item Common Modulus Attack: breaking RSA when two parties share $n$ but use different, coprime exponents
 \item Cycling Attack: a conceptual (impractical) attack via the multiplicative order of $c$
 \item The Franklin--Reiter Related-Message Attack: breaking two related plaintexts under the same low exponent, via polynomial GCD
-\item Coppersmith's Method: an overview of small-root finding via lattice reduction — the bridge back to your lattice lectures
+\item Coppersmith's Method: an overview of small-root finding via lattice reduction (the LLL algorithm)
 \end{enumerate}
-\textbf{What every attack in this lecture has in common:} none of them factor $n$. Each exploits a specific way RSA was \emph{used} — a too-small $d$, a too-small $e$ combined with related or repeated messages, exponent/modulus reuse, or the sheer algebraic structure of modular exponentiation. This is the point made in Lesson 7: breaking RSA is not the same as solving the RSA problem in general, and it is very much not the same as factoring.
-\end{keybox}
+\textbf{What every attack in this lecture has in common:} none of them factor $n$. Each exploits a specific way RSA was \emph{used} — a too-small $d$, a too-small $e$ combined with related or repeated messages, exponent/modulus reuse, or the sheer algebraic structure of modular exponentiation. This is the point made in Lesson 1: breaking RSA is not the same as solving the RSA problem in general, and it is very much not the same as factoring.
 
 \newpage
 \section{Wiener's Attack: Small Private Exponent}
 
 \subsection{Motivation}
-CRT-RSA decryption (Lesson 7, Section~2.3) is faster with smaller $d$. This creates a temptation: why not simply choose a small $d$ to speed up decryption, and derive $e = d^{-1} \bmod \varphi(n)$ afterward? Wiener showed in 1990 that this is catastrophic.
+CRT-RSA decryption (Lesson 1, Section~\ref{sec:crt-speedup}) is faster with smaller $d$. This creates a temptation: why not simply choose a small $d$ to speed up decryption, and derive $e = d^{-1} \bmod \varphi(n)$ afterward? Wiener showed in 1990 that this is catastrophic.
 
 \subsection{Continued Fractions Refresher}
 
@@ -38,9 +37,7 @@ h_i = a_i h_{i-1} + h_{i-2}, \qquad k_i = a_i k_{i-1} + k_{i-2}, \qquad (h_{-1}{
 If $\left|\frac{x}{y} - \frac{h}{k}\right| < \frac{1}{2k^2}$, then $\frac{h}{k}$ is a convergent of the continued fraction expansion of $\frac{x}{y}$.
 \end{theorem}
 
-\begin{keybox}{Why this matters for RSA}
-This theorem is an \emph{efficient search tool}: instead of guessing $\frac{h}{k}$ among astronomically many fractions, if we know $\frac{h}{k}$ is a sufficiently good rational approximation of some known quantity $\frac{x}{y}$, it is \emph{guaranteed} to appear among the (only $O(\log y)$ many) convergents — which we can compute quickly via the Euclidean algorithm.
-\end{keybox}
+\medskip\noindent\textbf{Why this matters for RSA.} This theorem is an \emph{efficient search tool}: instead of guessing $\frac{h}{k}$ among astronomically many fractions, if we know $\frac{h}{k}$ is a sufficiently good rational approximation of some known quantity $\frac{x}{y}$, it is \emph{guaranteed} to appear among the (only $O(\log y)$ many) convergents — which we can compute quickly via the Euclidean algorithm.
 
 \subsection{Wiener's Theorem}
 
@@ -83,9 +80,7 @@ Let $p = 1223$, $q = 1987$, so $n = 2{,}430{,}101$ and $\varphi(n) = 2{,}426{,}8
 Its convergents $h_i/k_i$ include (among others) $\frac{22}{25}$. Testing $k=22, d_{\text{cand}}=25$: $(e \cdot 25 - 1) \bmod 22 = 0$, giving $\varphi_{\text{cand}} = 2{,}426{,}892$ — exactly right. Solving the resulting quadratic for $p,q$ recovers $p=1223, q=1987$ \textbf{exactly}. The attacker recovered the \emph{entire private key} — not just $d$, but the factorization of $n$ itself — using only the public key $(n,e)$ and a handful of Euclidean-algorithm steps.
 \end{example}
 
-\begin{warnbox}{Practical consequence}
-\textbf{Never} choose $d$ for efficiency and derive $e$ afterward. Standard practice is the reverse: fix a large, well-understood $e$ (e.g., $65537$) and compute $d = e^{-1} \bmod \varphi(n)$, which is essentially always large. If CRT-RSA speed is the actual goal, achieve it via the CRT decomposition of Lesson 7 (Section 2.3) instead — that optimization does not shrink $d$ itself, only the size of the exponents used \emph{internally} during decryption.
-\end{warnbox}
+\medskip\noindent\textbf{Practical consequence.} \textbf{Never} choose $d$ for efficiency and derive $e$ afterward. Standard practice is the reverse: fix a large, well-understood $e$ (e.g., $65537$) and compute $d = e^{-1} \bmod \varphi(n)$, which is essentially always large. If CRT-RSA speed is the actual goal, achieve it via the CRT decomposition of Lesson 1 (Section~\ref{sec:crt-speedup}) instead — that optimization does not shrink $d$ itself, only the size of the exponents used \emph{internally} during decryption.
 
 \newpage
 \section{Håstad's Broadcast Attack}
@@ -101,7 +96,7 @@ If $m < \min(n_1,n_2,n_3)$, an eavesdropper who observes $c_1,c_2,c_3$ (and the 
 \end{theorem}
 
 \begin{proof}[Proof idea]
-By CRT (Lesson 7, Theorem on CRT), the system $x \equiv c_i \pmod{n_i}$ for $i=1,2,3$ has a unique solution $C$ modulo $N = n_1 n_2 n_3$, computable directly from the public $c_i, n_i$ values. Since $m^3 \equiv c_i \equiv C \pmod{n_i}$ for all $i$, and $m^3 < N$ (because $m < \min n_i \le \sqrt[3]{N}$ roughly, precisely because $m^3 < n_1n_2n_3=N$), we conclude $C = m^3$ \emph{exactly as an integer}, not merely modulo $N$. An ordinary integer cube root recovers $m$.
+By CRT (Lesson 1, Theorem~\ref{thm:crt}), the system $x \equiv c_i \pmod{n_i}$ for $i=1,2,3$ has a unique solution $C$ modulo $N = n_1 n_2 n_3$, computable directly from the public $c_i, n_i$ values. Since $m^3 \equiv c_i \equiv C \pmod{n_i}$ for all $i$, and $m^3 < N$ (because $m < \min n_i \le \sqrt[3]{N}$ roughly, precisely because $m^3 < n_1n_2n_3=N$), we conclude $C = m^3$ \emph{exactly as an integer}, not merely modulo $N$. An ordinary integer cube root recovers $m$.
 \end{proof}
 
 \begin{example}[Håstad's attack, $e=3$, fully worked]
@@ -116,9 +111,7 @@ An eavesdropper computes $N = n_1n_2n_3 = 30{,}808{,}063$ and solves the CRT sys
 The identical-message case above is the simplest illustration. If instead each recipient gets a \emph{linearly related} message (e.g., $m_i = a_i m + b_i$ for known public $a_i,b_i$ — a common real-world pattern, since padding schemes or per-recipient headers often relate messages this way), the same underlying idea extends via a more general CRT-plus-resultant construction. This generalization is due to Håstad, and its \emph{unknown-relation} extension (where even the relationship between messages is not fully known, only that it is small) is precisely Coppersmith's short-pad attack, previewed at the end of this lecture and building on the lattice technique in Section~\ref{sec:coppersmith}.
 \end{remark}
 
-\begin{warnbox}{Practical consequence}
-\textbf{Never} use a small public exponent to send the same (or simply related) message to multiple recipients without randomized padding. OAEP (Lesson 9) defeats this attack by making every ciphertext of the same message under the same key look independently random, so no algebraic relationship exists across ciphertexts for CRT to exploit.
-\end{warnbox}
+\medskip\noindent\textbf{Practical consequence.} \textbf{Never} use a small public exponent to send the same (or simply related) message to multiple recipients without randomized padding. OAEP (Lesson 3) defeats this attack by making every ciphertext of the same message under the same key look independently random, so no algebraic relationship exists across ciphertexts for CRT to exploit.
 
 \newpage
 \section{Common Modulus Attack}
@@ -151,9 +144,7 @@ m = (c_1^{-1})^{2} \cdot c_2^{5} \bmod n = 42.
 Recovered exactly — \textbf{using no private key whatsoever}, just the two public exponents and two ciphertexts.
 \end{example}
 
-\begin{warnbox}{Practical consequence}
-\textbf{Never} share a modulus $n$ across users or purposes, even with different exponents. This design pattern occasionally resurfaces in embedded/legacy systems trying to save key-generation cost, but it is fundamentally broken the moment any two exponents used on the shared modulus are coprime — which is the common case, since exponents are typically chosen small and prime.
-\end{warnbox}
+\medskip\noindent\textbf{Practical consequence.} \textbf{Never} share a modulus $n$ across users or purposes, even with different exponents. This design pattern occasionally resurfaces in embedded/legacy systems trying to save key-generation cost, but it is fundamentally broken the moment any two exponents used on the shared modulus are coprime — which is the common case, since exponents are typically chosen small and prime.
 
 \newpage
 \section{Cycling Attack (Conceptual)}
@@ -179,9 +170,7 @@ Let $p=47, q=59$, so $n=2773$, $\varphi(n)=2668$, and let $e=17$. A message $m=1
 Repeatedly raising to the $e$-th power: $c_1 = c^{17} \bmod n, c_2 = c_1^{17} \bmod n, \dots$ — after $\mathbf{44}$ iterations, the sequence returns to $c_{44} = 1924 = c$. The value one step before, $c_{43} = 123 = m$, is the recovered plaintext.
 \end{example}
 
-\begin{warnbox}{Why this stays purely conceptual}
-The cycle length here is the multiplicative order of $e$ in $(\mathbb{Z}/\lambda(n)\mathbb{Z})^{*}$, which for well-chosen keys (large random primes, standard $e$) is astronomically large — comparable to $\varphi(n)$ itself in the worst case for the attacker. At real key sizes this attack is utterly infeasible; it survives in courses because it cleanly demonstrates that RSA encryption is literally iteration inside a finite cyclic structure, and it foreshadows why key-generation standards historically recommended checking that $\lambda(n)$ has large prime factors (to keep every element's order large) — the same underlying concern as smooth $p-1$ in Pollard's method (Lesson 7).
-\end{warnbox}
+\medskip\noindent\textbf{Why this stays purely conceptual.} The cycle length here is the multiplicative order of $e$ in $(\mathbb{Z}/\lambda(n)\mathbb{Z})^{*}$, which for well-chosen keys (large random primes, standard $e$) is astronomically large — comparable to $\varphi(n)$ itself in the worst case for the attacker. At real key sizes this attack is utterly infeasible; it survives in courses because it cleanly demonstrates that RSA encryption is literally iteration inside a finite cyclic structure, and it foreshadows why key-generation standards historically recommended checking that $\lambda(n)$ has large prime factors (to keep every element's order large) — the same underlying concern as smooth $p-1$ in Pollard's method (Lesson 1).
 
 \newpage
 \section{The Franklin--Reiter Related-Message Attack}
@@ -210,18 +199,14 @@ Let $n=3233$, $e=3$, and suppose $m_1 = 20$, with a second message $m_2 = m_1 + 
 Build $f_1(x) = x^3 - 1534$ and $f_2(x) = (x+5)^3 - 2693 = x^3 + 15x^2 + 75x + (125-2693)$ over $\mathbb{Z}_{3233}[x]$. Running the polynomial Euclidean algorithm (dividing $f_1$ by $f_2$, then continuing with remainders, all coefficient arithmetic done mod $3233$) reduces the pair to a single \textbf{linear} polynomial: $525x + 2432 \equiv 0 \pmod{3233}$. Solving: $x \equiv -2432 \cdot 525^{-1} \equiv 20 \pmod{3233}$ — exactly $m_1$. \textbf{Neither $n$ was factored nor any private key touched} — only public ciphertexts, the known offset $t$, and polynomial arithmetic.
 \end{example}
 
-\begin{warnbox}{Practical consequence}
-\textbf{Never} encrypt structurally related plaintexts (form letters, sequential IDs, incrementing counters) under a small exponent without randomized padding. This is one of the strongest practical arguments for OAEP: it destroys any algebraic relationship between the padded plaintexts, even when the underlying messages are related, which is exactly what this attack (and its harder unknown-relation cousin below) depends on.
-\end{warnbox}
+\medskip\noindent\textbf{Practical consequence.} \textbf{Never} encrypt structurally related plaintexts (form letters, sequential IDs, incrementing counters) under a small exponent without randomized padding. This is one of the strongest practical arguments for OAEP: it destroys any algebraic relationship between the padded plaintexts, even when the underlying messages are related, which is exactly what this attack (and its harder unknown-relation cousin below) depends on.
 
 \newpage
 \section{Coppersmith's Method: An Overview}\label{sec:coppersmith}
 
 \subsection{The General Problem}
 
-\begin{keybox}{Coppersmith's small-root theorem (informal statement)}
-Given a polynomial $f(x)$ of degree $\delta$ modulo $n$ (with $n$ of unknown or partially unknown factorization), if $f$ has a root $x_0$ with $|x_0| < n^{1/\delta}$, then $x_0$ can be found in time polynomial in $\log n$ and $\delta$.
-\end{keybox}
+\medskip\noindent\textbf{Coppersmith's small-root theorem (informal statement).} Given a polynomial $f(x)$ of degree $\delta$ modulo $n$ (with $n$ of unknown or partially unknown factorization), if $f$ has a root $x_0$ with $|x_0| < n^{1/\delta}$, then $x_0$ can be found in time polynomial in $\log n$ and $\delta$.
 
 This single theorem — due to Coppersmith (1996), with a simplified proof by Howgrave-Graham — underlies an entire family of RSA attacks that all reduce to ``find a small root of a polynomial modulo $n$'':
 
@@ -232,13 +217,11 @@ This single theorem — due to Coppersmith (1996), with a simplified proof by Ho
 \item \textbf{Stereotyped-message attacks}: recovering $m$ when only a small unknown portion of a structured plaintext (e.g., a fixed-format message with one unknown short field) is unknown.
 \end{itemize}
 
-\subsection{The Reduction to Lattices — Your Bridge Back to Lessons 1--6}
+\subsection{The Reduction to Lattices}
 
-\begin{keybox}{From polynomial roots to short vectors}
-The key trick: build several polynomials $g_1(x), g_2(x), \dots, g_k(x)$, all sharing the same root $x_0 \bmod n$ (typically shifts and powers of the original $f$, multiplied by powers of $n$ to control the modulus), and treat their \emph{coefficient vectors} as a basis for a lattice $L \subset \mathbb{Z}^k$. A theorem of Howgrave-Graham says: if $h(x) = \sum h_i x^i$ is an integer linear combination of the $g_i$ (hence still has $x_0$ as a root mod $n$) with \textbf{small enough Euclidean norm} $\|h\| < n/\sqrt{k}$, then $h(x_0) = 0$ holds as an equation over $\mathbb{Z}$, \emph{not just modulo $n$}. Since $h$ is now known to vanish at $x_0$ as an ordinary integer polynomial, standard root-finding recovers $x_0$ directly.
+\medskip\noindent\textbf{From polynomial roots to short vectors.} The key trick: build several polynomials $g_1(x), g_2(x), \dots, g_k(x)$, all sharing the same root $x_0 \bmod n$ (typically shifts and powers of the original $f$, multiplied by powers of $n$ to control the modulus), and treat their \emph{coefficient vectors} as a basis for a lattice $L \subset \mathbb{Z}^k$. A theorem of Howgrave-Graham says: if $h(x) = \sum h_i x^i$ is an integer linear combination of the $g_i$ (hence still has $x_0$ as a root mod $n$) with \textbf{small enough Euclidean norm} $\|h\| < n/\sqrt{k}$, then $h(x_0) = 0$ holds as an equation over $\mathbb{Z}$, \emph{not just modulo $n$}. Since $h$ is now known to vanish at $x_0$ as an ordinary integer polynomial, standard root-finding recovers $x_0$ directly.
 
-So the whole problem reduces to: \textbf{find a short vector in the lattice $L$} spanned by the $g_i$'s coefficient vectors. This is precisely the Shortest Vector Problem territory from your lattice lectures — and in practice, the LLL algorithm (which you covered as an approximate-SVP solver) is exactly the tool used, since Coppersmith's bound is calibrated to what LLL can reliably deliver in polynomial time.
-\end{keybox}
+So the whole problem reduces to: \textbf{find a short vector in the lattice $L$} spanned by the $g_i$'s coefficient vectors. This is precisely Shortest Vector Problem territory — and in practice, the LLL algorithm (an approximate-SVP solver) is exactly the tool used, since Coppersmith's bound is calibrated to what LLL can reliably deliver in polynomial time. If you have covered lattice-based cryptography, this is the same LLL you met there, now redeployed as an attack tool rather than a hardness-assumption underpinning.
 
 \begin{example}[Toy illustration of the core mechanism — small-scale, not full LLL]
 Suppose we know $p$ shares its top bits with a known guess $\tilde{p}$: specifically $p = \tilde p + x_0$ for some small unknown $x_0$, and we are told $|x_0| < n^{1/2}$ (deliberately generous, purely for illustration). Consider $f(x) = \tilde p + x$, whose root mod $p$ is $x_0$ by construction. In the real attack, one builds a small lattice from shifted copies of $f$, powers of $n$ or $p$, and known bounds on $x_0$, then runs LLL to extract a short combination $h(x)$ satisfying Howgrave-Graham's norm bound; solving $h(x_0)=0$ over $\mathbb{Z}$ (an ordinary, easy root-finding step once $h$ is small) recovers $x_0$, hence $p$, hence the full factorization of $n$.
@@ -247,34 +230,32 @@ At the tiny numeric scale used throughout this lecture (3–4 digit moduli), the
 \end{example}
 
 \begin{remark}[Why this belongs at the end of this lecture, not the start]
-Every attack earlier in this lecture (Wiener, Håstad, common modulus, Franklin--Reiter) can be fully hand-verified with small numbers, which is why they came first. Coppersmith's method is the most powerful of the family but the least hand-computable — its correctness rests on LLL actually finding a short-enough vector, which is a statement about lattice reduction quality, not elementary number theory. This is intentionally the conceptual capstone of RSA's mathematical attacks, and it directly reuses the SVP/LLL machinery from Lessons 1--6.
+Every attack earlier in this lecture (Wiener, Håstad, common modulus, Franklin--Reiter) can be fully hand-verified with small numbers, which is why they came first. Coppersmith's method is the most powerful of the family but the least hand-computable — its correctness rests on LLL actually finding a short-enough vector, which is a statement about lattice reduction quality, not elementary number theory. This is intentionally the conceptual capstone of RSA's mathematical attacks, and it is the point where number theory hands off to lattice reduction (the LLL algorithm) as the working tool.
 \end{remark}
 
 \newpage
-\section{Summary and Bridge to Lesson 9}
+\section{Summary and Bridge to Lesson 3}
 
-\begin{keybox}{What we established today}
+\subsection*{Summary}
 \begin{itemize}
 \item \textbf{Wiener's attack}: a small $d$ is recoverable directly from $(n,e)$ via continued fractions — never choose $d$ for efficiency.
 \item \textbf{Håstad's broadcast attack}: low exponent + repeated/related messages to multiple recipients + no padding = full break via CRT.
 \item \textbf{Common modulus attack}: sharing $n$ across users with coprime exponents is a full break via the Extended Euclidean Algorithm.
 \item \textbf{Cycling attack}: a conceptual reminder that RSA encryption is iteration in a finite group — impractical, but foundational.
 \item \textbf{Franklin--Reiter}: known-relation messages under low exponent break via polynomial GCD.
-\item \textbf{Coppersmith's method}: the general small-root machinery underlying stronger versions of several of the above, reducing to LLL lattice reduction from your earlier lectures.
+\item \textbf{Coppersmith's method}: the general small-root machinery underlying stronger versions of several of the above, reducing to LLL lattice reduction.
 \end{itemize}
 \textbf{The unifying lesson}: every attack here targets a specific \emph{misuse} of RSA — small exponents without padding, small private exponents, repeated moduli, related plaintexts. None of them factor $n$, and all of them are defeated by proper randomized padding (OAEP) and standard key-generation discipline (large random $d$, non-shared $n$, large $e$ such as 65537).
-\end{keybox}
 
-\begin{warnbox}{Preview: Lesson 9 — Implementation and Protocol Attacks on RSA}
+\subsection*{Looking Ahead --- Lesson 3 — Implementation and Protocol Attacks on RSA}
 Next lecture assumes RSA is used \emph{correctly} at the mathematical level (proper key generation, no shared moduli, no related-message broadcasting) and instead breaks it through its physical or protocol-level implementation:
 \begin{itemize}
 \item \textbf{Bleichenbacher's padding oracle attack} on PKCS\#1 v1.5 — recovering plaintext by observing only whether a server accepts or rejects a padding format.
-\item \textbf{Timing attacks} exploiting the data-dependent branching in square-and-multiply (flagged back in Lesson 7).
-\item \textbf{Fault attacks} on CRT-RSA (the Bellcore attack) — a single computational glitch during the $m_p$ or $m_q$ branch (Lesson 7, Section 2.3) that factors $n$ from one faulty signature.
+\item \textbf{Timing attacks} exploiting the data-dependent branching in square-and-multiply (flagged back in Lesson 1).
+\item \textbf{Fault attacks} on CRT-RSA (the Bellcore attack) — a single computational glitch during the $m_p$ or $m_q$ branch (Lesson 1, Section~\ref{sec:crt-speedup}) that factors $n$ from one faulty signature.
 \item \textbf{ROCA} and other real-world key-generation vulnerabilities.
 \item OAEP's security argument, and why it defeats every low-exponent attack in today's lecture.
 \end{itemize}
-\end{warnbox}
 
 \section*{Tutorial Exercises}
 \begin{enumerate}

@@ -1,0 +1,61 @@
+% ============================================================
+% Master file for the standalone RSA Cryptosystem module.
+% Assembles Lessons 1-3 (RSA foundations, mathematical attacks,
+% implementation/protocol attacks) into one combined "book" with
+% a single table of contents and each lecture as a "Lesson N: ..."
+% chapter -- same pattern as the parent course's full-course-notes.tex,
+% just scoped to this module's three lessons.
+%
+% How this works:
+%   - Each lectureN-rsa-*.tex file is still a fully independent,
+%     standalone document (own title page, own table of contents)
+%     -- it gets its content from lectureN-rsa-*-body.tex via \input.
+%   - This file \input's the exact same body files directly, wrapped
+%     in \chapter{Lesson N: ...} headings, under the `book` class.
+%
+% Usage:
+%   pdflatex rsa-course-notes.tex   (run twice -- compile_all.sh
+%   in this folder does this automatically)
+% ============================================================
+\documentclass[11pt,a4paper,oneside]{book}
+\input{lecture-preamble}
+
+% Same header customization as the parent course's master file:
+% chapter headings read as plain "Lesson N: Title", no automatic
+% "Chapter N" prefix, and a plain page style (long titles would
+% overflow the book class's default running header).
+\titleformat{\chapter}[block]{\normalfont\huge\bfseries}{}{0pt}{}
+\titlespacing*{\chapter}{0pt}{-20pt}{30pt}
+\pagestyle{plain}
+
+\title{\textbf{Applied Information Security}\\[6pt]
+\large The RSA Cryptosystem: Foundations, Attacks, and Implementation}
+\author{Dr.\ Faisal Aslam}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\chapter{Lesson 1: The RSA Cryptosystem I --- Foundations, Correctness, and Factoring}
+\begin{center}
+\large\itshape Euler's Theorem, the Chinese Remainder Theorem, Key Generation, and Classical Factoring Algorithms
+\end{center}
+\vspace{0.4cm}
+\input{lecture1-rsa-foundations-body}
+
+\chapter{Lesson 2: The RSA Cryptosystem II --- Mathematical Attacks}
+\begin{center}
+\large\itshape Wiener's Attack, Håstad's Broadcast Attack, Common Modulus Attacks, Franklin--Reiter, and Coppersmith's Method
+\end{center}
+\vspace{0.4cm}
+\input{lecture2-rsa-attacks-math-body}
+
+\chapter{Lesson 3: The RSA Cryptosystem III --- Implementation and Protocol Attacks}
+\begin{center}
+\large\itshape Padding Oracles, Timing and Fault Attacks, ROCA, OAEP, and the Guillou--Quisquater ZKP Bridge
+\end{center}
+\vspace{0.4cm}
+\input{lecture3-rsa-implementation-attacks-body}
+
+\end{document}

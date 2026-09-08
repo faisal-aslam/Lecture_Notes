@@ -1,5 +1,5 @@
 \vspace{0.5cm}
-\begin{keybox}{Lecture Roadmap}
+\subsection*{Roadmap}
 \begin{enumerate}[label=(\arabic*)]
 \item Refresher: Euler's theorem and the Chinese Remainder Theorem (the two facts RSA is built on)
 \item RSA construction: key generation, encryption, decryption
@@ -9,8 +9,7 @@
 \item Factoring algorithms: trial division, Fermat, Pollard's $\rho$, Pollard's $p-1$, sieve methods
 \item Key-size recommendations and factoring records
 \end{enumerate}
-\textbf{What this lecture deliberately excludes:} padding schemes, Bleichenbacher's attack, Wiener's attack, Coppersmith's method, fault attacks. These require the machinery built here and are covered in Lectures 6--7.
-\end{keybox}
+\textbf{What this lecture deliberately excludes:} padding schemes, Bleichenbacher's attack, Wiener's attack, Coppersmith's method, fault attacks. These require the machinery built here and are covered in Lessons 2--3.
 
 \newpage
 
@@ -64,13 +63,11 @@ Let $a = 7$, $n = 10$. Since $\gcd(7,10)=1$ and $\varphi(10) = \varphi(2)\varphi
 If $p$ is prime and $\gcd(a,p) = 1$, then $a^{p-1} \equiv 1 \pmod p$. This is Euler's theorem with $n = p$, since $\varphi(p) = p - 1$.
 \end{corollary}
 
-\begin{keybox}{Why RSA cares}
-Euler's theorem tells us: if we pick an exponent $e$ and a matching $d$ such that $ed \equiv 1 \pmod{\varphi(n)}$, then for any $a$ coprime to $n$,
+\medskip\noindent\textbf{Why RSA cares.} Euler's theorem tells us: if we pick an exponent $e$ and a matching $d$ such that $ed \equiv 1 \pmod{\varphi(n)}$, then for any $a$ coprime to $n$,
 \[
 a^{ed} = a^{1 + k\varphi(n)} = a \cdot (a^{\varphi(n)})^{k} \equiv a \cdot 1^{k} \equiv a \pmod n.
 \]
 This is \emph{exactly} the decryption-undoes-encryption identity we need. The catch is the phrase ``coprime to $n$'' — Section~\ref{sec:correctness} deals with what happens when it isn't.
-\end{keybox}
 
 \subsection{The Chinese Remainder Theorem}
 
@@ -98,7 +95,7 @@ Solve $x \equiv 2 \pmod 3$, $x \equiv 3 \pmod 5$. Listing multiples: $x \in \{2,
 CRT plays two completely different roles in RSA that students often conflate:
 \begin{enumerate}
 \item \textbf{Correctness}: it lets us prove decryption works for \emph{all} messages $m \in \{0,\dots,n-1\}$, not just those coprime to $n$ (Section~\ref{sec:correctness}).
-\item \textbf{Efficiency}: it lets us speed up decryption by roughly $4\times$ using CRT-RSA (Section~\ref{sec:crt-speedup}) — and this optimization is precisely what makes the Bellcore fault attack possible, which we cover in Lesson 9.
+\item \textbf{Efficiency}: it lets us speed up decryption by roughly $4\times$ using CRT-RSA (Section~\ref{sec:crt-speedup}) — and this optimization is precisely what makes the Bellcore fault attack possible, which we cover in Lesson 3.
 \end{enumerate}
 \end{remark}
 
@@ -140,7 +137,7 @@ Encrypt $m = 65$: $c = 65^{17} \bmod 3233 = 2790$. Decrypt: $2790^{2753} \bmod 3
 Both encryption and decryption require computing $a^{k} \bmod n$ efficiently. Naive repeated multiplication is $O(k)$ multiplications; \textbf{square-and-multiply} reduces this to $O(\log k)$.
 
 \begin{algorithm}[h]
-\caption{Square-and-Multiply (Right-to-Left)}
+\caption{Square-and-Multiply (Right-to-Left)}\label{alg:modexp}
 \begin{algorithmic}[1]
 \Function{ModExp}{$a, k, n$}
     \State $result \gets 1$
@@ -175,7 +172,7 @@ Compute $5^{117} \bmod 19$. Write $117 = 1110101_2$ (bits, LSB first: $1,0,1,0,1
 Final result: $1$. Direct check: $5^{117} \bmod 19 = 1$ (consistent, since $\mathrm{ord}_{19}(5) \mid \varphi(19) = 18$, and indeed $117 \equiv 9 \pmod{18}$ while $5^9 \equiv 1 \pmod{19}$ — try verifying this independently). Only \textbf{7 squarings and 5 multiplications} were needed instead of 116 successive multiplications.
 \end{example}
 
-\begin{remark}[Security-relevant note — preview of Lesson 9]
+\begin{remark}[Security-relevant note — preview of Lesson 3]
 The naive implementation above has data-dependent branching (the \texttt{if} depends on the secret exponent's bits), which leaks timing information. This is the root cause of timing attacks on RSA, covered when we do implementation attacks.
 \end{remark}
 
@@ -207,7 +204,7 @@ m_p = c^{d_p} \bmod p = 2790^{53} \bmod 61 = 4, \qquad m_q = c^{d_q} \bmod q = 2
 Recombine: $h = q_{inv}(m_p - m_q) \bmod p = 38 \cdot (4-12) \bmod 61 = 1$, and $m = m_q + h \cdot q = 12 + 1 \cdot 53 = 65$. \checkmark Matches the direct decryption, but every intermediate exponentiation used a $\sim$6-bit exponent and a $\sim$6-bit modulus instead of the full-size $d$ and $n$.
 \end{example}
 
-This gives roughly a $4\times$ speedup (two exponentiations with half-size exponents and half-size moduli, each individually $\sim 8\times$ cheaper, combined with cheap recombination). \textbf{Flag this in your memory}: this optimization is exactly what the Bellcore fault attack (Lesson 9) exploits — a single computational fault in either the $m_p$ or $m_q$ branch lets an attacker factor $n$ from one faulty signature.
+This gives roughly a $4\times$ speedup (two exponentiations with half-size exponents and half-size moduli, each individually $\sim 8\times$ cheaper, combined with cheap recombination). \textbf{Flag this in your memory}: this optimization is exactly what the Bellcore fault attack (Lesson 3) exploits — a single computational fault in either the $m_p$ or $m_q$ branch lets an attacker factor $n$ from one faulty signature.
 
 \newpage
 \section{Correctness of RSA}\label{sec:correctness}
@@ -240,7 +237,7 @@ Either way, $m^{ed} \equiv m \pmod p$. By the symmetric argument, $m^{ed} \equiv
 \end{proof}
 
 \begin{remark}[Why this edge case matters pedagogically, not just practically]
-The event $p \mid m$ for a random $m \in \{0,\dots,n-1\}$ has probability $1/p$ — utterly negligible for cryptographic-size primes, so it is \emph{never} a practical concern. But it matters conceptually: it shows correctness of RSA is really a CRT argument dressed up, and it is the reason the correctness proof cannot be ``just Euler's theorem'' as often claimed. This distinction resurfaces when we discuss why RSA's algebraic structure (a ring homomorphism argument, not merely a group-order argument) enables attacks like Håstad's broadcast attack in Lesson 8.
+The event $p \mid m$ for a random $m \in \{0,\dots,n-1\}$ has probability $1/p$ — utterly negligible for cryptographic-size primes, so it is \emph{never} a practical concern. But it matters conceptually: it shows correctness of RSA is really a CRT argument dressed up, and it is the reason the correctness proof cannot be ``just Euler's theorem'' as often claimed. This distinction resurfaces when we discuss why RSA's algebraic structure (a ring homomorphism argument, not merely a group-order argument) enables attacks like Håstad's broadcast attack in Lesson 2.
 \end{remark}
 
 \begin{example}[The edge case, made concrete]
@@ -264,27 +261,25 @@ Given $(n, e)$ and $c = m^e \bmod n$ for a uniformly random $m \in \mathbb{Z}_n^
 No probabilistic polynomial-time algorithm solves the RSA problem with non-negligible probability (over the choice of $p, q, e, m$), for suitably generated $n$.
 \end{definition}
 
-\begin{keybox}{The critical logical relationship}
-\[
+\medskip\noindent\textbf{The critical logical relationship.} \[
 \text{Factoring } n \implies \text{Breaking RSA}, \qquad \text{but the converse is \emph{not known} to hold.}
 \]
 If you can factor $n = pq$, you immediately recover $\varphi(n) = (p-1)(q-1)$, compute $d = e^{-1} \bmod \varphi(n)$, and decrypt anything. So \textbf{Factoring $\leq_p$ Breaking RSA} (factoring reduces to breaking RSA — breaking RSA is at least as hard as factoring, in the sense that an efficient factoring algorithm gives an efficient RSA-breaking algorithm).
 
 The open question, since 1977, is whether the reduction goes the other way: does an oracle that breaks RSA (computes $e$-th roots mod $n$) let you factor $n$? This is \textbf{not known in general}. There exist special/weakened settings (e.g., Rabin's cryptosystem, and RSA with a specific low-exponent oracle in certain models) where equivalence to factoring \emph{can} be shown, but for standard RSA the assumption is a genuinely separate, slightly stronger-looking, hardness assumption than ``factoring is hard.''
-\end{keybox}
 
 \begin{remark}[Why this matters for how we teach attacks]
-Every specific attack technique in Lectures 5--7 (Wiener, Coppersmith, Håstad, Bleichenbacher, timing/fault attacks) breaks RSA \emph{without factoring $n$}. This is the point: they exploit structural weaknesses in \emph{how RSA is used} (small $d$, small $e$ with related messages, malleable padding, faulty computation) rather than solving the underlying hard problem. Keep this distinction sharp for students: ``RSA is broken'' almost always means ``this particular use of RSA is broken,'' not ``factoring got easy.''
+Every specific attack technique in Lessons 2--3 (Wiener, Coppersmith, Håstad, Bleichenbacher, timing/fault attacks) breaks RSA \emph{without factoring $n$}. This is the point: they exploit structural weaknesses in \emph{how RSA is used} (small $d$, small $e$ with related messages, malleable padding, faulty computation) rather than solving the underlying hard problem. Keep this distinction sharp for students: ``RSA is broken'' almost always means ``this particular use of RSA is broken,'' not ``factoring got easy.''
 \end{remark}
 
 \subsection{Why Textbook RSA Is Not Secure As-Is}
 
-Even setting aside implementation attacks, \textbf{textbook RSA} (encrypting $m^e \bmod n$ directly, with no padding) has structural problems worth flagging now, to motivate why Lesson 8 exists at all:
+Even setting aside implementation attacks, \textbf{textbook RSA} (encrypting $m^e \bmod n$ directly, with no padding) has structural problems worth flagging now, to motivate why Lesson 3 exists at all:
 
 \begin{itemize}
 \item \textbf{Deterministic}: the same plaintext always produces the same ciphertext under a given key $\Rightarrow$ no semantic security; an attacker can build a dictionary of likely plaintexts and their ciphertexts.
 \item \textbf{Malleable}: given $c = m^e \bmod n$, anyone can compute $c' = (2^e \cdot c) \bmod n = (2m)^e \bmod n$, a valid encryption of $2m$, without knowing $m$. No integrity guarantee whatsoever.
-\item \textbf{Small-message / small-exponent issues}: if $m^e < n$ (no modular reduction occurs), $c = m^e$ over the integers, and $m$ is recovered by an ordinary integer $e$-th root — no cryptography needed. This is the seed of Håstad's broadcast attack (Lesson 8).
+\item \textbf{Small-message / small-exponent issues}: if $m^e < n$ (no modular reduction occurs), $c = m^e$ over the integers, and $m$ is recovered by an ordinary integer $e$-th root — no cryptography needed. This is the seed of Håstad's broadcast attack (Lesson 2).
 \end{itemize}
 
 \begin{example}[Malleability, worked]
@@ -292,10 +287,10 @@ Using $n=3233, e=17, d=2753$ and $c = 2790$ (encryption of $m=65$): compute $c' 
 \end{example}
 
 \begin{example}[No modular wraparound, worked]
-Let $p=17, q=19$, so $n = 323$, and suppose $e=3$ (small exponent, no padding). Encrypt $m=5$: $c = 5^3 = 125$. Since $125 < 323$, \emph{no reduction mod $n$ ever occurred} — $c$ is just the integer $125$. An eavesdropper who does not know $d$, $p$, or $q$ recovers $m$ by taking an ordinary integer cube root: $\sqrt[3]{125} = 5$. This is not a flaw in the mathematics of RSA — it is a flaw in using RSA \emph{without padding} on small messages with small $e$, and it generalizes (via CRT, not integer roots) to Håstad's broadcast attack in Lesson 8, where the message need not literally satisfy $m^e < n$.
+Let $p=17, q=19$, so $n = 323$, and suppose $e=3$ (small exponent, no padding). Encrypt $m=5$: $c = 5^3 = 125$. Since $125 < 323$, \emph{no reduction mod $n$ ever occurred} — $c$ is just the integer $125$. An eavesdropper who does not know $d$, $p$, or $q$ recovers $m$ by taking an ordinary integer cube root: $\sqrt[3]{125} = 5$. This is not a flaw in the mathematics of RSA — it is a flaw in using RSA \emph{without padding} on small messages with small $e$, and it generalizes (via CRT, not integer roots) to Håstad's broadcast attack in Lesson 2, where the message need not literally satisfy $m^e < n$.
 \end{example}
 
-This is why real systems use \textbf{padded RSA} (PKCS\#1 v1.5, OAEP) — covered in Lesson 9 alongside the attacks that padding is designed to prevent, and the attacks that emerged \emph{against} specific padding schemes (Bleichenbacher).
+This is why real systems use \textbf{padded RSA} (PKCS\#1 v1.5, OAEP) — covered in Lesson 3 alongside the attacks that padding is designed to prevent, and the attacks that emerged \emph{against} specific padding schemes (Bleichenbacher).
 
 \newpage
 \section{Practical Key Generation}
@@ -304,13 +299,11 @@ This is why real systems use \textbf{padded RSA} (PKCS\#1 v1.5, OAEP) — covere
 
 Key generation needs to sample large primes. We cannot test primality by trial division for 1536-bit numbers, so we use \textbf{probabilistic primality tests}.
 
-\begin{keybox}{Miller--Rabin Primality Test (statement only — proof is number-theoretic and out of scope here)}
-Write $n - 1 = 2^{s} d$ with $d$ odd. Pick random witnesses $a \in \{2, \dots, n-2\}$ and check whether
+\medskip\noindent\textbf{Miller--Rabin Primality Test (statement only — proof is number-theoretic and out of scope here).} Write $n - 1 = 2^{s} d$ with $d$ odd. Pick random witnesses $a \in \{2, \dots, n-2\}$ and check whether
 \[
 a^{d} \equiv 1 \pmod n \quad \text{or} \quad a^{2^{r} d} \equiv -1 \pmod n \text{ for some } 0 \le r < s.
 \]
 If neither holds, $n$ is \emph{composite} (certain). If it holds, $n$ is \emph{probably prime}: the test has false-positive probability $\le 1/4$ per random witness, so $k$ independent witnesses give error probability $\le 4^{-k}$. In practice $k \approx 40$ is used for cryptographic key generation, giving error probability $< 2^{-80}$.
-\end{keybox}
 
 \begin{example}[Miller--Rabin, worked — and why one witness isn't enough]
 Let $n = 91 = 7 \times 13$ (composite). Write $n - 1 = 90 = 2^1 \cdot 45$, so $s=1, d=45$.
@@ -324,8 +317,8 @@ Let $n = 91 = 7 \times 13$ (composite). Write $n - 1 = 90 = 2^1 \cdot 45$, so $s
 
 \begin{itemize}
 \item \textbf{Common choice}: $e = 65537 = 2^{16}+1$. It is prime, has a Hamming weight of 2 (fast exponentiation: only 17 squarings + 1 multiplication), and is large enough to avoid the naive small-$e$ pitfalls above.
-\item \textbf{Avoid} $e=3$ without proper padding — historically responsible for several real-world broadcast-style vulnerabilities (Lesson 8).
-\item $d$ must be \textbf{large} — roughly the same bit-length as $\varphi(n)$. A small $d$ (say $d < n^{0.25}$, roughly) is catastrophic: Wiener's continued-fraction attack recovers it directly from $(n,e)$ alone. Full derivation in Lesson 8.
+\item \textbf{Avoid} $e=3$ without proper padding — historically responsible for several real-world broadcast-style vulnerabilities (Lesson 2).
+\item $d$ must be \textbf{large} — roughly the same bit-length as $\varphi(n)$. A small $d$ (say $d < n^{0.25}$, roughly) is catastrophic: Wiener's continued-fraction attack recovers it directly from $(n,e)$ alone. Full derivation in Lesson 2.
 \end{itemize}
 
 \subsection{Prime Generation Pitfalls}
@@ -350,17 +343,13 @@ The entire security of RSA is calibrated against the best known classical factor
 
 \textbf{Trial division}: try all primes up to $\sqrt{n}$. Cost $O(\sqrt{n})$ — completely infeasible for cryptographic $n$ (a 2048-bit $n$ has $\sqrt{n} \approx 2^{1024}$).
 
-\begin{keybox}{Fermat's Factorization Method}
-If $n = pq$ with $p,q$ close together, write $n = a^2 - b^2 = (a-b)(a+b)$ where $a = \frac{p+q}{2}$, $b = \frac{p-q}{2}$. Search for $a$ starting at $\lceil\sqrt{n}\rceil$, checking if $a^2 - n$ is a perfect square. If $p, q$ differ by only a few bits, this converges almost immediately.
-\end{keybox}
+\medskip\noindent\textbf{Fermat's Factorization Method.} If $n = pq$ with $p,q$ close together, write $n = a^2 - b^2 = (a-b)(a+b)$ where $a = \frac{p+q}{2}$, $b = \frac{p-q}{2}$. Search for $a$ starting at $\lceil\sqrt{n}\rceil$, checking if $a^2 - n$ is a perfect square. If $p, q$ differ by only a few bits, this converges almost immediately.
 
 \begin{example}[Fermat's method, worked]
 Let $p = 10007$, $q = 10009$ (deliberately close). Then $n = pq = 100160063$, and $\lceil\sqrt{n}\rceil = 10008$. Try $a = 10008$: $a^2 - n = 10008^2 - 100160063 = 1 = 1^2$, a perfect square with $b=1$. Immediately, $p = a - b = 10007$ and $q = a+b = 10009$. \textbf{One single trial} recovered the full factorization — this is why close primes are catastrophic, regardless of how large $n$ itself is.
 \end{example}
 
-\begin{warnbox}{Practical consequence}
-\textbf{Never} choose $p$ and $q$ close to each other (e.g., both near $\sqrt{n}$ with only a few differing bits) — Fermat's method factors such $n$ almost instantly. This is why key-generation standards mandate $p, q$ be independently random over their full bit-length range, not merely ``two large primes.''
-\end{warnbox}
+\medskip\noindent\textbf{Practical consequence.} \textbf{Never} choose $p$ and $q$ close to each other (e.g., both near $\sqrt{n}$ with only a few differing bits) — Fermat's method factors such $n$ almost instantly. This is why key-generation standards mandate $p, q$ be independently random over their full bit-length range, not merely ``two large primes.''
 
 \subsection{Pollard's $\rho$ Algorithm}
 
@@ -380,9 +369,7 @@ A far better generic method, based on a birthday-paradox argument, with expected
 \end{algorithmic}
 \end{algorithm}
 
-\begin{keybox}{Heuristic argument for why this works}
-Treat $f$ as a pseudo-random function on $\mathbb{Z}/p\mathbb{Z}$ (for $p$ the unknown smallest factor). By the birthday paradox, the sequence $x_0, x_1, x_2, \dots \pmod p$ collides (enters a cycle) after roughly $O(\sqrt{p})$ steps, even though the same sequence mod $n$ does not yet show any visible structure (since $n$ is much larger). Once $x_i \equiv x_j \pmod p$ but $x_i \ne x_j \pmod n$, we get $p \mid (x_i - x_j)$ but $n \nmid (x_i - x_j)$, so $\gcd(x_i - x_j, n)$ reveals $p$ (or a multiple structure containing it) without ever knowing $p$ in advance. Floyd's ``tortoise and hare'' technique detects this collision using $O(1)$ memory.
-\end{keybox}
+\medskip\noindent\textbf{Heuristic argument for why this works.} Treat $f$ as a pseudo-random function on $\mathbb{Z}/p\mathbb{Z}$ (for $p$ the unknown smallest factor). By the birthday paradox, the sequence $x_0, x_1, x_2, \dots \pmod p$ collides (enters a cycle) after roughly $O(\sqrt{p})$ steps, even though the same sequence mod $n$ does not yet show any visible structure (since $n$ is much larger). Once $x_i \equiv x_j \pmod p$ but $x_i \ne x_j \pmod n$, we get $p \mid (x_i - x_j)$ but $n \nmid (x_i - x_j)$, so $\gcd(x_i - x_j, n)$ reveals $p$ (or a multiple structure containing it) without ever knowing $p$ in advance. Floyd's ``tortoise and hare'' technique detects this collision using $O(1)$ memory.
 
 \begin{example}[Pollard's $\rho$, worked]
 Let $n = 10403 = 101 \times 103$. Using $f(x) = x^2+1 \bmod n$, starting $x_0=y_0=2$:
@@ -439,9 +426,7 @@ Choose smoothness bound $B=16$ (large enough that $2^4, 3^2, 7 \le 16$ are all c
 
 These are the algorithms that actually matter for modern RSA key-size decisions — Pollard's methods are pedagogically important but are not the bottleneck for well-generated 2048+ bit RSA keys.
 
-\begin{keybox}{The core idea shared by all sieve-based factoring (Fermat, QS, GNFS)}
-Find integers $x, y$ with $x^2 \equiv y^2 \pmod n$ but $x \not\equiv \pm y \pmod n$. Then $n \mid (x-y)(x+y)$ but $n \nmid (x-y)$ and $n \nmid (x+y)$, so $\gcd(x-y, n)$ yields a nontrivial factor. The entire game is finding such $x, y$ efficiently — this is what distinguishes Fermat's method (too slow to find them) from the Quadratic Sieve (clever, systematic search using smooth numbers and linear algebra over $\mathbb{F}_2$) from the General Number Field Sieve (same idea, but working in a number field for asymptotically better complexity).
-\end{keybox}
+\medskip\noindent\textbf{The core idea shared by all sieve-based factoring (Fermat, QS, GNFS).} Find integers $x, y$ with $x^2 \equiv y^2 \pmod n$ but $x \not\equiv \pm y \pmod n$. Then $n \mid (x-y)(x+y)$ but $n \nmid (x-y)$ and $n \nmid (x+y)$, so $\gcd(x-y, n)$ yields a nontrivial factor. The entire game is finding such $x, y$ efficiently — this is what distinguishes Fermat's method (too slow to find them) from the Quadratic Sieve (clever, systematic search using smooth numbers and linear algebra over $\mathbb{F}_2$) from the General Number Field Sieve (same idea, but working in a number field for asymptotically better complexity).
 
 \begin{example}[The core relation, worked on a tiny modulus]
 Let $n = 35$. Notice $6^2 = 36 \equiv 1 \equiv 1^2 \pmod{35}$, so $x=6, y=1$ satisfies $x^2 \equiv y^2 \pmod n$. Check $x \not\equiv \pm y \pmod{35}$: indeed $6 \ne 1$ and $6 \ne -1 \equiv 34$. Then $\gcd(x-y, n) = \gcd(5,35) = 5$ and $\gcd(x+y,n) = \gcd(7,35)=7$ — both nontrivial factors, recovering $35 = 5 \times 7$ instantly. QS and GNFS scale this exact idea to numbers with hundreds of digits by systematically manufacturing such $(x,y)$ pairs from products of ``smooth'' relations, then solving a large linear system over $\mathbb{F}_2$ to combine them — full derivation is beyond this course, but the underlying trick is precisely this one identity.
@@ -484,14 +469,14 @@ $L_n[\alpha, c] = \exp\left(c (\ln n)^\alpha (\ln \ln n)^{1-\alpha}\right)$ inte
 \end{tabular}
 \end{center}
 
-\begin{remark}[Quantum caveat — connects back to Lecture set on lattices]
-Shor's algorithm factors $n$ in polynomial time on a sufficiently large fault-tolerant quantum computer, breaking RSA at \emph{any} classical key size. This is precisely the motivation for the lattice-based (post-quantum) cryptography you covered in Lessons 1--6: lattice problems (like LWE/SVP) have no known efficient quantum algorithm, unlike factoring and discrete log.
+\begin{remark}[Quantum caveat]
+Shor's algorithm factors $n$ in polynomial time on a sufficiently large fault-tolerant quantum computer, breaking RSA at \emph{any} classical key size. This is precisely the motivation for lattice-based (post-quantum) cryptography: lattice problems (like LWE/SVP) have no known efficient quantum algorithm, unlike factoring and discrete log.
 \end{remark}
 
 \newpage
-\section{Summary and Bridge to Lesson 8}
+\section{Summary and Bridge to Lesson 2}
 
-\begin{keybox}{What we established today}
+\subsection*{Summary}
 \begin{itemize}
 \item RSA's correctness rests on Euler's theorem \emph{and} CRT together — not Euler's theorem alone.
 \item Security rests on the RSA assumption, which is only known to be \emph{implied by} hardness of factoring, not equivalent to it.
@@ -499,18 +484,16 @@ Shor's algorithm factors $n$ in polynomial time on a sufficiently large fault-to
 \item Practical key generation requires care: large random independent primes, avoiding smooth $p-1$, avoiding small/related moduli across devices.
 \item The best classical factoring algorithm (GNFS) is sub-exponential, which is why 2048+ bit keys remain safe classically, and why quantum algorithms (Shor's) are an existential threat requiring post-quantum alternatives.
 \end{itemize}
-\end{keybox}
 
-\begin{warnbox}{Preview: Lesson 8 — Mathematical Attacks on RSA}
+\subsection*{Looking Ahead --- Lesson 2 — Mathematical Attacks on RSA}
 Next lecture assumes $n$ itself is \emph{not} factored, and instead breaks RSA through misuse:
 \begin{itemize}
 \item \textbf{Wiener's attack}: recovers $d$ directly from $(n,e)$ when $d$ is too small, via continued fraction expansion of $e/n$.
 \item \textbf{Håstad's broadcast attack}: recovers $m$ when the same message is sent to multiple recipients with small $e$, via CRT (yes — CRT again, but now as an attack tool).
-\item \textbf{Coppersmith's method}: recovers partial/short plaintexts or exposed key bits using lattice-based root-finding (a nice callback to your lattice lectures).
+\item \textbf{Coppersmith's method}: recovers partial/short plaintexts or exposed key bits using lattice-based root-finding (a nice callback to lattice cryptography, if you have covered it).
 \item \textbf{Common modulus attack}: breaks RSA when two parties share $n$ but use different $e$.
 \end{itemize}
 Bring: Extended Euclidean Algorithm and CRT fresh in memory — both get reused, this time as attack tools rather than construction tools.
-\end{warnbox}
 
 \section*{Tutorial Exercises}
 \begin{enumerate}
@@ -521,4 +504,3 @@ Bring: Extended Euclidean Algorithm and CRT fresh in memory — both get reused,
 \item Suppose an RSA key-generation implementation always picks $q$ as the next prime after $p$ (i.e., $q = \text{nextprime}(p)$). Explain concretely how you would factor such a modulus, and estimate the cost.
 \item Research question: look up the RSA-250 factorization (2020) and report what algorithm was used, and how much compute time it took. Compare against a naive trial-division estimate for the same modulus size.
 \end{enumerate}
-

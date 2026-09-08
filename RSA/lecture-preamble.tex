@@ -1,16 +1,18 @@
 % ============================================================
-% Shared preamble for all lecture files (lectureN-*.tex and
-% full-course-notes.tex). \input this once per document.
+% Shared preamble for the RSA module's lecture files
+% (lectureN-rsa-*.tex and rsa-course-notes.tex). \input this once
+% per document.
 %
-% Defines: packages, theorem-style environments (theorem, lemma,
-% corollary, proposition, definition, example, remark, exercise),
-% and two tcolorbox environments (keybox, warnbox) used throughout
-% the lecture bodies for pedagogical call-outs.
+% Defines: packages and the theorem-style environments used
+% throughout the lecture bodies (theorem, lemma, corollary,
+% proposition, definition, example, remark, exercise). Deliberately
+% plain formatting -- no decorative call-out boxes -- so the
+% lectures read as clean, standard mathematical exposition.
 %
 % Numbering: theorem-family environments are numbered "within
 % section" ([section]), so they read as e.g. "Theorem 2.3" inside
 % a standalone lectureN.tex (plain \section counter) and as e.g.
-% "Theorem 8.2.3" inside full-course-notes.tex (book class nests
+% "Theorem 2.2.3" inside rsa-course-notes.tex (book class nests
 % \thesection under \thechapter automatically) -- no manual
 % renumbering needed between the two contexts.
 % ============================================================
@@ -23,8 +25,19 @@
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{titlesec}
-\usepackage{tcolorbox}
-\tcbuselibrary{theorems}
+
+% Lets \ref (not hardcoded numbers) resolve section/theorem labels that
+% live in a DIFFERENT lecture's .tex file -- e.g. Lesson 2 citing a
+% theorem number from Lesson 1. Each lecture wrapper file declares which
+% other lecture(s) it needs via \externaldocument{<other-lecture-basename>}
+% right after \input{lecture-preamble}. This requires the referenced
+% lecture to have been compiled at least once already (so its .aux
+% exists) -- compile_all.sh handles this automatically by building the
+% lectures in order (1, then 2, then 3). If you compile a single later
+% lecture in isolation before ever compiling the earlier one(s) it cites,
+% those specific cross-references will show as "??" until you compile
+% the earlier lecture(s) once.
+\usepackage{xr-hyper}
 
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{lemma}[theorem]{Lemma}
@@ -34,9 +47,6 @@
 \newtheorem{example}[theorem]{Example}
 \newtheorem{remark}[theorem]{Remark}
 \newtheorem{exercise}[theorem]{Exercise}
-
-\newtcolorbox{keybox}[1]{colback=blue!5!white,colframe=blue!40!black,fonttitle=\bfseries,title={#1}}
-\newtcolorbox{warnbox}[1]{colback=red!5!white,colframe=red!50!black,fonttitle=\bfseries,title={#1}}
 
 \hypersetup{
     colorlinks=true,

@@ -1,0 +1,320 @@
+\vspace{0.5cm}
+\subsection*{Roadmap}
+\begin{enumerate}[label=(\arabic*)]
+\item Padding oracles: PKCS\#1 v1.5 and Bleichenbacher's ``million-message'' attack
+\item Timing attacks: leaking secret exponent bits through execution time, and blinding as the fix
+\item Fault attacks: the Bellcore attack on CRT-RSA signatures
+\item ROCA: a real-world key-generation flaw that turned Coppersmith's method (Lesson 2) into a practical factoring attack
+\item Side-channel countermeasures: a consolidated checklist
+\item OAEP: a security sketch for the padding scheme that defeats almost everything in Lessons 2--3
+\item Guillou--Quisquater: an RSA-based zero-knowledge proof of identity, and why it needs only one exponentiation-sized challenge space instead of many rounds
+\end{enumerate}
+\textbf{What every attack in this lecture has in common:} $n$ is properly generated, $d$ is large, no modulus is shared, no message is broadcast — every mathematical precondition from Lessons 1--2 is satisfied. These attacks instead exploit \emph{how RSA is computed} (timing, faults) or \emph{how a protocol reacts to malformed input} (padding oracles), or a subtle flaw in \emph{how the keys themselves were generated} (ROCA). This is the layer of RSA security that pure number theory cannot see.
+
+\newpage
+\section{Padding Oracles: Bleichenbacher's Attack on PKCS\#1 v1.5}
+
+\subsection{PKCS\#1 v1.5 Encryption Padding}
+
+Recall from Lesson 1 that textbook RSA is deterministic and malleable, and that real systems pad the message before encrypting. The older padding standard, \textbf{PKCS\#1 v1.5}, formats a $k$-byte block (where $k$ is the byte-length of $n$) as
+\[
+\texttt{EB} = \texttt{0x00} \,\|\, \texttt{0x02} \,\|\, \text{PS} \,\|\, \texttt{0x00} \,\|\, D,
+\]
+where $D$ is the message, $\text{PS}$ is a string of \emph{non-zero} random padding bytes at least 8 bytes long (padding out the block to exactly $k$ bytes), and the leading \texttt{0x00 0x02} is a fixed, publicly-known format marker. The recipient decrypts $c$, obtains $\text{EB} = c^d \bmod n$ (represented as a $k$-byte string), and checks the format: does it start with \texttt{0x00 0x02}, is there a \texttt{0x00} byte terminating the padding within a valid range, etc. If the format is invalid, many real implementations (TLS servers being the classic case) return a distinguishable error — \emph{this is the oracle}.
+
+\begin{definition}[Padding oracle]
+A \textbf{padding oracle} for PKCS\#1 v1.5 is any mechanism (an error message, a timing difference, a connection reset — the specific channel does not matter) that lets an attacker submit a chosen ciphertext $c$ and learn a single bit: \emph{does $c^d \bmod n$ decrypt to a validly-PKCS\#1-padded block, i.e.\ does it start with \texttt{0x00 0x02}?}
+\end{definition}
+
+\begin{example}[A tiny PKCS\#1 v1.5 block, made concrete]
+Take a toy $k=8$-byte block (a real RSA-1024 block would use $k=128$; 8 bytes is enough to see the structure). Encoding the 2-byte message $D = \texttt{0x1234}$ with 4 bytes of random non-zero padding $\text{PS} = \texttt{0xA1 0x7F 0x3C 0x99}$ gives
+\[
+\texttt{EB} = \underbrace{\texttt{0x00}}_{\text{1 byte}} \,\underbrace{\texttt{0x02}}_{\text{1 byte}} \,\underbrace{\texttt{0xA1 0x7F 0x3C 0x99}}_{\text{PS, 4 bytes}} \,\underbrace{\texttt{0x00}}_{\text{1 byte}} \,\underbrace{\texttt{0x1234}}_{\text{message, 2 bytes}},
+\]
+exactly 8 bytes. A recipient decrypting some ciphertext $c'$ and obtaining, say, $\texttt{0x00 0x02 0x00 \dots}$ (a zero byte immediately after the \texttt{0x02} marker, where PS must be non-zero) rejects it as invalid — this is precisely the format check the padding oracle exposes as a single accept/reject bit, with nothing about the message $D$ itself revealed directly by the check.
+\end{example}
+
+\medskip\noindent\textbf{Why one bit is catastrophic.} A one-bit oracle sounds harmless. Bleichenbacher (CRYPTO 1998) showed it is not: an attacker who can query the oracle on ciphertexts of the form $c' = c \cdot s^e \bmod n$ for chosen \emph{blinding} values $s$ learns, for each query, whether $m \cdot s \bmod n$ lands in the narrow range $[2B, 3B)$ where $B = 2^{8(k-2)}$ (i.e., whether the padded value ``looks like'' \texttt{0x00 0x02...}). Each YES answer is a strong constraint on the unknown $m$. Repeating this adaptively — using each new constraint to choose better values of $s$ — narrows the set of possible $m$ until only one remains. This is a classic \textbf{adaptive chosen-ciphertext attack}: it uses the decryption oracle itself, not any weakness in the RSA problem.
+
+\subsection{The Attack, at a High Level}
+
+\begin{algorithm}[h]
+\caption{Bleichenbacher's Attack (structure, not full case analysis)}
+\begin{algorithmic}[1]
+\State \textbf{Input:} target ciphertext $c = m^e \bmod n$; oracle $\mathrm{Valid}(c') \in \{0,1\}$ testing PKCS\#1 conformance
+\State \textbf{Step 1 (blinding search):} find the smallest $s_1$ such that $c \cdot s_1^{e} \bmod n$ passes the oracle
+\State \textbf{Step 2 (interval narrowing):} maintain a shrinking set of intervals that must contain $m$; each oracle query on a candidate $s_i$ either confirms an interval or splits it further, using the known structure $[2B,3B)$
+\State \textbf{Step 3 (interval refinement):} once a single interval remains, search increasingly precise values of $s$ to shrink the interval toward a single point
+\State \textbf{Return} the unique $m$ remaining once the interval has width 1
+\end{algorithmic}
+\end{algorithm}
+
+\begin{remark}[Why ``million-message attack'']
+Bleichenbacher's original paper estimated roughly $2^{20}$ (about a million) oracle queries to fully decrypt one ciphertext against 1024-bit RSA-PKCS\#1v1.5 — expensive but entirely practical for an attacker with network access to a server that leaks the oracle bit, e.g.\ via a distinguishable TLS alert message (``bad padding'' vs.\ other decryption failures). Later refinements (Bardou et al., 2012; ROBOT, 2017) reduced the required query count and revealed the attack was still exploitable in production TLS stacks nearly 20 years after publication — the flaw is in the \emph{error-handling contract} of the protocol, which is easy to get subtly wrong even when the padding format itself is implemented correctly.
+\end{remark}
+
+\medskip\noindent\textbf{Practical consequence.} \textbf{Never} let decryption failure reasons be distinguishable to the attacker — not via error message content, not via response timing, not via connection behavior. The historically recommended mitigation for legacy PKCS\#1 v1.5 is to proceed \emph{as if} decryption succeeded on failure (substituting random plaintext) so that no observable signal exists, rather than trying to enumerate and suppress every possible error channel. The complete fix, however, is to stop using PKCS\#1 v1.5 for new designs and use OAEP (Section~\ref{sec:oaep}), whose security proof directly rules out this class of attack.
+
+\newpage
+\section{Timing Attacks}
+
+\subsection{The Leakage Source}
+
+Recall the square-and-multiply algorithm from Lesson 1: the \texttt{if} branch executes an extra multiplication exactly when the current secret exponent bit is $1$. Even without a visible branch, the multiplication and squaring operations themselves can take data-dependent time (due to conditional reduction steps, cache access patterns, or hardware multiplier behavior on operands of different sizes/structure).
+
+\medskip\noindent\textbf{Kocher's Timing Attack (1996), core idea.} An attacker who can submit many ciphertexts $c_1, c_2, \dots$ to a server and measure the wall-clock time $T_i$ each decryption/signature takes can recover the secret exponent $d$ \textbf{one bit at a time}, from the most significant bit downward. Having correctly guessed the top $j$ bits of $d$, the attacker can \emph{simulate} the modular exponentiation up to that point for each $c_i$ and correlate the simulated intermediate computation's cost with the real measured $T_i$. A correct bit guess produces a statistically detectable correlation (the simulated step matches what the real hardware actually did); a wrong guess does not. Repeating bit by bit, with enough samples per bit to beat measurement noise, recovers all of $d$.
+
+\begin{remark}[Why this generalizes well beyond the toy square-and-multiply]
+The same statistical idea applies to \emph{any} implementation where some intermediate computational step's cost depends on secret bits — including CRT-RSA's $d_p, d_q$ exponentiations (arguably a richer target, since each exponent is only half the length, so fewer bits need to be recovered per correlated measurement), and even to cache-timing variants that measure which memory lines were touched rather than wall-clock time directly (e.g., a colocated attacker on the same physical machine observing cache eviction patterns).
+\end{remark}
+
+\begin{example}[Toy illustration of the bit-by-bit correlation]
+Let the secret exponent be the 6-bit toy value $d = 101101_2 = 45$, used with right-to-left square-and-multiply (Lesson 1, Algorithm~\ref{alg:modexp}). Processing $d$'s bits from the \emph{least}-significant end, the algorithm performs a squaring every step, plus an \emph{extra} multiplication exactly on the steps where the bit is $1$: reading $d=101101_2$ least-significant-bit first gives the bit sequence $1,0,1,1,0,1$, so extra multiplications occur on steps $1,3,4,6$ and are skipped on steps $2,5$. An attacker who has correctly guessed the first few (low-order) bits can simulate exactly which steps \emph{should} include the extra multiplication; timing many real executions and checking whether the measured cost is high (extra multiply present) or low (skipped) on the predicted step is precisely the one-bit correlation test Kocher's attack performs, repeated bit by bit until all 6 bits of $d$ are recovered. At real key sizes ($d$ having thousands of bits, not 6), each bit requires many timing samples to beat measurement noise, but the mechanism is identical to this toy trace.
+\end{example}
+
+\subsection{Defense: Blinding}
+
+\begin{definition}[RSA blinding]
+Before computing $m = c^d \bmod n$, the signer/decryptor picks a fresh random $r$ (coprime to $n$) for every operation, computes
+\[
+c' = c \cdot r^{e} \bmod n, \qquad m' = (c')^{d} \bmod n, \qquad m = m' \cdot r^{-1} \bmod n.
+\]
+\end{definition}
+
+\begin{proposition}[Correctness of blinding]
+$m' = (c \cdot r^e)^d = c^d \cdot r^{ed} \equiv c^d \cdot r \pmod n$ (using $r^{ed} \equiv r \pmod n$ by the same Euler's-theorem identity from Lesson 1 that makes RSA correct in the first place), so $m' \cdot r^{-1} \equiv c^d \equiv m \pmod n$.
+\end{proposition}
+
+\medskip\noindent\textbf{Why blinding defeats the timing attack.} The exponentiation the attacker times is now $(c')^d \bmod n$ for a value $c'$ that the attacker cannot predict or control (it is masked by a fresh random $r$ chosen internally, unknown to the attacker, on every single call). Since the attacker cannot correlate the timing of a specific known input against a specific bit-guess simulation — the actual base being exponentiated is different and unknown every time — the statistical correlation Kocher's attack relies on collapses to noise. \textbf{Blinding does not make the exponentiation itself constant-time}; it removes the attacker's ability to choose or know the input being timed, which is what the attack actually needs.
+
+\begin{example}[Blinding, fully worked]
+Reuse the familiar toy key $p=61,q=53,n=3233,e=17,d=2753$. An attacker sends ciphertext $c = 65^{17} \bmod 3233 = 2790$ (encryption of $m=65$) and wants to time the server's decryption of exactly this $c$.
+
+The server instead picks a fresh random blinding factor $r=41$ (coprime to $n$) and computes
+\[
+c' = c \cdot r^{17} \bmod 3233 = 2130.
+\]
+It is $c'=2130$ — not the attacker's original $c=2790$ — whose decryption the server actually times: $m' = (c')^{d} \bmod n = 2130^{2753} \bmod 3233 = 2665$. Unblinding recovers the true answer:
+\[
+m = m' \cdot r^{-1} \bmod n = 2665 \cdot 41^{-1} \bmod 3233 = 65,
+\]
+correctly matching the original message. \textbf{The attacker's timing measurement is on $c'=2130$, a value they never chose and cannot predict} — a fresh random $r$ is drawn on every call, so the same $c$ is never timed twice under the same disguise, and no bit-guess simulation the attacker builds around their chosen $c$ can be correlated against what the server actually computed.
+\end{example}
+
+\medskip\noindent\textbf{Practical consequence.} Production RSA implementations combine \emph{two} defenses, not one: (1) blinding, to remove attacker control over the timed input, and (2) constant-time modular exponentiation (e.g., Montgomery ladder instead of naive square-and-multiply, avoiding secret-dependent branches or table lookups entirely) as defense in depth, since blinding alone does not stop attackers who can observe \emph{which physical operations occurred} rather than just aggregate time (e.g., some cache/microarchitectural attacks). Real-world CVEs against RSA timing side channels (e.g., against OpenSSL's Montgomery multiplication in various years) have repeatedly targeted implementations that had blinding but incomplete constant-time arithmetic underneath it.
+
+\newpage
+\section{Fault Attacks: The Bellcore Attack on CRT-RSA}
+
+\subsection{Setup}
+
+Recall CRT-RSA decryption/signing from Lesson 1 (Section~\ref{sec:crt-speedup}): the signer computes
+\[
+s_p = c^{d_p} \bmod p, \qquad s_q = c^{d_q} \bmod q,
+\]
+and recombines via CRT to get the full signature $s$. This is roughly $4\times$ faster than computing $c^d \bmod n$ directly — which is precisely why real implementations use it, and precisely what makes the following attack possible.
+
+\begin{theorem}[Bellcore attack, Boneh--DeMillo--Lipton, 1997]
+Suppose an attacker can induce a single transient computational fault (via voltage glitching, clock glitching, laser fault injection, or simply naturally-occurring hardware error) during \emph{exactly one} of the two CRT branches — say the $s_p$ computation — while the $s_q$ branch computes correctly, and can obtain the resulting faulty signature $s'$ on a message $m$ whose value the attacker knows. Then the attacker recovers the prime factor $q$ (and hence the full private key) in polynomial time, using only $s'$, $m$, and the public $(n,e)$ — \textbf{no correct signature is needed at all.}
+\end{theorem}
+
+\begin{proof}[Proof idea]
+Since only the $s_p$ branch was corrupted, the faulty $s'$ still satisfies $s' \equiv m^d \pmod q$ (the $q$-branch was untouched), but $s' \not\equiv m^d \pmod p$ (the $p$-branch was corrupted, and a random fault essentially never happens to still satisfy the same congruence). Hence
+\[
+q \mid (s'^{e} - m), \qquad p \nmid (s'^{e} - m)
+\]
+(the second holds because $s'^e \equiv m \pmod q$ requires $s' \equiv m^d \pmod q$ by RSA correctness restricted mod $q$, which holds, but the same argument mod $p$ fails since $s'$ is wrong there). Therefore $\gcd(s'^e - m \bmod n,\ n) = q$ exactly — the Euclidean algorithm reveals the fault-affected prime directly, and from $q$ the attacker computes $p = n/q$, then the entire private key.
+\end{proof}
+
+\begin{example}[Bellcore attack, fully worked]
+Using the familiar toy key $p=61, q=53, n=3233, e=17, d=2753$, with $d_p = 53, d_q = 49, q^{-1} \bmod p = 38$. The signer correctly computes $s_p = 65^{53} \bmod 61 = 4$ and $s_q = 65^{49} \bmod 53 = 12$, recombining to the correct signature $s = 588$ (indeed $588^{17} \bmod 3233 = 65 = m$, as required).
+
+Now suppose a fault corrupts the $p$-branch only, flipping $s_p$ to $s_p' = 5$ (one off from the correct value) while $s_q = 12$ is untouched. Recombining via the same CRT formula gives a faulty signature $s' = 2602$. Checking: $(s')^{17} \bmod 3233 = 1496$, and indeed $1496 \equiv 12 \equiv m \pmod{53}$ (the $q$-branch congruence survives) while $1496 \equiv 32 \not\equiv 4 \equiv m \pmod{61}$ (the $p$-branch congruence is broken).
+
+The attacker, knowing only $n=3233$, $e=17$, the message $m=65$, and the single faulty signature $s'=2602$, computes
+\[
+\gcd\big((s')^{e} \bmod n \;-\; m,\ n\big) = \gcd(1496 - 65,\ 3233) = \gcd(1431, 3233) = \mathbf{53} = q.
+\]
+\textbf{A single faulty signature factored the modulus completely} — recovering $q$, then $p = 3233/53 = 61$, then $\varphi(n)$ and $d$ itself. No correct signature was ever needed.
+\end{example}
+
+\medskip\noindent\textbf{Practical consequence: signature verify-before-release.} The standard defense is procedural, not algebraic: \textbf{always verify a freshly computed CRT-RSA signature against the public key before releasing it} — i.e.\ check $s^e \bmod n \stackrel{?}{=} m$ internally, and discard/retry silently if the check fails, releasing nothing. A genuine fault will (overwhelmingly likely) fail this check, so the faulty signature the attacker needs is simply never emitted. This single check closes the entire attack class at negligible extra computational cost (one public-exponent exponentiation, which is cheap since $e$ is small, e.g.\ 65537), and is mandated by essentially every modern smart-card and HSM signing standard.
+
+\begin{remark}[Why this specifically targets CRT-RSA, and why that matters]
+Non-CRT RSA (computing $c^d \bmod n$ directly) is \emph{also} vulnerable to fault attacks in principle, but recovering the key from a single faulty full-size exponentiation is far harder — there is no clean two-branch structure to exploit algebraically. This is precisely the trade-off flagged in Lesson 1: the $4\times$ CRT speedup is bought at the cost of a much sharper fault-attack surface, which is why smart cards and HSMs that use CRT-RSA \emph{must} implement the verify-before-release countermeasure (or an equivalent redundant computation), while implementations that skip CRT entirely face a smaller (but nonzero) fault-attack risk.
+\end{remark}
+
+\newpage
+\section{ROCA: When Key Generation Itself Is the Vulnerability}
+
+\subsection{Background}
+
+\textbf{ROCA} (``Return of Coppersmith's Attack,'' Nemec et al., 2017) is not a flaw in RSA's mathematics or in a protocol's error handling — it is a flaw in a specific \emph{key-generation implementation} (the Infineon RSALib used in many smart cards, TPMs, and government-issued ID cards) that made factoring \emph{practically feasible} for affected keys, at sizes (512--2048 bits) that are otherwise completely safe against GNFS.
+
+\medskip\noindent\textbf{The vulnerable construction.} The affected library generated primes of the special form
+\[
+p = k \cdot M + \big(65537^{a} \bmod M\big)
+\]
+for a secret integer $k$, a secret exponent $a$, and a fixed public constant $M$ (a product of the first several hundred small primes — a ``primorial''), apparently as a performance optimization for the prime-generation process on constrained smart-card hardware. This construction was undisclosed until reverse-engineered by researchers.
+
+\begin{proposition}[Why this collapses the search space]
+An attacker who knows the public modulus $n = pq$ and suspects it was generated this way does \emph{not} need to search all $\approx \sqrt{n}$ possible values of $p$. Instead, since $p \bmod M$ is one of only $\mathrm{ord}_M(65537)$ possible residues (the multiplicative order of $65537$ modulo $M$ — typically a number in the thousands to low millions for the real ROCA parameters, versus $M$ itself and $\sqrt n$ being astronomically larger), the attacker can:
+\begin{enumerate}
+\item Enumerate the (comparatively tiny) set of candidate residues $r_a = 65537^a \bmod M$.
+\item For each candidate residue, use \textbf{Coppersmith's method} (Lesson 2, Section~\ref{sec:coppersmith}) to search for a small $k$ completing $p = kM + r_a$ into an actual factor of $n$ — Coppersmith's small-root machinery is exactly suited to this ``most of $p$ is unknown but constrained to a coset'' structure.
+\end{enumerate}
+This turns a brute-force search over all of $\mathbb{Z}$ into a brute-force search over a small candidate set, \emph{composed with} a polynomial-time root-finding step per candidate — dropping the effective attack cost for affected 1024-bit keys from ``infeasible'' to a few CPU-hours, and for affected 2048-bit keys to a few CPU-months on modest hardware (the original paper's reported figures), rather than the millennia GNFS would require.
+\end{proposition}
+
+\begin{example}[Toy illustration of the fingerprint structure — not real ROCA scale]
+Let the (deliberately tiny, illustrative-only) constant be $M = 3 \cdot 5 \cdot 7 \cdot 11 = 1155$. Compute $65537 \bmod M = 857$; the multiplicative order of $857$ modulo $1155$ turns out to be $12$ — meaning there are only \textbf{12} distinct residues $65537^a \bmod M$ ever reachable, out of the $1155$ residues mod $M$ in general (and utterly negligible next to $\sqrt n$ for a cryptographic-size $n$). Taking $a=1$ (so the residue is $65537 \bmod 1155 = 857$) and $k=2$ gives the candidate
+\[
+p = 2 \cdot 1155 + 857 = 3167,
+\]
+which is in fact prime. An attacker facing a modulus $n = p \cdot q$ built this way would not need to guess $p$ among all integers near $\sqrt n$ — only among the $12$ residues mod $1155$ (here, $\{1, 331, 362, 529, 593, 692, 694, 857, 923, 991, 1024, 1088\}$), each followed by a Coppersmith-style search for $k$. At real ROCA parameters ($M$ a $\sim$$2^{200}$-ish primorial, order in the low millions), the identical structural idea — not this exact toy arithmetic — is what makes the real attack practical.
+\end{example}
+
+\medskip\noindent\textbf{Practical consequence.} This vulnerability class does not indicate any weakness in RSA itself, in Coppersmith's method, or in any of the earlier lectures' key-generation advice (large random independent primes, avoiding smooth $p-1$, avoiding shared/related moduli) — it is precisely what happens when an implementation \emph{silently deviates} from that advice for an unstated performance reason. The lesson for practitioners: \textbf{never trust that ``a widely deployed, certified library'' generates primes uniformly at random} without independent verification; ROCA affected certified smart cards and government ID infrastructure for years before detection, precisely because the deviation was invisible from the public key alone unless someone specifically tested for the fingerprint.
+
+\newpage
+\section{Side-Channel Countermeasures: A Consolidated Checklist}
+
+The individual defenses mentioned throughout this lecture form a coherent set of standard practices. Collecting them here as a reference:
+
+\begin{center}
+\begin{tabular}{p{4cm}p{6.5cm}p{3.5cm}}
+\toprule
+\textbf{Threat} & \textbf{Countermeasure} & \textbf{Covered in} \\
+\midrule
+Padding-oracle CCA & OAEP instead of PKCS\#1 v1.5; uniform error handling & Sec.~1, Sec.~6 \\
+Timing leakage & RSA blinding (randomize the input) & Sec.~2 \\
+Timing/cache leakage & Constant-time modular exponentiation (Montgomery ladder) & Sec.~2 \\
+CRT fault injection & Verify signature before release; redundant computation & Sec.~3 \\
+Weak key generation & Independent verification of prime-generation randomness; avoid undisclosed proprietary shortcuts & Sec.~4 \\
+General implementation drift & Use vetted, widely-audited cryptographic libraries; do not hand-roll modular exponentiation or padding logic & All sections \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}[The unifying theme, one more time]
+Every defense above targets the \emph{gap between the mathematical specification of RSA and its physical realization}. Lessons 1--2 taught you when RSA is mathematically sound; this lecture teaches you that mathematical soundness is necessary but nowhere near sufficient — an implementation can be simultaneously ``textbook-perfect'' in its algebra and completely broken in its execution.
+\end{remark}
+
+\newpage
+\section{OAEP: A Security Sketch}\label{sec:oaep}
+
+\subsection{Construction}
+
+\textbf{Optimal Asymmetric Encryption Padding} (Bellare--Rogaway, 1994) replaces the fixed, structured PKCS\#1 v1.5 padding with a randomized, ``all-or-nothing''-looking transform, before the result is encrypted with textbook RSA:
+
+\medskip\noindent\textbf{OAEP encoding (simplified).} To encode a message $m$ (padded with a fixed-length string of zero bits $\text{PS}$ for domain separation) using two hash functions $G$ (a mask-generating function) and $H$, and a fresh random seed $r$:
+\[
+X = (m \,\|\, \text{PS}) \oplus G(r), \qquad Y = r \oplus H(X), \qquad \text{EM} = X \,\|\, Y,
+\]
+then $\text{EM}$ (interpreted as an integer $< n$) is encrypted as ordinary textbook RSA: $c = \text{EM}^e \bmod n$. Decryption inverts each XOR step in reverse (recovering $r$ from $Y$ and $H(X)$, then $m \,\|\, \text{PS}$ from $X$ and $G(r)$) and \textbf{rejects} if the recovered padding string does not exactly match the expected $\text{PS}$.
+
+\begin{example}[Toy illustration of the OAEP masking mechanism — not a real hash]
+The real $G,H$ are cryptographic hash functions; to see the seed/mask mechanics with actual numbers, use toy 4-bit stand-ins $G(r) = (7r+3) \bmod 16$ and $H(X) = (5X+1) \bmod 16$ (fixed, public functions — not secret), omit $\text{PS}$ for brevity, and encode the toy message $m=5$ with fresh random seed $r=9$:
+\[
+G(9) = 2, \qquad X = m \oplus G(r) = 5 \oplus 2 = 7, \qquad H(7) = 4, \qquad Y = r \oplus H(X) = 9 \oplus 4 = 13.
+\]
+So $\text{EM} = (X,Y) = (7,13)$. Decoding reverses the steps in the opposite order: $r' = Y \oplus H(X) = 13 \oplus 4 = 9$, then $m' = X \oplus G(r') = 7 \oplus 2 = 5$ — correctly recovering $m$.
+
+Now encrypt the \emph{same} message $m=5$ again with a fresh seed $r=2$: $G(2)=1$, so $X = 5 \oplus 1 = 4$; $H(4)=5$, so $Y = 2 \oplus 5 = 7$; giving $\text{EM}=(4,7)$ — completely different from $(7,13)$ despite encoding the identical message. \textbf{This is exactly the property that defeats Håstad and Franklin--Reiter}: two encodings of the same (or related) plaintext no longer share any visible algebraic structure once OAEP has randomized them, before RSA is even applied.
+\end{example}
+
+\medskip\noindent\textbf{Security sketch, in the random oracle model.} Modeling $G$ and $H$ as independent random oracles, Bellare and Rogaway showed OAEP-RSA achieves \textbf{IND-CCA2 security} (indistinguishability under adaptive chosen-ciphertext attack) whenever the underlying trapdoor permutation (here, RSA) is one-way. The proof idea: any adversary that can distinguish encryptions, or that submits a chosen ciphertext to a decryption oracle and gets useful information back, can be shown (via a simulation/extraction argument) to have queried the random oracle $H$ or $G$ on the specific value tied to the challenge ciphertext's underlying RSA pre-image — which lets a simulator extract an RSA inverse from the adversary's queries, contradicting the one-wayness of RSA. Informally: \textbf{any successful attack on OAEP-RSA can be converted into an algorithm that inverts plain RSA}, which we assume is hard.
+
+\begin{remark}[Why OAEP specifically defeats the earlier attacks]
+Each attack in Lessons 2--3 relied on some algebraic or structural regularity surviving into the encrypted value:
+\begin{itemize}
+\item \textbf{Håstad / Franklin--Reiter} (Lesson 2) needed related plaintexts to remain related after encoding. OAEP's random seed $r$ makes two encryptions of related (or even identical) messages look like uniformly random, unrelated strings before RSA is even applied — there is no longer any algebraic relationship for CRT or polynomial-GCD tricks to exploit.
+\item \textbf{Bleichenbacher's padding oracle} (Section~1) exploited the fact that a large fraction of PKCS\#1v1.5-decrypted garbage still ``looks like'' a differently-shaped valid message with nonzero probability, and that validity itself was cheaply, deterministically checkable and distinguishable. OAEP's redundancy check (the $\text{PS}$ match) has negligible probability of accidentally validating on a random/incorrect decryption, and — critically — OAEP's \emph{security proof} accounts for a decryption oracle directly (IND-CCA2 is defined with exactly such an oracle available to the adversary), which PKCS\#1v1.5's original design did not.
+\item \textbf{Malleability and determinism} (flagged already in Lesson 1) are both eliminated: the random seed $r$ makes encryption probabilistic, and the tightly-coupled XOR/hash structure means a modified ciphertext decrypts (if it decrypts at all) to something the redundancy check almost always rejects, rather than to a predictably related plaintext.
+\end{itemize}
+\end{remark}
+
+\medskip\noindent\textbf{What OAEP does \emph{not} fix.} OAEP is a defense at the \emph{mathematical/protocol} layer. It does nothing by itself against Section~2's timing attacks or Section~3's fault attacks against the underlying modular exponentiation — those require blinding, constant-time arithmetic, and verify-before-release, independently of which padding scheme sits on top. Real-world security requires \emph{all} of these layered together; OAEP alone is necessary but not sufficient.
+
+\newpage
+\section{Guillou--Quisquater: An RSA-Based Zero-Knowledge Proof}
+
+\subsection{Motivation: Proving Identity Without Revealing the Secret}
+
+Everything so far in this RSA module has been about encryption or signing. Guillou--Quisquater (1988) uses the same algebraic structure — an RSA-type modulus and modular exponentiation — for a different goal: letting a prover convince a verifier \emph{``I know a secret $s$ tied to my claimed identity''} without revealing $s$, and without letting the verifier (or an eavesdropper) later impersonate the prover.
+
+\medskip\noindent\textbf{Setup.} A trusted authority publishes an RSA-like modulus $n = pq$ and a public verification exponent $v$ (coprime to $\varphi(n)$, exactly as with an RSA public exponent). Each prover's identity is mapped, via a public redundancy/hash function, to a value $J$; the authority (who alone knows $\varphi(n)$, i.e.\ $p,q$) issues the prover a secret credential $s$ satisfying
+\[
+s^{v} \cdot J \equiv 1 \pmod n, \qquad \text{i.e.}\qquad s \equiv J^{-1/v} \pmod n,
+\]
+computable by the authority (who can take $v$-th roots mod $n$ using $\varphi(n)$) but not by anyone else, exactly as RSA decryption requires the private exponent.
+
+\begin{algorithm}[h]
+\caption{Guillou--Quisquater Identification Protocol (one round)}\label{alg:gq}
+\begin{algorithmic}[1]
+\State \textbf{Prover} picks random $r$ coprime to $n$, sends commitment $x = r^{v} \bmod n$
+\State \textbf{Verifier} picks random challenge $c \in \{0, 1, \dots, v-1\}$, sends $c$
+\State \textbf{Prover} computes and sends $y = r \cdot s^{c} \bmod n$
+\State \textbf{Verifier} accepts iff $x \equiv y^{v} \cdot J^{c} \pmod n$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{proposition}[Completeness]
+If the prover genuinely knows $s$ and follows the protocol, $y^v \cdot J^c = (r s^c)^v \cdot J^c = r^v \cdot s^{vc} \cdot J^c = x \cdot (s^v J)^c \equiv x \cdot 1^c \equiv x \pmod n$, so an honest verifier always accepts.
+\end{proposition}
+
+\begin{proposition}[Soundness, sketch]\label{prop:gq-soundness}
+A cheating prover who does not know $s$ but wants to pass for a specific challenge value $c$ can indeed fake a valid-looking transcript for \emph{that one} value of $c$ (by choosing $y$ first, then setting $x = y^v J^c \bmod n$ to match) — but must commit to $x$ \emph{before} learning the verifier's actual random challenge. A cheating prover can therefore satisfy at most one of the $v$ possible challenge values with a given commitment $x$, so guessing the verifier's challenge correctly happens with probability exactly $1/v$. Choosing $v$ large (e.g.\ a value comparable in size to a standard RSA public exponent) drives the cheating probability negligibly low in a \emph{single round}, unlike Fiat--Shamir-style protocols built on a $v=2$ structure, which need many sequential rounds to reach the same soundness level.
+\end{proposition}
+
+\begin{remark}[Zero-knowledge, sketch]
+A simulator that does not know $s$ can still produce transcripts $(x,c,y)$ indistinguishable from real ones \emph{without} interacting with a real prover: pick $c$ and $y$ uniformly at random first, then set $x = y^v J^c \bmod n$ (exactly the ``rewind and fake the commitment'' trick used in Proposition~2, but now run by the simulator rather than an attacker). Since $x$ is computed from uniformly random $y,c$, the resulting triple has exactly the same distribution as a genuine protocol run, which is the essence of the honest-verifier zero-knowledge argument: nothing in the transcript could not have been produced without knowledge of $s$, so the transcript itself leaks no information about $s$.
+\end{remark}
+
+\begin{example}[Guillou--Quisquater, fully worked]
+Reuse the familiar toy modulus $n = 3233$ ($p=61,q=53$, $\varphi(n)=3120$), and take the public exponent $v = 7$ (check: $\gcd(7,3120)=1$, exactly the RSA-key-generation condition from Lesson 1). Suppose the authority has issued the prover secret $s = 100$ (with $\gcd(100,3233)=1$), corresponding to public identity value
+\[
+J \equiv s^{-7} \pmod n = 1818, \qquad \text{check: } s^{7} \cdot J \bmod n = 1.
+\]
+
+\textbf{Round:} the prover picks $r = 37$ and sends the commitment $x = 37^{7} \bmod 3233 = 1700$. The verifier picks challenge $c = 3$. The prover, knowing $s=100$, replies with $y = 37 \cdot 100^{3} \bmod 3233 = 1548$.
+
+The verifier checks: $y^{7} \cdot J^{3} \bmod 3233 = 1548^7 \cdot 1818^3 \bmod 3233 = 1700 = x$. \textbf{Match} — the verifier accepts, and at no point did $s=100$ itself appear in any message exchanged.
+\end{example}
+
+\begin{example}[Why a cheating prover cannot do better than guessing]
+Suppose an impostor does \emph{not} know $s$, but tries to cheat by anticipating the verifier's challenge. Working backwards, they pick an arbitrary response $y=222$ and a guessed challenge $c=3$, then compute the commitment that would make the check pass \emph{for that guess}:
+\[
+x = y^{7} \cdot J^{3} \bmod 3233 = 937.
+\]
+If the verifier happens to challenge with $c=3$ (matching the guess), the check passes: $y^7 J^3 \bmod 3233 = 937 = x$. But if the verifier instead challenges with, say, $c=5$, the same fixed $(x,y)=(937,222)$ fails: $y^7 J^5 \bmod 3233 = 789 \ne 937$. Since $x$ was committed \emph{before} the challenge was revealed, the impostor had to guess $c$ in advance — correctly with probability exactly $1/v = 1/7$, matching Proposition~\ref{prop:gq-soundness}'s soundness claim precisely.
+\end{example}
+
+\begin{remark}[The bridge back to earlier material]
+Guillou--Quisquater is structurally the RSA-flavored cousin of the Fiat--Shamir identification scheme (which uses $v=2$ and a modulus whose factorization is likewise the trapdoor) — the underlying commit/challenge/response skeleton (Algorithm~\ref{alg:gq} above) is the same three-move structure used by essentially every modern zero-knowledge identification and signature scheme, whatever the underlying hard problem (factoring/RSA here; discrete log for Schnorr/Fiat--Shamir; lattice problems for schemes built the same way from LWE/SIS). Recognizing this shared skeleton — commit, challenge, response, verify — is the single most transferable idea to carry out of this lecture.
+\end{remark}
+
+\newpage
+\section{Summary}
+
+\subsection*{Summary}
+\begin{itemize}
+\item \textbf{Padding oracles} (Bleichenbacher): a single bit of decryption-validity feedback, queried adaptively, fully decrypts PKCS\#1v1.5 ciphertexts — the flaw is in error-handling, not in RSA's algebra.
+\item \textbf{Timing attacks} (Kocher): secret exponent bits leak through execution time of modular exponentiation; blinding (randomizing the input) plus constant-time arithmetic are both required as defense.
+\item \textbf{Fault attacks} (Bellcore): a single corrupted CRT branch, combined with one known message/signature pair, factors $n$ outright via a single gcd computation; verify-before-release closes this completely.
+\item \textbf{ROCA}: a real-world case where non-uniform, undisclosed key generation collapsed the effective search space enough for Coppersmith's method (Lesson 2) to factor otherwise-safe key sizes.
+\item \textbf{OAEP}: randomized, redundancy-checked padding with an IND-CCA2 security proof (in the random oracle model) that directly rules out the algebraic and oracle-based attacks from this and the previous lecture.
+\item \textbf{Guillou--Quisquater}: the same RSA algebra, repurposed as a zero-knowledge identification protocol, with soundness error $1/v$ per round instead of $1/2$ — and structurally the same three-move skeleton as the lattice-based signatures earlier in the course.
+\end{itemize}
+
+\medskip\noindent\textbf{The course-level takeaway.} Across all three RSA lectures: correctness is a CRT argument (Lesson 1); security against \emph{misuse} requires avoiding a specific list of structural traps (Lesson 2); and security in \emph{deployment} requires an entirely separate discipline — constant-time arithmetic, blinding, fault detection, verified randomness in key generation, and provably secure padding (Lesson 3). None of these three layers substitutes for the others: a mathematically flawless, correctly-used RSA implementation can still be broken in milliseconds by a fault injector, and a side-channel-hardened implementation is still broken instantly if $d$ is small or $n$ is shared. Real-world RSA security is the conjunction of all three lectures, not any one of them alone.
+
+\section*{Tutorial Exercises}
+\begin{enumerate}
+\item In Bleichenbacher's attack, explain concretely why the oracle needs only to distinguish ``starts with \texttt{0x00 0x02}'' rather than fully validating the entire padding string, and why this makes the attack robust to minor implementation variations across different TLS stacks.
+\item Suppose a timing attack has correctly recovered the top 6 bits of a 12-bit toy private exponent $d$ used with square-and-multiply. Describe precisely what additional measurements the attacker needs to recover bit 7, and why the attack proceeds strictly most-significant-bit first.
+\item Redo the Bellcore worked example with the fault instead corrupting the $q$-branch ($s_q$) rather than the $p$-branch, and show that the same gcd technique now recovers $p$ instead of $q$.
+\item Using $M = 3 \cdot 5 \cdot 7 \cdot 11 \cdot 13 = 15015$, compute the multiplicative order of $65537 \bmod M$, and compare the resulting candidate-residue count against $M$ itself and against $\sqrt{n}$ for a realistic 2048-bit RSA modulus. What does this comparison tell you about why ROCA is practical while generic factoring is not?
+\item Explain why OAEP's random oracle security proof does not, by itself, guarantee security against the timing and fault attacks earlier in this lecture. What does this imply about the completeness of a security argument that only addresses the mathematical padding layer?
+\item Compare Guillou--Quisquater's soundness argument to Fiat--Shamir's. If a Fiat--Shamir-style scheme uses $v=2$ per round and needs $t$ rounds to reach soundness error $2^{-t}$, how many G-Q rounds are needed to reach the same soundness error using $v = 2^{16}+1 = 65537$? What communication-cost trade-off does this reveal?
+\end{enumerate}
