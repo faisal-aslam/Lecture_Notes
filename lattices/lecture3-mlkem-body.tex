@@ -364,6 +364,10 @@ This narrowing is deliberate, and it is exactly what makes the FO transform poss
 
 The idea is to stop encrypting a message the attacker can choose or influence, and instead encrypt a message only the honest sender ever knows, in a way the receiver can independently double-check. Encaps generates a fresh random $m$, derives both the encryption randomness and the final key $K$ from $m$ by hashing, and encrypts $m$ with Kyber.CPAPKE. Decaps does something a plain decryption function does not: after recovering a candidate $m'$, it re-encrypts $m'$ with the same derived randomness and checks whether the result reproduces the submitted ciphertext $c$ exactly. If it does, $c$ is one an honest sender could genuinely have produced, and $K$ is derived from $m'$. If it does not, Decaps does not report an error; it instead returns a different, pseudorandom-looking key $K$, derived from the secret key and $c$ together (\emph{implicit rejection}), indistinguishable from a legitimate key to an outside observer. Figure~\ref{fig:fo-transform} shows this schematically.
 
+\begin{rmkbox}{Why Not Just Return $H(m')$ Directly?}
+Line 2's re-encryption check and line 6's implicit rejection both add real cost --- a full extra CPAPKE.Enc call on every single Decaps invocation --- so it is worth asking directly why Decaps does not simply skip both and return $K\gets H(m')$ unconditionally, straight off CPAPKE.Dec's output. The answer is that an $m'$ decrypted from an arbitrary, attacker-chosen ciphertext is not trustworthy: it is exactly the quantity a chosen-ciphertext attacker manipulates to mount the boundary-sweep key-recovery attack Lesson 5 works through in full, by submitting many crafted ciphertexts and learning something about $\vec s$ from whatever comes back. Without the check, that ``whatever comes back'' is $K=H(m')$ itself --- and if $K$ is ever used downstream (e.g.\ in a MAC that later succeeds or fails), the attacker regains exactly the decryption oracle Kyber.CPAPKE was never designed to survive. Line 2 closes that gap by refusing to trust $m'$ until it has been verified to be one that an honest Encaps run could actually have produced. Line 6 then closes the gap the check itself would otherwise open: if Decaps returned a visibly different \emph{kind} of output on failure (an error, a zero, a shorter string), the failure signal itself becomes exactly the one-bit-per-query oracle Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu} already warns about. Skip either line, and Decaps quietly degrades back into the same oracle Kyber.CPAPKE alone was already vulnerable to --- the FO transform's entire contribution is these two lines together, not either one alone.
+\end{rmkbox}
+
 \begin{figure}[ht]
 \centering
 \begin{tikzpicture}[scale=1, every node/.style={font=\small}]
@@ -404,8 +408,8 @@ Figure~\ref{fig:L3:kem-protocol} redraws the two-party picture from Figure~\ref{
 \begin{tikzpicture}[scale=1, every node/.style={font=\small}]
   \node[font=\bfseries] at (0,0.7) {Receiver};
   \node[font=\bfseries] at (7,0.7) {Sender};
-  \draw[dashed, gray] (0,0.3) -- (0,-5.5);
-  \draw[dashed, gray] (7,0.3) -- (7,-5.5);
+  \draw[dashed, gray] (0,0.3) -- (0,-7.6);
+  \draw[dashed, gray] (7,0.3) -- (7,-7.6);
 
   \node[draw, fill=green!10, minimum width=3.4cm, minimum height=0.9cm, align=center] (kg) at (0,0) {KeyGen\\ $\to (pk,sk)$};
 
@@ -420,14 +424,62 @@ Figure~\ref{fig:L3:kem-protocol} redraws the two-party picture from Figure~\ref{
   \node[draw, fill=green!10, minimum width=3.4cm, minimum height=0.9cm, align=center] (dec) at (0,-4.8) {Decaps$(sk,c)$\\ $\to K$};
   \node[draw, fill=orange!15, minimum width=1.3cm, minimum height=0.7cm] (Kr) at (-3.4,-4.8) {$K$};
   \draw[-{Latex[length=1.5mm]}, thin] (dec) -- node[above, font=\tiny] {keep} (Kr);
+
+  \node[draw, fill=violet!8, minimum width=7.2cm, minimum height=1.15cm, align=center] (aes) at (3.5,-6.6) {\textbf{Phase 2 --- Symmetric (repeated, fast)}\\ \footnotesize AES-GCM (or ChaCha20-Poly1305) traffic under key $K$, both directions};
+  \draw[-{Latex[length=1.5mm]}, thin] (Kr.south) |- (aes.west);
+  \draw[-{Latex[length=1.5mm]}, thin] (Ks.south) |- (aes.east);
 \end{tikzpicture}
-\caption{The CCA-secure KEM protocol. Only $pk$ and $c$ ever cross the wire, exactly as in the CPA version (Figure~\ref{fig:L3:cpa-protocol}); the shared secret $K$ is computed independently on each side and kept private. If $c$ reaches Decaps unmodified, both $K$'s match (Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}'s worked example); if $c$ was tampered with in transit, implicit rejection still produces \emph{some} $K$ on the Receiver's side, just not one that matches the Sender's.}
+\caption{The CCA-secure KEM protocol, now including what happens after the handshake. Only $pk$ and $c$ ever cross the wire during Phase 1 --- exactly as in the CPA version (Figure~\ref{fig:L3:cpa-protocol}); the shared secret $K$ is computed independently on each side and kept private. If $c$ reaches Decaps unmodified, both $K$'s match (Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}'s worked example); if $c$ was tampered with in transit, implicit rejection still produces \emph{some} $K$ on the Receiver's side, just not one that matches the Sender's (Section~\ref{sec:L3:key-confirmation} covers how that gets caught). Once both sides do hold matching $K$, Phase 2 hands it to a fast symmetric cipher for the actual application traffic --- exactly Lecture 2's hybrid-encryption pattern (Figure~\ref{fig:hybrid-handshake}), with ML-KEM supplying Phase 1.}
 \label{fig:L3:kem-protocol}
 \end{figure}
 
 \begin{rmkbox}{Where This Step Is Attacked}
 The re-encryption check is a comparison whose outcome must never leak; if an attacker learns, via timing or power consumption, whether a chosen ciphertext passed or failed it, many such queries can be turned into full key recovery. A second, independent leak sits earlier: the intermediate value $m'$ is computed in full \emph{before} the check ever runs, even for ciphertexts that will ultimately be rejected, so if that computation itself leaks (through the CPAPKE arithmetic touching $\vec s$), implicit rejection does not help --- the damage already happened one step earlier. Lesson 5 names specific published attacks that exploit exactly this structure.
 \end{rmkbox}
+
+\section{From Shared Secret to a Working Channel}
+\label{sec:L3:from-shared-secret-to-a-working-channel}
+
+Encaps and Decaps only ever establish one thing: a short, fresh, matching value $K$ on both sides (Figure~\ref{fig:L3:kem-protocol}). $K$ is never used to encrypt application data directly. Exactly as Lecture 2's hybrid-encryption pattern (Section~\ref{sec:L2:why-real-protocols-switch-to-symmetric}) anticipated, ML-KEM's entire output is handed off to a fast symmetric cipher --- typically AES-GCM or ChaCha20-Poly1305 --- which does the actual work of encrypting whatever messages the two parties exchange afterward. This is precisely why ML-KEM is a \emph{Key Encapsulation Mechanism} and not a general-purpose encryption scheme: $K$ is deliberately too short-lived and too narrowly scoped to be anything other than a symmetric key, and Figure~\ref{fig:L3:kem-protocol}'s Phase 2 shows exactly where it lands.
+
+In a real deployment, $K$ is not used as an AES key directly either. It is first run through a key-derivation function (a KDF, typically HKDF) to produce one or more separate \emph{traffic keys} --- often a different key for each direction (Receiver$\to$Sender and Sender$\to$Receiver), so a compromise of one direction's key does not automatically expose the other. Since HKDF is a deterministic function of $K$, both parties, having independently arrived at the same $K$, independently derive the same traffic keys from it with no further communication needed --- and switch to fast symmetric encryption for the rest of the session.
+
+\subsection{Catching a Mismatched \texorpdfstring{$K$}{K}}
+\label{sec:L3:key-confirmation}
+
+Figure~\ref{fig:L3:kem-protocol}'s caption already flags the one case that matters here: if $c$ is tampered with (or simply corrupted) in transit, implicit rejection makes Decaps return \emph{some} $K$ on the Receiver's side --- just not the one the Sender actually generated. Nothing about Encaps or Decaps themselves ever detects this; implicit rejection is deliberately built to look exactly like a success, on both branches, precisely to defend against the oracle attacks of Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu} and Lesson 5. So a mismatch has to be caught somewhere \emph{else} --- not by a special repair sub-protocol bolted onto ML-KEM, but by the ordinary integrity check every real handshake protocol already performs on itself.
+
+\begin{rmkbox}{This Is Not a New Protocol --- It Is TLS's Existing One}
+TLS 1.3 (and every other protocol that embeds ML-KEM the same way) already ends its handshake with a \textbf{Finished} message from each side: a MAC, computed under a key derived from that side's own view of the negotiated secret, over the entire handshake transcript so far. If the two sides' $K$ values do not match, the traffic keys they derive do not match either, so the MAC one side computes will not verify against what the other side expects --- the Finished check fails, and the connection is simply torn down. There is no separate ``did we really agree on $K$'' handshake layered on top of TLS for ML-KEM's benefit; \textbf{the Finished exchange already is that check}, for every possible cause of disagreement (a corrupted ML-KEM ciphertext, active tampering, an implementation bug, anything at all) --- not a mechanism added specifically because ML-KEM might fail. The response to a failed Finished check is the same regardless of cause: abandon this handshake attempt and start over with a fresh Encaps.
+\end{rmkbox}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node[font=\bfseries] at (0,0.7) {Receiver};
+  \node[font=\bfseries] at (7,0.7) {Sender};
+  \draw[dashed, gray] (0,0.3) -- (0,-6.9);
+  \draw[dashed, gray] (7,0.3) -- (7,-6.9);
+
+  \node[draw, fill=green!10, minimum width=3.2cm, minimum height=0.8cm, align=center] (kg) at (0,0) {KeyGen};
+  \draw[-{Latex[length=2mm]}, thick] (0,-1) -- (7,-1) node[midway, above, font=\tiny] {$pk$};
+  \node[draw, fill=blue!10, minimum width=3.6cm, minimum height=0.8cm, align=center] (enc) at (7,-2) {Encaps $\to (c,K_S)$};
+  \draw[-{Latex[length=2mm]}, thick] (7,-3) -- (0,-3) node[midway, above, font=\tiny] {$c$};
+  \node[draw, fill=green!10, minimum width=3.4cm, minimum height=0.8cm, align=center] (dec) at (0,-4) {Decaps $\to K_R$};
+
+  \node[draw, fill=orange!12, minimum width=3.3cm, minimum height=0.85cm, align=center] (fr) at (0,-5.15) {derive traffic key,\\ compute Finished$_R$};
+  \node[draw, fill=orange!12, minimum width=3.3cm, minimum height=0.85cm, align=center] (fs) at (7,-5.15) {derive traffic key,\\ compute Finished$_S$};
+
+  \draw[-{Latex[length=2mm]}, thick] (0,-6.15) -- (7,-6.15) node[midway, above, font=\tiny] {Finished$_R$};
+  \draw[-{Latex[length=2mm]}, thick] (7,-6.6) -- (0,-6.6) node[midway, below, font=\tiny] {Finished$_S$};
+
+  \node[font=\tiny, align=left, text width=3.6cm] at (10.6,-5.9) {\textbf{if $K_S\ne K_R$:} the MACs won't verify --- either side aborts and restarts the handshake};
+\end{tikzpicture}
+\caption{Key confirmation as it actually happens: two ordinary MACs (Finished messages), each computed under a key derived from that party's own view of $K$. A mismatch $K_S\neq K_R$ --- for instance, from a tampered ML-KEM ciphertext triggering implicit rejection --- makes one or both MAC checks fail, aborting the handshake. This is the same general-purpose mechanism TLS already uses to catch \emph{any} handshake corruption, not something added specifically for ML-KEM.}
+\label{fig:L3:key-confirmation}
+\end{figure}
+
+This buys something beyond robustness: an attacker who tampers with $c$ does not get to watch Decaps ``fail'' directly --- implicit rejection hides that entirely at the KEM layer, exactly as designed. The only thing an on-path attacker can eventually observe is that the connection was torn down after the Finished exchange --- a far coarser, far more expensive signal (an entire abandoned handshake, not a single oracle query), and exactly the kind of signal Lesson 5's attacks are built to avoid ever needing.
 
 \section{Deployment}
 \label{sec:L3:deployment-status}
