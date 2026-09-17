@@ -72,7 +72,7 @@
 
 In the previous video, we looked at two definitions of a lattice. In this video, we will look at another definition that can be used to develop a visual understanding of a lattice. Furthermore, this definition is also helpful in proving many theorems related to lattices. Without further ado, let's define a lattice using the concept of a fundamental region.
 
-A lattice $L \subset \mathbb{R}^n$ has a fundamental domain (also called a fundamental region) such that by translating this fundamental domain by lattice points, we can tile the whole of $\mathbb{R}^n$. You can think of this fundamental region as a basic tile that can be used to tile the whole of $\mathbb{R}^n$ using lattice points. Furthermore, this tile has a fixed volume, which is referred to as the volume of the lattice. So in this video, we will first provide mathematical definitions of a) fundamental region, b) volume of the lattice, and c) how to shift that region to tile $\mathbb{R}^n$. You might not understand these definitions readily; therefore, we will then go through several examples so that these three concepts are crystal clear. So let's start with the mathematical definition.
+A lattice $L \subset \mathbb{R}^n$ has a fundamental region (sometimes also called a fundamental domain in the literature) such that by translating this fundamental region by lattice points, we can tile the whole of $\mathbb{R}^n$. You can think of this fundamental region as a basic tile that can be used to tile the whole of $\mathbb{R}^n$ using lattice points. Furthermore, this tile has a fixed volume, which is referred to as the volume of the lattice. So in this video, we will first provide mathematical definitions of a) fundamental region, b) volume of the lattice, and c) how to shift that region to tile $\mathbb{R}^n$. You might not understand these definitions readily; therefore, we will then go through several examples so that these three concepts are crystal clear. So let's start with the mathematical definition.
 
 \paragraph{Definition 1: Fundamental Region}
 
@@ -90,10 +90,135 @@ $$
 \text{Vol}(L) = \left| \det(\mathbf{b}_1, \mathbf{b}_2, \dots, \mathbf{b}_n) \right|.
 $$
 
-\paragraph{Definition 3: Tiling $\mathbb{R}^n$}
+\paragraph{Definition 3: Tiling $\mathbb{R}^n$ by Shifting}
 
-Finally, the last definition is about shifting our basic tile in such a manner that it covers the whole of $\mathbb{R}^n$. We can simply shift our fundamental parallelepiped (i.e., our basic tile) by adding a lattice point to it. That shifting is simply $\mathcal{P} + l$ where $l \in L$.
+Finally, the last definition is about shifting our basic tile in such a manner that it covers the whole of $\mathbb{R}^n$.
+\textbf{Shifting} (or \textbf{translating}) $\mathcal{P}(B)$ by a lattice point $\ell$ simply means adding $\ell$ to every point in
+the parallelepiped:
+\[
+\ell+\mathcal{P}(B)
+=
+\left\{
+\ell+x
+\;\middle|\;
+x\in\mathcal{P}(B)
+\right\}.
+\]
+The shape and volume do not change; only the location changes.
+
+Finally, I must mention that the disjoint union of all those shifted tiles with respect to lattice points will cover the whole parent space $\mathbb{R}^n$ whose subset is our lattice. Mathematically,
+\[
+\mathbb{R}^n
+=
+\bigsqcup_{\ell\in L}
+\left(\ell+\mathcal{P}(B)\right),
+\]
+where $\bigsqcup$ denotes a disjoint union.
 
 If you have understood the above concepts, then I congratulate your intelligence. However, my aim is that everyone can understand them and everything is crystal clear, so I will now explain these concepts with some examples.
+
+\paragraph{Example: A non-standard lattice in $\mathbb{R}^2$.}
+
+Let us now work through a concrete example in two dimensions. Consider the lattice
+\[
+L = \{ m b_1 + n b_2 \mid m,n \in \mathbb{Z} \}
+\]
+with basis
+\[
+b_1 = (1,0), \qquad b_2 = \left(\tfrac12, \tfrac{\sqrt{3}}{2}\right).
+\]
+These vectors have length $1$ and are separated by $60^\circ$, so they generate the familiar \emph{triangular} (or hexagonal) lattice.
+
+\medskip
+\noindent
+\textbf{Step 1: The fundamental parallelepiped is just the parallelogram spanned by the basis vectors.}
+
+Recall from Definition 1 that the fundamental parallelepiped is the set of all points $t_1 b_1 + t_2 b_2$ where $0 \le t_1, t_2 < 1$. In two dimensions, this is simply the parallelogram whose four corners are:
+\[
+(0,0), \qquad b_1 = (1,0), \qquad b_2 = \left(\tfrac12, \tfrac{\sqrt{3}}{2}\right), \qquad b_1 + b_2 = \left(\tfrac32, \tfrac{\sqrt{3}}{2}\right).
+\]
+That is all there is to it. If you can picture the parallelogram spanned by the two basis vectors, you have pictured the fundamental parallelepiped. The only subtlety is the half-open convention: we include the bottom and left edges (where $t_1 = 0$ or $t_2 = 0$) but exclude the top and right edges (where $t_1 = 1$ or $t_2 = 1$). This is what will later allow the tiles to fit together without overlap.
+
+\figdrawnote{Draw the parallelogram with vertices $(0,0)$, $(1,0)$, $(\tfrac12,\tfrac{\sqrt{3}}{2})$, $(\tfrac32,\tfrac{\sqrt{3}}{2})$. Label the edges $b_1$ and $b_2$. Shade the interior lightly. Mark the bottom and left edges as solid (included) and the top and right edges as dashed (excluded).}
+
+\medskip
+\noindent
+\textbf{Step 2: Translate by a lattice point.}
+
+Now take the lattice point $\ell = b_1 + b_2 = \left(\tfrac32, \tfrac{\sqrt{3}}{2}\right)$ and shift the whole parallelogram by it. The shifted parallelogram has vertices:
+\[
+\left(\tfrac32, \tfrac{\sqrt{3}}{2}\right),\;
+\left(\tfrac52, \tfrac{\sqrt{3}}{2}\right),\;
+\left(2, \sqrt{3}\right),\;
+\left(3, \sqrt{3}\right).
+\]
+The shape and area are unchanged; only the location has moved. For example, the interior point $(0.65,\; 0.35\sqrt{3})$—which corresponds to $0.3 b_1 + 0.7 b_2$—maps to
+\[
+\ell + (0.65,\; 0.35\sqrt{3})
+= \left(\tfrac32 + 0.65,\; \tfrac{\sqrt{3}}{2} + 0.35\sqrt{3}\right)
+= (2.15,\; 0.85\sqrt{3}).
+\]
+This is the same relative position inside the shifted tile as before.
+
+\figdrawnote{Draw the original parallelogram and the shifted one side by side. Draw an arrow labeled $\ell = b_1 + b_2$ from the bottom-left corner of the original to the bottom-left corner of the shifted copy. Mark the same interior point in both, and draw a small arrow showing how it moves.}
+
+\medskip
+\noindent
+\textbf{Step 3: See that the translates tile the plane without overlap.}
+
+The original parallelogram $\mathcal{P}(B)$ and its translate by $\ell$ are disjoint: they share only boundary points, and those boundary points are excluded by the half-open convention. In fact, the entire plane is tiled by these parallelograms:
+\[
+\mathbb{R}^2 = \bigsqcup_{\ell \in L} (\ell + \mathcal{P}(B)),
+\]
+with the union being disjoint.
+
+To see this visually, imagine placing copies of this parallelogram so that their bottom-left corners are at every lattice point. They fit together perfectly because $b_1$ and $b_2$ are not parallel, and their lengths and angle are chosen so that the parallelograms interlock without gaps. This is exactly the same idea as tiling a floor with identical tiles: each tile is a copy of the fundamental region, and the lattice points tell us where to place them.
+
+\medskip
+\noindent
+\textbf{Step 4: Unique decomposition of every point.}
+
+Because the tiles fit together without overlap and cover the whole plane, every point $x \in \mathbb{R}^2$ can be written \emph{uniquely} as
+\[
+x = \ell + p,
+\qquad
+\ell \in L,\quad p \in \mathcal{P}(B).
+\]
+In words: every point in the plane belongs to exactly one tile, and that tile is identified by a unique lattice point $\ell$, with $p$ recording the position inside the tile.
+
+For example, take $x = (2.15,\; 0.85\sqrt{3})$. Then:
+\[
+x = \left(\tfrac32, \tfrac{\sqrt{3}}{2}\right) + (0.65,\; 0.35\sqrt{3}),
+\]
+so $\ell = b_1 + b_2$ and $p = 0.3b_1 + 0.7b_2$.
+
+\medskip
+\noindent
+\textbf{Step 5: Compute the volume (area) via the determinant.}
+
+The area of the parallelogram spanned by $b_1$ and $b_2$ is
+\[
+\text{Area}(\mathcal{P}(B)) = |\det(b_1, b_2)|
+= \left| \det \begin{pmatrix} 1 & \tfrac12 \\ 0 & \tfrac{\sqrt{3}}{2} \end{pmatrix} \right|
+= \left| 1 \cdot \tfrac{\sqrt{3}}{2} - \tfrac12 \cdot 0 \right|
+= \tfrac{\sqrt{3}}{2}.
+\]
+This is the area of a rhombus with side length $1$ and angle $60^\circ$.
+
+The determinant of the lattice is therefore
+\[
+\det(L) = |\det(B)| = \frac{\sqrt{3}}{2}.
+\]
+
+\medskip
+\noindent
+Thus,
+\[
+\boxed{\det(L) = |\det(B)| = \frac{\sqrt{3}}{2} = \text{Area}(\mathcal{P}(B)).}
+\]
+
+\medskip
+\noindent
+This example shows all three definitions in action: the fundamental parallelepiped (Definition 1), its volume (Definition 2), and how shifting it by lattice points tiles the plane (Definition 3).
 
 \end{document}
