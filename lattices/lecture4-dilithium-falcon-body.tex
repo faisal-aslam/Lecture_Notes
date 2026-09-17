@@ -82,6 +82,30 @@ Line 3 is identical in shape to Kyber's KeyGen (Lecture 3). The two schemes star
 Substitute: $\vec w' = A\vec z - c\vec t = A(\vec y + c\vec s_1) - c(A\vec s_1+\vec s_2) = A\vec y + cA\vec s_1 - cA\vec s_1 - c\vec s_2 = A\vec y - c\vec s_2 = \vec w - c\vec s_2$. The two copies of $cA\vec s_1$ cancel --- the same style of cancellation as Kyber's decryption in Lecture 3. $\vec w'$ isn't \emph{exactly} $\vec w$; it's $\vec w$ shifted by a small quantity $c\vec s_2$. Real ML-DSA's ``high bits'' / hint mechanism (omitted above) is specifically engineered so that this small shift doesn't change the \emph{high-order} bits of $\vec w$, so $H(\vec w', \text{msg})$ still reproduces the same challenge $c$ the signer used. Our simplified version above sidesteps this by just checking exact equality of the full hash input in a toy example (Section~\ref{sec:L4:a-fully-worked-toy-example}) small enough that no shift occurs.
 \end{rmkbox}
 
+Algorithms~1--3 describe three separate computations; Figure~\ref{fig:L4:dsa-protocol} puts them back together to make explicit which party runs which algorithm and what actually crosses the wire --- worth pinning down carefully, since a signature protocol's shape is structurally different from ML-KEM's request/response exchange (Lecture 3, Figure~\ref{fig:L3:cpa-protocol}).
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node[font=\bfseries] at (0,0.7) {Signer};
+  \node[font=\bfseries] at (7,0.7) {Verifier};
+  \draw[dashed, gray] (0,0.3) -- (0,-5.6);
+  \draw[dashed, gray] (7,0.3) -- (7,-5.6);
+
+  \node[draw, fill=green!10, minimum width=3.8cm, minimum height=0.9cm, align=center] (kg) at (0,0) {KeyGen\\ $\to (pk,sk)$};
+
+  \draw[-{Latex[length=2mm]}, thick] (0,-1.2) -- (7,-1.2) node[midway, above, font=\tiny] {send $pk=(A,\vec t)$ \textbf{once}};
+
+  \node[draw, fill=blue!10, minimum width=4.0cm, minimum height=0.9cm, align=center] (sign) at (0,-2.4) {Sign$(sk,\text{msg})$\\ $\to (\vec z,c)$};
+
+  \draw[-{Latex[length=2mm]}, thick] (0,-3.6) -- (7,-3.6) node[midway, above, font=\tiny] {send $\text{msg}$ and $(\vec z,c)$};
+
+  \node[draw, fill=green!10, minimum width=4.6cm, minimum height=1.05cm, align=center] (ver) at (7,-4.9) {Verify$(pk,\text{msg},(\vec z,c))$\\ $\to$ accept / reject};
+\end{tikzpicture}
+\caption{The ML-DSA protocol, party by party. Unlike ML-KEM's exchange (Figure~\ref{fig:L3:cpa-protocol}), where both parties run one algorithm each per session, here only the \textbf{Signer} ever runs KeyGen and Sign --- the secret key $sk=(\vec s_1,\vec s_2)$ never leaves the Signer. $pk=(A,\vec t)$ is generated and published \emph{once} (e.g.\ embedded in a certificate) and then reused for every subsequent message; each new $\text{msg}$ only needs a fresh $(\vec z,c)$ pair traveling alongside it. The \textbf{Verifier} never runs KeyGen or Sign at all --- Verify is the Verifier's only algorithm, and it can be run by anyone holding $pk$, independently, with no reply sent back to the Signer.}
+\label{fig:L4:dsa-protocol}
+\end{figure}
+
 \section{Why Rejection Sampling Exists (This Is the Important Part)}
 \label{sec:L4:why-rejection-sampling-exists-this-is-th}
 
@@ -141,6 +165,30 @@ Given a trapdoor (short basis) for a lattice $\Lambda$, and a target point $t = 
 \textbf{KeyGen:} generate short $f,g$ (this step itself is delicate number theory --- specific polynomial sampling techniques --- which we do not detail here); compute $h=g f^{-1} \bmod q$; the trapdoor is $(f,g)$ (or an equivalent short basis derived from them), the public key is $h$. \textbf{Sign:} hash the message to a target point, then use the trapdoor with GPV sampling (Falcon's specific method is called \emph{fast Fourier sampling}, chosen for speed) to find a short vector $(s_1,s_2)$ with $s_1 + s_2 h \equiv H(\text{msg}) \pmod q$; output $(s_1,s_2)$ (compressed) as the signature. \textbf{Verify:} recompute $s_1 = H(\text{msg}) - s_2 h \bmod q$ from the public $h$ and the received $s_2$, and check that $(s_1,s_2)$ is short enough to plausibly come from the trapdoor.
 \end{rmkbox}
 
+Exactly as with ML-DSA (Figure~\ref{fig:L4:dsa-protocol}), it's worth making explicit which party runs which of Falcon's three algorithms, since the same one-time-key, one-signature-per-message shape holds here too --- only the technique \emph{inside} Sign has changed.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=1, every node/.style={font=\small}]
+  \node[font=\bfseries] at (0,0.7) {Signer};
+  \node[font=\bfseries] at (7,0.7) {Verifier};
+  \draw[dashed, gray] (0,0.3) -- (0,-6.0);
+  \draw[dashed, gray] (7,0.3) -- (7,-6.0);
+
+  \node[draw, fill=green!10, minimum width=4.4cm, minimum height=1.05cm, align=center] (kg) at (0,0) {KeyGen: sample short $f,g$\\ $h=g f^{-1}\bmod q$};
+
+  \draw[-{Latex[length=2mm]}, thick] (0,-1.4) -- (7,-1.4) node[midway, above, font=\tiny] {send $pk=h$ \textbf{once}};
+
+  \node[draw, fill=blue!10, minimum width=4.8cm, minimum height=1.15cm, align=center] (sign) at (0,-2.8) {Sign: GPV/FFT-sample $(s_1,s_2)$\\ using trapdoor $(f,g)$};
+
+  \draw[-{Latex[length=2mm]}, thick] (0,-4.2) -- (7,-4.2) node[midway, above, font=\tiny] {send $\text{msg}$ and $(s_1,s_2)$};
+
+  \node[draw, fill=green!10, minimum width=5.0cm, minimum height=1.15cm, align=center] (ver) at (7,-5.6) {Verify: recompute $s_1$ from $h,s_2$;\\ check short \& consistent};
+\end{tikzpicture}
+\caption{FN-DSA's protocol shape, side by side with Figure~\ref{fig:L4:dsa-protocol}: identical party structure to ML-DSA --- only the \textbf{Signer} ever touches the trapdoor $(f,g)$, and only the Signer runs KeyGen and Sign; the \textbf{Verifier} holds nothing but the public $h$ and runs Verify alone, with no reply sent back. What changes is entirely internal to the Signer's Sign step: instead of Dilithium's commit/challenge/response loop with rejection sampling, Falcon runs a single GPV trapdoor-guided sampling step (fast Fourier sampling) directly against the hashed message target --- the external protocol shape is the same, but there is no ``discard and retry'' loop here the way there is in Dilithium's Sign (Algorithm~2).}
+\label{fig:L4:falcon-protocol}
+\end{figure}
+
 \begin{previewbox}{Why Falcon's Sampler Is the Star of Lesson 6}
 Two things make Falcon's signing step uniquely attack-prone compared to Dilithium's. First, GPV sampling needs to sample from a discrete Gaussian \emph{exactly} (or very close to it) --- an approximate or biased sampler can leak information about the trapdoor $(f,g)$ through the statistical shape of many signatures, even without any single signature looking wrong. Second, Falcon's fast Fourier sampling is implemented using \textbf{floating-point arithmetic}, for speed --- and floating-point operations have historically been far harder to make constant-time (free of secret-dependent timing or power variation) than the simple integer comparisons Dilithium's rejection sampling relies on. Put together: Dilithium's main defense (rejection sampling) is a young technique but algorithmically simple to implement safely; Falcon's main mechanism (Gaussian trapdoor sampling) is a mathematically older and better-understood technique, but a much harder \emph{implementation} target to make side-channel-resistant. This is exactly the gap that produced the published single-trace and sampler-leakage attacks on Falcon that Lesson 6 will walk through.
 \end{previewbox}
@@ -182,7 +230,7 @@ You now have, for all three schemes, both the correct algorithm \emph{and} a nam
   \item In your own words, explain the Fiat--Shamir transform to someone who has never seen an interactive proof --- use the commit/challenge/response structure from Section~\ref{sec:L4:a-primer-on-fiat-shamir-needed-before-di}, but invent your own non-cryptographic analogy (e.g.\ a game show, a magic trick) to illustrate why removing the interactive Verifier and replacing it with a hash still works.
   \item Complete the practice exercise in Section~\ref{sec:L4:a-fully-worked-toy-example} (two-signature key-recovery calculation) if you have not already.
   \item Compare Kyber's re-encryption check (Lecture 3, Section~\ref{sec:L3:from-cpa-secure-encryption-to-a-cca-secu}) and Dilithium's rejection sampling (Section~\ref{sec:L4:why-rejection-sampling-exists-this-is-th} above): both exist to prevent a secret-dependent quantity from becoming visible to an attacker. In 4--5 sentences, describe what each mechanism is protecting against, and why the two mechanisms look so different from each other despite that similarity of purpose.
-  \item Falcon's signature is a pair $(s_1,s_2)$ with $s_1+s_2h\equiv H(\text{msg})\pmod q$. Suppose $h = 5$ (a toy scalar stand-in, not a real ring element) and $H(\text{msg})=12 \pmod{17}$. If $s_2 = 2$, what must $s_1$ be for the equation to hold? Is this pair unique, or could other $(s_1,s_2)$ pairs also satisfy the equation --- and if so, what property (from Section~\ref{sec:L4:fn-dsa-falcon-a-different-lattice-a-diff}) picks out the one Falcon actually outputs?
+  \item Falcon's signature is a pair $(s_1,s_2)$ with $s_1+s_2h\equiv H(\text{msg})\pmod q$. Suppose $h = 5$ (a toy scalar stand-in, not a real ring element) and $H(\text{msg})=12 \pmod{17}$. If $s_2 = 2$, what must $s_1$ be? Is this pair unique, or could other $(s_1,s_2)$ pairs also satisfy the equation --- and if so, what property (from Section~\ref{sec:L4:fn-dsa-falcon-a-different-lattice-a-diff}) picks out the one Falcon actually outputs?
   \item \textbf{Looking ahead:} using the comparison table in Section~\ref{sec:L4:comparing-the-three-schemes-so-far}, predict --- before Lessons 5--6 reveal the real answer --- which of the three schemes' riskiest steps you would guess is \emph{easiest} to defend against with constant-time coding practices alone, and which would need dedicated hardware countermeasures. Briefly justify your guess; we will revisit it directly there.
 \end{enumerate}
 \end{exercisebox}
