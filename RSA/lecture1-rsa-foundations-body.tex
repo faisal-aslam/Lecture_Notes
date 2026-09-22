@@ -19,12 +19,27 @@ Before defining RSA, we re-derive the two number-theoretic facts it depends on. 
 
 \subsection{Euler's Totient Function and Euler's Theorem}
 
+Two ideas carry the entire RSA construction: \textbf{Euler's totient function} $\varphi(n)$, which counts how much ``room to maneuver'' modular exponentiation has, and \textbf{Euler's theorem}, which says that raising any suitable number to the power $\varphi(n)$ always lands back on $1$. Encryption and decryption in RSA are both just modular exponentiation, so this ``always lands back on $1$'' fact is precisely what lets decryption undo encryption. We build up both ideas slowly, with a fully worked small example at every step, because the rest of the lecture leans on them constantly.
+
 \begin{definition}[Euler's totient function]
 For $n \in \mathbb{Z}^{+}$, define
 \[
-\varphi(n) = |\{a \in \{1, \dots, n\} : \gcd(a,n) = 1\}|.
+\varphi(n) = |\{a \in \{1, \dots, n\} : \gcd(a,n) = 1\}|,
 \]
+i.e.\ $\varphi(n)$ counts how many integers in $\{1,\dots,n\}$ share \emph{no} common factor with $n$ other than $1$.
 \end{definition}
+
+\begin{example}[Computing $\varphi$ by brute force, to build intuition]
+Take $n=10$. Check every integer from $1$ to $10$ against $\gcd(\cdot,10)$:
+\[
+\begin{array}{c|cccccccccc}
+a & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10\\
+\hline
+\gcd(a,10) & 1 & 2 & 1 & 2 & 5 & 2 & 1 & 2 & 1 & 10
+\end{array}
+\]
+The values with $\gcd(a,10)=1$ are $\{1,3,7,9\}$ — exactly $4$ of them, so $\varphi(10)=4$. Notice $\varphi(10)$ is not simply ``$10$ minus something obvious''; it depends on \emph{which} primes divide $10$ (here $2$ and $5$), not just how many divisors $10$ has.
+\end{example}
 
 \begin{proposition}[Multiplicativity and formula]\label{prop:totient}
 If $n = p_1^{e_1} p_2^{e_2} \cdots p_k^{e_k}$ is the prime factorization of $n$, then
@@ -38,11 +53,17 @@ In particular, for two \emph{distinct} primes $p, q$:
 This special case is the one RSA uses directly.
 \end{proposition}
 
-\begin{example}[Computing $\varphi$]
-$36 = 2^2 \cdot 3^2$, so $\varphi(36) = 36\left(1 - \frac12\right)\left(1 - \frac13\right) = 36 \cdot \frac12 \cdot \frac23 = 12$. Direct check: $\{1,5,7,11,13,17,19,23,25,29,31,35\}$ are exactly the 12 residues coprime to 36.
+\begin{remark}[Where this formula comes from, intuitively]
+Think inclusion--exclusion. Among any $p_1$ consecutive integers, exactly one is divisible by $p_1$, so a $\left(1-\frac1{p_1}\right)$ fraction survives once multiples of $p_1$ are discarded. The same holds independently for $p_2,\dots,p_k$. Because the $p_i$ are distinct primes, ``divisible by $p_i$'' and ``divisible by $p_j$'' turn out to behave independently across $\{1,\dots,n\}$ — this independence is itself a consequence of the Chinese Remainder Theorem, introduced in the next subsection — so the surviving fraction after excluding every prime factor is the \emph{product} of the individual surviving fractions, and multiplying by $n$ gives the formula. The RSA-relevant case $\varphi(pq)=(p-1)(q-1)$ says the same thing concretely: from $\{1,\dots,pq\}$, throw away the $q$ multiples of $p$ and the $p$ multiples of $q$ (these two lists overlap only at $pq$ itself, discarded either way), leaving $pq-p-q+1=(p-1)(q-1)$ survivors.
+\end{remark}
+
+\begin{example}[Computing $\varphi$ with the formula]
+$36 = 2^2 \cdot 3^2$, so $\varphi(36) = 36\left(1 - \frac12\right)\left(1 - \frac13\right) = 36 \cdot \frac12 \cdot \frac23 = 12$. Direct check: $\{1,5,7,11,13,17,19,23,25,29,31,35\}$ are exactly the 12 residues coprime to 36 — none of them divisible by $2$ or by $3$.
 
 For the RSA-relevant case: $p=61, q=53$ gives $\varphi(61 \cdot 53) = 60 \cdot 52 = 3120$ — this is the pair we will reuse throughout this lecture.
 \end{example}
+
+\medskip\noindent\textbf{Why $\varphi(n)$ matters at all.} $\varphi(n)$ is the size of the set of residues that behave ``nicely'' under multiplication mod $n$ — formally, $(\mathbb{Z}/n\mathbb{Z})^{*} = \{a \in \{1,\dots,n-1\} : \gcd(a,n)=1\}$. This set is closed under multiplication mod $n$ (if $a$ and $b$ each share no factor with $n$, multiplying them creates no new common factor with $n$ either), every element has a multiplicative inverse mod $n$ inside the same set (exactly what the Extended Euclidean Algorithm computes), and $1$ acts as the identity. In other words, $(\mathbb{Z}/n\mathbb{Z})^{*}$ is a \textbf{group} of size $\varphi(n)$ under multiplication mod $n$. Euler's theorem, next, is a statement about \emph{this} group.
 
 \begin{theorem}[Euler's Theorem]\label{thm:euler}
 If $\gcd(a, n) = 1$, then
@@ -51,25 +72,80 @@ a^{\varphi(n)} \equiv 1 \pmod{n}.
 \]
 \end{theorem}
 
-\begin{proof}[Proof sketch]
-The set $(\mathbb{Z}/n\mathbb{Z})^{*}$ of residues coprime to $n$ forms a group of order $\varphi(n)$ under multiplication mod $n$. By Lagrange's theorem, for any element $a$ of a finite group $G$, $a^{|G|} = e$ (the identity). Applying this with $G = (\mathbb{Z}/n\mathbb{Z})^{*}$ gives $a^{\varphi(n)} \equiv 1 \pmod n$.
+\medskip\noindent\textbf{Plain-English statement, before the proof.} Take any $a$ sharing no factor with $n$, and start computing $a^1, a^2, a^3,\dots$ modulo $n$. Euler's theorem guarantees that by exponent $\varphi(n)$ you have landed back on $1$ — regardless of which coprime $a$ you started with. This ``guaranteed return to $1$'' is the single fact RSA is built on: it is what lets a carefully chosen \emph{second} exponentiation undo the effect of a first one.
+
+\begin{proof}[Proof --- the constructive version, worth doing by hand once]
+We prove it by directly multiplying every element of the group $(\mathbb{Z}/n\mathbb{Z})^{*} = \{g_1,\dots,g_{\varphi(n)}\}$ by $a$ and watching what happens, rather than citing an abstract theorem.
+
+\textbf{Step 1: multiplying by $a$ just reorders the group.} Consider $ag_1, ag_2, \dots, ag_{\varphi(n)} \pmod n$. Each $ag_i$ is still coprime to $n$ (a product of two things coprime to $n$), so every value in this new list is again some element of $(\mathbb{Z}/n\mathbb{Z})^{*}$. No two of them coincide either: if $ag_i \equiv ag_j \pmod n$, then since $\gcd(a,n)=1$ we may multiply both sides by $a^{-1}\bmod n$ (which exists precisely because $\gcd(a,n)=1$) to get $g_i \equiv g_j \pmod n$, forcing $i=j$. So the list $ag_1,\dots,ag_{\varphi(n)}$ is $\varphi(n)$ \emph{distinct} elements drawn from a set that only has $\varphi(n)$ elements total — meaning it is simply $\{g_1,\dots,g_{\varphi(n)}\}$ written in a different order.
+
+\textbf{Step 2: multiply everything together and cancel.} Both lists contain exactly the same elements (just reordered), so their products mod $n$ agree:
+\[
+(ag_1)(ag_2)\cdots(ag_{\varphi(n)}) \equiv g_1g_2\cdots g_{\varphi(n)} \pmod n.
+\]
+The left side equals $a^{\varphi(n)}\cdot P$, where $P=g_1g_2\cdots g_{\varphi(n)}$. Since $P$ is a product of things coprime to $n$, $\gcd(P,n)=1$, so $P$ has an inverse mod $n$. The equation $a^{\varphi(n)}\cdot P \equiv P \pmod n$ then gives, after multiplying both sides by $P^{-1}\bmod n$,
+\[
+a^{\varphi(n)} \equiv 1 \pmod n. \qedhere
+\]
 \end{proof}
 
+\begin{remark}[The one-line abstract version, for readers who already know group theory]
+The argument above \emph{is} a proof of Lagrange's theorem specialized to this one group: $(\mathbb{Z}/n\mathbb{Z})^{*}$ is a finite group of order $\varphi(n)$, and for any element $a$ of any finite group $G$, $a^{|G|}$ equals the identity. The longer proof above is the same idea, unpacked into elementary steps that use only ``multiplying reorders a finite set'' and ``cancel a common invertible factor.''
+\end{remark}
+
+\begin{example}[Euler's theorem, traced by hand]
+Let $n=10$, so $(\mathbb{Z}/10\mathbb{Z})^{*}=\{1,3,7,9\}$ and $\varphi(10)=4$. Take $a=3$ and multiply every group element by $3$, mod $10$:
+\[
+3\cdot1=3, \qquad 3\cdot3=9, \qquad 3\cdot7=21\equiv1, \qquad 3\cdot9=27\equiv7.
+\]
+The results $\{3,9,1,7\}$ are exactly $\{1,3,7,9\}$ again, just shuffled — precisely Step 1 of the proof. Multiplying the original four elements together: $P=1\cdot3\cdot7\cdot9=189$. The proof says $3^4\cdot P\equiv P\pmod{10}$, i.e.\ $3^4\equiv1\pmod{10}$ after cancelling $P$. Direct check: $3^4=81=8\cdot10+1\equiv1\pmod{10}$. \checkmark
+\end{example}
+
 \begin{example}[Euler's theorem in action]
-Let $a = 7$, $n = 10$. Since $\gcd(7,10)=1$ and $\varphi(10) = \varphi(2)\varphi(5) = 1 \cdot 4 = 4$, Euler's theorem predicts $7^4 \equiv 1 \pmod{10}$. Check: $7^2 = 49 \equiv 9$, $7^4 \equiv 9^2 = 81 \equiv 1 \pmod{10}$. \checkmark
+Let $a=7$, $n=10$. Since $\gcd(7,10)=1$ and $\varphi(10)=4$, Euler's theorem predicts $7^4\equiv1\pmod{10}$. Check: $7^2=49\equiv9$, $7^4\equiv9^2=81\equiv1\pmod{10}$. \checkmark
 \end{example}
 
 \begin{corollary}[Fermat's Little Theorem]
-If $p$ is prime and $\gcd(a,p) = 1$, then $a^{p-1} \equiv 1 \pmod p$. This is Euler's theorem with $n = p$, since $\varphi(p) = p - 1$.
+If $p$ is prime and $\gcd(a,p) = 1$, then $a^{p-1} \equiv 1 \pmod p$. This is Euler's theorem with $n = p$, since $\varphi(p) = p - 1$ (every integer from $1$ to $p-1$ is automatically coprime to a prime $p$).
 \end{corollary}
 
-\medskip\noindent\textbf{Why RSA cares.} Euler's theorem tells us: if we pick an exponent $e$ and a matching $d$ such that $ed \equiv 1 \pmod{\varphi(n)}$, then for any $a$ coprime to $n$,
+\medskip\noindent\textbf{Why RSA cares --- walked through slowly.} RSA encryption raises a message $a$ to a public power $e$; decryption raises the result to a private power $d$. For decryption to recover $a$, we need
 \[
-a^{ed} = a^{1 + k\varphi(n)} = a \cdot (a^{\varphi(n)})^{k} \equiv a \cdot 1^{k} \equiv a \pmod n.
+(a^e)^d = a^{ed} \equiv a \pmod n.
 \]
-This is \emph{exactly} the decryption-undoes-encryption identity we need. The catch is the phrase ``coprime to $n$'' — Section~\ref{sec:correctness} deals with what happens when it isn't.
+So the whole question is: \emph{what condition on $e$ and $d$ makes raising to the power $ed$ act like doing nothing at all, modulo $n$?} Euler's theorem answers this directly, and the answer is exactly why RSA key generation is built the way it is. Suppose $e$ and $d$ are chosen so that
+\[
+ed \equiv 1 \pmod{\varphi(n)}.
+\]
+Read this condition in words first: it says $ed$, divided by $\varphi(n)$, leaves remainder $1$ — equivalently, $ed$ is \emph{one more than some whole number of multiples of $\varphi(n)$}. Call that whole number of multiples $k$, so as an equation over the integers (not just modulo $\varphi(n)$):
+\[
+ed = 1 + k\varphi(n), \qquad \text{for some integer } k \ge 0.
+\]
+Substitute this into $a^{ed}$ and simplify one step at a time, assuming for now $\gcd(a,n)=1$:
+\[
+a^{ed} \;=\; a^{\,1+k\varphi(n)} \;=\; a^{1}\cdot a^{k\varphi(n)} \;=\; a\cdot\left(a^{\varphi(n)}\right)^{k}.
+\]
+The first equality just substitutes $ed=1+k\varphi(n)$; the second splits the exponent's sum into a product of powers (the exponent law $x^{m+n}=x^mx^n$); the third regroups $a^{k\varphi(n)}=(a^{\varphi(n)})^k$ (the exponent law $x^{mn}=(x^m)^n$). Now Euler's theorem enters: since $\gcd(a,n)=1$, $a^{\varphi(n)}\equiv1\pmod n$. Substituting,
+\[
+a\cdot\left(a^{\varphi(n)}\right)^{k} \equiv a\cdot1^{k} \equiv a \pmod n.
+\]
+Chaining the two displayed calculations together gives exactly $a^{ed}\equiv a\pmod n$ — decryption undoes encryption.
 
-\subsection{The Chinese Remainder Theorem}
+\begin{remark}[The ``clock'' intuition for the same argument, without the algebra]
+Picture the powers of $a$ modulo $n$ arranged around a dial with $\varphi(n)$ positions. Euler's theorem says raising $a$ to the power $\varphi(n)$ is ``one full lap'' of the dial: you end up exactly back where you started, at $1$. Raising $a$ to the power $k\varphi(n)$ is ``$k$ full laps'' — still exactly back at $1$, however many laps. Raising $a$ to the power $ed=1+k\varphi(n)$ is therefore ``$k$ full laps, plus one extra step'' — and one extra step past ``back where you started'' is just $a^1=a$. Choosing $e$ and $d$ with $ed\equiv1\pmod{\varphi(n)}$ is precisely choosing them so encrypting-then-decrypting is always some whole number of full laps plus exactly one step.
+\end{remark}
+
+\begin{example}[The exponent identity, verified with actual numbers]
+Take $n=10$, so $\varphi(n)=4$, and pick $e=3$. We need $d$ with $3d\equiv1\pmod4$; $d=3$ works, since $3\cdot3=9=1+2\cdot4$ (so $k=2$ here). Take $a=7$ (coprime to $10$). Encrypt-then-decrypt: $a^e=7^3=343\equiv3\pmod{10}$, then $(a^e)^d=3^3=27\equiv7\pmod{10}$ — back to the original $a=7$, exactly as the identity above guarantees. Note $ed=9=1+2\cdot4$: two full laps around a $4$-position dial, plus one extra step.
+\end{example}
+
+This is \emph{exactly} the decryption-undoes-encryption identity RSA needs, and Section~\ref{sec:rsa-construction} turns it into an actual key-generation recipe: pick $e$ first, then solve $ed\equiv1\pmod{\varphi(n)}$ for $d$ using the Extended Euclidean Algorithm (precisely how one computes a multiplicative inverse — here, the inverse of $e$ modulo $\varphi(n)$). The one loose thread is the assumption $\gcd(a,n)=1$: a real message $a$ sent through RSA might, in principle, share a factor with $n$. Section~\ref{sec:correctness} closes this gap completely, and it is exactly where the Chinese Remainder Theorem — introduced next — does its first job for us.
+
+\subsection{The Chinese Remainder Theorem}\label{ssec:crt}
+
+\medskip\noindent\textbf{What CRT says, before any formalism.} Suppose $n=pq$ for two primes sharing no common factor (any two distinct primes qualify). The Chinese Remainder Theorem says: knowing a number $x$'s remainder mod $p$ \emph{and} its remainder mod $q$ is exactly as much information as knowing $x$'s remainder mod $n=pq$ directly — nothing is lost, and nothing is ambiguous. Concretely: every pair of remainders $(a,b)$ with $0\le a<p,\ 0\le b<q$ corresponds to \emph{exactly one} $x\in\{0,\dots,n-1\}$ satisfying $x\equiv a\pmod p$ and $x\equiv b\pmod q$ simultaneously — always solvable, and never more than one solution. This is what later lets us split one hard computation mod $n$ into two easier computations, mod $p$ and mod $q$, and stitch the two answers back together with no loss of information.
+
+\medskip\noindent\textbf{A non-mathematical analogy.} Picture two interlocking gears, with $p$ and $q$ teeth respectively, both starting at a marked tooth and turning together. If $p$ and $q$ share no common factor, the combined configuration (``which tooth of the first gear is marked now'', ``which tooth of the second gear is marked now'') does not repeat until $pq$ steps have passed, and every one of the $pq$ possible combined configurations occurs exactly once per cycle. ``Remainder mod $p$'' and ``remainder mod $q$'' are exactly the two gears' positions; CRT says these two positions, taken together, pin down the combined state uniquely — which is the same information as a single remainder mod $pq$.
 
 \begin{theorem}[CRT]\label{thm:crt}
 Let $n = pq$ with $p, q$ coprime. The map
@@ -83,24 +159,54 @@ x \equiv a \pmod p, \qquad x \equiv b \pmod q
 has a unique solution $x \in \{0, \dots, n-1\}$ for every pair $(a,b)$.
 \end{theorem}
 
-\begin{proof}[Proof sketch]
-The map is a ring homomorphism (checking addition and multiplication are preserved is routine). It is injective because if $x \equiv y \pmod p$ and $x \equiv y \pmod q$ then $pq \mid (x-y)$ (using $\gcd(p,q)=1$), so $x = y$ in $\mathbb{Z}/n\mathbb{Z}$. Since both sides have exactly $n = pq$ elements, injective implies bijective.
+\medskip\noindent\textbf{Unpacking ``ring isomorphism.''} This is precise language for the informal statement above, plus one extra guarantee. ``Map'' means every $x$ is sent to the pair of its two remainders. ``Isomorphism'' means this map is a perfect one-to-one correspondence (a bijection) between $\{0,\dots,n-1\}$ and all pairs $(a,b)$ with $0\le a<p,\,0\le b<q$ — the ``unique solution'' half of the theorem. ``Ring'' (rather than just ``set'') means the correspondence also respects \emph{arithmetic}: adding (or multiplying) two numbers mod $n$ and then splitting into remainders gives the same pair as splitting first and then adding (or multiplying) each coordinate separately. In symbols, if $x\mapsto(a,b)$ and $y\mapsto(c,d)$, then
+\[
+x+y \mapsto (a+c \bmod p,\ b+d \bmod q), \qquad xy \mapsto (ac \bmod p,\ bd \bmod q).
+\]
+This extra guarantee is what makes CRT more than a counting trick: an entire arithmetic computation can be carried out \emph{coordinatewise}, mod $p$ and mod $q$ separately, and the two partial answers automatically recombine into the correct answer mod $n$ — exactly the mechanism Section~\ref{sec:crt-speedup} exploits for faster decryption, and Section~\ref{sec:correctness} exploits for a correctness proof covering every message, not just the coprime ones.
+
+\begin{proof}[Proof, explained step by step]
+We check the three things the theorem claims: the map preserves arithmetic, it never sends two different numbers to the same pair, and (by a counting argument) it must therefore hit every pair.
+
+\textbf{It preserves arithmetic (it's a ring homomorphism).} If $x\equiv a\pmod p$ and $y\equiv c\pmod p$, then directly from the definition of congruence, $x+y\equiv a+c\pmod p$ and $xy\equiv ac\pmod p$ — and likewise mod $q$. So reducing mod $p$ (or mod $q$) after adding/multiplying gives the same result as adding/multiplying the already-reduced remainders — exactly the coordinatewise formula displayed above.
+
+\textbf{It is injective (no two different numbers share a remainder pair).} Suppose $x$ and $y$ (both in $\{0,\dots,n-1\}$) map to the \emph{same} pair, i.e.\ $x\equiv y\pmod p$ and $x\equiv y\pmod q$. The first says $p\mid(x-y)$; the second says $q\mid(x-y)$. Since $p,q$ are distinct primes ($\gcd(p,q)=1$), a number divisible by both must be divisible by their product: $pq\mid(x-y)$. But $x,y\in\{0,\dots,n-1\}$ with $n=pq$, so $|x-y|<n=pq$; the only multiple of $pq$ with absolute value less than $pq$ is $0$ itself, forcing $x=y$. So distinct inputs always land on distinct output pairs.
+
+\textbf{It is therefore also surjective (every pair is hit).} The domain $\{0,\dots,n-1\}$ has exactly $n=pq$ elements. The codomain — all pairs $(a,b)$ with $0\le a<p,\,0\le b<q$ — also has exactly $p\cdot q=n$ elements. An injective map between two \emph{finite sets of the same size} must also be surjective (if some pair were missed, the $n$ distinct images would have to fit into fewer than $n$ remaining slots, which is impossible). So every pair $(a,b)$ is the image of exactly one $x$ — precisely the ``unique solution'' claim.
 \end{proof}
 
-\begin{example}[Solving a CRT system by hand]
-Solve $x \equiv 2 \pmod 3$, $x \equiv 3 \pmod 5$. Listing multiples: $x \in \{2,5,8,11,14,\dots\}$ satisfies the first; checking against the second, $x=8$ gives $8 \equiv 3 \pmod 5$. \checkmark So $x \equiv 8 \pmod{15}$, and this is the unique solution mod $15$ guaranteed by the theorem. This toy mechanism — solve mod each prime separately, recombine — is exactly what CRT-RSA decryption automates at scale (Section~\ref{sec:crt-speedup}).
+\medskip\noindent\textbf{A constructive method, not just an existence proof.} The proof above guarantees a unique solution exists but does not by itself hand you a formula for it. In practice — and this is exactly the formula CRT-RSA decryption automates in Section~\ref{sec:crt-speedup} — the solution is built explicitly with the Extended Euclidean Algorithm:
+\begin{enumerate}
+\item Compute $q^{-1}\bmod p$ (this exists because $\gcd(p,q)=1$).
+\item The unique solution in $\{0,\dots,n-1\}$ to $x\equiv a\pmod p,\ x\equiv b\pmod q$ is
+\[
+x \;=\; b + q\cdot\Big(\big((a-b)\cdot(q^{-1}\bmod p)\big)\bmod p\Big).
+\]
+\end{enumerate}
+Read informally: start from $x=b$, which already satisfies the mod-$q$ condition; then add a correction term, a multiple of $q$, chosen so the result also satisfies the mod-$p$ condition without disturbing the mod-$q$ one (adding any multiple of $q$ never changes the value mod $q$).
+
+\begin{example}[Solving a CRT system two ways]
+Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$ (so $p=3,\,a=2,\,q=5,\,b=3,\,n=15$).
+
+\emph{By listing} (fine for tiny numbers, but does not scale): $x\in\{2,5,8,11,14,\dots\}$ satisfies the first congruence; checking each against the second, $x=8$ gives $8\equiv3\pmod5$. \checkmark So $x\equiv8\pmod{15}$.
+
+\emph{By the constructive formula} (the method that scales, and the one RSA actually uses): compute $q^{-1}\bmod p=5^{-1}\bmod3$. Since $5\equiv2\pmod3$ and $2\cdot2=4\equiv1\pmod3$, we get $5^{-1}\equiv2\pmod3$. Then
+\[
+x = b + q\cdot\Big(((a-b)\cdot(q^{-1}\bmod p))\bmod p\Big) = 3+5\cdot\big(((2-3)\cdot2)\bmod3\big) = 3+5\cdot\big((-2)\bmod3\big) = 3+5\cdot1 = 8.
+\]
+Both methods agree: $x=8$, the unique solution in $\{0,\dots,14\}$ guaranteed by the theorem. This same computation — reduce mod $p$, reduce mod $q$, recombine with a modular-inverse correction term — is exactly what Section~\ref{sec:crt-speedup}'s CRT-RSA decryption algorithm performs, with $a,b$ replaced by the two partial decryptions $m_p,m_q$.
 \end{example}
 
-\begin{remark}[Two uses of CRT in this lecture]
-CRT plays two completely different roles in RSA that students often conflate:
+\begin{remark}[Two uses of CRT in this lecture --- and why they are genuinely different jobs]
+CRT plays two completely different roles in RSA that students often conflate, precisely because both roles use the exact same theorem:
 \begin{enumerate}
-\item \textbf{Correctness}: it lets us prove decryption works for \emph{all} messages $m \in \{0,\dots,n-1\}$, not just those coprime to $n$ (Section~\ref{sec:correctness}).
-\item \textbf{Efficiency}: it lets us speed up decryption by roughly $4\times$ using CRT-RSA (Section~\ref{sec:crt-speedup}) — and this optimization is precisely what makes the Bellcore fault attack possible, which we cover in Lesson 3.
+\item \textbf{Correctness} (Section~\ref{sec:correctness}): Euler's theorem alone only talks about $a$ with $\gcd(a,n)=1$. CRT lets us handle \emph{every} message $a\in\{0,\dots,n-1\}$, including the astronomically rare ones sharing a factor with $n$, by checking correctness separately mod $p$ and mod $q$ (where a simpler, case-by-case argument works) and using CRT to stitch the two into one statement mod $n$.
+\item \textbf{Efficiency} (Section~\ref{sec:crt-speedup}): the private-key holder, who knows $p$ and $q$, replaces one expensive exponentiation mod the full-size $n$ with two cheaper exponentiations mod the half-size $p$ and $q$, then uses exactly the reconstruction formula above to recombine the two partial results into the true answer mod $n$. This is roughly $4\times$ faster — and, as a preview, is precisely the optimization the Bellcore fault attack (Lesson 3) exploits: corrupting just one of the two halves and recombining anyway produces a faulty signature that leaks a whole prime factor of $n$.
 \end{enumerate}
 \end{remark}
 
 \newpage
-\section{RSA Construction}
+\section{RSA Construction}\label{sec:rsa-construction}
 
 \subsection{Key Generation}
 

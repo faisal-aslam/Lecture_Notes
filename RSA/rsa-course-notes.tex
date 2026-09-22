@@ -8,8 +8,13 @@
 %
 % How this works:
 %   - Each lectureN-rsa-*.tex file is still a fully independent,
-%     standalone document (own title page, own table of contents)
-%     -- it gets its content from lectureN-rsa-*-body.tex via \input.
+%     standalone document -- it gets its content from
+%     lectureN-rsa-*-body.tex via \input. The standalone lecture files
+%     no longer carry their own title page or table of contents (that
+%     used to be duplicated per lecture); the shared title text lives
+%     in ONE place (\seriestitle, defined in lecture-preamble.tex) and
+%     the single combined table of contents below is the only one,
+%     covering all three lessons together at the top of this document.
 %   - This file \input's the exact same body files directly, wrapped
 %     in \chapter{Lesson N: ...} headings, under the `book` class.
 %
@@ -28,7 +33,7 @@
 \titlespacing*{\chapter}{0pt}{-20pt}{30pt}
 \pagestyle{plain}
 
-\title{\textbf{The RSA Cryptosystem: Foundations, Attacks, and Implementation}}
+\title{\textbf{\seriestitle}}
 \author{Dr.\ Faisal Aslam}
 \date{}
 
