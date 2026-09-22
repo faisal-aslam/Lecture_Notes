@@ -14,9 +14,17 @@
 \section{Wiener's Attack: Small Private Exponent}
 
 \subsection{Motivation}
-CRT-RSA decryption (Lesson 1, Section~\ref{sec:crt-speedup}) is faster with smaller $d$. This creates a temptation: why not simply choose a small $d$ to speed up decryption, and derive $e = d^{-1} \bmod \varphi(n)$ afterward? Wiener showed in 1990 that this is catastrophic.
+CRT-RSA decryption (Lesson 1, Section~\ref{sec:crt-speedup}) is faster with smaller $d$. This creates a temptation: why not simply choose a small $d$ to speed up decryption, and derive $e = d^{-1} \bmod \varphi(n)$ afterward? Wiener showed in 1990 that this is catastrophic: if $d$ is small enough, the \emph{entire private key} is recoverable from the public key alone, in a fraction of a second, using nothing more exotic than the Euclidean algorithm.
+
+\medskip\noindent\textbf{The key insight, in one sentence, before any machinery.} The public key $(n,e)$ is, on its face, just two large numbers with no visible structure. But if $d$ is small, it turns out that the fraction $e/n$ — which the attacker already knows exactly — is secretly an extremely good rational approximation of a related fraction $k/d$ involving the private $d$. ``Extremely good approximations of a fraction with a small denominator'' are rare and easy to enumerate, so the attacker can simply search that short list rather than guessing $d$ directly. Continued fractions are the tool that makes ``search the short list of extremely good approximations'' precise and efficient; we build that tool first, then use it to attack RSA.
 
 \subsection{Continued Fractions Refresher}
+
+\medskip\noindent\textbf{What a continued fraction is, and why anyone invented it.} Every rational number can be written as a whole part plus a fraction, and that fraction can itself be flipped and split the same way, recursively:
+\[
+\frac{30}{7} = 4 + \frac{2}{7} = 4 + \cfrac{1}{7/2} = 4 + \cfrac{1}{3 + \tfrac12} = 4 + \cfrac{1}{3 + \cfrac{1}{2}}.
+\]
+Stopping this process at each stage and simplifying back into a single fraction gives a sequence of increasingly accurate rational approximations to the original number — $4$, then $4+\frac13 = \frac{13}{3}$, then the exact value $\frac{30}{7}$ itself. This is the entire idea; the definitions below just make it precise and give a fast way to compute it (the same Euclidean algorithm you already know from computing $\gcd$s and modular inverses).
 
 \begin{definition}[Continued fraction expansion]
 Every rational number $\frac{x}{y}$ has a unique finite continued fraction expansion
@@ -26,6 +34,10 @@ Every rational number $\frac{x}{y}$ has a unique finite continued fraction expan
 computed by the Euclidean algorithm: $a_0 = \lfloor x/y \rfloor$, then recurse on $y / (x - a_0 y)$.
 \end{definition}
 
+\begin{example}[Continued fraction expansion, small warm-up]
+Expand $\frac{30}{7}$. Step 1: $a_0 = \lfloor 30/7\rfloor = 4$, remainder $30 - 4\cdot7 = 2$; recurse on $7/2$. Step 2: $a_1 = \lfloor 7/2 \rfloor = 3$, remainder $7-3\cdot2=1$; recurse on $2/1$. Step 3: $a_2 = \lfloor 2/1 \rfloor = 2$, remainder $0$ — stop. So $\frac{30}{7} = [4;3,2]$, matching the hand-expansion above. Notice this is \emph{exactly} the Euclidean algorithm run on $(30,7)$, just recording each quotient instead of only the final $\gcd$.
+\end{example}
+
 \begin{definition}[Convergents]
 The $i$-th \textbf{convergent} $\frac{h_i}{k_i}$ of $[a_0;a_1,\dots]$ is the value of the truncated expansion $[a_0;a_1,\dots,a_i]$, computed by the recurrence
 \[
@@ -33,25 +45,53 @@ h_i = a_i h_{i-1} + h_{i-2}, \qquad k_i = a_i k_{i-1} + k_{i-2}, \qquad (h_{-1}{
 \]
 \end{definition}
 
+\begin{example}[Convergents of the warm-up example]
+Continuing $\frac{30}{7}=[4;3,2]$: the convergents are
+\[
+\frac{h_0}{k_0}=\frac{4}{1}=4, \qquad \frac{h_1}{k_1}=\frac{3\cdot4+1}{3\cdot1+0}=\frac{13}{3}\approx4.333, \qquad \frac{h_2}{k_2}=\frac{2\cdot13+4}{2\cdot3+1}=\frac{30}{7}\approx4.286.
+\]
+Each convergent is a \emph{better} rational approximation to $\frac{30}{7}=4.2857\dots$ than the last, and the final one is exact. This ``successively better approximation'' behavior, not just the recursive bookkeeping, is what Wiener's attack actually exploits below.
+\end{example}
+
 \begin{theorem}[Legendre's theorem on best rational approximations]
 If $\left|\frac{x}{y} - \frac{h}{k}\right| < \frac{1}{2k^2}$, then $\frac{h}{k}$ is a convergent of the continued fraction expansion of $\frac{x}{y}$.
 \end{theorem}
 
-\medskip\noindent\textbf{Why this matters for RSA.} This theorem is an \emph{efficient search tool}: instead of guessing $\frac{h}{k}$ among astronomically many fractions, if we know $\frac{h}{k}$ is a sufficiently good rational approximation of some known quantity $\frac{x}{y}$, it is \emph{guaranteed} to appear among the (only $O(\log y)$ many) convergents — which we can compute quickly via the Euclidean algorithm.
+\medskip\noindent\textbf{Why this matters for RSA, unpacked.} Read the theorem as a converse: it does \emph{not} say every convergent is a great approximation (that direction is easy and unsurprising); it says every \emph{sufficiently good} approximation \emph{must already be} one of the (few!) convergents. There are astronomically many fractions $h/k$ with $k$ in some range, but only $O(\log y)$ convergents — one per step of the Euclidean algorithm on $(x,y)$. So instead of searching an exponentially large space of candidate fractions, the theorem lets an attacker search a logarithmically short, explicitly computable list, \emph{provided} they can first show that the fraction they are looking for happens to approximate a known quantity unusually well. That is exactly the situation Wiener's theorem engineers next.
 
 \subsection{Wiener's Theorem}
+
+\medskip\noindent\textbf{The plan, stated before the algebra.} The attacker knows $(n,e)$ and wants $d$. The relationship defining $d$ is $ed \equiv 1 \pmod{\varphi(n)}$, which involves the unknown $\varphi(n)$ as well as the unknown $d$ — two unknowns, seemingly hopeless. The trick is to show that this relationship, rewritten as an inequality about \emph{fractions}, forces $e/n$ (fully known) to sit unusually close to $k/d$ (fully unknown, but with small denominator $d$) — close enough that Legendre's theorem applies. Once that is shown, $k/d$ is guaranteed to appear among the convergents of $e/n$, which the attacker can simply compute and test one by one.
 
 \begin{theorem}[Wiener, 1990]
 Let $n = pq$ with $q < p < 2q$, and let $d < \frac{1}{3} n^{1/4}$. Then given only the public key $(n,e)$ with $ed \equiv 1 \pmod{\varphi(n)}$, $d$ can be recovered in polynomial time.
 \end{theorem}
 
-\begin{proof}[Proof idea]
-Since $ed \equiv 1 \pmod{\varphi(n)}$, write $ed = 1 + k\varphi(n)$ for some positive integer $k < d$ (one can show $k < d$ using $e < \varphi(n)$). Then
+\begin{proof}[Proof, step by step]
+\textbf{Step 1: turn the congruence into an equation, and identify the target fraction.} Since $ed \equiv 1 \pmod{\varphi(n)}$, there is a positive integer $k$ with
 \[
-\left|\frac{e}{n} - \frac{k}{d}\right| = \left|\frac{ed - kn}{nd}\right| = \left|\frac{1 + k\varphi(n) - kn}{nd}\right| = \frac{k(n - \varphi(n)) - 1}{nd}.
+ed = 1 + k\varphi(n).
 \]
-Using $n - \varphi(n) = p+q-1 < 3\sqrt n$ (a consequence of $q<p<2q$) and $k<d$, this quantity can be bounded above by $\frac{1}{2d^2}$ whenever $d < \frac13 n^{1/4}$. By Legendre's theorem, $\frac{k}{d}$ therefore appears as \emph{some} convergent of the continued fraction expansion of $\frac{e}{n}$ — a quantity the attacker already knows in full, from the public key alone.
+(One can check $k<d$: since $e<\varphi(n)$, we have $k = \frac{ed-1}{\varphi(n)} < \frac{ed}{\varphi(n)} < d$.) The quantity we will show is well-approximated by the known $e/n$ is precisely $k/d$ — a fraction built entirely from unknowns, but with denominator $d$, which is small by hypothesis.
+
+\textbf{Step 2: measure how far apart $e/n$ and $k/d$ actually are.} Compute the difference directly:
+\[
+\left|\frac{e}{n} - \frac{k}{d}\right| = \left|\frac{ed - kn}{nd}\right| = \left|\frac{(1+k\varphi(n)) - kn}{nd}\right| = \frac{k\big(n - \varphi(n)\big) - 1}{nd}.
+\]
+The first equality is just putting both fractions over the common denominator $nd$; the second substitutes $ed = 1+k\varphi(n)$ from Step 1; the third regroups the terms. Everything now hinges on how large $n-\varphi(n)$ is.
+
+\textbf{Step 3: bound $n - \varphi(n)$ using the balanced-primes assumption.} Recall $\varphi(n) = (p-1)(q-1) = n - (p+q) + 1$, so $n - \varphi(n) = p+q-1$. Using $q<p<2q$ (i.e.\ the two primes are within a factor of $2$ of each other — the normal case for RSA key generation) gives $p+q < 3q < 3\sqrt{n}\cdot\sqrt{2}$, and a slightly more careful accounting (using $q<\sqrt{n}$ and $p<2q$ together) gives the clean bound $n-\varphi(n) < 3\sqrt n$.
+
+\textbf{Step 4: combine Steps 2 and 3, and invoke the hypothesis on $d$.} Substituting the Step 3 bound and $k<d$ into the Step 2 expression gives
+\[
+\left|\frac{e}{n}-\frac{k}{d}\right| = \frac{k(n-\varphi(n))-1}{nd} < \frac{k\cdot3\sqrt n}{nd} < \frac{3\sqrt n}{n} = \frac{3}{\sqrt n}.
+\]
+A short calculation (using $d<\frac13n^{1/4}$ to control the denominator $d^2$ against $\sqrt n$) tightens this into exactly the bound Legendre's theorem needs: $\left|\frac{e}{n}-\frac{k}{d}\right| < \frac{1}{2d^2}$.
+
+\textbf{Step 5: invoke Legendre's theorem.} Since $\left|\frac{e}{n}-\frac{k}{d}\right|<\frac{1}{2d^2}$, Legendre's theorem guarantees $\frac{k}{d}$ is \emph{some} convergent of the continued fraction expansion of $\frac{e}{n}$ — a quantity the attacker already knows in full, from the public key alone, and whose convergents can be listed in $O(\log n)$ steps via the Euclidean algorithm.
 \end{proof}
+
+\medskip\noindent\textbf{What just happened, in one sentence.} A relationship between two \emph{unknowns} ($e$ and $d$'s hidden partner $k$) got converted, purely by algebra, into a statement that two \emph{known} numbers ($e$ and $n$) sit unusually close together as a fraction — and ``unusually close'' is exactly the trigger condition for Legendre's theorem to hand the attacker a short, explicit candidate list.
 
 \begin{algorithm}[h]
 \caption{Wiener's Attack}
@@ -67,6 +107,8 @@ Using $n - \varphi(n) = p+q-1 < 3\sqrt n$ (a consequence of $q<p<2q$) and $k<d$,
 \EndFor
 \end{algorithmic}
 \end{algorithm}
+
+\medskip\noindent\textbf{Reading the algorithm against the proof.} Line 3's convergents are exactly the candidates Step 5 guarantees contains the true $k/d$. Line 4 checks whether a candidate is \emph{consistent} with being the true $(k,d)$: if it is, then $\varphi_{\text{cand}} = (ed_{\text{cand}}-1)/k$ recomputes what $\varphi(n)$ would have to be. Line 6 then uses $\varphi_{\text{cand}}$ and $n$ together to solve for $p,q$ directly — since $p+q = n-\varphi_{\text{cand}}+1$ and $pq=n$ are two equations in two unknowns, giving a quadratic. If that quadratic has integer roots multiplying to $n$, the candidate was correct; if not, move to the next convergent. Because only $O(\log n)$ convergents exist, this whole search is fast even though it looks like a brute-force loop.
 
 \begin{example}[Wiener's attack, fully worked]
 Let $p = 1223$, $q = 1987$, so $n = 2{,}430{,}101$ and $\varphi(n) = 2{,}426{,}892$. Suppose the key-generator (unwisely) chose a small private exponent $d = 25$ for decryption speed. Then $e = d^{-1} \bmod \varphi(n) = 2{,}135{,}665$ — this is the only thing published.
@@ -91,13 +133,23 @@ Suppose a sender uses a \textbf{small public exponent} (e.g., $e=3$) and sends t
 c_i = m^e \bmod n_i, \qquad i = 1, \dots, e.
 \]
 
+\medskip\noindent\textbf{Why this should feel dangerous, before the proof.} Recall the ``no modular wraparound'' example from Lesson 1: if $m^e < n$, then $c=m^e$ is simply the integer $m^e$ with no reduction ever taking place, and an ordinary integer root recovers $m$ instantly. A single well-generated RSA key avoids this by making $n$ enormous compared to any realistic $m^e$. Håstad's insight is that broadcasting the \emph{same} message to \emph{several} recipients recreates exactly this vulnerability one level up: even though each individual $c_i = m^e \bmod n_i$ wraps around plenty, the Chinese Remainder Theorem lets an eavesdropper combine all $e$ ciphertexts into a single value modulo the much larger product $N=n_1\cdots n_e$ — and against that enormous combined modulus, $m^e$ itself might not wrap around at all. Three small worlds, stitched together by CRT, behave like one giant world in which the ``no wraparound'' flaw resurfaces.
+
 \begin{theorem}[Håstad's broadcast attack, $e=3$ identical-message case]
 If $m < \min(n_1,n_2,n_3)$, an eavesdropper who observes $c_1,c_2,c_3$ (and the public moduli) recovers $m$ in polynomial time, without knowing any private key.
 \end{theorem}
 
-\begin{proof}[Proof idea]
-By CRT (Lesson 1, Theorem~\ref{thm:crt}), the system $x \equiv c_i \pmod{n_i}$ for $i=1,2,3$ has a unique solution $C$ modulo $N = n_1 n_2 n_3$, computable directly from the public $c_i, n_i$ values. Since $m^3 \equiv c_i \equiv C \pmod{n_i}$ for all $i$, and $m^3 < N$ (because $m < \min n_i \le \sqrt[3]{N}$ roughly, precisely because $m^3 < n_1n_2n_3=N$), we conclude $C = m^3$ \emph{exactly as an integer}, not merely modulo $N$. An ordinary integer cube root recovers $m$.
+\begin{proof}[Proof, step by step]
+\textbf{Step 1: combine the three congruences with CRT.} The eavesdropper knows $c_1,c_2,c_3$ and the public $n_1,n_2,n_3$ (pairwise coprime), and wants a single $x$ with $x\equiv c_i \pmod{n_i}$ for $i=1,2,3$. By CRT (Lesson 1, Theorem~\ref{thm:crt}, extended to three coprime moduli the same way it works for two), this system has a \emph{unique} solution $C$ modulo $N=n_1n_2n_3$, and — crucially — CRT is constructive: $C$ is computable directly from the public $c_i,n_i$ values using the reconstruction formula from Lesson 1, no private key involved anywhere.
+
+\textbf{Step 2: notice $m^3$ itself satisfies the same three congruences.} Since $c_i \equiv m^3 \pmod{n_i}$ for each $i$ by definition of encryption, the value $m^3$ is \emph{also} a solution to the system in Step 1. By the uniqueness half of CRT, there is only one solution modulo $N$ — so $C \equiv m^3 \pmod N$.
+
+\textbf{Step 3: upgrade ``congruent mod $N$'' to ``equal as integers''.} This is the step where the size assumption $m<\min(n_1,n_2,n_3)$ earns its keep: it gives $m^3 < n_1n_2n_3 = N$. Since $C$ (as CRT constructs it) is itself a specific representative in $\{0,\dots,N-1\}$, and $m^3$ is a nonnegative integer strictly less than $N$ that is congruent to $C$ modulo $N$, the two must be \emph{exactly} the same integer, not merely congruent — there is no room for them to differ by a multiple of $N$. So $C = m^3$ holds as an honest equation over $\mathbb{Z}$, not just modulo $N$.
+
+\textbf{Step 4: take an ordinary integer cube root.} Since $C$ is now known to be exactly $m^3$ (an integer, not a residue), an ordinary integer cube-root computation — no modular arithmetic, no private key — recovers $m$.
 \end{proof}
+
+\medskip\noindent\textbf{The one-sentence summary.} Three separate ``small worlds'' (mod $n_1$, mod $n_2$, mod $n_3$), each individually opaque, get stitched by CRT into one ``big world'' (mod $N=n_1n_2n_3$) in which the encryption exponent's usual protection — reduction mod a modulus much larger than the message — silently stops applying.
 
 \begin{example}[Håstad's attack, $e=3$, fully worked]
 Let three (toy) recipients have moduli $n_1 = 143$, $n_2 = 323$, $n_3 = 667$ (pairwise coprime by construction: $143=11\cdot13$, $323=17\cdot19$, $667=23\cdot29$ — no shared prime factors). A sender broadcasts $m=17$ to all three under $e=3$:
@@ -122,17 +174,34 @@ A tempting (and wrong) efficiency idea: have a central authority generate a sing
 c_1 = m^{e_1} \bmod n, \qquad c_2 = m^{e_2} \bmod n.
 \]
 
+\medskip\noindent\textbf{Why this should feel dangerous, before the proof.} Think about what $\gcd(e_1,e_2)=1$ actually buys you: by the Extended Euclidean Algorithm (the same tool from Lesson 1 that computes $d=e^{-1}\bmod\varphi(n)$), there exist integers $a,b$ with $ae_1+be_2=1$. That is a way of writing the number $1$ itself as a combination of $e_1$ and $e_2$. Since $c_1$ and $c_2$ are both just $m$ raised to a power, and exponents combine by \emph{multiplying} when you raise a power to a power, ``combining $e_1$ and $e_2$ to make $1$'' translates directly into ``combining $c_1$ and $c_2$ to make $m^1=m$'' — no private key needed at any point, because everything used here ($e_1,e_2,c_1,c_2,n$) is public.
+
 \begin{theorem}[Common modulus attack]
 If $\gcd(e_1,e_2)=1$, an eavesdropper who knows only $(n, e_1, e_2, c_1, c_2)$ — no private key at all — recovers $m$.
 \end{theorem}
 
-\begin{proof}[Proof idea]
-By the Extended Euclidean Algorithm, compute integers $a,b$ (one necessarily negative) with $a e_1 + b e_2 = 1$. Then
+\begin{proof}[Proof, step by step]
+\textbf{Step 1: find Bézout coefficients for $e_1,e_2$.} Since $\gcd(e_1,e_2)=1$, the Extended Euclidean Algorithm produces integers $a,b$ (exactly one of which will typically be negative) with
 \[
-c_1^{a} c_2^{b} \equiv m^{a e_1} m^{b e_2} \equiv m^{ae_1+be_2} \equiv m^{1} \equiv m \pmod n.
+ae_1+be_2=1.
 \]
-A negative exponent, say $b<0$, is handled by computing $c_2^{-1} \bmod n$ first (via the Extended Euclidean Algorithm again — this requires $\gcd(c_2,n)=1$, true with overwhelming probability for a random message) and then raising that inverse to the power $|b|$.
+
+\textbf{Step 2: raise each ciphertext to the matching coefficient, and multiply.} Compute $c_1^a c_2^b \bmod n$ and expand using the definitions $c_1=m^{e_1}$, $c_2=m^{e_2}$:
+\[
+c_1^{a}c_2^{b} \equiv (m^{e_1})^a(m^{e_2})^b \equiv m^{ae_1}\cdot m^{be_2} \equiv m^{ae_1+be_2} \pmod n.
+\]
+The first equality substitutes the definitions of $c_1,c_2$; the second and third just apply the exponent laws $x^{mn}=(x^m)^n$ and $x^mx^n=x^{m+n}$ — nothing here uses any secret.
+
+\textbf{Step 3: substitute Step 1's identity into the exponent.} Since $ae_1+be_2=1$ exactly (an integer identity, not just a congruence), the exponent in Step 2 collapses:
+\[
+m^{ae_1+be_2} = m^1 = m.
+\]
+Chaining Steps 2 and 3 gives $c_1^ac_2^b \equiv m \pmod n$ — the plaintext, recovered from two public ciphertexts and two public exponents alone.
+
+\textbf{Step 4: handle a negative exponent.} If (say) $b<0$, then $c_2^b$ is not directly computable by repeated squaring in the usual sense; instead compute $c_2^{-1}\bmod n$ first via the Extended Euclidean Algorithm (this requires $\gcd(c_2,n)=1$, true with overwhelming probability for a random message — the exceptional case, $\gcd(c_2,n)\ne1$, would itself immediately leak a factor of $n$ via a single gcd computation, an even worse outcome for the key owner), and then raise that inverse to the power $|b|$ instead.
 \end{proof}
+
+\medskip\noindent\textbf{The one-sentence summary.} Two exponentiations of the \emph{same} secret message, under two exponents that are coprime, can always be algebraically recombined into the message itself, because coprimality is exactly the condition under which $1$ can be written as an integer combination of the two exponents.
 
 \begin{example}[Common modulus attack, fully worked]
 Let $n = 3233$ (our familiar $p=61,q=53$ toy modulus). Two users share $n$ with $e_1 = 17$, $e_2=7$ (coprime). A message $m=42$ is encrypted under both: $c_1 = 42^{17} \bmod 3233 = 2557$, $c_2 = 42^{7} \bmod 3233 = 240$.
@@ -152,17 +221,30 @@ Recovered exactly — \textbf{using no private key whatsoever}, just the two pub
 \subsection{Setup}
 This attack requires no assumption about $d$, $e$, or shared moduli — only encryption itself, and is presented mainly for conceptual completeness (it is essentially never practical at real key sizes, but it is instructive about the group-theoretic structure of RSA).
 
+\medskip\noindent\textbf{Why this should feel familiar, before the proof.} Recall from Lesson 1 that repeatedly multiplying a group element $a$ by itself eventually returns to $1$ — that was the whole content of Euler's theorem, proved there by showing multiplication-by-$a$ just permutes the group. \emph{Repeated encryption} is exactly repeated exponentiation by the same fixed exponent $e$, so the same cyclic idea applies one level up: instead of asking ``how many multiplications by $a$ get back to $1$?'' we ask ``how many \emph{encryptions} (exponentiations by $e$) get back to the original ciphertext?'' Because encryption is invertible (that is the entire point of RSA), this cycle must eventually close, and — remarkably — the plaintext sits in plain view one step before it closes.
+
 \begin{theorem}[Cycling attack]
 Given only $(n,e,c)$ where $c = m^e \bmod n$, repeatedly compute $c_1 = c^e \bmod n$, $c_2 = c_1^{e} \bmod n$, and so on, until some $c_k = c$. Then $m = c_{k-1}$.
 \end{theorem}
 
-\begin{proof}[Proof idea]
-Encrypting repeatedly under the public exponent is the same operation as encrypting-then-encrypting: writing $c_0 = c$, we have $c_i \equiv m^{e^{i+1}} \pmod n$. Let $k$ be the smallest positive integer with $c_k \equiv c_0 \pmod n$, i.e.\ $m^{e^{k+1}} \equiv m^{e} \pmod n$. Assuming $\gcd(m,n)=1$, this means $e^{k+1} \equiv e \pmod{\mathrm{ord}_n(m)}$. Since $e$ was originally chosen coprime to $\varphi(n)$ (and hence to $\mathrm{ord}_n(m)$, which divides $\lambda(n) \mid \varphi(n)$), $e$ is invertible modulo $\mathrm{ord}_n(m)$, so we may cancel one factor of $e$ from both sides: $e^{k} \equiv 1 \pmod{\mathrm{ord}_n(m)}$. Therefore
+\begin{proof}[Proof, step by step]
+\textbf{Step 1: express every term of the sequence as a single power of $m$.} Encrypting repeatedly under the public exponent is the same as encrypting-then-encrypting, so writing $c_0=c$, an easy induction gives $c_i \equiv m^{e^{i+1}} \pmod n$ for every $i\ge0$ (each step multiplies the current exponent of $m$ by another factor of $e$).
+
+\textbf{Step 2: define $k$ as the point where the sequence first returns to its start.} Let $k$ be the smallest positive integer with $c_k \equiv c_0 \pmod n$. By Step 1, this says $m^{e^{k+1}} \equiv m^{e} \pmod n$.
+
+\textbf{Step 3: cancel one factor of $e$ from the exponent, using invertibility.} Assuming $\gcd(m,n)=1$, the congruence $m^{e^{k+1}}\equiv m^e\pmod n$ is really a statement about the \emph{order} of $m$ in the group $(\mathbb{Z}/n\mathbb{Z})^{*}$ (Lesson 1's group again): it says $e^{k+1}\equiv e\pmod{\mathrm{ord}_n(m)}$. Recall $e$ was chosen coprime to $\varphi(n)$ during key generation, and $\mathrm{ord}_n(m)$ always divides $\varphi(n)$ (an element's order divides the group's size — this is the same Lagrange-style fact behind Euler's theorem), so $e$ is automatically coprime to $\mathrm{ord}_n(m)$ too, and therefore invertible modulo $\mathrm{ord}_n(m)$. Multiplying both sides of $e^{k+1}\equiv e$ by $e^{-1}\bmod\mathrm{ord}_n(m)$ cancels one factor of $e$ cleanly:
+\[
+e^{k} \equiv 1 \pmod{\mathrm{ord}_n(m)}.
+\]
+
+\textbf{Step 4: read off the plaintext.} Substituting this back, the term one step before the cycle closes is
 \[
 c_{k-1} \equiv m^{e^{k}} \equiv m^{1} \equiv m \pmod n,
 \]
-so the value immediately \emph{before} the sequence closes the cycle is exactly the original plaintext.
+using Step 3 exactly as Lesson 1 used Euler's theorem: raising to an exponent that is $\equiv1$ modulo the element's order leaves the element unchanged.
 \end{proof}
+
+\medskip\noindent\textbf{The one-sentence summary.} Repeated encryption is iteration inside a finite cyclic structure — it \emph{must} eventually loop back to the starting ciphertext, and by the same ``one full lap plus one step'' logic from Lesson 1's Euler's-theorem walkthrough, the plaintext is sitting exactly one step before the loop closes.
 
 \begin{example}[Cycling attack, fully worked]
 Let $p=47, q=59$, so $n=2773$, $\varphi(n)=2668$, and let $e=17$. A message $m=123$ is encrypted: $c = 123^{17} \bmod 2773 = 1924$.
@@ -181,17 +263,27 @@ Suppose the \emph{same recipient} (same $n, e$) receives two ciphertexts of two 
 c_1 = m_1^{3} \bmod n, \qquad c_2 = (m_1+t)^{3} \bmod n.
 \]
 
+\medskip\noindent\textbf{Why this should feel familiar, before the proof.} Every earlier attack in this lecture combined two \emph{numbers} via the Euclidean algorithm (Wiener: numerator/denominator pairs; common modulus: two exponents) to isolate an unknown. Franklin--Reiter does the same trick one level of abstraction up: instead of combining two \emph{integers}, it combines two \emph{polynomials} — and the ``Euclidean algorithm'' for polynomials (repeated division with remainder, exactly as with integers, just tracking coefficients instead of digits) plays exactly the same role. The key structural fact is that both polynomials constructed below happen to share $m_1$ as a root purely by how they were built from public information — so their greatest common divisor must contain the factor $(x-m_1)$, and generically nothing else survives.
+
 \begin{theorem}[Franklin--Reiter, 1996]
 Given $(n, e{=}3, t, c_1, c_2)$, $m_1$ can be recovered in polynomial time, without factoring $n$.
 \end{theorem}
 
-\begin{proof}[Proof idea]
-Define two polynomials over $\mathbb{Z}_n[x]$:
+\begin{proof}[Proof, step by step]
+\textbf{Step 1: build two polynomials that are both public knowledge to construct, and both have $m_1$ as a root.} Define, over $\mathbb{Z}_n[x]$ (polynomials with coefficients reduced mod $n$ — everything needed to write these down is public):
 \[
 f_1(x) = x^3 - c_1, \qquad f_2(x) = (x+t)^3 - c_2.
 \]
-Both have $x = m_1$ as a root (by construction), so $(x - m_1)$ divides $\gcd(f_1,f_2)$ in $\mathbb{Z}_n[x]$. Generically (i.e., unless the two polynomials share some \emph{other} accidental common root, which happens with negligible probability for random instances), $(x-m_1)$ \emph{is} the entire gcd, up to a constant multiple — a linear polynomial whose root is read off directly. The gcd is computed via the polynomial Euclidean algorithm, exactly analogous to the integer Euclidean algorithm used in Wiener's and the common-modulus attack, just one level of abstraction up (coefficients instead of integers, but the same division-with-remainder machinery).
+Substituting $x=m_1$ into $f_1$ gives $m_1^3-c_1=0$ by the definition of $c_1$; substituting $x=m_1$ into $f_2$ gives $(m_1+t)^3-c_2=0$ by the definition of $c_2$. So $x=m_1$ is a genuine root of \emph{both} polynomials, even though the attacker does not know $m_1$ — only that it exists as a common root.
+
+\textbf{Step 2: a shared root means $(x-m_1)$ divides the gcd.} Basic polynomial algebra: if $x=m_1$ is a root of a polynomial $f$, then $(x-m_1)$ divides $f(x)$ exactly (polynomial division by a linear factor with zero remainder — the polynomial analogue of ``if $a$ divides $b$ with remainder $0$''). Since $(x-m_1)$ divides both $f_1$ and $f_2$, it divides any combination the Euclidean algorithm produces from them, and in particular it divides $\gcd(f_1,f_2)$.
+
+\textbf{Step 3: argue the gcd is \emph{exactly} $(x-m_1)$, generically.} $f_1$ has degree $3$ and $f_2$ has degree $3$; their gcd could, in principle, be larger than the single factor $(x-m_1)$ if the two cubics happened to share some \emph{other} root too. But for two cubics built from unrelated random-looking ciphertexts, sharing a second common root ``by accident'' happens with negligible probability — so in essentially every real instance, $(x-m_1)$ \emph{is} the entire gcd, up to an irrelevant constant multiple. A linear polynomial's root is read off immediately.
+
+\textbf{Step 4: compute the gcd mechanically, via the polynomial Euclidean algorithm.} Exactly as with integers — repeatedly divide the higher-degree polynomial by the lower-degree one and keep the remainder, until the remainder's degree can drop no further — except now every arithmetic operation on coefficients (add, subtract, multiply, and crucially \emph{divide}, which needs a modular inverse) is carried out modulo $n$. The process terminates at a linear polynomial $\alpha x+\beta\equiv0\pmod n$, whose unique root $x\equiv-\beta\alpha^{-1}\pmod n$ is $m_1$.
 \end{proof}
+
+\medskip\noindent\textbf{The one-sentence summary.} Two polynomials, built entirely from public data, are engineered by construction to share exactly one common root — the secret message — and the same Euclidean-algorithm machinery that finds integer gcds finds polynomial gcds just as mechanically, extracting that shared root directly.
 
 \begin{example}[Franklin--Reiter, fully worked]
 Let $n=3233$, $e=3$, and suppose $m_1 = 20$, with a second message $m_2 = m_1 + t = 25$ for known offset $t=5$. Ciphertexts: $c_1 = 20^3 \bmod 3233 = 1534$, $c_2 = 25^3 \bmod 3233 = 2693$.
@@ -206,7 +298,11 @@ Build $f_1(x) = x^3 - 1534$ and $f_2(x) = (x+5)^3 - 2693 = x^3 + 15x^2 + 75x + (
 
 \subsection{The General Problem}
 
+\medskip\noindent\textbf{What problem is being solved, and why it is hard in general.} Every attack so far in this lecture found an unknown by exploiting some special structure of the specific scenario (small $d$, shared modulus, related messages). Coppersmith's method attacks a much more general question directly: \emph{given a polynomial equation that holds modulo $n$, when can we find a root, even without knowing how to factor $n$?} Solving polynomial equations modulo a composite number of unknown factorization is, in general, believed to be hard — it is essentially as hard as factoring $n$ itself for a typical polynomial. Coppersmith's remarkable result is that this hardness has an exception precisely when the root you are looking for is \emph{unusually small} relative to $n$ and the polynomial's degree.
+
 \medskip\noindent\textbf{Coppersmith's small-root theorem (informal statement).} Given a polynomial $f(x)$ of degree $\delta$ modulo $n$ (with $n$ of unknown or partially unknown factorization), if $f$ has a root $x_0$ with $|x_0| < n^{1/\delta}$, then $x_0$ can be found in time polynomial in $\log n$ and $\delta$.
+
+\medskip\noindent\textbf{Why smallness is exactly the right lever.} Think of it this way: an arbitrary root modulo $n$ carries roughly $\log_2 n$ bits of information — as much as $n$ itself — so pinning it down should be exactly as hard as factoring. But a root promised to satisfy $|x_0|<n^{1/\delta}$ carries only about $\frac{1}{\delta}\log_2 n$ bits — a small fraction of a full-size unknown. Coppersmith's theorem says that whenever the \emph{unknown part} of the problem is this small, there is enough redundancy in the surrounding structure (made precise by the lattice construction below) to pin it down efficiently, without ever needing to factor $n$ along the way.
 
 This single theorem — due to Coppersmith (1996), with a simplified proof by Howgrave-Graham — underlies an entire family of RSA attacks that all reduce to ``find a small root of a polynomial modulo $n$'':
 
@@ -217,9 +313,15 @@ This single theorem — due to Coppersmith (1996), with a simplified proof by Ho
 \item \textbf{Stereotyped-message attacks}: recovering $m$ when only a small unknown portion of a structured plaintext (e.g., a fixed-format message with one unknown short field) is unknown.
 \end{itemize}
 
+\medskip\noindent\textbf{The common shape of all four.} Look closely and every bullet above is the same sentence with different nouns substituted in: ``most of some quantity is known; a small remaining unknown piece satisfies a polynomial relationship mod $n$; recover the small piece.'' Recognizing a new attack scenario as an instance of this one shape is the single most useful skill Coppersmith's method teaches — the hard mathematical work (below) only has to be understood once.
+
 \subsection{The Reduction to Lattices}
 
+\medskip\noindent\textbf{The high-level plan, before the machinery.} A direct search for $x_0$ modulo $n$ is hard because $n$'s factorization is unknown — ordinary polynomial root-finding techniques need to work mod a prime or over the reals, not mod a mystery composite. Coppersmith's trick sidesteps this entirely: instead of solving the polynomial equation modulo $n$ directly, build \emph{several} polynomials that are all guaranteed to share the root $x_0$ modulo $n$, and search for a clever \emph{integer} combination of them that is small enough to force the same equation to hold as an honest equation over the integers $\mathbb{Z}$ — a domain where root-finding is easy and needs no knowledge of $n$'s factors at all. ``Searching for a clever small combination'' is precisely the Shortest Vector Problem in disguise, which is why lattice reduction enters the picture.
+
 \medskip\noindent\textbf{From polynomial roots to short vectors.} The key trick: build several polynomials $g_1(x), g_2(x), \dots, g_k(x)$, all sharing the same root $x_0 \bmod n$ (typically shifts and powers of the original $f$, multiplied by powers of $n$ to control the modulus), and treat their \emph{coefficient vectors} as a basis for a lattice $L \subset \mathbb{Z}^k$. A theorem of Howgrave-Graham says: if $h(x) = \sum h_i x^i$ is an integer linear combination of the $g_i$ (hence still has $x_0$ as a root mod $n$) with \textbf{small enough Euclidean norm} $\|h\| < n/\sqrt{k}$, then $h(x_0) = 0$ holds as an equation over $\mathbb{Z}$, \emph{not just modulo $n$}. Since $h$ is now known to vanish at $x_0$ as an ordinary integer polynomial, standard root-finding recovers $x_0$ directly.
+
+\medskip\noindent\textbf{Why the norm bound is exactly the right threshold — the intuition behind Howgrave-Graham's lemma.} If $h(x_0)\equiv0\pmod n$, then $h(x_0)$ is \emph{some} multiple of $n$ — possibly $0$, possibly $n$, possibly $-2n$, and so on. If we can additionally guarantee $h(x_0)$ is smaller in absolute value than $n$ itself, the only multiple of $n$ small enough to fit is $0$ — forcing $h(x_0)=0$ exactly. Bounding $|h(x_0)|$ in terms of $h$'s coefficient sizes (via the Euclidean norm $\|h\|$) and the known bound on $x_0$ is exactly what turns ``small coefficients'' into ``small value at $x_0$'', which is why finding a short vector in the lattice $L$ is the right computational target.
 
 So the whole problem reduces to: \textbf{find a short vector in the lattice $L$} spanned by the $g_i$'s coefficient vectors. This is precisely Shortest Vector Problem territory — and in practice, the LLL algorithm (an approximate-SVP solver) is exactly the tool used, since Coppersmith's bound is calibrated to what LLL can reliably deliver in polynomial time. If you have covered lattice-based cryptography, this is the same LLL you met there, now redeployed as an attack tool rather than a hardness-assumption underpinning.
 
