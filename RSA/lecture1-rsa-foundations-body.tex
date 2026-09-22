@@ -143,9 +143,41 @@ This is \emph{exactly} the decryption-undoes-encryption identity RSA needs, and 
 
 \subsection{The Chinese Remainder Theorem}\label{ssec:crt}
 
-\medskip\noindent\textbf{What CRT says, before any formalism.} Suppose $n=pq$ for two primes sharing no common factor (any two distinct primes qualify). The Chinese Remainder Theorem says: knowing a number $x$'s remainder mod $p$ \emph{and} its remainder mod $q$ is exactly as much information as knowing $x$'s remainder mod $n=pq$ directly — nothing is lost, and nothing is ambiguous. Concretely: every pair of remainders $(a,b)$ with $0\le a<p,\ 0\le b<q$ corresponds to \emph{exactly one} $x\in\{0,\dots,n-1\}$ satisfying $x\equiv a\pmod p$ and $x\equiv b\pmod q$ simultaneously — always solvable, and never more than one solution. This is what later lets us split one hard computation mod $n$ into two easier computations, mod $p$ and mod $q$, and stitch the two answers back together with no loss of information.
+\medskip\noindent\textbf{Why we need this at all.} The exponent identity we just proved, $a^{ed}\equiv a\pmod n$, leaned on one assumption: $\gcd(a,n)=1$. A real RSA message $a$ is \emph{almost} always coprime to $n$, but not provably always — so the correctness proof in Section~\ref{sec:correctness} has a gap to close. CRT is the tool that closes it, and it will also give us a $4\times$ decryption speedup later (Section~\ref{sec:crt-speedup}). Before any of that, let's just understand what CRT \emph{says}, with numbers, before touching the formal statement.
 
-\medskip\noindent\textbf{A non-mathematical analogy.} Picture two interlocking gears, with $p$ and $q$ teeth respectively, both starting at a marked tooth and turning together. If $p$ and $q$ share no common factor, the combined configuration (``which tooth of the first gear is marked now'', ``which tooth of the second gear is marked now'') does not repeat until $pq$ steps have passed, and every one of the $pq$ possible combined configurations occurs exactly once per cycle. ``Remainder mod $p$'' and ``remainder mod $q$'' are exactly the two gears' positions; CRT says these two positions, taken together, pin down the combined state uniquely — which is the same information as a single remainder mod $pq$.
+\subsubsection*{Step 1: the basic idea, with a tiny puzzle}
+
+Suppose you're told a number $x$ leaves remainder $2$ when divided by $3$, and remainder $3$ when divided by $5$. In symbols,
+\[
+x \equiv 2 \pmod 3, \qquad x \equiv 3 \pmod 5.
+\]
+Is there such a number? Is it the only one? CRT exists to answer exactly this kind of question.
+
+\subsubsection*{Step 2: solve it by brute force first}
+
+Before any formula, just think it through. Numbers leaving remainder $2$ when divided by $3$ are
+\[
+2, 5, 8, 11, 14, 17, 20, \ldots
+\]
+Now check each one against the second condition (remainder $3$ when divided by $5$):
+\[
+2\div5\to\text{rem }2\ (\times), \qquad 5\div5\to\text{rem }0\ (\times), \qquad 8\div5\to\text{rem }3\ (\checkmark).
+\]
+So $x=8$ works. And so does $23$, and $38$, and $53$ — every number $15$ apart from $8$, because $3\times5=15$. So the full answer isn't just ``$x=8$,'' it's
+\[
+x \equiv 8 \pmod{15}.
+\]
+That's the pattern CRT formalizes: two remainder conditions, on moduli sharing no common factor, pin down $x$ uniquely \emph{once you fix the modulus $15=3\times5$} — not a single number, but a single residue class mod $15$.
+
+\subsubsection*{Step 3: the general statement, in words}
+
+If you know $x$'s remainder mod $p$ and $x$'s remainder mod $q$, where $p$ and $q$ share no common factor, that is \emph{exactly as much information} as knowing $x$'s remainder mod $pq$ directly. Nothing is lost by splitting the modulus, and nothing is ambiguous: every pair of remainders corresponds to one and only one $x$ mod $pq$. This is the fact RSA is built on — it lets us trade one hard computation mod $n=pq$ for two easier computations, mod $p$ and mod $q$ separately, with a guarantee that stitching the two answers back together recovers the truth mod $n$.
+
+\begin{remark}[A mental picture: two interlocking gears]
+Picture two gears with $p$ and $q$ teeth, both starting at a marked tooth and turning together. If $p$ and $q$ share no common factor, the combined picture — ``which tooth of gear 1 is marked now, which tooth of gear 2 is marked now'' — does not repeat until $pq$ turns have passed, and every one of the $pq$ possible combinations occurs exactly once per cycle. ``Remainder mod $p$'' and ``remainder mod $q$'' are the two gears' positions; CRT says these two positions, taken together, pin down the combined state uniquely — the same information as one remainder mod $pq$.
+\end{remark}
+
+\subsubsection*{Step 4: the formal theorem}
 
 \begin{theorem}[CRT]\label{thm:crt}
 Let $n = pq$ with $p, q$ coprime. The map
@@ -159,23 +191,25 @@ x \equiv a \pmod p, \qquad x \equiv b \pmod q
 has a unique solution $x \in \{0, \dots, n-1\}$ for every pair $(a,b)$.
 \end{theorem}
 
-\medskip\noindent\textbf{Unpacking ``ring isomorphism.''} This is precise language for the informal statement above, plus one extra guarantee. ``Map'' means every $x$ is sent to the pair of its two remainders. ``Isomorphism'' means this map is a perfect one-to-one correspondence (a bijection) between $\{0,\dots,n-1\}$ and all pairs $(a,b)$ with $0\le a<p,\,0\le b<q$ — the ``unique solution'' half of the theorem. ``Ring'' (rather than just ``set'') means the correspondence also respects \emph{arithmetic}: adding (or multiplying) two numbers mod $n$ and then splitting into remainders gives the same pair as splitting first and then adding (or multiplying) each coordinate separately. In symbols, if $x\mapsto(a,b)$ and $y\mapsto(c,d)$, then
+\medskip\noindent\textbf{Unpacking ``ring isomorphism'' one word at a time.} ``Map'' just means: send $x$ to the pair of its two remainders — exactly what we did by hand in Step 2. ``Isomorphism'' means this map is a perfect one-to-one correspondence between $\{0,\dots,n-1\}$ and all pairs $(a,b)$ — this is the ``unique solution'' half of the theorem, and it's the part the puzzle in Step 1--2 already illustrated concretely. ``Ring'' (rather than just ``set'') adds one more guarantee: the correspondence also respects \emph{arithmetic}. Adding (or multiplying) two numbers mod $n$ and then splitting into remainders gives the same answer as splitting first and adding (or multiplying) each coordinate separately:
 \[
-x+y \mapsto (a+c \bmod p,\ b+d \bmod q), \qquad xy \mapsto (ac \bmod p,\ bd \bmod q).
+x+y \mapsto (a+c \bmod p,\ b+d \bmod q), \qquad xy \mapsto (ac \bmod p,\ bd \bmod q) \qquad \text{when } x\mapsto(a,b),\ y\mapsto(c,d).
 \]
-This extra guarantee is what makes CRT more than a counting trick: an entire arithmetic computation can be carried out \emph{coordinatewise}, mod $p$ and mod $q$ separately, and the two partial answers automatically recombine into the correct answer mod $n$ — exactly the mechanism Section~\ref{sec:crt-speedup} exploits for faster decryption, and Section~\ref{sec:correctness} exploits for a correctness proof covering every message, not just the coprime ones.
+This extra guarantee is what makes CRT more than a counting trick: an entire arithmetic computation can be carried out \emph{coordinatewise}, mod $p$ and mod $q$ separately, and the two partial answers automatically recombine correctly mod $n$ — exactly the mechanism Section~\ref{sec:crt-speedup} exploits for faster decryption, and Section~\ref{sec:correctness} exploits for a correctness proof covering every message, not just the coprime ones.
 
 \begin{proof}[Proof, explained step by step]
-We check the three things the theorem claims: the map preserves arithmetic, it never sends two different numbers to the same pair, and (by a counting argument) it must therefore hit every pair.
+We check three things: the map preserves arithmetic, it never sends two different numbers to the same pair, and — by a counting argument — it must therefore hit every pair.
 
-\textbf{It preserves arithmetic (it's a ring homomorphism).} If $x\equiv a\pmod p$ and $y\equiv c\pmod p$, then directly from the definition of congruence, $x+y\equiv a+c\pmod p$ and $xy\equiv ac\pmod p$ — and likewise mod $q$. So reducing mod $p$ (or mod $q$) after adding/multiplying gives the same result as adding/multiplying the already-reduced remainders — exactly the coordinatewise formula displayed above.
+\textbf{It preserves arithmetic.} If $x\equiv a\pmod p$ and $y\equiv c\pmod p$, then directly from the definition of congruence, $x+y\equiv a+c\pmod p$ and $xy\equiv ac\pmod p$ — and likewise mod $q$. So reducing mod $p$ (or mod $q$) \emph{after} adding/multiplying gives the same result as adding/multiplying the already-reduced remainders. That's exactly the coordinatewise formula above.
 
-\textbf{It is injective (no two different numbers share a remainder pair).} Suppose $x$ and $y$ (both in $\{0,\dots,n-1\}$) map to the \emph{same} pair, i.e.\ $x\equiv y\pmod p$ and $x\equiv y\pmod q$. The first says $p\mid(x-y)$; the second says $q\mid(x-y)$. Since $p,q$ are distinct primes ($\gcd(p,q)=1$), a number divisible by both must be divisible by their product: $pq\mid(x-y)$. But $x,y\in\{0,\dots,n-1\}$ with $n=pq$, so $|x-y|<n=pq$; the only multiple of $pq$ with absolute value less than $pq$ is $0$ itself, forcing $x=y$. So distinct inputs always land on distinct output pairs.
+\textbf{It is injective (no two different numbers share a remainder pair).} Suppose $x$ and $y$, both in $\{0,\dots,n-1\}$, map to the \emph{same} pair: $x\equiv y\pmod p$ and $x\equiv y\pmod q$. The first says $p\mid(x-y)$; the second says $q\mid(x-y)$. Since $p,q$ are distinct primes, a number divisible by both must be divisible by their product: $pq\mid(x-y)$. But $|x-y|<n=pq$, and the only multiple of $pq$ smaller than $pq$ in absolute value is $0$ — so $x=y$. Distinct inputs always land on distinct output pairs.
 
-\textbf{It is therefore also surjective (every pair is hit).} The domain $\{0,\dots,n-1\}$ has exactly $n=pq$ elements. The codomain — all pairs $(a,b)$ with $0\le a<p,\,0\le b<q$ — also has exactly $p\cdot q=n$ elements. An injective map between two \emph{finite sets of the same size} must also be surjective (if some pair were missed, the $n$ distinct images would have to fit into fewer than $n$ remaining slots, which is impossible). So every pair $(a,b)$ is the image of exactly one $x$ — precisely the ``unique solution'' claim.
+\textbf{It is therefore also surjective (every pair is hit).} The domain $\{0,\dots,n-1\}$ has exactly $n=pq$ elements. The codomain — all pairs $(a,b)$ with $0\le a<p,\,0\le b<q$ — also has exactly $p\cdot q=n$ elements. An injective map between two finite sets of the \emph{same size} must also be surjective: if some pair were missed, the $n$ distinct images would have to squeeze into fewer than $n$ remaining slots, which is impossible. So every pair $(a,b)$ is the image of exactly one $x$ — the ``unique solution'' claim.
 \end{proof}
 
-\medskip\noindent\textbf{A constructive method, not just an existence proof.} The proof above guarantees a unique solution exists but does not by itself hand you a formula for it. In practice — and this is exactly the formula CRT-RSA decryption automates in Section~\ref{sec:crt-speedup} — the solution is built explicitly with the Extended Euclidean Algorithm:
+\subsubsection*{Step 5: not just existence — a formula that actually builds $x$}
+
+The proof above guarantees a solution exists, but doesn't hand us one. Here is a constructive recipe, using the Extended Euclidean Algorithm to compute an inverse:
 \begin{enumerate}
 \item Compute $q^{-1}\bmod p$ (this exists because $\gcd(p,q)=1$).
 \item The unique solution in $\{0,\dots,n-1\}$ to $x\equiv a\pmod p,\ x\equiv b\pmod q$ is
@@ -183,19 +217,31 @@ We check the three things the theorem claims: the map preserves arithmetic, it n
 x \;=\; b + q\cdot\Big(\big((a-b)\cdot(q^{-1}\bmod p)\big)\bmod p\Big).
 \]
 \end{enumerate}
-Read informally: start from $x=b$, which already satisfies the mod-$q$ condition; then add a correction term, a multiple of $q$, chosen so the result also satisfies the mod-$p$ condition without disturbing the mod-$q$ one (adding any multiple of $q$ never changes the value mod $q$).
+Read this informally: start from $x=b$, which already satisfies the mod-$q$ condition (since $b<q$). Then add a correction term that is a multiple of $q$ — chosen so the result \emph{also} satisfies the mod-$p$ condition — without disturbing the mod-$q$ condition, because adding any multiple of $q$ never changes a value's remainder mod $q$.
 
-\begin{example}[Solving a CRT system two ways]
-Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$ (so $p=3,\,a=2,\,q=5,\,b=3,\,n=15$).
+\begin{example}[Solving the Step-1 puzzle two ways]
+Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$ — so $p=3,\,a=2,\,q=5,\,b=3,\,n=15$, the exact puzzle from Step 1.
 
-\emph{By listing} (fine for tiny numbers, but does not scale): $x\in\{2,5,8,11,14,\dots\}$ satisfies the first congruence; checking each against the second, $x=8$ gives $8\equiv3\pmod5$. \checkmark So $x\equiv8\pmod{15}$.
+\emph{By listing} (Step 2 above, fine for tiny numbers but doesn't scale): we already found $x=8$, i.e.\ $x\equiv8\pmod{15}$.
 
-\emph{By the constructive formula} (the method that scales, and the one RSA actually uses): compute $q^{-1}\bmod p=5^{-1}\bmod3$. Since $5\equiv2\pmod3$ and $2\cdot2=4\equiv1\pmod3$, we get $5^{-1}\equiv2\pmod3$. Then
+\emph{By the formula} (the method that scales, and the one RSA actually uses): first compute $q^{-1}\bmod p = 5^{-1}\bmod 3$. Since $5\equiv2\pmod3$ and $2\cdot2=4\equiv1\pmod3$, we get $5^{-1}\equiv2\pmod3$. Then
 \[
 x = b + q\cdot\Big(((a-b)\cdot(q^{-1}\bmod p))\bmod p\Big) = 3+5\cdot\big(((2-3)\cdot2)\bmod3\big) = 3+5\cdot\big((-2)\bmod3\big) = 3+5\cdot1 = 8.
 \]
-Both methods agree: $x=8$, the unique solution in $\{0,\dots,14\}$ guaranteed by the theorem. This same computation — reduce mod $p$, reduce mod $q$, recombine with a modular-inverse correction term — is exactly what Section~\ref{sec:crt-speedup}'s CRT-RSA decryption algorithm performs, with $a,b$ replaced by the two partial decryptions $m_p,m_q$.
+Both methods agree: $x=8$. This same computation — reduce mod $p$, reduce mod $q$, recombine with a modular-inverse correction term — is exactly what Section~\ref{sec:crt-speedup}'s CRT-RSA decryption algorithm performs, with $a,b$ replaced by the two partial decryptions $m_p,m_q$.
 \end{example}
+
+\begin{remark}[Beyond two moduli: the general formula, if you've seen it elsewhere]
+Everything above uses exactly two moduli ($p$ and $q$), since that's all RSA needs. But CRT works for any number of pairwise-coprime moduli $n_1,\dots,n_k$, and it's worth seeing the general pattern once so the two-modulus case above looks like a special case rather than a different theorem. Given
+\[
+x\equiv a_1\pmod{n_1}, \quad x\equiv a_2\pmod{n_2}, \quad \ldots, \quad x\equiv a_k\pmod{n_k},
+\]
+set $N=n_1n_2\cdots n_k$, and for each $i$ let $N_i=N/n_i$ (the product of all moduli \emph{except} $n_i$) and let $M_i$ be the inverse of $N_i$ mod $n_i$, i.e.\ $N_iM_i\equiv1\pmod{n_i}$. Then
+\[
+x\equiv\sum_{i=1}^k a_iN_iM_i \pmod N.
+\]
+Why this works: each term $a_jN_jM_j$ is built so that mod $n_i$ it vanishes for every $j\ne i$ (because $N_j$ is a multiple of $n_i$ whenever $j\ne i$) and reduces to exactly $a_i$ when $j=i$ (because $N_iM_i\equiv1\pmod{n_i}$ by construction) — so the whole sum matches $a_i$ mod $n_i$, for every $i$ simultaneously. Re-deriving the Step-1 puzzle this way: $N=15$, $N_1=5,\,N_2=3$; $M_1=5^{-1}\bmod3=2$ and $M_2=3^{-1}\bmod5=2$; so $x\equiv2\cdot5\cdot2+3\cdot3\cdot2=20+18=38\equiv8\pmod{15}$ — the same $x=8$ as before. (The two-modulus formula in Step 5 is just this general formula specialized to $k=2$, rearranged into a slightly more convenient form.)
+\end{remark}
 
 \begin{remark}[Two uses of CRT in this lecture --- and why they are genuinely different jobs]
 CRT plays two completely different roles in RSA that students often conflate, precisely because both roles use the exact same theorem:
@@ -204,6 +250,7 @@ CRT plays two completely different roles in RSA that students often conflate, pr
 \item \textbf{Efficiency} (Section~\ref{sec:crt-speedup}): the private-key holder, who knows $p$ and $q$, replaces one expensive exponentiation mod the full-size $n$ with two cheaper exponentiations mod the half-size $p$ and $q$, then uses exactly the reconstruction formula above to recombine the two partial results into the true answer mod $n$. This is roughly $4\times$ faster — and, as a preview, is precisely the optimization the Bellcore fault attack (Lesson 3) exploits: corrupting just one of the two halves and recombining anyway produces a faulty signature that leaks a whole prime factor of $n$.
 \end{enumerate}
 \end{remark}
+
 
 \newpage
 \section{RSA Construction}\label{sec:rsa-construction}
