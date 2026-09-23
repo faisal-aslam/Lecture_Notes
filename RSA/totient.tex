@@ -1,0 +1,490 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Euler's Totient Function}
+\rhead{\thepage}
+
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\gcdop}{\gcd}
+\DeclareMathOperator{\lcmop}{lcm}
+
+\title{\Large\bfseries The Euler Totient (Phi) Function\\[4pt]
+\large A Lecture: Definitions, Formulas, Proofs, and Applications}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\tableofcontents
+
+%=========================================================
+\section{Motivation and Definition}
+%=========================================================
+
+Number theory is, in large part, the study of the multiplicative structure of the integers. One of the most natural questions we can ask about an integer $n$ is: \emph{how many numbers between $1$ and $n$ share no common factor with $n$?} This simple counting question turns out to be extraordinarily deep, and the function that answers it — the \textbf{Euler totient function}, written $\varphi(n)$ — sits at the crossroads of elementary number theory, group theory, and modern cryptography.
+
+\begin{definition}[Euler's totient function]
+For a positive integer $n$, define
+\[
+\varphi(n) = \#\{\, k \in \Z : 1 \le k \le n,\ \gcd(k,n) = 1 \,\}.
+\]
+That is, $\varphi(n)$ counts the integers in $\{1, 2, \dots, n\}$ that are \emph{coprime} to $n$ (share no prime factor with $n$).
+\end{definition}
+
+\noindent\textbf{In plain English:} line up the numbers $1$ through $n$. Cross out every number that shares a common factor greater than $1$ with $n$. Whatever survives, count it — that count is $\varphi(n)$.
+
+\begin{example}
+Let $n = 12$. The numbers from $1$ to $12$ coprime to $12 = 2^2 \cdot 3$ are those not divisible by $2$ or $3$:
+\[
+1, 5, 7, 11.
+\]
+So $\varphi(12) = 4$.
+\end{example}
+
+\begin{example}
+If $p$ is prime, then \emph{every} number from $1$ to $p-1$ is coprime to $p$ (none of them share the factor $p$), so
+\[
+\varphi(p) = p - 1.
+\]
+This is the simplest and most important special case.
+\end{example}
+
+A short table of values, computed directly from the definition:
+
+\begin{center}
+\begin{tabular}{c|cccccccccccc}
+\toprule
+$n$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12\\
+\midrule
+$\varphi(n)$ & 1 & 1 & 2 & 2 & 4 & 2 & 6 & 4 & 6 & 4 & 10 & 4\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Notice the irregularity: $\varphi$ does not increase monotonically, and there is no obvious pattern from the table alone. The goal of this lecture is to tame this irregularity by deriving an exact, closed-form formula, and to show why this particular counting function is so central to algebra and cryptography.
+
+%=========================================================
+\section{Multiplicativity of $\varphi$}
+%=========================================================
+
+The single most powerful structural fact about $\varphi$ is that it is \emph{multiplicative}: it turns coprime factorizations of $n$ into products. This is what will let us compute $\varphi(n)$ for \emph{any} $n$ once we know its prime factorization.
+
+\begin{definition}
+An arithmetic function $f : \N \to \Z$ (or $\mathbb{C}$) is called \textbf{multiplicative} if $f(1) = 1$ and
+\[
+\gcd(m,n) = 1 \implies f(mn) = f(m)f(n).
+\]
+(If the identity $f(mn)=f(m)f(n)$ holds for \emph{all} $m,n$, not just coprime ones, $f$ is called \textbf{completely multiplicative}. $\varphi$ is multiplicative but \emph{not} completely multiplicative — see Remark~\ref{rem:notcompletelymult}.)
+\end{definition}
+
+\begin{theorem}[Multiplicativity of $\varphi$]\label{thm:mult}
+If $\gcd(m,n) = 1$, then
+\[
+\varphi(mn) = \varphi(m)\,\varphi(n).
+\]
+\end{theorem}
+
+\begin{proof}
+We use the \textbf{Chinese Remainder Theorem} (CRT). Since $\gcd(m,n)=1$, CRT gives a bijection
+\[
+\Psi : \Z/mn\Z \;\longrightarrow\; \Z/m\Z \times \Z/n\Z, \qquad \Psi(x \bmod mn) = (x \bmod m,\ x \bmod n).
+\]
+This map is not just a bijection of sets — it is a \emph{ring isomorphism}: it respects both addition and multiplication modulo $mn$. The key point for us is what happens to units (elements invertible under multiplication).
+
+\medskip
+\noindent\textbf{Claim.} $x$ is invertible mod $mn$ if and only if $\Psi(x) = (x \bmod m, x \bmod n)$ has both coordinates invertible, i.e.\ $\gcd(x,m)=1$ and $\gcd(x,n)=1$.
+
+Indeed, $\gcd(x, mn) = 1$ if and only if $x$ shares no prime factor with $m$ and none with $n$ (since the prime factors of $mn$ are exactly the union of the prime factors of $m$ and of $n$, using $\gcd(m,n)=1$), which is exactly $\gcd(x,m) = 1$ and $\gcd(x,n) = 1$.
+
+\medskip
+Since $\Psi$ is a bijection, it restricts to a bijection between the set of units mod $mn$ and the product of the sets of units mod $m$ and mod $n$:
+\[
+(\Z/mn\Z)^{\times} \;\xrightarrow{\ \sim\ }\; (\Z/m\Z)^{\times} \times (\Z/n\Z)^{\times}.
+\]
+Taking cardinalities of both sides (a bijection preserves size, and the size of a product set is the product of sizes):
+\[
+\varphi(mn) = |(\Z/mn\Z)^\times| = |(\Z/m\Z)^\times| \cdot |(\Z/n\Z)^\times| = \varphi(m)\varphi(n). \qedhere
+\]
+\end{proof}
+
+\begin{remark}\label{rem:notcompletelymult}
+$\varphi$ is \emph{not} completely multiplicative: for example $\varphi(2\cdot 2) = \varphi(4) = 2$, but $\varphi(2)\varphi(2) = 1 \cdot 1 = 1 \ne 2$. The hypothesis $\gcd(m,n)=1$ in Theorem~\ref{thm:mult} is essential — it is exactly what makes the CRT bijection work.
+\end{remark}
+
+\begin{remark}[Why CRT is the right tool — intuition]
+The whole argument is really this one idea: knowing a residue mod $mn$ is \emph{the same information} as knowing a residue mod $m$ together with a residue mod $n$, when $m,n$ are coprime. And being ``coprime to $mn$'' is a purely local condition — you just need to avoid the prime factors of $m$ and separately avoid the prime factors of $n$. Splitting the problem along coprime lines lets you count independently and multiply.
+\end{remark}
+
+%=========================================================
+\section{The Value of $\varphi$ at a Prime Power}
+%=========================================================
+
+Multiplicativity reduces the computation of $\varphi(n)$ to computing $\varphi(p^a)$ for a prime power. This is easy to do directly.
+
+\begin{proposition}\label{prop:primepower}
+For a prime $p$ and integer $a \ge 1$,
+\[
+\varphi(p^a) = p^a - p^{a-1} = p^{a-1}(p-1) = p^a\left(1 - \frac{1}{p}\right).
+\]
+\end{proposition}
+
+\begin{proof}
+An integer $k$ with $1 \le k \le p^a$ fails to be coprime to $p^a$ exactly when $p \mid k$ (since the only prime factor of $p^a$ is $p$). The multiples of $p$ in the range $[1, p^a]$ are
+\[
+p, 2p, 3p, \dots, p^{a-1}\cdot p,
+\]
+and there are exactly $p^{a-1}$ of them. Hence the number of integers in $[1,p^a]$ \emph{coprime} to $p^a$ is the total count minus the multiples of $p$:
+\[
+\varphi(p^a) = p^a - p^{a-1}. \qedhere
+\]
+\end{proof}
+
+\noindent\textbf{In plain English:} out of every $p$ consecutive integers, exactly one is divisible by $p$ and the rest are not. So the ``surviving fraction'' is $1 - \tfrac1p$, and this proposition simply applies that fraction to the block $[1,p^a]$.
+
+\begin{example}
+$\varphi(9) = \varphi(3^2) = 3^2 - 3^1 = 9 - 3 = 6$. Check directly: coprime numbers in $\{1,\dots,9\}$ to $9$ are $1,2,4,5,7,8$ — six of them. Correct.
+
+$\varphi(32) = \varphi(2^5) = 2^5 - 2^4 = 32 - 16 = 16.$
+\end{example}
+
+%=========================================================
+\section{The Product Formula}
+%=========================================================
+
+Combining Theorem~\ref{thm:mult} (multiplicativity) with Proposition~\ref{prop:primepower} (prime powers) gives the master formula.
+
+\begin{theorem}[Euler's product formula]\label{thm:productformula}
+Let $n \ge 1$ have prime factorization
+\[
+n = p_1^{a_1} p_2^{a_2} \cdots p_r^{a_r}.
+\]
+Then
+\[
+\varphi(n) = n \prod_{i=1}^{r}\left(1 - \frac{1}{p_i}\right) = \prod_{i=1}^r p_i^{a_i - 1}(p_i - 1).
+\]
+\end{theorem}
+
+\begin{proof}
+Since the prime powers $p_1^{a_1}, \dots, p_r^{a_r}$ are pairwise coprime, repeated application of Theorem~\ref{thm:mult} gives
+\[
+\varphi(n) = \varphi(p_1^{a_1}) \varphi(p_2^{a_2}) \cdots \varphi(p_r^{a_r}).
+\]
+By Proposition~\ref{prop:primepower}, $\varphi(p_i^{a_i}) = p_i^{a_i}\left(1 - \tfrac{1}{p_i}\right)$. Substituting,
+\[
+\varphi(n) = \prod_{i=1}^r p_i^{a_i}\left(1-\frac1{p_i}\right) = \left(\prod_{i=1}^r p_i^{a_i}\right)\prod_{i=1}^r\left(1-\frac1{p_i}\right) = n\prod_{i=1}^r\left(1 - \frac1{p_i}\right). \qedhere
+\]
+\end{proof}
+
+\noindent\textbf{In plain English:} start with all $n$ numbers. For each distinct prime $p_i$ dividing $n$, throw away the fraction $1/p_i$ of numbers divisible by $p_i$. Because divisibility by different primes behaves ``independently'' in this counting sense (this independence is exactly what multiplicativity encodes), you can just multiply the surviving fractions together.
+
+\begin{example}
+Compute $\varphi(360)$. First factor: $360 = 2^3 \cdot 3^2 \cdot 5$.
+\[
+\varphi(360) = 360\left(1 - \frac12\right)\left(1-\frac13\right)\left(1-\frac15\right) = 360 \cdot \frac12 \cdot \frac23 \cdot \frac45.
+\]
+Computing: $360 \cdot \tfrac12 = 180$; $180 \cdot \tfrac23 = 120$; $120 \cdot \tfrac45 = 96$. So $\varphi(360) = 96$.
+\end{example}
+
+\begin{example}
+Compute $\varphi(1000)$. Factor: $1000 = 2^3 \cdot 5^3$.
+\[
+\varphi(1000) = 2^2(2-1)\cdot 5^2(5-1) = 4\cdot 1 \cdot 25 \cdot 4 = 400.
+\]
+\end{example}
+
+%=========================================================
+\section{Gauss's Divisor-Sum Identity}
+%=========================================================
+
+The next classical fact reveals $\varphi$ as the building block of the identity function under divisor sums.
+
+\begin{theorem}[Gauss]\label{thm:gauss}
+For every positive integer $n$,
+\[
+\sum_{d \mid n} \varphi(d) = n,
+\]
+where the sum runs over all positive divisors $d$ of $n$.
+\end{theorem}
+
+\begin{proof}
+Partition the set $\{1, 2, \dots, n\}$ according to the value of $\gcd(k, n)$. For each divisor $d$ of $n$, let
+\[
+S_d = \{\, k : 1 \le k \le n,\ \gcd(k,n) = d \,\}.
+\]
+Every $k \in \{1,\dots,n\}$ has $\gcd(k,n)$ equal to \emph{some} divisor of $n$, and this value is unique, so the sets $S_d$ (as $d$ ranges over divisors of $n$) partition $\{1,\dots,n\}$:
+\[
+n = \sum_{d \mid n} |S_d|.
+\]
+Now we compute $|S_d|$. If $\gcd(k,n) = d$, write $k = d\cdot m$. Then $\gcd(k,n)=d$ becomes $\gcd(dm, n) = d$, i.e.\ (dividing through by $d$, using $d \mid n$) $\gcd(m, n/d) = 1$. Also $1 \le k \le n$ becomes $1 \le m \le n/d$. So
+\[
+S_d \;\longleftrightarrow\; \{\, m : 1 \le m \le n/d,\ \gcd(m, n/d) = 1 \,\}
+\]
+is a bijection ($k \mapsto k/d$), and the right-hand set has size exactly $\varphi(n/d)$ by definition. Hence $|S_d| = \varphi(n/d)$, and
+\[
+n = \sum_{d \mid n} \varphi(n/d) = \sum_{d \mid n} \varphi(d),
+\]
+where the last equality holds because as $d$ ranges over all divisors of $n$, so does $n/d$ (they are paired up, just relabeled).
+\end{proof}
+
+\noindent\textbf{In plain English:} sort the numbers $1$ through $n$ into bins by ``how much of $n$ they share'' (their gcd with $n$). Each bin, after rescaling, is itself a totient-counting problem for a smaller number. Adding up all the bins recovers everything, i.e.\ all of $n$.
+
+\begin{example}
+Let $n = 12$, whose divisors are $1,2,3,4,6,12$.
+\[
+\varphi(1)+\varphi(2)+\varphi(3)+\varphi(4)+\varphi(6)+\varphi(12) = 1+1+2+2+2+4 = 12. \checkmark
+\]
+\end{example}
+
+\begin{remark}
+In the language of Dirichlet convolution, Theorem~\ref{thm:gauss} says $\varphi * \mathbf{1} = \mathrm{Id}$, where $\mathbf{1}(n)=1$ for all $n$ and $\mathrm{Id}(n) = n$. By Möbius inversion, this can be inverted to recover
+\[
+\varphi(n) = \sum_{d \mid n} \mu(d)\,\frac{n}{d} = n\sum_{d\mid n}\frac{\mu(d)}{d},
+\]
+where $\mu$ is the Möbius function. Expanding this sum over the prime factors of $n$ reproduces exactly the product formula of Theorem~\ref{thm:productformula} — a second, independent derivation of the same result.
+\end{remark}
+
+%=========================================================
+\section{Euler's Theorem and Fermat's Little Theorem}
+%=========================================================
+
+This is the theorem that gives $\varphi$ its name recognition outside pure number theory — it is the engine behind modular exponentiation and RSA cryptography.
+
+\begin{theorem}[Euler's Theorem]\label{thm:euler}
+If $\gcd(a,n) = 1$, then
+\[
+a^{\varphi(n)} \equiv 1 \pmod n.
+\]
+\end{theorem}
+
+\begin{proof}
+Let $U = \{ r_1, r_2, \dots, r_{\varphi(n)} \}$ be the set of residues modulo $n$ that are coprime to $n$ (a \emph{reduced residue system}); by definition $|U| = \varphi(n)$.
+
+Consider multiplying every element of $U$ by $a$ modulo $n$:
+\[
+a r_1,\ a r_2,\ \dots,\ a r_{\varphi(n)} \pmod n.
+\]
+\textbf{Step 1: each $ar_i \bmod n$ still lies in $U$.} Since $\gcd(a,n)=1$ and $\gcd(r_i, n) = 1$, and the gcd of a product with $n$ depends only on prime factors, $\gcd(a r_i, n) = 1$. So $ar_i \bmod n$ is again coprime to $n$, i.e. it is (the residue of) some element of $U$.
+
+\textbf{Step 2: the map $r_i \mapsto a r_i \bmod n$ is injective on $U$.} Suppose $a r_i \equiv a r_j \pmod n$. Since $\gcd(a,n)=1$, $a$ has a multiplicative inverse $a^{-1}$ mod $n$; multiplying both sides by $a^{-1}$ gives $r_i \equiv r_j \pmod n$, so $r_i = r_j$ (as elements of the residue system).
+
+An injective map from a finite set $U$ to itself is a bijection. Therefore multiplying by $a$ merely \emph{permutes} the elements of $U$:
+\[
+\{ a r_1 \bmod n, \dots, a r_{\varphi(n)} \bmod n \} = \{ r_1, \dots, r_{\varphi(n)} \} \quad \text{as sets.}
+\]
+
+\textbf{Step 3: multiply everything together.} Since both sides are the same set, their products (mod $n$) agree:
+\[
+\prod_{i=1}^{\varphi(n)} (a r_i) \equiv \prod_{i=1}^{\varphi(n)} r_i \pmod n.
+\]
+The left side is $a^{\varphi(n)} \prod_i r_i$. So
+\[
+a^{\varphi(n)} \prod_{i=1}^{\varphi(n)} r_i \equiv \prod_{i=1}^{\varphi(n)} r_i \pmod n.
+\]
+Since each $r_i$ is coprime to $n$, so is their product $R := \prod r_i$, hence $R$ is invertible mod $n$. Multiplying both sides by $R^{-1}$:
+\[
+a^{\varphi(n)} \equiv 1 \pmod n. \qedhere
+\]
+\end{proof}
+
+\noindent\textbf{In plain English:} the numbers coprime to $n$ form a closed little universe under multiplication mod $n$ — multiplying all of them by a fixed $a$ (itself coprime to $n$) just shuffles them around. Since shuffling doesn't change the product of the whole set, the extra factor of $a^{\varphi(n)}$ that appeared must equal $1$.
+
+\begin{corollary}[Fermat's Little Theorem]\label{cor:flt}
+If $p$ is prime and $p \nmid a$, then
+\[
+a^{p-1} \equiv 1 \pmod p.
+\]
+Equivalently, for \emph{every} integer $a$, $a^p \equiv a \pmod p$.
+\end{corollary}
+
+\begin{proof}
+Take $n = p$ in Theorem~\ref{thm:euler}. Since $p$ is prime, $\varphi(p) = p - 1$ (as $\gcd(a,p)=1 \iff p \nmid a$), giving $a^{p-1}\equiv 1 \pmod p$. Multiplying both sides by $a$ gives $a^p \equiv a \pmod p$, and this last form also trivially holds when $p \mid a$ (both sides are $0$), so it holds for all $a$.
+\end{proof}
+
+\begin{example}
+Compute $7^{222} \bmod 15$. Since $\gcd(7,15)=1$ and $\varphi(15) = \varphi(3)\varphi(5) = 2\cdot4 = 8$, Euler's theorem gives $7^8 \equiv 1 \pmod{15}$. Write $222 = 8\cdot 27 + 6$, so
+\[
+7^{222} = (7^8)^{27}\cdot 7^6 \equiv 1^{27}\cdot 7^6 = 7^6 \pmod{15}.
+\]
+Now $7^2 = 49 \equiv 4$, $7^4 \equiv 4^2 = 16 \equiv 1$, so $7^6 = 7^4\cdot 7^2 \equiv 1\cdot 4 = 4 \pmod{15}$.
+Hence $7^{222}\equiv 4 \pmod{15}$. This is exactly the kind of computation that makes modular exponentiation with huge exponents tractable.
+\end{example}
+
+%=========================================================
+\section{The Group-Theoretic Viewpoint: $(\Z/n\Z)^\times$}
+%=========================================================
+
+Everything above can — and should — be repackaged in the language of groups, because that is where $\varphi$ truly lives.
+
+\begin{definition}
+The set of residues modulo $n$ that are coprime to $n$, together with multiplication mod $n$, forms a group:
+\[
+(\Z/n\Z)^\times = \{\, [k] \in \Z/n\Z : \gcd(k,n)=1 \,\}.
+\]
+This is called the \textbf{multiplicative group of units} modulo $n$.
+\end{definition}
+
+\begin{proposition}
+$(\Z/n\Z)^\times$ is indeed a group under multiplication mod $n$, and
+\[
+\big|(\Z/n\Z)^\times\big| = \varphi(n).
+\]
+\end{proposition}
+
+\begin{proof}[Sketch]
+\emph{Closure:} if $\gcd(a,n)=\gcd(b,n)=1$ then $\gcd(ab,n)=1$ (no common prime factors are introduced), so $(\Z/n\Z)^\times$ is closed under multiplication. \emph{Identity:} $[1]$ is coprime to $n$ and acts as identity. \emph{Associativity:} inherited from $\Z$. \emph{Inverses:} if $\gcd(a,n)=1$, Bézout's identity gives integers $x,y$ with $ax + ny = 1$, so $ax \equiv 1 \pmod n$; thus $[x]$ is a multiplicative inverse of $[a]$, and $\gcd(x,n)=1$ too (else $[x]$ couldn't be invertible), so $[x] \in (\Z/n\Z)^\times$. The cardinality equals $\varphi(n)$ by the very definition of $\varphi$.
+\end{proof}
+
+\begin{theorem}[Euler's Theorem, restated via Lagrange]
+Theorem~\ref{thm:euler} is exactly the statement that in the finite group $(\Z/n\Z)^\times$ of order $\varphi(n)$, every element raised to the power of the group order equals the identity.
+\end{theorem}
+
+\begin{proof}
+This is an instance of \textbf{Lagrange's theorem}: if $G$ is a finite group and $g \in G$, the order of the cyclic subgroup $\langle g \rangle$ divides $|G|$, say $|G| = k \cdot \mathrm{ord}(g)$. Then $g^{|G|} = (g^{\mathrm{ord}(g)})^k = e^k = e$. Applying this with $G = (\Z/n\Z)^\times$ (order $\varphi(n)$) and $g = [a]$ recovers $a^{\varphi(n)} \equiv 1 \pmod n$ instantly, without repeating the permutation argument of Section 6 by hand — that argument \emph{is}, in essence, a proof of Lagrange's theorem specialized to this group.
+\end{proof}
+
+\noindent This reframing is the deep reason $\varphi(n)$ shows up everywhere: it is not merely a counting function, it is \emph{the order of a specific, ubiquitous finite group}. Any structural fact about finite groups (Lagrange's theorem, structure theorems for abelian groups, existence of elements of certain orders) becomes a fact about $(\Z/n\Z)^\times$, and hence a fact about modular arithmetic.
+
+\begin{theorem}[Structure of $(\Z/n\Z)^\times$]
+The group $(\Z/n\Z)^\times$ is cyclic if and only if
+\[
+n \in \{1, 2, 4, p^k, 2p^k\}
+\]
+for an odd prime $p$ and $k \ge 1$. When $(\Z/n\Z)^\times$ is cyclic, a generator is called a \textbf{primitive root} modulo $n$.
+\end{theorem}
+
+\begin{proof}[Remarks on proof]
+The full proof (due essentially to Gauss) proceeds by: (i) proving $(\Z/p^k\Z)^\times$ is cyclic of order $\varphi(p^k)$ for odd primes $p$ by lifting a primitive root mod $p$ via Hensel-type lifting; (ii) showing $(\Z/2\Z)^\times$ and $(\Z/4\Z)^\times$ are cyclic but $(\Z/2^k\Z)^\times$ for $k \ge 3$ is \emph{not} cyclic — it is isomorphic to $\Z/2\Z \times \Z/2^{k-2}\Z$; (iii) using the CRT isomorphism of Theorem~\ref{thm:mult} to show a product of two or more cyclic groups of even order cannot be cyclic, which rules out all other composite forms of $n$. We omit the full details here as they constitute a lecture of their own, but the shape of the argument is a beautiful illustration of how $\varphi$'s multiplicativity (Theorem~\ref{thm:mult}) controls the \emph{group structure}, not just the group's size.
+\end{proof}
+
+\begin{example}
+$(\Z/5\Z)^\times = \{1,2,3,4\}$ has order $\varphi(5)=4$ and is cyclic, generated by $2$: $2^1=2,\ 2^2=4,\ 2^3=3,\ 2^4=1$. So $2$ is a primitive root mod $5$.
+
+By contrast, $(\Z/8\Z)^\times = \{1,3,5,7\}$ has order $\varphi(8)=4$ but is \emph{not} cyclic: every element satisfies $x^2 \equiv 1 \pmod 8$ (check: $3^2=9\equiv1$, $5^2=25\equiv1$, $7^2=49\equiv1$), so it is isomorphic to the Klein four-group $\Z/2\Z\times\Z/2\Z$, not $\Z/4\Z$. This matches the theorem: $8 = 2^3$ is not in $\{1,2,4,p^k,2p^k\}$.
+\end{example}
+
+%=========================================================
+\section{Application: RSA Cryptography}
+%=========================================================
+
+The single most famous real-world use of $\varphi$ is in the \textbf{RSA public-key cryptosystem}.
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Key generation.} Choose two large primes $p, q$ and set $n = pq$. Compute $\varphi(n) = (p-1)(q-1)$ using Theorem~\ref{thm:productformula}. Choose a public exponent $e$ with $\gcd(e,\varphi(n))=1$, and compute the private exponent $d$ as the inverse of $e$ modulo $\varphi(n)$: $ed \equiv 1 \pmod{\varphi(n)}$.
+\item \textbf{Encryption.} A message $m$ (with $\gcd(m,n)=1$, generically true) is encrypted as $c \equiv m^e \pmod n$.
+\item \textbf{Decryption.} The recipient computes $c^d \bmod n$. Correctness follows directly from Euler's theorem:
+\[
+c^d \equiv (m^e)^d = m^{ed} = m^{1 + k\varphi(n)} = m\cdot (m^{\varphi(n)})^k \equiv m \cdot 1^k = m \pmod n,
+\]
+using $ed = 1 + k\varphi(n)$ for some integer $k$ (from $ed \equiv 1 \pmod{\varphi(n)}$), and Theorem~\ref{thm:euler} to collapse $m^{\varphi(n)} \equiv 1$.
+\item \textbf{Security.} An attacker who only knows $n$ (not $p,q$) cannot easily compute $\varphi(n)$, because doing so is computationally equivalent to factoring $n$ — and factoring large numbers is believed to be computationally infeasible. This is precisely why $\varphi(n)$ must be kept secret even though $n$ itself is public.
+\end{itemize}
+
+\noindent\textbf{In plain English:} $\varphi(n)$ is the ``clock size'' for exponents in modular arithmetic mod $n$ — exponents can be reduced mod $\varphi(n)$ without changing the result (Euler's theorem), exactly the way angles can be reduced mod $360°$. RSA hides this clock size as the actual secret that protects the message.
+
+%=========================================================
+\section{Further Properties, Bounds, and Asymptotics}
+%=========================================================
+
+\begin{proposition}[Parity and simple bounds]
+For $n > 2$, $\varphi(n)$ is even. Moreover $\varphi(n) \ge \sqrt{n}$ for all $n\ge1$ except $n=2$, and $\varphi(n) \le n-1$ with equality iff $n$ is prime.
+\end{proposition}
+
+\begin{proof}[Sketch]
+\emph{Evenness:} for $n>2$, the map $k \mapsto n-k$ pairs up elements of $\{1,\dots,n-1\}$ coprime to $n$ into disjoint pairs $\{k, n-k\}$ (they are distinct since $n$ is not $2k$ when... more carefully: $\gcd(k,n)=1 \iff \gcd(n-k,n)=1$, and $k = n-k$ would force $n=2k$, i.e.\ $2\mid n$ and $k=n/2$, but then $\gcd(k,n)=k>1$ for $n>2$, a contradiction), so the coprime residues split into pairs, giving an even count. \emph{Upper bound:} immediate from the definition, since $n$ itself is never coprime to $n$ (for $n>1$), and equality $\varphi(n)=n-1$ forces \emph{every} smaller positive integer to be coprime to $n$, which happens iff $n$ is prime.
+\end{proof}
+
+\begin{theorem}[Average order of $\varphi$]
+\[
+\sum_{n \le x} \varphi(n) = \frac{3}{\pi^2}x^2 + O(x\log x).
+\]
+Equivalently, the \emph{average} value of $\varphi(n)/n$ over $n \le x$ tends to $3/\pi^2 = 6/\pi^2 \approx 0.6079$ as $x\to\infty$.
+\end{theorem}
+
+\begin{proof}[Idea of proof]
+Using Möbius inversion, $\varphi(n) = \sum_{d\mid n}\mu(d)\frac{n}{d}$. Summing over $n \le x$ and swapping the order of summation:
+\[
+\sum_{n\le x}\varphi(n) = \sum_{d\le x}\mu(d)\sum_{\substack{n\le x \\ d\mid n}} \frac{n}{d} = \sum_{d\le x}\mu(d) \sum_{m \le x/d} m = \sum_{d \le x}\mu(d)\left(\frac{1}{2}\left(\frac{x}{d}\right)^2 + O\!\left(\frac{x}{d}\right)\right).
+\]
+The main term becomes $\tfrac{x^2}{2}\sum_{d\le x}\frac{\mu(d)}{d^2} \approx \tfrac{x^2}{2}\cdot\frac{1}{\zeta(2)} = \tfrac{x^2}{2}\cdot\frac{6}{\pi^2} = \frac{3x^2}{\pi^2}$, using $\sum_{d=1}^\infty \mu(d)/d^2 = 1/\zeta(2) = 6/\pi^2$. The error terms are controlled to give the stated $O(x\log x)$ bound.
+\end{proof}
+
+\noindent\textbf{In plain English:} although $\varphi(n)$ fluctuates wildly from one $n$ to the next (it is large when $n$ is prime, comparatively small when $n$ has many small prime factors), \emph{on average} a randomly chosen number below $x$ has about $60.8\%$ of the integers below it coprime to it. The constant $6/\pi^2$ is the same constant that gives the probability that two random integers are coprime — not a coincidence, since both facts trace back to the density of squarefree numbers and the Euler product for $\zeta(2)$.
+
+\begin{proposition}[Euler product / Dirichlet series]
+For $\Re(s) > 2$,
+\[
+\sum_{n=1}^\infty \frac{\varphi(n)}{n^s} = \frac{\zeta(s-1)}{\zeta(s)}.
+\]
+\end{proposition}
+
+\begin{proof}[Sketch]
+Because $\varphi$ is multiplicative, its Dirichlet series factors as an Euler product over primes:
+\[
+\sum_{n=1}^\infty \frac{\varphi(n)}{n^s} = \prod_p \left(1 + \frac{\varphi(p)}{p^s} + \frac{\varphi(p^2)}{p^{2s}} + \cdots\right) = \prod_p\left(1 + \frac{p-1}{p^s} + \frac{p(p-1)}{p^{2s}}+\cdots\right).
+\]
+Summing the geometric-type series inside each factor (using $\varphi(p^k)=p^{k-1}(p-1)$) simplifies each Euler factor to $\dfrac{1-p^{-s}}{1-p^{1-s}}$, and taking the product over all primes gives $\zeta(s-1)/\zeta(s)$, since $\zeta(s) = \prod_p (1-p^{-s})^{-1}$.
+\end{proof}
+
+%=========================================================
+\section{Summary of Key Formulas}
+%=========================================================
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{p{6.7cm}p{7.5cm}}
+\toprule
+\textbf{Statement} & \textbf{Formula} \\
+\midrule
+Definition & $\varphi(n) = \#\{1\le k\le n : \gcd(k,n)=1\}$ \\
+Prime value & $\varphi(p) = p-1$ \\
+Prime power & $\varphi(p^a) = p^{a-1}(p-1) = p^a(1-1/p)$ \\
+Multiplicativity & $\varphi(mn) = \varphi(m)\varphi(n)$ if $\gcd(m,n)=1$ \\
+Product formula & $\varphi(n) = n\displaystyle\prod_{p \mid n}\left(1 - \frac1p\right)$ \\
+Gauss's identity & $\displaystyle\sum_{d\mid n}\varphi(d) = n$ \\
+Möbius form & $\varphi(n) = n\displaystyle\sum_{d\mid n}\frac{\mu(d)}{d}$ \\
+Euler's theorem & $a^{\varphi(n)} \equiv 1 \pmod n$, if $\gcd(a,n)=1$ \\
+Fermat's little theorem & $a^{p-1}\equiv 1\pmod p$, if $p\nmid a$ (special case $n=p$) \\
+Group order & $\varphi(n) = |(\Z/n\Z)^\times|$ \\
+Average order & $\displaystyle\sum_{n\le x}\varphi(n) \sim \frac{3}{\pi^2}x^2$ \\
+Dirichlet series & $\displaystyle\sum_{n\ge1}\frac{\varphi(n)}{n^s} = \frac{\zeta(s-1)}{\zeta(s)}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%=========================================================
+\section{Exercises}
+%=========================================================
+
+\begin{enumerate}[label=(\arabic*)]
+\item Compute $\varphi(2025)$, $\varphi(1001)$, and $\varphi(2^{10})$.
+\item Prove that $\varphi(n)$ is a power of $2$ if and only if $n$ is of the form $2^a p_1 p_2\cdots p_k$ where the $p_i$ are distinct Fermat primes. (This fact is exactly the condition, due to Gauss, for a regular $n$-gon to be constructible with straightedge and compass.)
+\item Show directly (without Theorem~\ref{thm:gauss}) that $\sum_{d \mid n} \varphi(d) = n$ for $n = p^a$, by summing the formula of Proposition~\ref{prop:primepower} over $d = p^0, p^1, \dots, p^a$ and checking it telescopes to $p^a$.
+\item Use Euler's theorem to compute $3^{1000} \bmod 14$.
+\item Prove that if $\gcd(a,n)=1$, the order of $a$ in $(\Z/n\Z)^\times$ (the least $k>0$ with $a^k\equiv1\pmod n$) always divides $\varphi(n)$. (Hint: Lagrange's theorem, or adapt the division-algorithm argument used to prove Lagrange's theorem for cyclic subgroups.)
+\item Find all $n$ with $\varphi(n) = 12$.
+\end{enumerate}
+
+\end{document}

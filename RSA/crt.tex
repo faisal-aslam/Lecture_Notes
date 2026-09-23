@@ -1,0 +1,384 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{booktabs}
+\usepackage{array}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{algorithmenv}[theorem]{Algorithm}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{The Chinese Remainder Theorem}
+\rhead{\thepage}
+
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Q}{\mathbb{Q}}
+\DeclareMathOperator{\lcmop}{lcm}
+\DeclareMathOperator{\ord}{ord}
+
+\title{\Large\bfseries The Chinese Remainder Theorem\\[4pt]
+\large A Lecture: Statement, Proofs, Algorithms, and Applications}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\tableofcontents
+
+%=========================================================
+\section{Motivation}
+%=========================================================
+
+The Chinese Remainder Theorem (CRT) answers a question that sounds almost too simple to be deep: \emph{if I tell you the remainder of a number when divided by several different, pairwise coprime numbers, can you tell me the number itself (modulo their product)?} The answer is yes, uniquely, and the reconstruction is completely explicit. This idea dates back at least to Sunzi's mathematical manual (China, 3rd–5th century CE), which posed a version of the riddle:
+
+\begin{quote}
+\emph{There are certain things whose number is unknown. Repeatedly divided by 3, the remainder is 2; by 5, the remainder is 3; by 7, the remainder is 2. What is the number?}
+\end{quote}
+
+We will answer this exact riddle later (Example~\ref{ex:sunzi}). The theorem turns out to be one of the load-bearing pillars of number theory and abstract algebra: it explains why $\varphi$ is multiplicative, it underlies fast modular arithmetic in cryptography, it powers secret-sharing schemes, and — in its most general algebraic form — it is a statement about how a ring decomposes into a product of simpler rings.
+
+\noindent\textbf{In plain English:} think of a number $x$ as being ``coded'' by its remainders modulo several small numbers. CRT says that if those small numbers share no common factors pairwise, then the code is lossless and invertible: the collection of remainders determines $x$ completely (mod the product), and there's an explicit recipe to decode it.
+
+%=========================================================
+\section{The Two-Modulus Case}
+%=========================================================
+
+\begin{theorem}[CRT, two moduli]\label{thm:crt2}
+Let $m,n$ be positive integers with $\gcd(m,n)=1$. Then for any integers $a,b$, the system
+\[
+x \equiv a \pmod m, \qquad x \equiv b \pmod n
+\]
+has a solution $x \in \Z$, and this solution is unique modulo $mn$. That is, there exists $x_0$ with $0 \le x_0 < mn$ solving the system, and the full solution set is $\{x_0 + kmn : k \in \Z\}$.
+\end{theorem}
+
+We prove this in two independent ways: first by an explicit construction using Bézout's identity (this is the version you would program on a computer), and second by a slicker counting/pigeonhole argument (this is the version that generalizes best conceptually).
+
+\subsection{Proof 1: Explicit construction via Bézout}
+
+\begin{lemma}[Bézout's identity]\label{lem:bezout}
+If $\gcd(m,n) = 1$, there exist integers $u,v$ such that
+\[
+mu + nv = 1.
+\]
+\end{lemma}
+\begin{proof}
+This is a standard consequence of the Euclidean algorithm: running the algorithm on $(m,n)$ to compute $\gcd(m,n)$ and then back-substituting each division step expresses the final gcd, $1$, as an integer combination $mu+nv$. (See any elementary number theory text for the full back-substitution; we take this as known machinery.)
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:crt2}, construction]
+By Lemma~\ref{lem:bezout}, choose integers $u,v$ with
+\[
+mu + nv = 1.
+\]
+Define
+\[
+x_0 = a\,nv + b\,mu.
+\]
+\textbf{Check the first congruence.} Since $mu = 1 - nv$, we have $b\,mu = b(1-nv) = b - bnv$, so
+\[
+x_0 = anv + b - bnv = b + (a-b)nv.
+\]
+Hmm — let's instead check directly and cleanly. Modulo $m$: since $mu \equiv 0 \pmod m$, we get $nv \equiv 1 - mu \equiv 1 \pmod m$. Therefore
+\[
+x_0 = a\,(nv) + b\,(mu) \equiv a\cdot 1 + b\cdot 0 = a \pmod m.
+\]
+\textbf{Check the second congruence.} Modulo $n$: since $nv\equiv 0\pmod n$, we get $mu \equiv 1 - nv \equiv 1\pmod n$. Therefore
+\[
+x_0 = a(nv) + b(mu) \equiv a\cdot 0 + b\cdot 1 = b \pmod n.
+\]
+So $x_0$ solves both congruences simultaneously. This proves \textbf{existence}.
+
+\textbf{Uniqueness modulo $mn$.} Suppose $x_0$ and $x_1$ both solve the system. Then
+\[
+x_0 \equiv x_1 \pmod m \quad\text{and}\quad x_0 \equiv x_1 \pmod n,
+\]
+i.e.\ $m \mid (x_0 - x_1)$ and $n \mid (x_0-x_1)$. Since $\gcd(m,n)=1$, this forces $mn \mid (x_0-x_1)$ (a standard fact: if two coprime numbers each divide $D$, their product divides $D$ — this itself follows from unique factorization, since $m$ and $n$ share no prime factors, so all prime-power factors of $m$ and of $n$ must appear in $D$ simultaneously). Hence $x_0 \equiv x_1 \pmod{mn}$.
+\end{proof}
+
+\noindent\textbf{In plain English:} Bézout's identity gives us two special ``indicator'' numbers: $e_1 = nv$ is $\equiv 1 \pmod m$ but $\equiv 0 \pmod n$, and $e_2 = mu$ is $\equiv 0\pmod m$ but $\equiv 1\pmod n$. These act like a basis: to hit target remainder $a$ mod $m$ and $b$ mod $n$ simultaneously, just take the combination $a\cdot e_1 + b\cdot e_2$ — each term contributes exactly where it's supposed to and vanishes where it isn't supposed to interfere. This ``indicator function'' idea is exactly the same trick used in Lagrange interpolation (see Section~\ref{sec:polynomial}).
+
+\subsection{Proof 2: Pigeonhole / counting argument}
+
+\begin{proof}[Proof of Theorem~\ref{thm:crt2}, counting]
+Consider the function
+\[
+f : \{0, 1, \dots, mn-1\} \longrightarrow \{0,\dots,m-1\} \times \{0,\dots,n-1\}, \qquad f(x) = (x \bmod m,\ x \bmod n).
+\]
+Both sets have exactly $mn$ elements, so $f$ is a bijection if and only if it is injective. Suppose $f(x) = f(y)$ for $x,y \in \{0,\dots,mn-1\}$. Then $x \equiv y \pmod m$ and $x\equiv y\pmod n$, so as in the uniqueness argument above, $mn \mid (x-y)$. But $|x - y| < mn$, so $x = y$. Hence $f$ is injective, and since the domain and codomain are finite of equal size, $f$ is a bijection.
+
+In particular, every pair $(a \bmod m,\, b\bmod n)$ is hit by exactly one $x \in \{0,\dots,mn-1\}$ — this $x$ is simultaneously the existence and the uniqueness statement of the theorem.
+\end{proof}
+
+\noindent\textbf{In plain English:} there are exactly $mn$ numbers from $0$ to $mn-1$, and exactly $mn$ possible pairs of remainders $(\text{mod } m, \text{mod } n)$. If two different numbers in that range could never collide (produce the same pair of remainders) — which is what coprimality guarantees — then, since the counts match exactly, every possible pair of remainders \emph{must} be achieved by some number, and only one.
+
+\begin{example}\label{ex:first}
+Solve $x \equiv 2 \pmod 3$, $x \equiv 3 \pmod 5$. Here $m=3,n=5$. Bézout: $3(2) + 5(-1) = 1$, so $u=2,\,v=-1$. Then $nv = 5(-1) = -5 \equiv 1 \pmod 3,\ \equiv 0\pmod5$, and $mu = 3(2)=6 \equiv 0\pmod3,\ \equiv1\pmod5$. So
+\[
+x_0 = a\cdot nv + b\cdot mu = 2(-5) + 3(6) = -10 + 18 = 8.
+\]
+Check: $8 = 2\cdot3+2$, remainder $2\pmod3$ \checkmark; $8 = 1\cdot5+3$, remainder $3\pmod5$ \checkmark. The full solution set is $x \equiv 8 \pmod{15}$.
+\end{example}
+
+%=========================================================
+\section{The General Case: $k$ Pairwise Coprime Moduli}
+%=========================================================
+
+\begin{theorem}[CRT, general form]\label{thm:crtgeneral}
+Let $m_1, m_2, \dots, m_k$ be pairwise coprime positive integers (i.e.\ $\gcd(m_i,m_j)=1$ for $i\ne j$), and let $M = m_1 m_2 \cdots m_k$. For any integers $a_1,\dots,a_k$, the system
+\[
+x \equiv a_1 \pmod{m_1}, \quad x \equiv a_2 \pmod{m_2}, \quad \dots, \quad x \equiv a_k \pmod{m_k}
+\]
+has a solution, unique modulo $M$.
+\end{theorem}
+
+\begin{proof}
+\textbf{Induction on $k$.} The base case $k=1$ is trivial ($x\equiv a_1 \pmod {m_1}$ is already the full statement), and $k=2$ is Theorem~\ref{thm:crt2}.
+
+\textbf{Inductive step.} Suppose the theorem holds for $k-1$ moduli. Given pairwise coprime $m_1,\dots,m_k$, first solve the subsystem in the first $k-1$ congruences: by the inductive hypothesis, there is a unique $y_0$ modulo $M' := m_1\cdots m_{k-1}$ satisfying
+\[
+x \equiv a_i \pmod{m_i}, \qquad i=1,\dots,k-1.
+\]
+It remains to solve simultaneously
+\[
+x \equiv y_0 \pmod{M'}, \qquad x \equiv a_k \pmod{m_k}.
+\]
+\textbf{Key point:} $\gcd(M', m_k) = 1$. Indeed, $M' = m_1\cdots m_{k-1}$, and $m_k$ is coprime to each $m_i$ ($i<k$) by hypothesis; a number coprime to each of several integers is coprime to their product (no prime factor of $m_k$ can divide $M'$, since such a prime would have to divide some $m_i$, contradicting $\gcd(m_i,m_k)=1$). So $\gcd(M',m_k)=1$, and Theorem~\ref{thm:crt2} (two-modulus case) applies directly to this pair, giving existence and uniqueness of $x$ modulo $M'm_k = M$.
+
+This completes the induction.
+\end{proof}
+
+\noindent\textbf{In plain English:} you don't need a fundamentally new idea for many moduli — you just fold them in one at a time. Solve the first two, combine them into a single congruence modulo their product, then combine that with the third modulus (which is still coprime to the product, since it was coprime to each factor separately), and so on. This is also exactly how you would implement CRT reconstruction as an algorithm.
+
+\begin{algorithmenv}[Iterative CRT reconstruction]\label{alg:iterative}
+Given pairwise coprime $m_1,\dots,m_k$ and targets $a_1,\dots,a_k$:
+\begin{enumerate}[label=\arabic*.]
+\item Initialize $x \leftarrow a_1$, $M \leftarrow m_1$.
+\item For $i = 2, \dots, k$: find $x'$ satisfying $x' \equiv x \pmod{M}$ and $x' \equiv a_i \pmod{m_i}$, using the two-modulus formula of Theorem~\ref{thm:crt2} (Bézout construction) on the coprime pair $(M, m_i)$. Update $x \leftarrow x' \bmod (M m_i)$, $M \leftarrow M m_i$.
+\item Return $x$ (the unique solution modulo $M = m_1\cdots m_k$).
+\end{enumerate}
+\end{algorithmenv}
+
+\begin{example}[Sunzi's Problem]\label{ex:sunzi}
+Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$, $x\equiv2\pmod7$.
+
+\emph{Step 1.} From Example~\ref{ex:first}, $x\equiv2\pmod3$ and $x\equiv3\pmod5$ combine to $x \equiv 8 \pmod{15}$.
+
+\emph{Step 2.} Combine $x\equiv8\pmod{15}$ with $x\equiv2\pmod7$. Bézout for $(15,7)$: $15(1) + 7(-2) = 1$, so $u=1,\ v=-2$ (here "$m$"$=15$, "$n$"$=7$). Then $nv = 7(-2)=-14 \equiv 1\pmod{15},\equiv0\pmod7$, and $mu=15(1)=15\equiv0\pmod{15},\equiv1\pmod7$. So
+\[
+x_0 = 8\cdot(-14) + 2\cdot(15) = -112+30 = -82 \equiv -82 + 105 = 23 \pmod{105}.
+\]
+Check: $23 = 7\cdot3+2$ (mod 3 \checkmark), $23=4\cdot5+3$ (mod 5\checkmark), $23=3\cdot7+2$ (mod 7\checkmark).
+
+So the smallest positive answer to Sunzi's ancient riddle is $\boxed{x=23}$, with general solution $x\equiv23\pmod{105}$.
+\end{example}
+
+\begin{example}
+Solve $x\equiv1\pmod4,\ x\equiv2\pmod9,\ x\equiv3\pmod{25}$ (moduli pairwise coprime, product $=900$).
+Combine first two: need $x\equiv1\pmod4,x\equiv2\pmod9$. Try $x=29$: $29=7\cdot4+1$\checkmark, $29=3\cdot9+2$\checkmark. So $x\equiv29\pmod{36}$.
+Now combine with $x\equiv3\pmod{25}$: Bézout for $(36,25)$: $36(-4)+25(6)=-144+150=6$... adjust: try $36(4)+25(-...)$. Use extended Euclid: $36 = 1\cdot25+11$; $25=2\cdot11+3$; $11=3\cdot3+2$; $3=1\cdot2+1$. Back-substitute: $1=3-1\cdot2 = 3-1(11-3\cdot3)=4\cdot3-11 = 4(25-2\cdot11)-11=4\cdot25-9\cdot11=4\cdot25-9(36-25)=13\cdot25-9\cdot36$.
+So $36(-9)+25(13)=1$, i.e.\ $u=-9,v=13$ for $(m,n)=(36,25)$. Then $nv=25\cdot13=325\equiv1\pmod{36}(\text{since }325=9\cdot36+1),\equiv0\pmod{25}$; $mu=36(-9)=-324\equiv0\pmod{36},\equiv1\pmod{25}(\text{since }-324=-13\cdot25+1)$.
+\[
+x_0 = 29(325) + 3(-324) = 9425 - 972 = 8453 \equiv 8453 - 9\cdot900 = 8453-8100=353\pmod{900}.
+\]
+Check: $353=88\cdot4+1$\checkmark; $353=39\cdot9+2$\checkmark; $353=14\cdot25+3$\checkmark. So $x\equiv353\pmod{900}$.
+\end{example}
+
+%=========================================================
+\section{The Algebraic Formulation: A Ring Isomorphism}
+%=========================================================
+
+The deepest and most reusable version of CRT is not a statement about solving congruences, but a statement about the \emph{structure} of the ring $\Z/M\Z$ itself.
+
+\begin{theorem}[CRT as ring isomorphism]\label{thm:ring}
+Let $m_1,\dots,m_k$ be pairwise coprime, $M = m_1\cdots m_k$. The map
+\[
+\Psi : \Z/M\Z \longrightarrow \Z/m_1\Z \times \Z/m_2\Z \times \cdots \times \Z/m_k\Z, \qquad \Psi(x \bmod M) = (x\bmod m_1, \dots, x \bmod m_k)
+\]
+is a ring isomorphism: it is a bijection that respects both addition and multiplication,
+\[
+\Psi(x+y) = \Psi(x)+\Psi(y), \qquad \Psi(xy) = \Psi(x)\Psi(y),
+\]
+where addition and multiplication on the right side are done componentwise.
+\end{theorem}
+
+\begin{proof}
+\textbf{Well-defined:} if $x \equiv x' \pmod M$ then $x\equiv x'\pmod{m_i}$ for each $i$ (since $m_i \mid M$), so $\Psi$ does not depend on the choice of representative $x$.
+
+\textbf{Bijective:} this is exactly Theorem~\ref{thm:crtgeneral} — every tuple $(a_1,\dots,a_k)$ arises from a unique $x \bmod M$, so $\Psi$ is a bijection.
+
+\textbf{Respects addition:} $(x+y) \bmod m_i = ((x\bmod m_i) + (y \bmod m_i)) \bmod m_i$ for each $i$ — this is just the elementary fact that reduction mod $m_i$ is compatible with addition. Hence $\Psi(x+y) = \Psi(x)+\Psi(y)$ componentwise.
+
+\textbf{Respects multiplication:} identically, $(xy)\bmod m_i = ((x\bmod m_i)(y\bmod m_i))\bmod m_i$ for each $i$, so $\Psi(xy) = \Psi(x)\Psi(y)$.
+
+A bijection compatible with both ring operations is by definition a ring isomorphism.
+\end{proof}
+
+\noindent\textbf{In plain English:} arithmetic mod $M$ is \emph{secretly the same thing} as doing arithmetic mod $m_1$, mod $m_2$, \dots, mod $m_k$ all simultaneously and independently, then reassembling the answer. You can add, subtract, or multiply numbers coordinate-by-coordinate in the separate small moduli, and it always agrees with doing the operation directly in the big modulus $M$. This is not just a coincidence about congruences; it is a full structural equivalence of algebraic systems (rings).
+
+\begin{corollary}[Units transfer]\label{cor:units}
+Under $\Psi$, an element $x \bmod M$ is a unit (invertible under multiplication) in $\Z/M\Z$ if and only if each component $x \bmod m_i$ is a unit in $\Z/m_i\Z$. Consequently,
+\[
+(\Z/M\Z)^\times \;\cong\; (\Z/m_1\Z)^\times \times \cdots \times (\Z/m_k\Z)^\times
+\]
+as groups (in fact, as multiplicative monoids restricted to units), and taking cardinalities recovers
+\[
+\varphi(M) = \varphi(m_1)\varphi(m_2)\cdots\varphi(m_k),
+\]
+i.e.\ the multiplicativity of Euler's totient function is a direct corollary of the CRT ring isomorphism.
+\end{corollary}
+
+\begin{proof}
+A ring isomorphism sends units to units and non-units to non-units (an inverse in one ring corresponds, under the isomorphism, to an inverse in the other — apply $\Psi$ to the equation $xy=1$). Units in a product ring $R_1\times\cdots\times R_k$ are exactly tuples that are units in \emph{every} coordinate (invert coordinatewise). Restricting the bijection $\Psi$ to unit groups gives the stated group isomorphism, and cardinalities multiply because the cardinality of a Cartesian product is the product of cardinalities.
+\end{proof}
+
+\noindent This is precisely the argument used (in more computational language) in the earlier lecture on Euler's totient function — CRT is the machine underneath multiplicativity of $\varphi$.
+
+%=========================================================
+\section{CRT with Non-Coprime Moduli}
+%=========================================================
+
+What if the moduli are \emph{not} pairwise coprime? The system may or may not have a solution, and when it does, the modulus of the combined solution shrinks from the product to the least common multiple.
+
+\begin{theorem}[Generalized CRT]\label{thm:generalizedcrt}
+Let $m,n$ be positive integers (not necessarily coprime) and $a,b \in \Z$. The system
+\[
+x\equiv a\pmod m, \qquad x \equiv b \pmod n
+\]
+has a solution if and only if
+\[
+a \equiv b \pmod{\gcd(m,n)}.
+\]
+When a solution exists, it is unique modulo $\lcmop(m,n)$.
+\end{theorem}
+
+\begin{proof}
+Let $g = \gcd(m,n)$, $M=\lcmop(m,n)$.
+
+\textbf{Necessity.} If $x$ solves both congruences, then $x = a + sm = b+tn$ for integers $s,t$, so $a - b = tn - sm$. Since $g \mid m$ and $g\mid n$, the right side is divisible by $g$, so $g \mid (a-b)$, i.e.\ $a \equiv b \pmod g$.
+
+\textbf{Sufficiency and construction.} Suppose $a\equiv b\pmod g$, i.e.\ $g \mid (b-a)$. By Bézout, there exist $u,v$ with $mu+nv=g$. Then
+\[
+b - a = \left(\frac{b-a}{g}\right) g = \left(\frac{b-a}{g}\right)(mu+nv).
+\]
+Set $x_0 = a + mu\cdot\dfrac{b-a}{g}$. Then $x_0 \equiv a \pmod m$ trivially (we added a multiple of $m$). Also
+\[
+x_0 = a + \frac{(b-a)}{g}(g - nv) = a + (b-a) - \frac{(b-a)}{g}nv = b - \frac{(b-a)}{g}nv \equiv b \pmod n,
+\]
+since we subtracted a multiple of $n$. So $x_0$ solves the system.
+
+\textbf{Uniqueness modulo $M=\lcmop(m,n)$.} If $x_0,x_1$ both solve the system then $m \mid (x_0-x_1)$ and $n\mid(x_0-x_1)$, so $\lcmop(m,n) \mid (x_0-x_1)$ (the lcm is, by definition, the smallest — and in fact the unique minimal generator of the set of — common multiples; any common multiple of $m,n$ is a multiple of $\lcmop(m,n)$, a standard fact from the prime-factorization description of lcm and gcd). Hence $x_0\equiv x_1 \pmod M$.
+\end{proof}
+
+\noindent\textbf{In plain English:} if $m,n$ share a common factor $g$, then knowing $x \bmod m$ already pins down $x \bmod g$, and knowing $x\bmod n$ also pins down $x\bmod g$ — so for the system to be consistent at all, these two implied values mod $g$ must agree. If they do agree, there's no further obstruction, and the combined information determines $x$ up to the least common multiple (the smallest modulus consistent with both individual congruences) rather than the full product $mn$ (which would double-count the shared factor $g$).
+
+\begin{example}
+Solve $x\equiv4\pmod6$, $x\equiv1\pmod9$. Here $g=\gcd(6,9)=3$. Check consistency: $4\bmod3=1$, $1\bmod3=1$ — they agree, so a solution exists. $M=\lcmop(6,9)=18$. Try $x=10$: $10=1\cdot6+4$\checkmark, $10=1\cdot9+1$\checkmark. So $x\equiv10\pmod{18}$.
+
+By contrast, $x\equiv2\pmod4$, $x\equiv1\pmod6$ has \emph{no} solution: $g=\gcd(4,6)=2$, and $2\bmod2=0$ while $1\bmod2=1$ — inconsistent.
+\end{example}
+
+%=========================================================
+\section{The Polynomial Chinese Remainder Theorem}\label{sec:polynomial}
+%=========================================================
+
+CRT is not special to $\Z$; it holds in any \textbf{principal ideal domain}, and the polynomial ring $F[x]$ over a field $F$ is a particularly important example, because it directly explains \textbf{Lagrange interpolation}.
+
+\begin{theorem}[CRT for polynomials]\label{thm:polycrt}
+Let $F$ be a field and $p_1(x),\dots,p_k(x) \in F[x]$ be pairwise coprime polynomials (no common roots/factors), with $P(x) = p_1(x)\cdots p_k(x)$. For any polynomials $a_1(x),\dots,a_k(x)$, there is a polynomial $g(x)$, unique modulo $P(x)$, satisfying
+\[
+g(x) \equiv a_i(x) \pmod{p_i(x)}, \qquad i=1,\dots,k.
+\]
+\end{theorem}
+\begin{proof}[Proof sketch]
+Identical in structure to Theorem~\ref{thm:crtgeneral}: because $F[x]$ has a Euclidean algorithm (polynomial long division), Bézout's identity holds for coprime polynomials, $p_i(x)u(x)+p_j(x)v(x)=1$, and the same construction and induction go through verbatim, replacing integers with polynomials throughout.
+\end{proof}
+
+\begin{corollary}[Lagrange Interpolation as a special case]
+Take $p_i(x) = x - c_i$ for $k$ distinct points $c_1,\dots,c_k \in F$ (these are pairwise coprime linear polynomials since they have distinct roots), and let $a_i(x) = y_i$ (constants) be target values. The unique polynomial $g(x)$ of degree $<k$ with $g(c_i)=y_i$ for all $i$ (interpolation through the $k$ points $(c_i,y_i)$) is precisely the CRT reconstruction, and it recovers the classical Lagrange interpolation formula
+\[
+g(x) = \sum_{i=1}^k y_i \prod_{j\ne i} \frac{x-c_j}{c_i - c_j}.
+\]
+\end{corollary}
+
+\noindent\textbf{In plain English:} ``knowing the remainder of $g(x)$ modulo $(x-c_i)$'' is exactly the same as ``knowing the value $g(c_i)$'' (by the polynomial remainder theorem). So reconstructing a polynomial from its values at several points (interpolation) and reconstructing an integer from its remainders modulo several numbers (CRT) are, structurally, \emph{the exact same theorem}, just applied in two different rings ($F[x]$ versus $\Z$). This is a beautiful example of how abstract algebra unifies superficially unrelated classical results.
+
+%=========================================================
+\section{Applications}
+%=========================================================
+
+\subsection{Multiplicativity of Euler's totient function}
+As shown in Corollary~\ref{cor:units}, $\varphi(mn)=\varphi(m)\varphi(n)$ for coprime $m,n$ is an immediate consequence of the CRT ring isomorphism restricted to unit groups. This is the same fact used (with an equivalent but more computational proof) in the companion lecture on the Euler totient function.
+
+\subsection{Fast RSA decryption: Garner's algorithm / CRT-RSA}
+In RSA with modulus $n=pq$, a private-key holder who knows $p,q$ separately can decrypt \emph{roughly four times faster} using CRT:
+\begin{itemize}[leftmargin=1.4em]
+\item Compute $m_p = c^{d \bmod (p-1)} \bmod p$ and $m_q = c^{d\bmod(q-1)} \bmod q$ — two \emph{much smaller} modular exponentiations (roughly half the bit-length each, and exponentiation cost grows worse than linearly in bit-length).
+\item Recombine $m_p, m_q$ into $m \bmod n$ using the CRT formula of Theorem~\ref{thm:crt2} (a fixed procedure known as \textbf{Garner's algorithm}, which precomputes the Bézout-type coefficients once per key).
+\end{itemize}
+This CRT-based speedup is used in essentially every real-world RSA implementation.
+
+\subsection{Secret sharing (Asmuth–Bloom scheme)}
+CRT-based secret sharing splits a secret $S$ into $k$ shares such that any $t$ of them can reconstruct $S$, but fewer cannot. Roughly: choose pairwise coprime moduli $m_1<m_2<\cdots<m_k$ such that the product of any $t$ of them exceeds $S$, but the product of any $t-1$ of them does not. The secret is encoded as $S \bmod (m_1\cdots m_t)$-type residues, distributed as shares $S \bmod m_i$; any $t$ shares let you reconstruct $S$ (mod the product of those $t$ moduli, which is large enough to pin $S$ down exactly) via CRT, while $t-1$ shares leave genuine ambiguity.
+
+\subsection{Computer arithmetic: Residue Number Systems (RNS)}
+Large-integer arithmetic (as used in cryptography and signal processing) can represent a big number $x$ as a tuple of remainders $(x\bmod m_1,\dots,x\bmod m_k)$ for pairwise coprime word-sized $m_i$. Addition, subtraction, and multiplication of the big number can then be done \emph{independently and in parallel} in each small modulus (Theorem~\ref{thm:ring}), which is far faster on hardware than doing the arithmetic directly on the large number, at the cost of needing CRT reconstruction (or avoiding it entirely, if only sums/products of residues are needed later) when a normal decimal/binary representation is required.
+
+\subsection{Fast algorithms: multiplying big numbers, FFT-based convolution}
+Some fast multiplication algorithms (and computations of convolutions, relevant to signal processing and polynomial multiplication) use CRT — either in $\Z$ over several prime moduli (to avoid overflow, then reconstructing at the end) or via the polynomial CRT of Theorem~\ref{thm:polycrt} (splitting a polynomial multiplication problem into evaluation at several points, multiplying pointwise, then interpolating back — this is precisely the philosophy behind the Fast Fourier Transform's evaluate–multiply–interpolate strategy, where the ``points'' are roots of unity).
+
+\subsection{Error-correcting codes}
+Certain codes (e.g., Redundant Residue Number System codes) encode data redundantly using more moduli than strictly necessary for reconstruction; if a small number of residues are corrupted, CRT-like reconstruction from the remaining consistent residues can detect and correct the error, analogous to redundancy-based error correction in other coding schemes.
+
+%=========================================================
+\section{Summary of Key Formulas}
+%=========================================================
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{p{6.4cm}p{7.8cm}}
+\toprule
+\textbf{Statement} & \textbf{Formula / Content} \\
+\midrule
+Two-modulus CRT & $x\equiv a\ (m),\ x\equiv b\ (n),\ \gcd(m,n)=1 \Rightarrow$ unique $x \bmod mn$ \\
+Bézout construction & $mu+nv=1 \Rightarrow x_0 = a\,nv + b\,mu$ \\
+General CRT & pairwise coprime $m_1,\dots,m_k \Rightarrow$ unique $x \bmod M=\prod m_i$ \\
+Ring isomorphism & $\Z/M\Z \cong \Z/m_1\Z\times\cdots\times\Z/m_k\Z$ \\
+Units transfer & $(\Z/M\Z)^\times \cong \prod_i (\Z/m_i\Z)^\times$ \\
+Totient corollary & $\varphi(M) = \prod_i \varphi(m_i)$ \\
+Non-coprime case & solvable $\iff a\equiv b \pmod{\gcd(m,n)}$; unique mod $\lcmop(m,n)$ \\
+Polynomial CRT & pairwise coprime $p_i(x) \Rightarrow$ unique $g(x) \bmod \prod p_i(x)$ \\
+Lagrange interpolation & special case with $p_i(x)=x-c_i$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%=========================================================
+\section{Exercises}
+%=========================================================
+
+\begin{enumerate}[label=(\arabic*)]
+\item Solve $x\equiv3\pmod7,\ x\equiv5\pmod{11},\ x\equiv7\pmod{13}$ using the iterative algorithm (Algorithm~\ref{alg:iterative}).
+\item Determine whether $x\equiv5\pmod{12}$, $x\equiv1\pmod{18}$ has a solution; if so, find all solutions.
+\item Prove that if $m_1,\dots,m_k$ are pairwise coprime and each $m_i \ge 2$, then the number of solutions to $x^2\equiv1\pmod M$ (with $M=\prod m_i$) equals $2^k$ when every $m_i$ is odd (relate this to the unit-group isomorphism of Corollary~\ref{cor:units} and the number of square roots of $1$ in each cyclic-or-not factor).
+\item Using the polynomial CRT, reconstruct the unique polynomial of degree $<3$ with $g(0)=1,\ g(1)=2,\ g(2)=5$, and verify it matches the Lagrange interpolation formula.
+\item Explain, in your own words, why CRT-RSA decryption is faster, using the fact that modular exponentiation cost grows more than linearly in the bit-length of the modulus.
+\item Show that $\Z/6\Z \cong \Z/2\Z\times\Z/3\Z$ explicitly, by writing out the full addition and multiplication tables on both sides and matching them via $\Psi$.
+\end{enumerate}
+
+\end{document}
