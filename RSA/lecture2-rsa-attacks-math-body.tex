@@ -10,6 +10,8 @@
 \end{enumerate}
 \textbf{What every attack in this lecture has in common:} none of them factor $n$. Each exploits a specific way RSA was \emph{used} — a too-small $d$, a too-small $e$ combined with related or repeated messages, exponent/modulus reuse, or the sheer algebraic structure of modular exponentiation. This is the point made in Lesson 1: breaking RSA is not the same as solving the RSA problem in general, and it is very much not the same as factoring.
 
+\medskip\noindent\textbf{One reading tip before we start.} Every attack below has the same three-part shape, and it's worth watching for it explicitly: (1) some \emph{public} quantities are related to the secret by an algebraic identity (an exponent law, a CRT congruence, a Bézout identity); (2) a size or structural assumption (a too-small $d$, an identical broadcast message, a shared modulus) lets that identity be upgraded from ``true modulo something'' to ``true as an ordinary equation''; and (3) that upgraded equation is then solved directly, with ordinary algebra, using no private key. Recognizing this shape in advance makes each individual proof below far easier to follow, because you'll already know what each step is trying to accomplish before you read it.
+
 \newpage
 \section{Wiener's Attack: Small Private Exponent}
 

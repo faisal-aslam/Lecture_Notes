@@ -11,6 +11,8 @@
 \end{enumerate}
 \textbf{What every attack in this lecture has in common:} $n$ is properly generated, $d$ is large, no modulus is shared, no message is broadcast — every mathematical precondition from Lessons 1--2 is satisfied. These attacks instead exploit \emph{how RSA is computed} (timing, faults) or \emph{how a protocol reacts to malformed input} (padding oracles), or a subtle flaw in \emph{how the keys themselves were generated} (ROCA). This is the layer of RSA security that pure number theory cannot see.
 
+\medskip\noindent\textbf{Why this lecture feels different from the last two.} In Lessons 1--2, every attack lived entirely on paper: given some numbers, do some algebra, get the secret. Here, the ``numbers'' are produced by a real physical computer running real code, and that computer takes measurable time, draws measurable power, and can be made to make mistakes (deliberately, by an attacker). The mathematics you already know (CRT, Euler's theorem, Coppersmith's method) does not change — it gets \emph{reused}, but now the input to that mathematics is something the attacker extracted from the outside world rather than something sitting in a public key file. Keep asking, for each attack below: \emph{what physical signal is being turned into a piece of secret information, and by which piece of Lesson 1--2 mathematics is that piece then exploited?}
+
 \newpage
 \section{Padding Oracles: Bleichenbacher's Attack on PKCS\#1 v1.5}
 
