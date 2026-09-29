@@ -1,0 +1,121 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,pdfpagemode=UseNone}
+
+\newtheorem{theorem}{Theorem}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+\title{\textbf{Prep Notes: Three Quick RSA Attacks}\\[2pt]\large Håstad, Common Modulus, Cycling --- built entirely from what you just taught}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-1.5em}
+
+\textbf{Why these three, and in this order.} Each one reuses a tool you finished teaching in 1.1--1.2 an hour ago (CRT, Extended Euclidean Algorithm, Euler's theorem), so there is nothing new to learn mathematically --- only a new way of \emph{using} it. Budget roughly 15 / 15 / 15 minutes. Suggested framing line for the class: \emph{``Same theorem, opposite job: an hour ago it proved RSA correct, now it's going to break it.''}
+
+\hrulefill
+
+\section*{1. Håstad's Broadcast Attack \hfill \normalsize (reuses: CRT)}
+
+\textbf{Setup.} Small public exponent (e.g.\ $e=3$), same message $m$ broadcast to 3 recipients with independent, pairwise-coprime moduli $n_1,n_2,n_3$:
+\[
+c_i = m^3 \bmod n_i, \qquad i=1,2,3.
+\]
+
+\textbf{Core insight (say this first).} Three small, separately-opaque worlds (mod $n_1$, mod $n_2$, mod $n_3$) get stitched by CRT into one big world (mod $N=n_1n_2n_3$) --- and against that much bigger modulus, $m^3$ might not wrap around at all. It's the ``no modular wraparound'' flaw from Lesson 1, resurfacing one level up.
+
+\begin{theorem}
+If $m<\min(n_1,n_2,n_3)$, an eavesdropper who sees $c_1,c_2,c_3$ recovers $m$ --- no private key needed.
+\end{theorem}
+
+\textbf{Compressed proof.}
+\begin{itemize}[nosep]
+\item CRT combines $x\equiv c_i\pmod{n_i}$ ($i=1,2,3$) into a \emph{unique} $C$ mod $N=n_1n_2n_3$, computed directly from public data.
+\item $m^3$ also satisfies all three congruences (by definition of $c_i$) $\Rightarrow$ by CRT's uniqueness, $C\equiv m^3\pmod N$.
+\item Since $m<\min n_i$, we get $m^3<N$ $\Rightarrow$ $C$ and $m^3$ are both nonnegative integers $<N$ that agree mod $N$, so they're \emph{exactly equal} as integers (not just congruent).
+\item Take an ordinary integer cube root of $C$. Done.
+\end{itemize}
+
+\textbf{Worked example (verified).} $n_1=143=11{\cdot}13$, $n_2=323=17{\cdot}19$, $n_3=667=23{\cdot}29$ (pairwise coprime), $m=17$:
+\[
+c_1=17^3\bmod143=51,\quad c_2=17^3\bmod323=68,\quad c_3=17^3\bmod667=244.
+\]
+$N=n_1n_2n_3=30{,}808{,}063$. CRT-combining $(51,68,244)$ gives $C=4913$. Check: $17^3=4913<N$ --- no wraparound, so $C$ is the exact integer $m^3$. $\sqrt[3]{4913}=17=m$. \textbf{No private key touched.}
+
+\textbf{Practical consequence (one line for the board).} Never send the same/related message to multiple recipients under small $e$ without randomized padding (OAEP fixes this --- Lesson 3).
+
+\hrulefill
+
+\section*{2. Common Modulus Attack \hfill \normalsize (reuses: Extended Euclidean Algorithm)}
+
+\textbf{Setup.} One shared modulus $n$, two users with coprime exponents $e_1,e_2$ ($\gcd(e_1,e_2)=1$), same message encrypted under both:
+\[
+c_1=m^{e_1}\bmod n,\qquad c_2=m^{e_2}\bmod n.
+\]
+
+\textbf{Core insight (say this first).} $\gcd(e_1,e_2)=1$ means Extended Euclid can write $1=ae_1+be_2$ --- the \emph{exact same computation} used to build the private key $d$. Here it's aimed at the exponents directly: combining $c_1,c_2$ with exponents $a,b$ combines $m^{e_1},m^{e_2}$ into $m^1=m$.
+
+\begin{theorem}
+If $\gcd(e_1,e_2)=1$, anyone knowing only $(n,e_1,e_2,c_1,c_2)$ recovers $m$ --- no private key at all.
+\end{theorem}
+
+\textbf{Compressed proof.}
+\begin{itemize}[nosep]
+\item Extended Euclid on $(e_1,e_2)$ gives integers $a,b$ with $ae_1+be_2=1$.
+\item $c_1^a c_2^b \equiv (m^{e_1})^a(m^{e_2})^b \equiv m^{ae_1+be_2} \equiv m^1 \equiv m \pmod n$ --- pure exponent-law algebra, no secret used.
+\item If (say) $b<0$: compute $c_2^{-1}\bmod n$ first (Extended Euclid again), then raise \emph{that} to $|b|$.
+\end{itemize}
+
+\textbf{Worked example (verified --- corrected from earlier draft).} $n=3233$ ($p=61,q=53$), $e_1=17,e_2=7$, $m=42$:
+\[
+c_1=42^{17}\bmod3233=2557,\qquad c_2=42^{7}\bmod3233=240.
+\]
+Extended Euclid$(17,7)$: $a=-2,\ b=5$ (check: $-2{\cdot}17+5{\cdot}7=1$). Since $a<0$: $c_1^{-1}\bmod n = 3123$. Then
+\[
+m=(c_1^{-1})^2\cdot c_2^5 \bmod n = 42. \checkmark
+\]
+\textit{(Note: the lecture PDF previously had a typo here --- $c_1^{-1}=2160$ --- now fixed to $3123$ in your source file; $3123$ is the value that actually makes the arithmetic check out.)}
+
+\textbf{Practical consequence.} Never share a modulus across users/purposes, even with different exponents --- broken the instant any two exponents on it are coprime (the common case).
+
+\hrulefill
+
+\section*{3. Cycling Attack (Conceptual) \hfill \normalsize (reuses: Euler's theorem)}
+
+\textbf{Setup.} Only $(n,e,c)$ with $c=m^e\bmod n$. Repeatedly re-encrypt: $c_1=c^e\bmod n,\ c_2=c_1^e\bmod n,\dots$ until the sequence returns to $c$.
+
+\textbf{Core insight (say this first).} This \emph{is} Euler's theorem, one level up. An hour ago: repeatedly multiplying by $a$ cycles back to $1$ after $\varphi(n)$ steps. Now: repeatedly \emph{encrypting} (exponentiating by $e$) must also cycle back eventually, since encryption is invertible. The punchline: the plaintext sits in plain sight, one step before the cycle closes.
+
+\begin{theorem}
+Let $k$ be smallest with $c_k=c$. Then $m=c_{k-1}$.
+\end{theorem}
+
+\textbf{Compressed proof.}
+\begin{itemize}[nosep]
+\item Induction: $c_i\equiv m^{e^{i+1}}\pmod n$.
+\item Definition of $k$: $m^{e^{k+1}}\equiv m^e\pmod n$, i.e.\ $e^{k+1}\equiv e \pmod{\mathrm{ord}_n(m)}$.
+\item $e$ is coprime to $\varphi(n)$ (chosen that way at keygen), hence coprime to $\mathrm{ord}_n(m)\mid\varphi(n)$ too $\Rightarrow$ cancel one factor of $e$: $e^k\equiv1\pmod{\mathrm{ord}_n(m)}$.
+\item So $c_{k-1}\equiv m^{e^k}\equiv m^1\equiv m\pmod n$ --- ``one full lap plus one step back,'' exactly the Euler's-theorem clock picture from 1.1.
+\end{itemize}
+
+\textbf{Worked example (verified).} $p=47,q=59\Rightarrow n=2773,\ \varphi(n)=2668$, $e=17$, $m=123$:
+\[
+c=123^{17}\bmod2773=1924.
+\]
+Repeatedly raising to the $17$th power: after $\mathbf{44}$ iterations the sequence returns to $c_{44}=1924=c$. One step earlier, $c_{43}=123=m$. \textbf{Recovered.}
+
+\textbf{Why it stays conceptual (say this explicitly, don't let it undersell the point).} At real key sizes the cycle length is astronomically large --- utterly infeasible in practice. It's taught because it's the cleanest possible demonstration that RSA encryption is literally iteration inside a finite group, and it previews why $\lambda(n)$ having a large prime factor matters (same spirit as avoiding smooth $p-1$, Lesson 1).
+
+\vspace{4pt}
+\hrulefill
+
+\textbf{One-slide recap, if you want to close the loop:} all three attacks above use tools from \emph{today's earlier hour} (CRT, Extended Euclid, Euler's theorem) as \emph{attack} tools rather than \emph{construction} tools --- the exact sentence to leave students with before next time, when Wiener's attack (continued fractions) opens properly instead of being rushed in.
+
+\end{document}
