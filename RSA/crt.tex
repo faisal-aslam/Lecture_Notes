@@ -302,7 +302,34 @@ M=m_1\cdots m_k,\quad M_i=\frac{M}{m_i},\quad M_i\,y_i\equiv 1 \pmod{m_i}.
 \end{enumerate}
 \end{recipe}
 
-\textbf{Why it works, in one sentence.} The number $M_iy_i$ leaves remainder $1$ when divided by $m_i$ and remainder $0$ when divided by every other $m_j$ (because $m_j$ is a factor of $M_i$). So the term $a_iM_iy_i$ has exactly the right remainder $a_i$ for $m_i$ and does not disturb any other modulus; adding all terms gets every remainder right at once.
+\textbf{Why it works: each term is one ``component'' of $x$.}
+Think of $x$ as being stored by its list of remainders, like the coordinates of a vector. For Sunzi's riddle below, $x$ is the list $(2,3,2)$ (remainders mod $3,5,7$), and we can split it into coordinates:
+\[
+(2,3,2)\;=\;2\cdot(1,0,0)\;+\;3\cdot(0,1,0)\;+\;2\cdot(0,0,1).
+\]
+The number $M_iy_i$ is the integer that plays the role of the ``unit vector'' for position $i$: it leaves remainder $1$ when divided by $m_i$ and remainder $0$ when divided by every other modulus. It is built in two moves:
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item $M_i$ is the product of all the \emph{other} moduli, so every other $m_j$ divides it. Hence $M_i$ (and every multiple of it) leaves remainder $0$ for all $m_j$ with $j\ne i$.
+\item $M_i$ itself leaves some remainder at $m_i$, not necessarily $1$. Multiplying by $y_i$, the inverse of $M_i$ modulo $m_i$, turns that remainder into exactly $1$, and it does not destroy the zeros elsewhere (multiples of $M_i$ stay multiples of $M_i$).
+\end{itemize}
+Multiplying by $a_i$ scales the ``$1$'' up to the wanted remainder $a_i$. So the term $a_iM_iy_i$ is the \emph{$a_i$-component of $x$}: it has remainder $a_i$ at $m_i$ and remainder $0$ at every other modulus. Adding all the components rebuilds the whole list of remainders, and therefore $x$. For Sunzi's riddle:
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{lcccc}
+\toprule
+term & value & mod $3$ & mod $5$ & mod $7$ \\
+\midrule
+$a_1M_1y_1=2\cdot35\cdot2$ & $140$ & $\mathbf{2}$ & $0$ & $0$ \\
+$a_2M_2y_2=3\cdot21\cdot1$ & $63$ & $0$ & $\mathbf{3}$ & $0$ \\
+$a_3M_3y_3=2\cdot15\cdot1$ & $30$ & $0$ & $0$ & $\mathbf{2}$ \\
+\midrule
+sum & $233$ & $2$ & $3$ & $2$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Every column has exactly one non-zero entry, and it is exactly the remainder we wanted. 
+
+\emph{Why ``mod $M$'' at the end?} A component is not ``a piece of $M$'' in size (here $140>105$); it is a component in the sense of \emph{remainders}. The sum $233$ is a valid solution, but so is $233-105=128$ or $233-210=23$, because subtracting $M=m_1m_2\cdots m_k$ changes none of the remainders (it is a multiple of every $m_i$). We keep the smallest non-negative one.
 
 \begin{example}[Sunzi's riddle by Method B]\label{ex:qs-formula1}
 $x\equiv 2\pmod 3$, $\;x\equiv 3\pmod 5$, $\;x\equiv 2\pmod 7$.
