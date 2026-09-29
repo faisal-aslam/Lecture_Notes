@@ -151,7 +151,27 @@ Solve $x\equiv 2\pmod 3$ and $x\equiv 3\pmod 5$ with the recipe.
 
 \emph{Step 2.} Put into the other congruence: $3+5t\equiv 2\pmod 3$. Subtract $3$: $\;5t\equiv -1\pmod 3$.
 
-\emph{Step 3.} Simplify: $5\equiv 2$ and $-1\equiv 2 \pmod 3$, so $2t\equiv 2\pmod 3$, hence $t\equiv 1\pmod 3$.
+\emph{Step 3.} Solve $5t\equiv -1\pmod 3$ for $t$. We do it in three small moves.
+
+\begin{enumerate}[label=(\alph*),leftmargin=2em,itemsep=2pt]
+\item \textbf{Make the left number small.} Dividing $5$ by $3$ leaves remainder $2$, so $5\equiv2\pmod 3$. Hence $5t$ behaves like $2t$, and the congruence becomes $2t\equiv-1\pmod 3$.
+\item \textbf{Make the right number positive.} Adding the modulus $3$ does not change a remainder, so $-1\equiv-1+3=2\pmod 3$. The congruence becomes $2t\equiv2\pmod 3$.
+\item \textbf{Find $t$.} Ask: which $t$ makes $2t$ leave remainder $2$ when divided by $3$? Just try the possible remainders $t=0,1,2$:
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$t$ & $0$ & $1$ & $2$ \\
+\midrule
+$2t$ & $0$ & $2$ & $4$ \\
+remainder of $2t$ divided by $3$ & $0$ & $\mathbf{2}$ & $1$ \\
+equals $2$? & no & \textbf{yes} & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+Only $t=1$ works, so $t\equiv1\pmod 3$, i.e.\ $t\in\{1,4,7,\dots\}$.
+\end{enumerate}
+
+(Shortcut: since $2$ and $3$ share no factor, you may divide both sides of $2t\equiv2$ by $2$ and get $t\equiv1$. The table above shows this is safe.)
 
 \emph{Step 4.} Write $t=1+3s$: $\;x=3+5(1+3s)=8+15s$.
 
