@@ -25,6 +25,10 @@
 \lhead{The Chinese Remainder Theorem}
 \rhead{\thepage}
 
+
+% Boxed "recipe" environment for step-by-step procedures
+\newenvironment{recipe}[1]{\par\medskip\noindent\begin{minipage}{\linewidth}\noindent\rule{\linewidth}{0.8pt}\par\smallskip\noindent\textbf{#1}\par\smallskip}{\par\noindent\rule{\linewidth}{0.8pt}\end{minipage}\par\medskip}
+
 \newcommand{\Z}{\mathbb{Z}}
 \newcommand{\N}{\mathbb{N}}
 \newcommand{\Q}{\mathbb{Q}}
@@ -54,6 +58,447 @@ The Chinese Remainder Theorem (CRT) answers a question that sounds almost too si
 We will answer this exact riddle later (Example~\ref{ex:sunzi}). The theorem turns out to be one of the load-bearing pillars of number theory and abstract algebra: it explains why $\varphi$ is multiplicative, it underlies fast modular arithmetic in cryptography, it powers secret-sharing schemes, and — in its most general algebraic form — it is a statement about how a ring decomposes into a product of simpler rings.
 
 \noindent\textbf{In plain English:} think of a number $x$ as being ``coded'' by its remainders modulo several small numbers. CRT says that if those small numbers share no common factors pairwise, then the code is lossless and invertible: the collection of remainders determines $x$ completely (mod the product), and there's an explicit recipe to decode it.
+
+\noindent\textbf{Just want to solve problems?} Skip straight to Section~\ref{sec:quickstart}, which contains step-by-step recipes and fully worked examples that need no theory at all.
+
+%=========================================================
+\section{Quick-Start Guide: Solving CRT Problems by Hand}\label{sec:quickstart}
+%=========================================================
+
+\noindent\emph{This section is completely self-contained. You do not need any theory or proofs to use it: every step is explained with actual numbers. The later sections explain \emph{why} these recipes always work.}
+
+%---------------------------------------------------------
+\subsection{What a CRT problem looks like}
+%---------------------------------------------------------
+
+You are told the \emph{remainders} of an unknown whole number $x$ when it is divided by several numbers, and you must find $x$:
+\[
+x\equiv a_1 \pmod{m_1},\qquad x\equiv a_2 \pmod{m_2},\qquad \dots,\qquad x\equiv a_k \pmod{m_k}.
+\]
+
+\textbf{How to read the notation.} ``$x\equiv 2\pmod 3$'' simply means ``when $x$ is divided by $3$, the remainder is $2$''. So $x$ could be $2,5,8,11,14,17,\dots$ (start at $2$ and keep adding $3$).
+
+\textbf{Step 0: check the moduli.} Look at every \emph{pair} of moduli. If no two of them share a common factor larger than $1$, they are called \emph{pairwise coprime} and everything below works directly.
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Moduli & Verdict \\
+\midrule
+$3,\ 5,\ 7$ & pairwise coprime \\
+$4,\ 9,\ 25$ & pairwise coprime (no shared prime factor) \\
+$6,\ 9$ & \emph{not} coprime (both divisible by $3$) $\to$ see Section~\ref{sec:qs-noncoprime} \\
+$4,\ 6,\ 7$ & \emph{not} coprime ($4$ and $6$ share the factor $2$) $\to$ see Section~\ref{sec:qs-noncoprime} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{What the answer looks like.} Let $M=m_1m_2\cdots m_k$ be the product of the moduli. Then there is \emph{exactly one} solution between $0$ and $M-1$, and every other solution is that one plus or minus a multiple of $M$. We write the complete answer as
+\[
+x\equiv x_0 \pmod M.
+\]
+For example, for the moduli $3,5,7$ we have $M=105$, and the solutions are $\dots,-82,\ 23,\ 128,\ 233,\dots$ --- all of them differ by multiples of $105$.
+
+%---------------------------------------------------------
+\subsection{Method A: Substitution (easiest by hand, no big formulas)}
+%---------------------------------------------------------
+
+\begin{recipe}{Recipe for Method A}
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item Take one congruence, say $x\equiv a \pmod m$, and rewrite it as an \emph{equation}:
+\[ x = a + m\,t \qquad (t \text{ is an unknown whole number}). \]
+\item Put this into the next congruence $x\equiv b\pmod n$. You get $a+mt\equiv b \pmod n$, i.e.\ 
+\[ m\,t\equiv b-a \pmod n. \]
+\item Solve this small congruence for $t$: you get $t\equiv t_0\pmod n$. (Try values of $t=0,1,2,\dots,n-1$, or multiply by an inverse, see Section~\ref{sec:qs-inverse}.)
+\item Write $t=t_0+n\,s$ and put it back: 
+\[ x = a+m(t_0+ns) = \underbrace{(a+mt_0)}_{\text{new } a}+\underbrace{mn}_{\text{new } m}\, s. \]
+So the two congruences have been merged into the single congruence $x\equiv a+mt_0\pmod{mn}$.
+\item Repeat with the next congruence until none are left.
+\end{enumerate}
+\emph{Tip:} it is least work to start with the \textbf{largest} modulus.
+\end{recipe}
+
+\begin{example}[Two congruences, by simply listing numbers]\label{ex:qs-list}
+Find $x$ with $x\equiv 2\pmod 3$ and $x\equiv 3\pmod 5$.
+
+\smallskip
+\textbf{Idea:} list the numbers satisfying the \emph{bigger} modulus, and test each one against the other condition.
+
+Numbers with remainder $3$ when divided by $5$: $3,\ 8,\ 13,\ 18,\ \dots$ (add $5$ each time).
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+candidate $x$ & $3$ & $8$ & $13$ \\
+\midrule
+remainder of $x$ divided by $3$ & $0$ & $\mathbf{2}$ & $1$ \\
+what we need & $2$ & $2$ & $2$ \\
+works? & no & \textbf{yes} & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So $x=8$. Notice the remainders $0,2,1$: adding $5$ repeatedly cycles through \emph{all} possible remainders mod $3$, so you never have to try more than $3$ candidates, and exactly one works.
+
+Since $3\cdot5=15$, the full answer is $x\equiv 8\pmod{15}$, i.e.\ $8,\,23,\,38,\,\dots$
+
+\emph{Check:} $8=2\cdot 3+2$ \checkmark\quad and\quad $8=1\cdot5+3$ \checkmark
+\end{example}
+
+\begin{example}[Method A in symbols, same problem]\label{ex:qs-sub2}
+Solve $x\equiv 2\pmod 3$ and $x\equiv 3\pmod 5$ with the recipe.
+
+\emph{Step 1.} Start from the modulus $5$: $\;x=3+5t$.
+
+\emph{Step 2.} Put into the other congruence: $3+5t\equiv 2\pmod 3$. Subtract $3$: $\;5t\equiv -1\pmod 3$.
+
+\emph{Step 3.} Simplify: $5\equiv 2$ and $-1\equiv 2 \pmod 3$, so $2t\equiv 2\pmod 3$, hence $t\equiv 1\pmod 3$.
+
+\emph{Step 4.} Write $t=1+3s$: $\;x=3+5(1+3s)=8+15s$.
+
+\emph{Answer:} $x\equiv 8\pmod{15}$.
+\end{example}
+
+\begin{example}[Sunzi's riddle by Method A: three congruences]\label{ex:qs-sunzi}
+Solve
+\[
+x\equiv 2\pmod 3,\qquad x\equiv 3\pmod 5,\qquad x\equiv 2\pmod 7.
+\]
+Here $M=3\cdot5\cdot7=105$. Start with the largest modulus, $7$.
+
+\textbf{Round 1: bring in the modulus $5$.}
+\begin{align*}
+x &= 2+7t &&\text{(from } x\equiv 2 \bmod 7)\\
+2+7t &\equiv 3 \pmod 5 &&\text{(the second condition)}\\
+7t &\equiv 1 \pmod 5 &&\text{(subtract 2)}\\
+2t &\equiv 1 \pmod 5 &&(7\equiv 2 \bmod 5)\\
+t &\equiv 3 \pmod 5 &&(\text{because } 2\cdot3=6\equiv1)
+\end{align*}
+So $t=3+5s$ and $x=2+7(3+5s)=23+35s$. We have merged two conditions:
+\[
+x\equiv 23\pmod{35}.
+\]
+
+\textbf{Round 2: bring in the modulus $3$.}
+\begin{align*}
+x &= 23+35s &&\\
+23+35s &\equiv 2 \pmod 3 &&\text{(the last condition)}\\
+2+2s &\equiv 2 \pmod 3 &&(23\equiv 2,\ 35\equiv 2 \bmod 3)\\
+2s &\equiv 0 \pmod 3 &&\\
+s &\equiv 0 \pmod 3 &&
+\end{align*}
+So $s=3r$ and $x=23+35\cdot3r=23+105r$.
+
+\textbf{Answer:} $x\equiv 23\pmod{105}$. The smallest positive solution is $x=23$.
+
+\emph{Check:} $23=7\cdot3+2$ \checkmark;\quad $23=4\cdot5+3$ \checkmark;\quad $23=3\cdot7+2$ \checkmark
+\end{example}
+
+\begin{example}[A harder one: moduli $4$, $9$, $25$]\label{ex:qs-hard}
+Solve $x\equiv 1\pmod 4$, $x\equiv 2\pmod 9$, $x\equiv 3\pmod{25}$. Here $M=4\cdot9\cdot25=900$.
+
+\textbf{Round 1.} Start with $25$: $x=3+25t$. Put into the condition mod $9$:
+\begin{align*}
+3+25t &\equiv 2 \pmod 9\\
+25t &\equiv -1 \pmod 9\\
+7t &\equiv 8 \pmod 9 &&(25\equiv 7,\ -1\equiv 8)
+\end{align*}
+We need a number that turns $7$ into $1$ modulo $9$: try $7\cdot1=7,\ 7\cdot2=14\equiv5,\ 7\cdot3=21\equiv3,\ 7\cdot4=28\equiv1$. So multiply both sides by $4$:
+\[
+t\equiv 8\cdot 4=32\equiv 5\pmod 9.
+\]
+Thus $t=5+9s$, and $x=3+25(5+9s)=128+225s$. So $x\equiv128\pmod{225}$.
+
+\textbf{Round 2.} Put $x=128+225s$ into the condition mod $4$:
+\begin{align*}
+128+225s &\equiv 1 \pmod 4\\
+0+1\cdot s &\equiv 1 \pmod 4 &&(128\equiv0,\ 225\equiv1 \bmod 4)\\
+s &\equiv 1 \pmod 4
+\end{align*}
+So $s=1+4r$ and $x=128+225(1+4r)=353+900r$.
+
+\textbf{Answer:} $x\equiv 353\pmod{900}$.
+
+\emph{Check:} $353=88\cdot4+1$ \checkmark;\quad $353=39\cdot9+2$ \checkmark;\quad $353=14\cdot25+3$ \checkmark
+\end{example}
+
+%---------------------------------------------------------
+\subsection{Tool: how to find a modular inverse}\label{sec:qs-inverse}
+%---------------------------------------------------------
+
+Methods B and C below need a number called an \emph{inverse}. 
+
+\begin{definition}[Inverse, in plain words]
+The inverse of $c$ modulo $n$ is a number $y$ such that $c\cdot y$ leaves remainder $1$ when divided by $n$. We write $y\equiv c^{-1}\pmod n$. It exists exactly when $c$ and $n$ share no common factor (this is why CRT needs coprime moduli).
+\end{definition}
+
+\textbf{Way 1: reduce, then try small multiples (best for small $n$).}
+First replace $c$ by its remainder mod $n$. Then compute $c,2c,3c,\dots$ (mod $n$) until you see $1$.
+
+\begin{example}[Inverse of $7$ modulo $9$]
+$7\cdot1=7$, $\;7\cdot2=14\equiv5$, $\;7\cdot3=21\equiv3$, $\;7\cdot4=28\equiv1$. So $7^{-1}\equiv 4\pmod 9$.
+\end{example}
+
+\begin{example}[Inverse of $35$ modulo $4$]
+First reduce: $35=8\cdot4+3$, so $35\equiv3$. Then $3\cdot1=3$, $3\cdot2=6\equiv2$, $3\cdot3=9\equiv1$. So $35^{-1}\equiv3\pmod 4$.
+\end{example}
+
+\textbf{Way 2: Euclid's algorithm (for larger numbers).}
+Divide repeatedly until the remainder is $1$, then substitute backwards.
+
+\begin{example}[Inverse of $36$ modulo $25$]
+Reduce first: $36\equiv 11\pmod{25}$, so we need the inverse of $11$.
+
+\emph{Forward:}
+\[
+25=2\cdot11+3,\qquad 11=3\cdot3+2,\qquad 3=1\cdot2+1.
+\]
+\emph{Backward} (solve each line for its remainder and substitute):
+\begin{align*}
+1 &= 3-1\cdot 2\\
+  &= 3-1\cdot(11-3\cdot3) = 4\cdot3-1\cdot11\\
+  &= 4\cdot(25-2\cdot11)-1\cdot11 = 4\cdot25-9\cdot11.
+\end{align*}
+Reading this modulo $25$: $1\equiv -9\cdot 11$, so $11^{-1}\equiv -9\equiv 16\pmod{25}$.
+
+\emph{Check:} $36\cdot16=576=23\cdot25+1$ \checkmark
+\end{example}
+
+%---------------------------------------------------------
+\subsection{Method B: The direct formula (all congruences at once)}
+%---------------------------------------------------------
+
+\begin{recipe}{Recipe for Method B}
+\[
+\boxed{\;x\equiv \sum_{i=1}^{k} a_i\,M_i\,y_i \pmod M\;}
+\qquad\text{where}\qquad
+M=m_1\cdots m_k,\quad M_i=\frac{M}{m_i},\quad M_i\,y_i\equiv 1 \pmod{m_i}.
+\]
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item Compute $M$, the product of all moduli.
+\item For each $i$, compute $M_i=M/m_i$ (= the product of all the \emph{other} moduli).
+\item For each $i$, find $y_i$, the inverse of $M_i$ modulo $m_i$ (reduce $M_i$ mod $m_i$ first!).
+\item Compute the sum $a_1M_1y_1+a_2M_2y_2+\cdots+a_kM_ky_k$.
+\item Divide the sum by $M$ and keep the \textbf{remainder}. That is $x_0$.
+\end{enumerate}
+\end{recipe}
+
+\textbf{Why it works, in one sentence.} The number $M_iy_i$ leaves remainder $1$ when divided by $m_i$ and remainder $0$ when divided by every other $m_j$ (because $m_j$ is a factor of $M_i$). So the term $a_iM_iy_i$ has exactly the right remainder $a_i$ for $m_i$ and does not disturb any other modulus; adding all terms gets every remainder right at once.
+
+\begin{example}[Sunzi's riddle by Method B]\label{ex:qs-formula1}
+$x\equiv 2\pmod 3$, $\;x\equiv 3\pmod 5$, $\;x\equiv 2\pmod 7$.
+
+\emph{Step 1:} $M=3\cdot5\cdot7=105$.
+
+\emph{Steps 2--4:} fill in a table.
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{ccccccc}
+\toprule
+$i$ & $m_i$ & $a_i$ & $M_i=105/m_i$ & $M_i \bmod m_i$ & $y_i$ (inverse) & $a_iM_iy_i$ \\
+\midrule
+1 & 3 & 2 & 35 & $35=11\cdot3+2\to 2$ & $2$ \quad($2\cdot2=4\equiv1$) & $2\cdot35\cdot2=140$ \\
+2 & 5 & 3 & 21 & $21=4\cdot5+1\to 1$ & $1$ \quad($1\cdot1=1$) & $3\cdot21\cdot1=63$ \\
+3 & 7 & 2 & 15 & $15=2\cdot7+1\to 1$ & $1$ \quad($1\cdot1=1$) & $2\cdot15\cdot1=30$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\emph{Step 5:} sum $=140+63+30=233$. Divide by $105$: $233=2\cdot105+23$. So
+\[
+x\equiv 23\pmod{105}.
+\]
+\end{example}
+
+\begin{example}[Another one with less friendly numbers]\label{ex:qs-formula2}
+$x\equiv 3\pmod 4$, $\;x\equiv 2\pmod 5$, $\;x\equiv 1\pmod 7$.
+
+$M=4\cdot5\cdot7=140$.
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{ccccccc}
+\toprule
+$i$ & $m_i$ & $a_i$ & $M_i$ & $M_i \bmod m_i$ & $y_i$ & $a_iM_iy_i$ \\
+\midrule
+1 & 4 & 3 & 35 & 3 & $3$ \quad($3\cdot3=9\equiv1$) & $3\cdot35\cdot3=315$ \\
+2 & 5 & 2 & 28 & 3 & $2$ \quad($3\cdot2=6\equiv1$) & $2\cdot28\cdot2=112$ \\
+3 & 7 & 1 & 20 & 6 & $6$ \quad($6\cdot6=36\equiv1$) & $1\cdot20\cdot6=120$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Sum $=315+112+120=547$, and $547=3\cdot140+127$. So
+\[
+x\equiv 127\pmod{140}.
+\]
+\emph{Check:} $127=31\cdot4+3$ \checkmark;\quad $127=25\cdot5+2$ \checkmark;\quad $127=18\cdot7+1$ \checkmark
+\end{example}
+
+\begin{remark}[A ready-made formula for the moduli $3,5,7$]
+For these three moduli the numbers $M_iy_i$ are always the same: $70,\ 21,\ 15$. Indeed $70$ leaves remainders $(1,0,0)$ when divided by $(3,5,7)$, $21$ leaves $(0,1,0)$, and $15$ leaves $(0,0,1)$. Hence
+\[
+\boxed{\,x\equiv 70\,a+21\,b+15\,c \pmod{105}\,}\qquad\text{for } x\equiv a\ (3),\ x\equiv b\ (5),\ x\equiv c\ (7).
+\]
+\emph{Party trick:} ask a friend to think of a number from $1$ to $105$ and tell you its remainders after dividing by $3$, $5$, $7$. Say they answer $1,\,3,\,2$. Then $70\cdot1+21\cdot3+15\cdot2=70+63+30=163$, and $163-105=58$. Their number is $58$. (Check: $58=19\cdot3+1$, $58=11\cdot5+3$, $58=8\cdot7+2$.)
+
+The same idea works for \emph{any} fixed set of moduli: compute the numbers $M_iy_i$ once, and reuse them for every problem.
+\end{remark}
+
+%---------------------------------------------------------
+\subsection{Method C: Merge two at a time with a single formula}
+%---------------------------------------------------------
+
+For \textbf{two} congruences $x\equiv a\pmod m$ and $x\equiv b\pmod n$ with $\gcd(m,n)=1$ there is a short formula:
+\[
+\boxed{\;x\equiv a+m\cdot t \pmod{mn},\qquad\text{where } t\equiv (b-a)\cdot m^{-1}\pmod n.\;}
+\]
+(This is just Method A, Steps 1--4, with the algebra done once and for all.) With more than two congruences, merge the first two, then merge the result with the third, and so on.
+
+\begin{example}[Two congruences]
+$x\equiv 2\pmod 3$, $x\equiv 3\pmod 5$. Here $a=2,\ m=3,\ b=3,\ n=5$.
+
+The inverse of $m=3$ modulo $n=5$ is $2$ (since $3\cdot2=6\equiv1$). Then
+\[
+t\equiv(3-2)\cdot 2=2\pmod 5,\qquad x\equiv 2+3\cdot2=8\pmod{15}.
+\]
+\end{example}
+
+\begin{example}[Sunzi again: merging step by step]
+After the first merge we have $x\equiv 8\pmod{15}$. Merge this with $x\equiv2\pmod7$: now $a=8,\ m=15,\ b=2,\ n=7$.
+
+The inverse of $15$ modulo $7$: $15\equiv1$, so the inverse is $1$. Then
+\[
+t\equiv(2-8)\cdot1=-6\equiv 1\pmod 7,\qquad x\equiv 8+15\cdot 1=23\pmod{105}.
+\]
+Same answer as before, as it must be.
+\end{example}
+
+%---------------------------------------------------------
+\subsection{When the moduli are \emph{not} coprime}\label{sec:qs-noncoprime}
+%---------------------------------------------------------
+
+Sometimes two moduli share a factor (e.g.\ $6$ and $9$ share $3$). Then the system may have \emph{no} solution, or the solution repeats more often than $mn$.
+
+\begin{recipe}{Recipe for non-coprime moduli}
+For $x\equiv a\pmod m$ and $x\equiv b\pmod n$, let $g=\gcd(m,n)$.
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item \textbf{Consistency test:} compare the remainders of $a$ and $b$ after dividing by $g$. If $a\bmod g\neq b\bmod g$, there is \textbf{no solution}. Stop.
+\item Otherwise use Method A: write $x=a+mt$, giving $mt\equiv b-a\pmod n$.
+\item \textbf{Divide everything by $g$} --- the left side, the right side \emph{and the modulus}:
+\[ \frac mg\,t\equiv\frac{b-a}{g}\pmod{\frac ng}. \]
+Now $m/g$ and $n/g$ are coprime, so you can solve for $t$ as usual.
+\item The final answer is a congruence modulo $\operatorname{lcm}(m,n)=\dfrac{mn}{g}$ (not modulo $mn$).
+\end{enumerate}
+\end{recipe}
+
+\begin{example}[A solvable non-coprime system]\label{ex:qs-nc1}
+$x\equiv 4\pmod 6$ and $x\equiv 1\pmod 9$.
+
+\emph{Test:} $g=\gcd(6,9)=3$. Remainders mod $3$: $4\to1$ and $1\to1$. They agree, so a solution exists.
+
+\emph{Solve:} $x=4+6t$. Then $4+6t\equiv1\pmod 9$, so $6t\equiv-3\pmod 9$. Divide everything by $3$ (including the modulus $9\to3$): 
+\[
+2t\equiv -1\equiv 2\pmod 3\quad\Longrightarrow\quad t\equiv1\pmod 3.
+\]
+So $t=1+3s$, $x=4+6(1+3s)=10+18s$.
+
+\emph{Answer:} $x\equiv10\pmod{18}$, since $\operatorname{lcm}(6,9)=18$.
+
+\emph{Check:} $10=1\cdot6+4$ \checkmark;\quad $10=1\cdot9+1$ \checkmark
+\end{example}
+
+\begin{example}[A system with no solution]\label{ex:qs-nc2}
+$x\equiv 2\pmod 4$ and $x\equiv 1\pmod 6$.
+
+$g=\gcd(4,6)=2$. Remainders mod $2$: $2\to0$ but $1\to1$. They disagree, so \textbf{no such $x$ exists.}
+
+\emph{Common-sense reason:} the first condition says $x$ is \emph{even} (it is $2,6,10,\dots$), and the second says $x$ is \emph{odd} ($1,7,13,\dots$). No number is both.
+\end{example}
+
+\begin{example}[Redundant conditions: the basket of eggs]\label{ex:qs-eggs}
+\emph{A basket of eggs: if you take them out $2$, $3$, $4$, $5$ or $6$ at a time, exactly one egg is left over. If you take them out $7$ at a time, none are left. What is the smallest possible number of eggs?}
+
+\emph{Simplify first.} ``One left over when taking out $2$, $3$, $4$, $5$ or $6$ at a time'' means that $x-1$ is divisible by all of $2,3,4,5,6$, i.e.\ by their lcm $=60$. So the five conditions collapse into one: $x\equiv1\pmod{60}$. Together with $x\equiv0\pmod7$ we have a coprime system ($\gcd(60,7)=1$).
+
+\emph{Solve} with Method A: $x=1+60t$ and $1+60t\equiv0\pmod 7$. Since $60=8\cdot7+4$:
+\[
+4t\equiv-1\equiv 6\pmod 7.
+\]
+The inverse of $4$ mod $7$ is $2$ ($4\cdot2=8\equiv1$), so $t\equiv 6\cdot2=12\equiv5\pmod 7$. Hence $x=1+60\cdot5=301$.
+
+\emph{Answer:} the smallest number is $301$ eggs (in general $x\equiv301\pmod{420}$). \emph{Check:} $301=7\cdot43$ \checkmark and $301-1=300=5\cdot60$ \checkmark
+\end{example}
+
+\begin{example}[Word problem: when do two schedules meet?]\label{ex:qs-gym}
+\emph{Ana swims every $6$ days and her next swim is in $4$ days (so on days $4,10,16,\dots$). Ben swims every $9$ days and his next swim is in $1$ day (days $1,10,19,\dots$). When do they first swim on the same day, and how often after that?}
+
+In symbols: $x\equiv4\pmod6$ and $x\equiv1\pmod9$. This is exactly Example~\ref{ex:qs-nc1}: the answer is $x\equiv10\pmod{18}$.
+
+They first meet on \textbf{day $10$}, and then every $18$ days: days $10,28,46,\dots$ 
+\end{example}
+
+%---------------------------------------------------------
+\subsection{Common mistakes}
+%---------------------------------------------------------
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Not checking coprimality.} Methods B and C need pairwise coprime moduli. If two moduli share a factor, use the recipe of Section~\ref{sec:qs-noncoprime}.
+\item \textbf{Wrong inverse in Method B.} $y_i$ is the inverse of $M_i$ modulo $m_i$ --- not modulo $M$, and not the inverse of $m_i$.
+\item \textbf{Forgetting to reduce first.} Before searching for an inverse, replace $M_i$ by $M_i\bmod m_i$. It makes the numbers small.
+\item \textbf{Negative numbers.} If you get $-82$, add $M$ until you land between $0$ and $M-1$: $-82+105=23$.
+\item \textbf{Dividing a congruence without dividing the modulus.} In $6t\equiv6\pmod 9$ you may divide by $3$, but then the modulus becomes $3$: $2t\equiv2\pmod 3$. (Dividing to get $t\equiv1 \pmod 9$ would lose solutions.)
+\item \textbf{Skipping the check.} Always test your final $x$ in each original congruence. It takes ten seconds and catches almost every arithmetic slip.
+\end{itemize}
+
+%---------------------------------------------------------
+\subsection{Cheat sheet: which method should I use?}
+%---------------------------------------------------------
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{p{4.6cm}p{9.4cm}}
+\toprule
+\textbf{Situation} & \textbf{Best tool} \\
+\midrule
+Two small moduli & List numbers $a,\ a+m,\ a+2m,\dots$ and test (Example~\ref{ex:qs-list}) \\
+Several congruences, by hand & Method A: substitution, largest modulus first (Examples~\ref{ex:qs-sunzi}, \ref{ex:qs-hard}) \\
+Same moduli used repeatedly, or writing a program & Method B: $x\equiv\sum a_iM_iy_i \pmod M$ (Examples~\ref{ex:qs-formula1}, \ref{ex:qs-formula2}) \\
+Merging two at a time (programming) & Method C: $x\equiv a+m\,[(b-a)m^{-1} \bmod n]\pmod{mn}$ \\
+Moduli share a factor & Consistency test, divide by $g$, answer modulo the lcm (Examples~\ref{ex:qs-nc1}, \ref{ex:qs-nc2}) \\
+Many conditions like ``remainder $1$ for $2,3,4,5,6$'' & Collapse them to one congruence modulo the lcm (Example~\ref{ex:qs-eggs}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%---------------------------------------------------------
+\subsection{Practice problems (with answers)}
+%---------------------------------------------------------
+
+Try each one on paper first; answers are in the table below.
+
+\begin{enumerate}[label=\textbf{P\arabic*.},leftmargin=2.2em,itemsep=2pt]
+\item $x\equiv1\pmod3,\ x\equiv2\pmod5$.
+\item $x\equiv3\pmod4,\ x\equiv4\pmod7$.
+\item $x\equiv2\pmod3,\ x\equiv1\pmod4,\ x\equiv3\pmod5$.
+\item Using the $3,5,7$ formula: $x\equiv1\pmod3,\ x\equiv4\pmod5,\ x\equiv6\pmod7$.
+\item $x\equiv6\pmod{10},\ x\equiv2\pmod8$.
+\item $x\equiv1\pmod6,\ x\equiv2\pmod9$.
+\end{enumerate}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{cp{3.4cm}p{9cm}}
+\toprule
+& \textbf{Answer} & \textbf{Quick check} \\
+\midrule
+P1 & $x\equiv7\pmod{15}$ & $7=2\cdot3+1$, $\ 7=1\cdot5+2$ \\
+P2 & $x\equiv11\pmod{28}$ & $11=2\cdot4+3$, $\ 11=1\cdot7+4$ \\
+P3 & $x\equiv53\pmod{60}$ & $53=17\cdot3+2$, $\ 53=13\cdot4+1$, $\ 53=10\cdot5+3$ \\
+P4 & $x\equiv34\pmod{105}$ & $70+84+90=244=2\cdot105+34$; $\ 34=11\cdot3+1$, $\ 34=6\cdot5+4$, $\ 34=4\cdot7+6$ \\
+P5 & $x\equiv26\pmod{40}$ & $\gcd=2$, both remainders even; $26=2\cdot10+6$, $\ 26=3\cdot8+2$ \\
+P6 & no solution & $\gcd=3$, but $1\bmod3=1\ne2=2\bmod3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
 
 %=========================================================
 \section{The Two-Modulus Case}
@@ -357,6 +802,8 @@ Certain codes (e.g., Redundant Residue Number System codes) encode data redundan
 \midrule
 Two-modulus CRT & $x\equiv a\ (m),\ x\equiv b\ (n),\ \gcd(m,n)=1 \Rightarrow$ unique $x \bmod mn$ \\
 Bézout construction & $mu+nv=1 \Rightarrow x_0 = a\,nv + b\,mu$ \\
+Direct formula (Method B) & $x\equiv\sum_i a_iM_iy_i \pmod M$, $M_i=M/m_i$, $M_iy_i\equiv1\pmod{m_i}$ \\
+Two-at-a-time (Method C) & $x\equiv a+m\,[(b-a)m^{-1}\bmod n] \pmod{mn}$ \\
 General CRT & pairwise coprime $m_1,\dots,m_k \Rightarrow$ unique $x \bmod M=\prod m_i$ \\
 Ring isomorphism & $\Z/M\Z \cong \Z/m_1\Z\times\cdots\times\Z/m_k\Z$ \\
 Units transfer & $(\Z/M\Z)^\times \cong \prod_i (\Z/m_i\Z)^\times$ \\
