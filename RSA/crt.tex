@@ -390,33 +390,169 @@ The same idea works for \emph{any} fixed set of moduli: compute the numbers $M_i
 \end{remark}
 
 %---------------------------------------------------------
-\subsection{Method C: Merge two at a time with a single formula}
+\subsection{Method C: Describe $x$ in two ways and compare}
 %---------------------------------------------------------
 
-For \textbf{two} congruences $x\equiv a\pmod m$ and $x\equiv b\pmod n$ with $\gcd(m,n)=1$ there is a short formula:
+Method C solves \textbf{two} congruences
 \[
-\boxed{\;x\equiv a+m\cdot t \pmod{mn},\qquad\text{where } t\equiv (b-a)\cdot m^{-1}\pmod n.\;}
+x\equiv a\pmod m,\qquad x\equiv b\pmod n,\qquad \gcd(m,n)=1.
 \]
-(This is just Method A, Steps 1--4, with the algebra done once and for all.) With more than two congruences, merge the first two, then merge the result with the third, and so on.
+There is no formula to memorize: the answer comes out of one simple idea. (This is also the method used in practice, for instance in RSA decryption, because all its numbers stay small.)
 
-\begin{example}[Two congruences]
-$x\equiv 2\pmod 3$, $x\equiv 3\pmod 5$. Here $a=2,\ m=3,\ b=3,\ n=5$.
+\subsubsection*{The idea: ``start at the remainder, then take steps''}
 
-The inverse of $m=3$ modulo $n=5$ is $2$ (since $3\cdot2=6\equiv1$). Then
+What does $x\equiv a\pmod m$ say? That $x$ is $a$ plus some number of whole steps of size $m$:
 \[
-t\equiv(3-2)\cdot 2=2\pmod 5,\qquad x\equiv 2+3\cdot2=8\pmod{15}.
+x = a + m\cdot t\qquad(t=0,1,2,\dots\text{ counts the steps}).
 \]
+For example, ``remainder $2$ when divided by $3$'' means $x\in\{2,\ 2+3,\ 2+6,\ 2+9,\dots\}=\{2,5,8,11,\dots\}$.
+
+In exactly the same way, $x\equiv b\pmod n$ says that $x$ is $b$ plus some number of steps of size $n$:
+\[
+x = b + n\cdot s.
+\]
+But $x$ is \emph{one} number, so both descriptions must give the same value:
+\[
+a + m\,t \;=\; b + n\,s.
+\]
+Our only unknowns are the step counts $t$ and $s$. Now comes the one clever move: \textbf{look at both sides through the eyes of $n$}, i.e.\ look only at remainders when dividing by $n$. Then $n\,s$ is a multiple of $n$ and simply \emph{disappears}, leaving
+\[
+a + m\,t\;\equiv\; b \pmod n\qquad\Longleftrightarrow\qquad m\,t\;\equiv\; b-a \pmod n.
+\]
+In words: \emph{the steps of size $m$ must add up to exactly the gap $b-a$, as seen by $n$.} Find $t$ from this, and the answer is $x=a+m\,t$.
+
+\subsubsection*{Guided example: $x\equiv2\pmod3$ and $x\equiv3\pmod5$}
+
+Here $a=2,\ m=3,\ b=3,\ n=5$. Every number of the form $x=2+3t$ already has remainder $2$ when divided by $3$. We only have to choose $t$ so that the remainder when divided by $5$ is $3$. Just try the first few values:
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+number of steps $t$ & $0$ & $1$ & $2$ & $3$ & $4$ \\
+\midrule
+$x=2+3t$ & $2$ & $5$ & $8$ & $11$ & $14$ \\
+remainder of $x$ divided by $5$ & $2$ & $0$ & $\mathbf{3}$ & $1$ & $4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+We want remainder $3$, and this happens for $t=2$. So $x=2+3\cdot2=8$. Notice that the remainders $2,0,3,1,4$ contain every value from $0$ to $4$ exactly once: since $3$ and $5$ share no factor, the steps of size $3$ visit every remainder mod $5$, so exactly one $t$ between $0$ and $4$ works. Since the pattern repeats after $3\cdot5=15$, the full answer is $x\equiv8\pmod{15}$.
+
+\subsubsection*{When the numbers are big: let the inverse find $t$ for you}
+
+Trying $t=0,1,2,\dots$ is fine for tiny numbers but hopeless for large ones. Look again at what we had to solve:
+\[
+m\,t\equiv b-a\pmod n\qquad(\text{above: } 3t\equiv 1 \pmod 5).
+\]
+If we had a number that ``undoes'' multiplication by $m$, we could just apply it to both sides. That number is the \emph{inverse} $m^{-1}$ of $m$ modulo $n$: it satisfies $m\cdot m^{-1}\equiv1\pmod n$ (see Section~\ref{sec:qs-inverse} for how to find it). Multiplying both sides by it gives $t$ directly:
+\[
+t\equiv (b-a)\cdot m^{-1}\pmod n,\qquad\text{and then}\qquad x=a+m\,t\pmod{mn}.
+\]
+In the example, $3\cdot2=6\equiv1\pmod5$, so $3^{-1}=2$ and $t\equiv(3-2)\cdot2=2$. It is the same $t=2$ as in the table, obtained without trying anything.
+
+\textbf{Why the answer works, in two lines.} Modulo $m$: $x=a+m\,t$ differs from $a$ by a multiple of $m$, so the remainder is $a$, whatever $t$ is. Modulo $n$: $m\,t\equiv (b-a)\,m\,m^{-1}\equiv b-a$, so $x\equiv a+(b-a)=b$.
+
+\subsubsection*{The formula, stated formally}
+
+Everything above can be condensed into one statement.
+
+\begin{theorem}[Two-congruence formula (Method C)]\label{thm:methodC}
+Let $m,n\ge 2$ be integers with $\gcd(m,n)=1$, and let $a,b$ be any integers. Let $u$ be an inverse of $m$ modulo $n$, i.e.\ an integer with $m\,u\equiv1\pmod n$. Then the system
+\[
+x\equiv a\pmod m,\qquad x\equiv b\pmod n
+\]
+has exactly one solution modulo $mn$, namely
+\[
+\boxed{\;x\;\equiv\;a+m\,t \pmod{mn},\qquad\text{where}\quad t\equiv (b-a)\,u \pmod n.\;}
+\]
+Equivalently, in ``component'' form (compare Method B),
+\[
+x\;\equiv\;a\,(1-mu)+b\,(mu)\pmod{mn}.
+\]
+\end{theorem}
+
+\begin{proof}
+\emph{It is a solution.} Modulo $m$: $x-a=m\,t$ is a multiple of $m$, so $x\equiv a$. Modulo $n$: $m\,t\equiv m\,u\,(b-a)\equiv b-a$, so $x\equiv a+(b-a)=b$.
+
+\emph{It is the only one.} If $x$ and $x'$ are both solutions, then $m\mid x-x'$ and $n\mid x-x'$. Because $\gcd(m,n)=1$, this forces $mn\mid x-x'$, i.e.\ $x\equiv x'\pmod{mn}$.
+
+\emph{Component form.} Since $t\equiv u\,(b-a)\pmod n$, we can write $t=u\,(b-a)+n\,k$ for some integer $k$. Then $m\,t=m\,u\,(b-a)+mn\,k\equiv m\,u\,(b-a)\pmod{mn}$, so
+\[
+x\equiv a+mu\,(b-a)=a\,(1-mu)+b\,(mu)\pmod{mn}.
+\]
+\end{proof}
+
+\noindent\textbf{Symbols at a glance.}
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{cl}
+\toprule
+Symbol & Meaning \\
+\midrule
+$a,\ m$ & remainder and modulus of the first congruence \\
+$b,\ n$ & remainder and modulus of the second congruence \\
+$u=m^{-1}\bmod n$ & the number with $m\,u\equiv1\pmod n$ \\
+$b-a$ & the gap the steps of size $m$ must cover, as seen by $n$ \\
+$t$ & the number of steps of size $m$ taken from $a$ \\
+$mn$ & the modulus of the final answer \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{example}[Negative gap: $x\equiv5\pmod7$ and $x\equiv2\pmod{11}$]
+Here $a=5,\ m=7,\ b=2,\ n=11$. Describe $x$ by steps of size $7$ from $5$: $x=5+7t$.
+
+We need remainder $2$ at $11$: $\;5+7t\equiv2\pmod{11}$, i.e.\ $7t\equiv2-5=-3\pmod{11}$.
+
+To undo the multiplication by $7$ modulo $11$: $7\cdot8=56=5\cdot11+1$, so $7^{-1}=8$. (The inverse is always taken modulo the \emph{other} modulus, here $11$.) Then
+\[
+t\equiv(-3)\cdot8=-24\equiv-24+33=9\pmod{11}.
+\]
+So $x=5+7\cdot9=68$, and the full answer is $x\equiv68\pmod{77}$.
+
+\emph{Check:} $68=9\cdot7+5$ \checkmark\quad $68=6\cdot11+2$ \checkmark
 \end{example}
 
-\begin{example}[Sunzi again: merging step by step]
-After the first merge we have $x\equiv 8\pmod{15}$. Merge this with $x\equiv2\pmod7$: now $a=8,\ m=15,\ b=2,\ n=7$.
+\begin{example}[Three congruences: Sunzi again, one merge at a time]
+Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$, $x\equiv2\pmod7$.
 
-The inverse of $15$ modulo $7$: $15\equiv1$, so the inverse is $1$. Then
-\[
-t\equiv(2-8)\cdot1=-6\equiv 1\pmod 7,\qquad x\equiv 8+15\cdot 1=23\pmod{105}.
-\]
-Same answer as before, as it must be.
+\emph{First merge the first two.} We just found $x\equiv8\pmod{15}$. This single congruence replaces the first two.
+
+\emph{Now merge it with the third.} Take $a=8,\ m=15$ (so $x=8+15t$) and $b=2,\ n=7$. We need $8+15t\equiv2\pmod 7$, i.e.\ $15t\equiv-6\pmod7$. Since $15=2\cdot7+1$, we have $15\equiv1$, so this is simply $t\equiv-6\equiv1\pmod7$.
+
+Hence $x=8+15\cdot1=23$, and $x\equiv23\pmod{105}$. This agrees with Method B.
 \end{example}
+
+\begin{example}[Method C inside RSA decryption]
+In CRT-RSA decryption with $p=61,\ q=53$ one has computed $m_q=12$ and $m_p=4$ and wants the message $m$ with $m\equiv12\pmod{53}$ and $m\equiv4\pmod{61}$.
+
+Take $a=12,\ m=53$ (so $x=12+53t$) and $b=4,\ n=61$. We need $12+53t\equiv4\pmod{61}$, i.e.\ $53t\equiv-8\pmod{61}$.
+
+The inverse of $53$ modulo $61$ is $38$, because $53\cdot38=2014=33\cdot61+1$. (In RSA this number is precomputed and called $q_{inv}$.) So
+\[
+t\equiv(-8)\cdot38=-304\equiv-304+305=1\pmod{61}.
+\]
+(In RSA this $t$ is called $h$.) Hence $x=12+53\cdot1=65$: the decrypted message is $65$.
+\end{example}
+
+\begin{remark}[Connection with Method B]
+The number $e_2:=m\cdot m^{-1}$ leaves remainder $1$ at $n$ and $0$ at $m$: it is the ``unit component'' for $n$ in the language of Method B. Then $1-e_2$ is the unit component for $m$, and
+\[
+x=a+(b-a)\,e_2=a\,(1-e_2)+b\,e_2,
+\]
+which is ``$a\cdot(\text{component}_1)+b\cdot(\text{component}_2)$''. So Method C is Method B for two moduli, with one advantage: the second unit comes for free as $1-e_2$, so only one inverse is needed.
+\end{remark}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{ll}
+\toprule
+\textbf{Common slip} & \textbf{Correct version} \\
+\midrule
+Inverting $m$ modulo $m$ (impossible) & invert $m$ modulo the \emph{other} modulus $n$ \\
+Forgetting to reduce $t$ & reduce $t$ modulo $n$ before computing $a+mt$ \\
+Reporting the answer modulo $m$ or $n$ & the answer is modulo $mn$ \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 %---------------------------------------------------------
 \subsection{When the moduli are \emph{not} coprime}\label{sec:qs-noncoprime}
