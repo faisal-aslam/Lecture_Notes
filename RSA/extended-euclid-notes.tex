@@ -1,0 +1,271 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage[most]{tcolorbox}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,pdfpagemode=UseNone}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+\newtcolorbox{intuition}{colback=yellow!12,colframe=yellow!55!black,
+  title=\textbf{Picture it},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+\newtcolorbox{recipe}{colback=blue!5,colframe=blue!50!black,
+  title=\textbf{The recipe},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+\newtcolorbox{warn}{colback=red!6,colframe=red!50!black,
+  title=\textbf{Common pitfall},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+
+\newcommand{\hl}{\rowcolor{green!15}}
+
+\title{\textbf{The Extended Euclidean Algorithm:\\ Finding Modular Inverses for RSA}}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.5em}
+
+\textbf{Why RSA needs it.} To build an RSA key, we choose $e$ and then must find $d$ with
+\[
+e\cdot d\equiv 1 \pmod{\varphi(n)}.
+\]
+That $d$ is the \emph{modular inverse} of $e$. For real keys $\varphi(n)$ has hundreds of digits, so we cannot guess $d$ or try all values. The Extended Euclidean Algorithm (EEA) computes $d$ in a few thousand simple steps, each just an integer division. This note builds the algorithm from scratch in four stages:
+\begin{enumerate}[nosep]
+\item the ordinary Euclidean algorithm (computes the gcd);
+\item B\'ezout's identity (the gcd is a combination of the inputs);
+\item the extended algorithm (tracks that combination in a table);
+\item using it to get the inverse, with a full RSA example.
+\end{enumerate}
+
+\hrulefill
+
+%=====================================================================
+\section*{1. Warm-up: the ordinary Euclidean algorithm}
+
+\begin{intuition}
+Suppose you have a $240\times 46$ rectangle of floor and want to tile it with the largest possible square tiles, with no gaps and no cutting. Lay the biggest squares you can (46 by 46), and a strip is left over; now tile that leftover strip with the biggest squares that fit, and so on. The side of the last square that leaves nothing over is the gcd. Euclid's algorithm is exactly this ``keep tiling the leftover'' process.
+\end{intuition}
+
+\begin{lemma}
+For integers $a\ge b>0$, write $a=q\,b+r$ with $0\le r<b$ (division with remainder). Then $\gcd(a,b)=\gcd(b,r)$.
+\end{lemma}
+
+\textbf{Proof.} Any common divisor of $a$ and $b$ divides $r=a-qb$. Conversely, any common divisor of $b$ and $r$ divides $a=qb+r$. So the pairs $(a,b)$ and $(b,r)$ have exactly the same common divisors, hence the same greatest one. \hfill$\square$
+
+So we may replace $(a,b)$ by the smaller pair $(b,r)$ without changing the gcd, and repeat. The remainders strictly decrease, so we reach remainder $0$; the last nonzero remainder is the gcd, because $\gcd(g,0)=g$.
+
+\textbf{Example: $\gcd(240,46)$.}
+\begin{align*}
+240 &= 5\cdot 46 + 10\\
+46 &= 4\cdot 10 + 6\\
+10 &= 1\cdot 6 + 4\\
+6 &= 1\cdot 4 + 2\\
+4 &= 2\cdot 2 + 0
+\end{align*}
+The last nonzero remainder is $2$, so $\gcd(240,46)=2$.
+
+\textbf{How fast?} The number of division steps grows only in proportion to the number of digits of the inputs (Lam\'e's theorem). For 2048-bit numbers that is at most a few thousand steps --- instant for a computer.
+
+\hrulefill
+
+%=====================================================================
+\section*{2. B\'ezout's identity: the gcd is a combination}
+
+\begin{theorem}[B\'ezout]
+For integers $a,b$ (not both zero) there exist integers $s,t$ with
+\[
+s\,a+t\,b=\gcd(a,b).
+\]
+\end{theorem}
+
+Look back at the example: the first line says $10=240-5\cdot46$. That is $10$ written as a combination of $240$ and $46$. The second line gives $6=46-4\cdot10$, and substituting the previous line turns this into another combination of $240$ and $46$. Every remainder we produce can be rewritten as a combination of the two original numbers, and the last nonzero remainder is the gcd. That is the whole proof, and it is also the algorithm: \emph{keep track of the combination for each remainder as you go}.
+
+\textbf{Back-substitution (by hand).} Work upward from the last nonzero remainder in the example above:
+\begin{align*}
+2 &= 6-1\cdot4\\
+&= 6-1\cdot(10-1\cdot6)= 2\cdot6-1\cdot10\\
+&= 2\cdot(46-4\cdot10)-1\cdot10 = 2\cdot46-9\cdot10\\
+&= 2\cdot46-9\cdot(240-5\cdot46)= \mathbf{-9}\cdot240+\mathbf{47}\cdot46.
+\end{align*}
+Check: $-2160+2162=2$. So $s=-9$, $t=47$. This works, but it is messy and error-prone for long chains. The table method below does the same job going \emph{forward}, with no backtracking.
+
+\hrulefill
+
+%=====================================================================
+\section*{3. The table method}
+
+\begin{recipe}
+Start with the two numbers $a\ge b$ you are given. Build a table with columns $i,\ q_i,\ r_i,\ s_i,\ t_i$.
+
+\textbf{Two starting rows (memorize these):}
+\[
+r_0=a,\ s_0=1,\ t_0=0\qquad\qquad r_1=b,\ s_1=0,\ t_1=1.
+\]
+\textbf{Every next row} uses the two rows just above it:
+\[
+q_i=\left\lfloor \frac{r_{i-2}}{r_{i-1}}\right\rfloor,\qquad
+r_i=r_{i-2}-q_i\,r_{i-1},\qquad
+s_i=s_{i-2}-q_i\,s_{i-1},\qquad
+t_i=t_{i-2}-q_i\,t_{i-1}.
+\]
+\textbf{Stop} when a remainder $r_i=0$. The row just before it holds $\gcd(a,b)=r_{i-1}=s_{i-1}\,a+t_{i-1}\,b$.
+\end{recipe}
+
+Notice that $r,s,t$ all follow the \emph{same} update rule with the same $q_i$; only the starting values differ. So each new row is: compute $q$ from the two $r$'s, then do the same ``previous-previous minus $q$ times previous'' in three columns.
+
+\textbf{The key invariant.} In every row,
+\[
+\boxed{\,r_i = s_i\,a + t_i\,b\,}
+\]
+It holds for the starting rows ($a=1\cdot a+0\cdot b$ and $b=0\cdot a+1\cdot b$). If it holds for two consecutive rows, subtracting $q_i$ times one equation from the other shows it holds for the next row. So it holds for every row, including the one with $r=\gcd$. \emph{This is your built-in error check:} at any row you can verify $s_i a+t_ib=r_i$.
+
+\textbf{Example (same numbers as before): $a=240$, $b=46$.}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 240 & 1 & 0 \\
+1 & --- & 46 & 0 & 1 \\
+2 & 5 & 10 & 1 & $-5$ \\
+3 & 4 & 6 & $-4$ & 21 \\
+4 & 1 & 4 & 5 & $-26$ \\
+\hl 5 & 1 & 2 & $-9$ & 47 \\
+6 & 2 & 0 & 23 & $-120$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Row 5 is the last one before the remainder hits $0$: $\gcd=2$ and $2=-9\cdot240+47\cdot46$, matching the back-substitution. Let us see one row being computed. Row 3 uses rows 1 and 2: $q_3=\lfloor46/10\rfloor=4$, then $r_3=46-4\cdot10=6$, $s_3=0-4\cdot1=-4$, $t_3=1-4\cdot(-5)=21$. Check the invariant: $-4\cdot240+21\cdot46=-960+966=6$. \checkmark
+
+(The final row's $s,t$, here $23$ and $-120$, equal $\pm b/g$ and $\mp a/g$; they are not used.)
+
+\hrulefill
+
+%=====================================================================
+\section*{4. From B\'ezout to the modular inverse}
+
+\begin{theorem}
+Let $m>1$ and $\gcd(x,m)=1$. Run the EEA on $(a,b)=(m,\,x)$. If the row with $r=1$ is $1=s\,m+t\,x$, then
+\[
+x^{-1}\equiv t \pmod m.
+\]
+If $\gcd(x,m)\ne1$, no inverse exists.
+\end{theorem}
+
+\textbf{Proof.} Reduce $1=s\,m+t\,x$ modulo $m$: the term $s\,m$ vanishes, leaving $1\equiv t\,x\pmod m$. That is exactly the definition of $t$ being the inverse of $x$. If $g=\gcd(x,m)>1$, then $g$ divides $tx+sm$ for every $s,t$, so $tx\equiv1$ is impossible. \hfill$\square$
+
+\textbf{Practical shortcuts for inverses.}
+\begin{itemize}[nosep]
+\item Put the \emph{modulus first}: $a=m$, $b=x$. Then $t$ is the inverse and the $s$ column is unnecessary --- you may leave it out to save work.
+\item If $t$ comes out negative, add $m$ (repeat until it lies in $0,\dots,m-1$).
+\end{itemize}
+
+\subsection*{Example A (small, by hand): the inverse of $7$ modulo $40$}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 40 & 1 & 0 \\
+1 & --- & 7 & 0 & 1 \\
+2 & 5 & 5 & 1 & $-5$ \\
+3 & 1 & 2 & $-1$ & 6 \\
+\hl 4 & 2 & 1 & 3 & $-17$ \\
+5 & 2 & 0 & $-7$ & 40 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The highlighted row says $1=3\cdot40+(-17)\cdot7$. Hence $7^{-1}\equiv-17\equiv 40-17=\mathbf{23}\pmod{40}$.
+
+\textbf{Check:} $7\cdot23=161=4\cdot40+1$. \checkmark
+
+\subsection*{Example B (RSA): find $d$ for $e=17$ and $\varphi(n)=3120$}
+Take the textbook key $p=61$, $q=53$: $n=3233$ and $\varphi(n)=60\cdot52=3120$. We need $d=17^{-1}\bmod 3120$. First confirm $\gcd(17,3120)=1$; the table will do that for us. Run the EEA with $a=3120$ and $b=17$:
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 3120 & 1 & 0 \\
+1 & --- & 17 & 0 & 1 \\
+2 & 183 & 9 & 1 & $-183$ \\
+3 & 1 & 8 & $-1$ & 184 \\
+\hl 4 & 1 & 1 & 2 & $-367$ \\
+5 & 8 & 0 & $-17$ & 3120 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Reading the table, step by step.}
+\begin{itemize}[nosep]
+\item Row 2: $3120=183\cdot17+9$, so $q_2=183$, $r_2=9$; $s_2=1-183\cdot0=1$; $t_2=0-183\cdot1=-183$.
+\item Row 3: $17=1\cdot9+8$, so $q_3=1$, $r_3=8$; $s_3=0-1\cdot1=-1$; $t_3=1-1\cdot(-183)=184$.
+\item Row 4: $9=1\cdot8+1$, so $q_4=1$, $r_4=1$; $s_4=1-1\cdot(-1)=2$; $t_4=-183-1\cdot184=-367$.
+\item Row 5: $8=8\cdot1+0$. The remainder is $0$, so stop; the row above (row 4) has $r=1=\gcd$.
+\end{itemize}
+Row 4 gives $1=2\cdot3120+(-367)\cdot17$. Check: $6240-6239=1$. \checkmark
+
+So $17^{-1}\equiv-367\pmod{3120}$, and adding $3120$ gives
+\[
+d=3120-367=\mathbf{2753}.
+\]
+\textbf{Check:} $17\cdot2753=46801=15\cdot3120+1$. \checkmark
+
+\textbf{Using the key.} Encrypt $m=65$: $c=65^{17}\bmod3233=2790$. Decrypt: $2790^{2753}\bmod3233=65$. The whole security of the private key rests on $d$ being computable only if you know $\varphi(n)$, that is, only if you can factor $n$.
+
+\subsection*{Example C: when there is no inverse}
+Try to invert $18$ modulo $60$:
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 60 & 1 & 0 \\
+1 & --- & 18 & 0 & 1 \\
+\hl 2 & 3 & 6 & 1 & $-3$ \\
+3 & 3 & 0 & $-3$ & 10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The last nonzero remainder is $6\ne1$, so $\gcd(18,60)=6$ and $18$ has no inverse mod $60$. This is why RSA requires $\gcd(e,\varphi(n))=1$: if the table ends with a gcd bigger than $1$, choose a different $e$.
+
+\begin{warn}
+\begin{itemize}[nosep]
+\item \textbf{Order matters for reading $t$.} With $(a,b)=(m,x)$ the inverse of $x$ is the $t$ column. If you swap the order, the inverse of $x$ is in the $s$ column instead.
+\item \textbf{Stop at the right row.} The answer is in the row \emph{before} the remainder $0$, not in the row where $r=0$.
+\item \textbf{Negative answers are fine.} $t=-367$ means $-367\equiv2753 \pmod{3120}$; add the modulus.
+\item \textbf{Always verify.} Multiply your inverse by $x$ and reduce; you must get $1$.
+\end{itemize}
+\end{warn}
+
+\hrulefill
+
+%=====================================================================
+\section*{5. Practice problems}
+
+Use the table method for each. Answers are at the end.
+\begin{enumerate}[nosep]
+\item Find $11^{-1}\bmod 26$.
+\item Find $13^{-1}\bmod 60$.
+\item Does $30$ have an inverse modulo $84$? Justify.
+\item For the key $p=11$, $q=13$, $e=7$: compute $\varphi(n)$ and then $d=e^{-1}\bmod\varphi(n)$.
+\end{enumerate}
+
+\textbf{Answers.} (1) $19$, since $11\cdot19=209=8\cdot26+1$. (2) $37$, since $13\cdot37=481=8\cdot60+1$. (3) No: $\gcd(30,84)=6\ne1$. (4) $\varphi(143)=10\cdot12=120$, and $d=103$, since $7\cdot103=721=6\cdot120+1$.
+
+\hrulefill
+
+%=====================================================================
+\section*{Where else this appears in the course}
+The same computation is used, with both $s$ and $t$, in the \emph{Common Modulus Attack}: with $\gcd(e_1,e_2)=1$ the EEA gives $a,b$ with $ae_1+be_2=1$, letting an attacker combine two ciphertexts into the plaintext. In the \emph{Shared-Prime Attack} the plain Euclidean algorithm (Section 1 of this note) finds the common prime factor of two moduli. In RSA key generation, the EEA is the step that turns the public exponent $e$ into the private exponent $d$.
+
+\end{document}
