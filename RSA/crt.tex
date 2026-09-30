@@ -8,6 +8,7 @@
 \usepackage{fancyhdr}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{algpseudocode}
 
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{lemma}[theorem]{Lemma}
@@ -497,38 +498,46 @@ $mn$ & the modulus of the final answer \\
 \end{tabular}
 \end{center}
 
-\begin{example}[RSA and the one-to-one mapping: $p=7$, $q=11$, negative gap]\label{ex:rsa-bijection}
-Take the tiny RSA modulus $N=pq=7\cdot11=77$, with public exponent $e=7$ and private exponent $d=43$ (indeed $ed=301=5\cdot60+1$ and $\varphi(77)=6\cdot10=60$).
+\begin{example}[CRT-RSA decryption with tiny primes]\label{ex:rsa-bijection}
+Recall the CRT-RSA decryption procedure:
+\begin{center}
+\begin{minipage}{0.95\linewidth}
+\hrule\smallskip
+\noindent\textbf{Algorithm: CRT-RSA Decryption}
+\smallskip\hrule\smallskip
+\begin{algorithmic}[1]
+\State Precompute: $d_p = d \bmod (p-1)$, \quad $d_q = d \bmod (q-1)$, \quad $q_{inv} = q^{-1} \bmod p$
+\State $m_p = c^{d_p} \bmod p$
+\State $m_q = c^{d_q} \bmod q$
+\State $h = q_{inv} \cdot (m_p - m_q) \bmod p$
+\State $m = m_q + h \cdot q$
+\State \Return $m$
+\end{algorithmic}
+\smallskip\hrule
+\end{minipage}
+\end{center}
+We run it with $p=11,\ q=7,\ n=pq=77,\ e=13,\ d=37$ (indeed $ed=481=8\cdot60+1$ and $\varphi(77)=10\cdot6=60$) on the ciphertext $c=52$, which is the encryption of $m=24$ (check: $24^{13}\equiv52\pmod{77}$).
 
-\emph{Why CRT is the right tool: a one-to-one mapping.} Every message $x\in\{0,1,\dots,76\}$ is described \emph{uniquely} by the pair of remainders $(x \bmod 7,\ x \bmod 11)$. There are $77$ messages and $7\cdot11=77$ pairs, and two different messages never give the same pair, because the two-congruence formula (Theorem~\ref{thm:methodC}) returns exactly one solution modulo $77$ for each pair. So
+\emph{Line 1 (precompute).}
 \[
-x\;\longleftrightarrow\;(x \bmod 7,\ x \bmod 11)
+d_p=37\bmod10=7,\qquad d_q=37\bmod6=1,\qquad q_{inv}=7^{-1}\bmod11=8,
 \]
-is a one-to-one correspondence, and RSA can be computed on the pair instead of on $x$.
+since $7\cdot8=56=5\cdot11+1$.
 
-\emph{Message to pair.} Let the message be $x=68$. Then $68=9\cdot7+5$ and $68=6\cdot11+2$, so $68\leftrightarrow(5,2)$.
+\emph{Lines 2--3 (decrypt modulo each prime).}
+\[
+m_p=52^{7}\bmod11=8^7\bmod11=2,\qquad m_q=52^{1}\bmod7=3.
+\]
 
-\emph{Encryption, component by component.} Raising to the power $e=7$ works separately in each coordinate:
+\emph{Lines 4--5 (recombine).} The map $m\mapsto(m\bmod p,\ m\bmod q)$ is a one-to-one correspondence between the $77$ possible messages and the $11\cdot7=77$ pairs of remainders, so the pair $(m_p,m_q)=(2,3)$ determines $m$ uniquely, and the two-congruence formula (Theorem~\ref{thm:methodC}) is the inverse map. Written in the letters of the algorithm, we need
 \[
-5^7\equiv5\pmod7,\qquad 2^7=128\equiv7\pmod{11}.
+m\equiv m_q\pmod q,\qquad m\equiv m_p\pmod p,
 \]
-So the ciphertext corresponds to the pair $(5,7)$. To turn it into a number, use the two-congruence formula with $a=5,\ m=7,\ b=7,\ n=11$. Since $7\cdot8=56\equiv1\pmod{11}$, we have $u=7^{-1}=8$, and
+and the formula says: $m=m_q+q\,h$, where $h\equiv(m_p-m_q)\,q_{inv}\pmod p$. (Compared with Theorem~\ref{thm:methodC}: $a=m_q$, first modulus $q$, $b=m_p$, second modulus $p$, $u=q_{inv}$, $t=h$.) The gap $m_p-m_q=2-3=-1$ is negative, and the inverse is taken modulo the \emph{other} modulus $p$:
 \[
-t\equiv(b-a)\,u=(7-5)\cdot8=16\equiv5\pmod{11},\qquad c=5+7\cdot5=40.
+h=8\cdot(2-3)=-8\equiv3\pmod{11},\qquad m=m_q+h\cdot q=3+3\cdot7=24.\ \checkmark
 \]
-So $c=40$. (Check: $68^7\equiv40\pmod{77}$.)
-
-\emph{Decryption with CRT, and a negative gap.} Reduce the private exponent for each prime, using Fermat: $d_p=43\bmod6=1$ and $d_q=43\bmod10=3$. Then
-\[
-m_p=40^{1}\equiv5\pmod7,\qquad m_q=40^{3}\equiv7^3=343\equiv2\pmod{11}.
-\]
-We now need $x$ with $x\equiv5\pmod7$ and $x\equiv2\pmod{11}$. Here $a=5,\ m=7,\ b=2,\ n=11$, so the gap is negative: $b-a=2-5=-3$. Write $x=5+7t$; we need $7t\equiv-3\pmod{11}$. The inverse is taken modulo the \emph{other} modulus: $u=7^{-1}=8$ modulo $11$, as $7\cdot8=56=5\cdot11+1$. Then
-\[
-t\equiv(-3)\cdot8=-24\equiv-24+33=9\pmod{11},\qquad x=5+7\cdot9=68.
-\]
-The formula returns the original message, $x\equiv68\pmod{77}$. This is precisely the one-to-one correspondence at work: the pair $(5,2)$ can only come from $68$.
-
-\emph{Check:} $68=9\cdot7+5$ \checkmark\quad $68=6\cdot11+2$ \checkmark\quad and direct decryption $40^{43}\equiv68\pmod{77}$ \checkmark
+This matches the direct decryption $52^{37}\equiv24\pmod{77}$, but each exponentiation used a tiny exponent ($7$ or $1$) and a tiny modulus ($11$ or $7$) instead of the full $d$ and $n$.
 \end{example}
 
 \begin{example}[Three congruences: Sunzi again, one merge at a time]
@@ -541,16 +550,16 @@ Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$, $x\equiv2\pmod7$.
 Hence $x=8+15\cdot1=23$, and $x\equiv23\pmod{105}$. This agrees with Method B.
 \end{example}
 
-\begin{example}[Method C inside RSA decryption]
-In CRT-RSA decryption with $p=61,\ q=53$ one has computed $m_q=12$ and $m_p=4$ and wants the message $m$ with $m\equiv12\pmod{53}$ and $m\equiv4\pmod{61}$.
+\begin{example}[Recombination step of CRT-RSA with realistic primes]
+Let $p=61,\ q=53$ (so $n=3233$). Suppose lines 1--3 of the algorithm in Example~\ref{ex:rsa-bijection} have produced $m_p=4$ and $m_q=12$, and we want the message $m$ with $m\equiv12\pmod{53}$ and $m\equiv4\pmod{61}$.
 
-Take $a=12,\ m=53$ (so $x=12+53t$) and $b=4,\ n=61$. We need $12+53t\equiv4\pmod{61}$, i.e.\ $53t\equiv-8\pmod{61}$.
+Write $m=m_q+q\,h=12+53\,h$. We need $12+53\,h\equiv4\pmod{61}$, i.e.\ $53\,h\equiv m_p-m_q=-8\pmod{61}$.
 
-The inverse of $53$ modulo $61$ is $38$, because $53\cdot38=2014=33\cdot61+1$. (In RSA this number is precomputed and called $q_{inv}$.) So
+The inverse of $q=53$ modulo $p=61$ is $q_{inv}=38$, because $53\cdot38=2014=33\cdot61+1$. So
 \[
-t\equiv(-8)\cdot38=-304\equiv-304+305=1\pmod{61}.
+h\equiv q_{inv}\,(m_p-m_q)=38\cdot(-8)=-304\equiv-304+305=1\pmod{61}.
 \]
-(In RSA this $t$ is called $h$.) Hence $x=12+53\cdot1=65$: the decrypted message is $65$.
+Hence $m=12+53\cdot1=65$: the decrypted message is $65$.
 \end{example}
 
 \begin{remark}[Connection with Method B]
@@ -977,7 +986,7 @@ As shown in Corollary~\ref{cor:units}, $\varphi(mn)=\varphi(m)\varphi(n)$ for co
 In RSA with modulus $n=pq$, a private-key holder who knows $p,q$ separately can decrypt \emph{roughly four times faster} using CRT:
 \begin{itemize}[leftmargin=1.4em]
 \item Compute $m_p = c^{d \bmod (p-1)} \bmod p$ and $m_q = c^{d\bmod(q-1)} \bmod q$ — two \emph{much smaller} modular exponentiations (roughly half the bit-length each, and exponentiation cost grows worse than linearly in bit-length).
-\item Recombine $m_p, m_q$ into $m \bmod n$ using the CRT formula of Theorem~\ref{thm:crt2} (a fixed procedure known as \textbf{Garner's algorithm}, which precomputes the Bézout-type coefficients once per key).
+\item Recombine $m_p, m_q$ into $m \bmod n$ using the CRT formula of Theorem~\ref{thm:crt2} (a fixed procedure known as \textbf{Garner's algorithm}, which precomputes the Bézout-type coefficient $q_{inv}=q^{-1}\bmod p$ once per key): $h=q_{inv}(m_p-m_q)\bmod p$ and $m=m_q+h\,q$. The full procedure is stated and worked through in Example~\ref{ex:rsa-bijection}.
 \end{itemize}
 This CRT-based speedup is used in essentially every real-world RSA implementation.
 
