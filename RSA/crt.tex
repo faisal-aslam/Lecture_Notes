@@ -497,18 +497,38 @@ $mn$ & the modulus of the final answer \\
 \end{tabular}
 \end{center}
 
-\begin{example}[Negative gap: $x\equiv5\pmod7$ and $x\equiv2\pmod{11}$]
-Here $a=5,\ m=7,\ b=2,\ n=11$. Describe $x$ by steps of size $7$ from $5$: $x=5+7t$.
+\begin{example}[RSA and the one-to-one mapping: $p=7$, $q=11$, negative gap]\label{ex:rsa-bijection}
+Take the tiny RSA modulus $N=pq=7\cdot11=77$, with public exponent $e=7$ and private exponent $d=43$ (indeed $ed=301=5\cdot60+1$ and $\varphi(77)=6\cdot10=60$).
 
-We need remainder $2$ at $11$: $\;5+7t\equiv2\pmod{11}$, i.e.\ $7t\equiv2-5=-3\pmod{11}$.
-
-To undo the multiplication by $7$ modulo $11$: $7\cdot8=56=5\cdot11+1$, so $7^{-1}=8$. (The inverse is always taken modulo the \emph{other} modulus, here $11$.) Then
+\emph{Why CRT is the right tool: a one-to-one mapping.} Every message $x\in\{0,1,\dots,76\}$ is described \emph{uniquely} by the pair of remainders $(x \bmod 7,\ x \bmod 11)$. There are $77$ messages and $7\cdot11=77$ pairs, and two different messages never give the same pair, because the two-congruence formula (Theorem~\ref{thm:methodC}) returns exactly one solution modulo $77$ for each pair. So
 \[
-t\equiv(-3)\cdot8=-24\equiv-24+33=9\pmod{11}.
+x\;\longleftrightarrow\;(x \bmod 7,\ x \bmod 11)
 \]
-So $x=5+7\cdot9=68$, and the full answer is $x\equiv68\pmod{77}$.
+is a one-to-one correspondence, and RSA can be computed on the pair instead of on $x$.
 
-\emph{Check:} $68=9\cdot7+5$ \checkmark\quad $68=6\cdot11+2$ \checkmark
+\emph{Message to pair.} Let the message be $x=68$. Then $68=9\cdot7+5$ and $68=6\cdot11+2$, so $68\leftrightarrow(5,2)$.
+
+\emph{Encryption, component by component.} Raising to the power $e=7$ works separately in each coordinate:
+\[
+5^7\equiv5\pmod7,\qquad 2^7=128\equiv7\pmod{11}.
+\]
+So the ciphertext corresponds to the pair $(5,7)$. To turn it into a number, use the two-congruence formula with $a=5,\ m=7,\ b=7,\ n=11$. Since $7\cdot8=56\equiv1\pmod{11}$, we have $u=7^{-1}=8$, and
+\[
+t\equiv(b-a)\,u=(7-5)\cdot8=16\equiv5\pmod{11},\qquad c=5+7\cdot5=40.
+\]
+So $c=40$. (Check: $68^7\equiv40\pmod{77}$.)
+
+\emph{Decryption with CRT, and a negative gap.} Reduce the private exponent for each prime, using Fermat: $d_p=43\bmod6=1$ and $d_q=43\bmod10=3$. Then
+\[
+m_p=40^{1}\equiv5\pmod7,\qquad m_q=40^{3}\equiv7^3=343\equiv2\pmod{11}.
+\]
+We now need $x$ with $x\equiv5\pmod7$ and $x\equiv2\pmod{11}$. Here $a=5,\ m=7,\ b=2,\ n=11$, so the gap is negative: $b-a=2-5=-3$. Write $x=5+7t$; we need $7t\equiv-3\pmod{11}$. The inverse is taken modulo the \emph{other} modulus: $u=7^{-1}=8$ modulo $11$, as $7\cdot8=56=5\cdot11+1$. Then
+\[
+t\equiv(-3)\cdot8=-24\equiv-24+33=9\pmod{11},\qquad x=5+7\cdot9=68.
+\]
+The formula returns the original message, $x\equiv68\pmod{77}$. This is precisely the one-to-one correspondence at work: the pair $(5,2)$ can only come from $68$.
+
+\emph{Check:} $68=9\cdot7+5$ \checkmark\quad $68=6\cdot11+2$ \checkmark\quad and direct decryption $40^{43}\equiv68\pmod{77}$ \checkmark
 \end{example}
 
 \begin{example}[Three congruences: Sunzi again, one merge at a time]
