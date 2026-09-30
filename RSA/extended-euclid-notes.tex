@@ -56,7 +56,50 @@ Suppose you have a $240\times 46$ rectangle of floor and want to tile it with th
 For integers $a\ge b>0$, write $a=q\,b+r$ with $0\le r<b$ (division with remainder). Then $\gcd(a,b)=\gcd(b,r)$.
 \end{lemma}
 
-\textbf{Proof.} Any common divisor of $a$ and $b$ divides $r=a-qb$. Conversely, any common divisor of $b$ and $r$ divides $a=qb+r$. So the pairs $(a,b)$ and $(b,r)$ have exactly the same common divisors, hence the same greatest one. \hfill$\square$
+\textbf{What it says, and why we need it.} Divide $a$ by $b$ and keep the remainder $r$. The lemma says the new, smaller pair $(b,r)$ has the same gcd as the old pair $(a,b)$. This is our licence to replace $(a,b)$ by $(b,r)$ in the algorithm; without it, Euclid's algorithm would be invalid.
+
+\textbf{Idea of the proof.} Show that the two pairs have exactly the \emph{same set of common divisors}. Two equal sets have the same largest element, and the largest common divisor is the gcd. To show two sets are equal we prove each is contained in the other, i.e.\ two directions. Both use only the equation
+\[
+a = qb + r \qquad\Longleftrightarrow\qquad r = a - qb .
+\]
+
+\begin{proof}
+\textbf{Direction 1: every common divisor of $(a,b)$ is a common divisor of $(b,r)$.}
+Let $d\mid a$ and $d\mid b$. Since $d\mid b$, also $d\mid qb$ (a divisor of $b$ divides every multiple of $b$). So $d$ divides both $a$ and $qb$, hence divides their difference $a-qb=r$. Together with $d\mid b$, $d$ is a common divisor of $b$ and $r$.
+
+\textbf{Direction 2: every common divisor of $(b,r)$ is a common divisor of $(a,b)$.}
+Let $d\mid b$ and $d\mid r$. Then $d\mid qb$, so $d$ divides the sum $qb+r=a$. Together with $d\mid b$, $d$ is a common divisor of $a$ and $b$.
+
+\textbf{Conclusion.} The two directions give
+\[
+\{\text{common divisors of } a,b\}=\{\text{common divisors of } b,r\}.
+\]
+Equal sets have equal greatest elements, so $\gcd(a,b)=\gcd(b,r)$.
+\end{proof}
+
+\textbf{Why it is ``obvious'' in hindsight.} Since $a$ and $r$ differ by a multiple of $b$, any number that divides $b$ cannot tell $a$ and $r$ apart: it divides both or neither. So, among divisors of $b$, the ones that divide $a$ are exactly the ones that divide $r$.
+
+\textbf{Concrete check: $a=240$, $b=46$.} Here $240=5\cdot46+10$, so $q=5$, $r=10$.
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{9.6cm}l@{}}
+\toprule
+Pair & Divisors of each number & Common divisors \\
+\midrule
+$(240,46)$ & $240$: 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 30, 40, 48, 60, 80, 120, 240;\ $46$: 1, 2, 23, 46 & \textbf{1, 2} \\
+$(46,10)$ & $46$: 1, 2, 23, 46;\ $10$: 1, 2, 5, 10 & \textbf{1, 2} \\
+\bottomrule
+\end{tabular}
+\end{center}
+The sets agree, so $\gcd(240,46)=\gcd(46,10)=2$.
+
+\textbf{Small questions students often ask.}
+\begin{itemize}[nosep]
+\item \emph{Why does $d\mid b$ imply $d\mid qb$?} If $b=dk$, then $qb=d(qk)$.
+\item \emph{Why do $d\mid a$ and $d\mid qb$ imply $d\mid(a-qb)$?} If $a=dm$ and $qb=dn$, then $a-qb=d(m-n)$. Sums work the same way.
+\item \emph{Why do equal sets give equal gcds?} The gcd is by definition the greatest element of the set of common divisors.
+\item \emph{Is $r<b$ needed here?} Not for the lemma itself: it holds for any $r=a-qb$. The condition $0\le r<b$ is needed only so that the remainders keep shrinking, which is what makes the algorithm stop (next paragraph).
+\end{itemize}
 
 So we may replace $(a,b)$ by the smaller pair $(b,r)$ without changing the gcd, and repeat. The remainders strictly decrease, so we reach remainder $0$; the last nonzero remainder is the gcd, because $\gcd(g,0)=g$.
 
