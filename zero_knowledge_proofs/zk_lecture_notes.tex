@@ -1,0 +1,1903 @@
+\documentclass[11pt,a4paper]{report}
+\usepackage[margin=2.6cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{enumitem}
+\usepackage{booktabs,array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,decorations.pathreplacing,fit,backgrounds}
+\usepackage[most]{tcolorbox}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{cleveref}
+\usepackage[expansion=false]{microtype}
+\setlength{\parskip}{0.4em}
+\setlist{itemsep=0.15em,topsep=0.3em}
+
+% ---------- theorem environments ----------
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{claim}[theorem]{Claim}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{exercise}[theorem]{Exercise}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\crefname{theorem}{Theorem}{Theorems}
+\crefname{lemma}{Lemma}{Lemmas}
+\crefname{definition}{Definition}{Definitions}
+\crefname{example}{Example}{Examples}
+\crefname{claim}{Claim}{Claims}
+
+% ---------- boxes ----------
+\newtcolorbox{protocol}[2][]{enhanced,breakable,colback=blue!3,colframe=blue!50!black,
+  fonttitle=\bfseries,title={#2},#1}
+\newtcolorbox{intuition}[1][Intuition]{enhanced,breakable,colback=yellow!8,colframe=orange!70!black,
+  fonttitle=\bfseries,title={#1},left=4pt,right=4pt}
+\newtcolorbox{warning}[1][Pitfall]{enhanced,breakable,colback=red!4,colframe=red!60!black,
+  fonttitle=\bfseries,title={#1}}
+
+% ---------- macros ----------
+\newcommand{\NN}{\mathbb{N}}\newcommand{\ZZ}{\mathbb{Z}}\newcommand{\FF}{\mathbb{F}}
+\newcommand{\GG}{\mathbb{G}}
+\newcommand{\getsr}{\xleftarrow{\$}}
+\newcommand{\negl}{\mathsf{negl}}
+\newcommand{\poly}{\mathrm{poly}}
+\newcommand{\polylog}{\mathrm{polylog}}
+\newcommand{\PPT}{\mathrm{PPT}}
+\renewcommand{\Pr}{\mathrm{Pr}}
+\newcommand{\Adv}{\mathsf{Adv}}
+\newcommand{\Prv}{\mathsf{P}}\newcommand{\Ver}{\mathsf{V}}
+\newcommand{\Sim}{\mathsf{Sim}}\newcommand{\Ext}{\mathsf{Ext}}
+\newcommand{\view}{\mathsf{View}}
+\newcommand{\out}{\mathsf{out}}
+\newcommand{\NP}{\mathsf{NP}}\newcommand{\BPP}{\mathsf{BPP}}\newcommand{\IP}{\mathsf{IP}}
+\newcommand{\PSPACE}{\mathsf{PSPACE}}\newcommand{\AM}{\mathsf{AM}}\newcommand{\coAM}{\mathsf{coAM}}
+\newcommand{\SZK}{\mathsf{SZK}}\newcommand{\CZK}{\mathsf{CZK}}\newcommand{\PZK}{\mathsf{PZK}}
+\newcommand{\HVSZK}{\mathsf{HVSZK}}
+\newcommand{\coNP}{\mathsf{coNP}}\newcommand{\PCP}{\mathsf{PCP}}
+\newcommand{\Setup}{\mathsf{Setup}}\newcommand{\Com}{\mathsf{Com}}
+\newcommand{\Open}{\mathsf{Open}}
+\newcommand{\SD}{\mathsf{SD}}
+\newcommand{\pair}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\ra}[1]{\xrightarrow{\makebox[2.5cm]{$#1$}}}
+\newcommand{\la}[1]{\xleftarrow{\makebox[2.5cm]{$#1$}}}
+\newcommand{\sample}{\leftarrow}
+\newcommand{\inv}{^{-1}}
+\newcommand{\vc}[1]{\mathbf{#1}}
+\newcommand{\ip}[2]{\langle #1, #2\rangle}
+\DeclareMathOperator{\GI}{GI}\DeclareMathOperator{\GNI}{GNI}
+\DeclareMathOperator{\QR}{QR}\DeclareMathOperator{\QNR}{QNR}
+\DeclareMathOperator{\dlog}{dlog}
+\DeclareMathOperator{\ord}{ord}
+\DeclareMathOperator{\Aut}{Aut}
+\newcommand{\Z}[1]{\ZZ_{#1}}
+\newcommand{\Zs}[1]{\ZZ_{#1}^{*}}
+
+% a two-party transcript table: three columns P | channel | V
+\newenvironment{flow}[2]{%
+  \par\smallskip\noindent
+  \begin{tabular}{@{}p{0.34\linewidth} c p{0.34\linewidth}@{}}
+  \textbf{#1} & & \textbf{#2}\\ \hline}{\end{tabular}\par\smallskip}
+
+\title{\Huge\bfseries Zero-Knowledge Proofs\\[4pt]\Large From Foundations to zk-SNARKs and STARKs\\[10pt]
+\large Graduate Lecture Notes (MPhil / PhD level)}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}\noindent
+These notes give a self-contained, proof-oriented treatment of zero-knowledge proofs.
+We start from the definitions of interactive proofs, simulation-based security and proofs of knowledge;
+develop the classical protocols (graph isomorphism, quadratic residuosity, graph 3-colouring) with full
+proofs; study $\Sigma$-protocols and their algebra (AND/OR/equality composition, Pedersen commitments);
+treat the Fiat--Shamir transform and the forking lemma; and then move on to the modern
+\emph{succinct} proof systems: sum-check, GKR, arithmetisation (R1CS/QAP), polynomial commitments
+(KZG, FRI, inner-product arguments), Groth16, PLONK and STARKs. Every algorithm is accompanied by a
+worked numerical example (small enough to be verified by hand) and by a diagram.
+Chapters end with exercises. Starred sections are optional on a first reading.
+\end{abstract}
+\tableofcontents
+
+\chapter{Introduction and Motivation}
+\section{What is a zero-knowledge proof?}
+A \emph{proof} in the classical sense (a written derivation, or an $\NP$ witness) convinces the reader of a statement
+but also \emph{teaches} the reader something: the reader obtains the derivation and can now convince others.
+Goldwasser, Micali and Rackoff (1985) asked a startling question:
+\begin{quote}\itshape
+Can a prover convince a verifier that a statement is true while revealing \emph{nothing} except its truth?
+\end{quote}
+The answer, perhaps surprisingly, is \emph{yes}, provided we relax the notion of proof in two ways:
+the proof is \textbf{interactive} (the verifier talks to the prover) and \textbf{probabilistic} (the verifier may
+err with negligible probability). Three properties characterise a zero-knowledge proof for a statement $x$:
+\begin{description}
+\item[Completeness.] If $x$ is true and both parties follow the protocol, the verifier accepts.
+\item[Soundness.] If $x$ is false, no (possibly cheating, possibly unbounded) prover can make the verifier accept, except with small probability.
+\item[Zero-knowledge.] If $x$ is true, whatever a (possibly cheating) verifier can compute after the interaction, it could have computed \emph{without} the interaction, from $x$ alone. Formalised by a \emph{simulator}.
+\end{description}
+
+\subsection{The Ali Baba cave}
+Quisquater et al.\ gave the following popular story. A circular cave has an entrance and, at the far end, a magic door that opens with a secret word. Peggy (prover) claims to know the word; Victor (verifier) wants to be convinced without learning the word.
+\begin{center}
+\begin{tikzpicture}[scale=1.1]
+  \draw[thick] (0,0) circle (1.6);
+  \draw[thick,fill=white] (-0.45,-1.6) rectangle (0.45,-2.1);
+  \node at (0,-2.4) {entrance};
+  \draw[ultra thick,red] (0,1.6) -- (0,0.55);
+  \node[red] at (0,1.9) {magic door};
+  \node at (-1.05,0.0) {$A$};\node at (1.05,0.0) {$B$};
+  \draw[->,thick,blue] (0,-1.6) -- (0,-1.05);
+  \draw[dashed] (0,-1.05) -- (-0.95,-0.6)--(-1.15,0.5);\draw[dashed] (0,-1.05) -- (0.95,-0.6)--(1.15,0.5);
+\end{tikzpicture}
+\end{center}
+\begin{enumerate}
+\item Peggy enters and walks randomly down path $A$ or $B$ while Victor waits outside (he cannot see which).
+\item Victor walks to the entrance and shouts ``come out via $A$'' or ``via $B$'' (a fair coin).
+\item Peggy complies, using the door if necessary.
+\end{enumerate}
+If Peggy knows the secret she always succeeds. If she does not, she succeeds only if she guessed Victor's coin, probability $1/2$. After $k$ independent rounds a cheater survives with probability $2^{-k}$. Zero-knowledge: Victor sees only ``Peggy came out of the side I asked for'', which he could have staged with a friend (the \emph{simulator}) who simply hides in the correct side after seeing his request (rewinding!). Victor cannot even convince third parties, because a video of the exchange is equally producible by a fraudster.
+
+\begin{intuition}[The three ideas behind every ZK protocol]
+\textbf{(1) Commit-challenge-response:} the prover commits to something random; the verifier asks one of several questions; the prover can answer \emph{every} question only if she knows the witness, but any \emph{single} answer is independent of the witness.
+\textbf{(2) Special soundness:} two answers to two different questions under the \emph{same} commitment reveal the witness. Hence a prover who could answer both ``knows'' the witness.
+\textbf{(3) Simulation by rewinding/programming:} a simulator that knows the question in advance can fabricate a convincing transcript without the witness.
+\end{intuition}
+
+\section{Why do we care?}
+\begin{itemize}
+\item \textbf{Authentication}: prove knowledge of a password/secret key without revealing it (Schnorr, Fiat--Shamir identification).
+\item \textbf{Signatures}: Fiat--Shamir converts ZK identification protocols into signature schemes.
+\item \textbf{Cryptographic protocol design}: GMW compiler---any protocol secure against honest-but-curious parties becomes secure against malicious ones by having each party prove in ZK that it followed the protocol.
+\item \textbf{Blockchains}: Zcash (shielded transactions), zk-rollups (verify $10^6$ transactions with one short proof), anonymous credentials, verifiable computation.
+\item \textbf{Complexity theory}: ZK led to $\IP=\PSPACE$, PCP theorem, hardness of approximation.
+\end{itemize}
+
+\section{A map of the territory}
+\begin{center}
+\begin{tikzpicture}[node distance=1.0cm and 1.3cm, every node/.style={font=\small},
+ box/.style={draw,rounded corners,align=center,minimum height=0.9cm,fill=blue!6,inner sep=4pt}]
+ \node[box] (ip) {Interactive proofs\\(Ch.~3)};
+ \node[box,right=of ip] (zk) {Zero-knowledge\\definitions (Ch.~4)};
+ \node[box,right=of zk] (cl) {Classical protocols\\GI, QR, 3-COL (Ch.~5--6)};
+ \node[box,below=of zk] (sig) {$\Sigma$-protocols\\(Ch.~7)};
+ \node[box,left=of sig] (fs) {Fiat--Shamir,\\NIZK (Ch.~8)};
+ \node[box,below=of sig] (sc) {Sum-check, GKR\\(Ch.~9)};
+ \node[box,left=of sc] (ar) {Arithmetisation\\R1CS/QAP (Ch.~10)};
+ \node[box,below=of sc] (pc) {Polynomial commitments\\KZG, FRI, IPA (Ch.~11)};
+ \node[box,left=of pc] (sn) {SNARKs/STARKs\\Groth16, PLONK (Ch.~12)};
+ \node[box,right=of pc] (th) {Limits \& complexity\\(Ch.~13)};
+ \draw[-{Stealth}] (ip)--(zk); \draw[-{Stealth}] (zk)--(cl); \draw[-{Stealth}] (zk)--(sig); \draw[-{Stealth}] (sig)--(fs);
+ \draw[-{Stealth}] (sig)--(sc); \draw[-{Stealth}] (sc)--(ar);\draw[-{Stealth}] (sc)--(pc); \draw[-{Stealth}] (ar)--(sn); \draw[-{Stealth}] (pc)--(sn);
+ \draw[-{Stealth}] (cl.south) -- ++(0,-0.4) -| (th.north);
+\end{tikzpicture}
+\end{center}
+
+\section{Conventions}
+Security parameter $\lambda$; $1^\lambda$ is its unary encoding. $x\getsr S$ means sampling uniformly from the finite set $S$.
+$[n]=\{1,\dots,n\}$. For a finite group $\GG$ of prime order $q$ with generator $g$ we write exponents in $\ZZ_q$.
+Algorithms are probabilistic; ``PPT'' means probabilistic polynomial time in $\lambda$ (or in $|x|$ when $x$ is the input).
+
+\chapter{Mathematical Preliminaries}
+\section{Asymptotics, negligible functions and indistinguishability}
+\begin{definition}[Negligible]
+$\mu:\NN\to\mathbb{R}_{\ge0}$ is \emph{negligible} if for every polynomial $p$ there is $N$ such that $\mu(\lambda)<1/p(\lambda)$ for all $\lambda>N$. We write $\mu=\negl(\lambda)$. A function is \emph{overwhelming} if $1-\mu$ is negligible.
+\end{definition}
+Negligible functions are closed under addition and under multiplication by polynomials: $\poly\cdot\negl=\negl$. This is exactly what is needed so that an event of negligible probability cannot be amplified by polynomially many repetitions.
+
+\begin{definition}[Ensembles, statistical distance]
+A \emph{probability ensemble} $X=\{X_{a}\}_{a\in S}$ indexed by $S\subseteq\{0,1\}^*$ is a family of random variables. For distributions $D_0,D_1$ on a finite set $\Omega$,
+\[\SD(D_0,D_1)=\max_{T\subseteq\Omega}\big|D_0(T)-D_1(T)\big|=\tfrac12\sum_{\omega}|D_0(\omega)-D_1(\omega)|.\]
+\end{definition}
+\begin{definition}[Indistinguishability]
+Two ensembles $X=\{X_a\}$, $Y=\{Y_a\}$ are
+\begin{itemize}
+\item \emph{perfectly indistinguishable} ($X\equiv Y$) if $X_a$ and $Y_a$ have identical distributions for every $a$;
+\item \emph{statistically indistinguishable} ($X\approx_s Y$) if $\SD(X_a,Y_a)=\negl(|a|)$;
+\item \emph{computationally indistinguishable} ($X\approx_c Y$) if for every non-uniform PPT distinguisher $D$ the advantage $\big|\Pr[D(a,X_a)=1]-\Pr[D(a,Y_a)=1]\big|=\negl(|a|)$.
+\end{itemize}
+\end{definition}
+\begin{lemma}[Hybrid argument]\label{lem:hybrid}
+Let $X^{(0)},\dots,X^{(m)}$ be distributions, $m=\poly$. If $D$ distinguishes $X^{(0)}$ from $X^{(m)}$ with advantage $\varepsilon$, then for some $i<m$ it distinguishes $X^{(i)}$ from $X^{(i+1)}$ with advantage at least $\varepsilon/m$.
+\end{lemma}
+\begin{proof}
+Let $p_i=\Pr[D(X^{(i)})=1]$. Then $\varepsilon\le|p_0-p_m|=\big|\sum_{i<m}(p_i-p_{i+1})\big|\le\sum_{i<m}|p_i-p_{i+1}|$, so some term is at least $\varepsilon/m$.
+\end{proof}
+The hybrid argument is the workhorse for every ZK proof with polynomially many commitments (e.g.\ Chapter~6). Its constructive form: a distinguisher for the endpoints yields a distinguisher for an adjacent pair that you can \emph{embed a challenge into}, by guessing $i$ with probability $1/m$.
+
+\section{Languages, relations and $\NP$}
+\begin{definition}
+A binary relation $R\subseteq\{0,1\}^*\times\{0,1\}^*$ is an \emph{$\NP$-relation} if membership $(x,w)\in R$ is decidable in time $\poly(|x|)$ and there is a polynomial $p$ with $(x,w)\in R\Rightarrow|w|\le p(|x|)$. Its language is $L_R=\{x:\exists w,(x,w)\in R\}$; $w$ is a \emph{witness} for $x$. We write $R(x)$ for the set of witnesses.
+\end{definition}
+\begin{example}\label{ex:relations}
+\begin{itemize}
+\item \textbf{Discrete log}: $R_{\mathrm{DL}}=\{((\GG,g,y),x): g^x=y\}$.
+\item \textbf{Graph isomorphism}: $R_{\mathrm{GI}}=\{((G_0,G_1),\pi):\pi(G_0)=G_1\}$.
+\item \textbf{Quadratic residuosity}: $R_{\mathrm{QR}}=\{((N,v),s):s^2\equiv v\pmod N\}$.
+\item \textbf{Circuit satisfiability}: $R_{\mathrm{SAT}}=\{(C,w):C(w)=1\}$, $\NP$-complete.
+\item \textbf{Hamiltonian cycle}, \textbf{3-colourability}: both $\NP$-complete.
+\end{itemize}
+\end{example}
+Proofs \emph{of membership} ($x\in L$) and proofs \emph{of knowledge} ($\Prv$ knows $w$ with $(x,w)\in R$) are different goals; Chapter~4 treats the difference.
+
+\section{Algebraic background}
+\subsection{Cyclic groups and discrete logarithm assumptions}
+Let $\GG=\langle g\rangle$ be cyclic of prime order $q$. Throughout we use a toy group for numerical examples:
+\begin{center}
+\fbox{\parbox{0.85\linewidth}{\centering\textbf{Toy group.} $p=23$, $q=11$, $\GG=\langle 2\rangle\subset\Zs{23}$, $g=2$. \\
+Indeed $2^{11}=2048=89\cdot23+1\equiv 1$, so $\ord(2)=11$. $\GG$ is the set of squares mod $23$: $\{1,2,3,4,6,8,9,12,13,16,18\}$.}}
+\end{center}
+Powers of $2$ mod $23$ (the \emph{discrete-log table}, handy for all later examples):
+\begin{center}\small
+\begin{tabular}{c|ccccccccccc}
+$k$ & 0&1&2&3&4&5&6&7&8&9&10\\\hline
+$2^k \bmod 23$ & 1&2&4&8&16&9&18&13&3&6&12
+\end{tabular}
+\end{center}
+\begin{definition}[Discrete logarithm, CDH, DDH]
+For a group $\GG$ of prime order $q$ with generator $g$:
+\begin{itemize}
+\item \textbf{DL}: given $g^a$ ($a\getsr\ZZ_q$) find $a$.
+\item \textbf{CDH}: given $(g^a,g^b)$ find $g^{ab}$.
+\item \textbf{DDH}: distinguish $(g^a,g^b,g^{ab})$ from $(g^a,g^b,g^c)$ with $a,b,c\getsr\ZZ_q$.
+\end{itemize}
+Each assumption states that every PPT algorithm succeeds with negligible advantage. DDH $\Rightarrow$ CDH $\Rightarrow$ DL.
+\end{definition}
+DDH is \emph{false} in the toy group and in $\Zs p$ itself (Legendre symbol), but holds conjecturally in prime-order subgroups of $\Zs p$ and in elliptic curve groups.
+
+\subsection{Quadratic residues and the Blum integer setting}
+Let $N=PQ$ with $P,Q$ distinct odd primes. $\QR_N=\{a\in\Zs N:\exists s,\,s^2\equiv a\}$. The Jacobi symbol $\left(\frac aN\right)=\left(\frac aP\right)\left(\frac aQ\right)$ is efficiently computable without the factorisation. Let $J_N^{+1}=\{a:(\frac aN)=1\}$; then $\QR_N\subsetneq J_N^{+1}$ and $|J_N^{+1}|=2|\QR_N|$.
+\begin{definition}[Quadratic residuosity assumption (QRA)]
+Given $N$ (of unknown factorisation) and a uniform $a\in J_N^{+1}$, deciding whether $a\in\QR_N$ is hard for PPT algorithms.
+\end{definition}
+\begin{lemma}[Square roots $\Leftrightarrow$ factoring]\label{lem:sqrtfactor}
+Given $N=PQ$ and two square roots $s,s'$ of $a\in\QR_N$ with $s'\not\equiv\pm s$, one can factor $N$.
+\end{lemma}
+\begin{proof}
+$s^2\equiv s'^2$ gives $N\mid(s-s')(s+s')$ but $N\nmid(s\pm s')$; hence $\gcd(s-s',N)\in\{P,Q\}$.
+\end{proof}
+Every $a\in\QR_N$ has exactly four roots $\pm s_1,\pm s_2$ (CRT). \textbf{Toy modulus:} $N=77=7\cdot11$.
+
+\subsection{Pairings}
+A (type-3) \emph{bilinear pairing} is an efficiently computable map $e:\GG_1\times\GG_2\to\GG_T$ between groups of prime order $q$, with generators $g_1,g_2$ and $e(g_1,g_2)\ne1$, satisfying $e(g_1^a,g_2^b)=e(g_1,g_2)^{ab}$. We use additive-bracket notation $[a]_1=g_1^a$, $[a]_2=g_2^a$, $[a]_T=e(g_1,g_2)^a$ so that $e([a]_1,[b]_2)=[ab]_T$. Pairings let us verify \emph{one} multiplicative relation between hidden exponents---the key to SNARKs (Ch.~11--12). Instantiated by BN254 or BLS12-381.
+
+\subsection{Polynomials over finite fields}
+\begin{lemma}[Schwartz--Zippel]\label{lem:sz}
+Let $f\in\FF[X_1,\dots,X_n]$ be a nonzero polynomial of total degree $d$ and $S\subseteq\FF$ finite. For $r_1,\dots,r_n\getsr S$, $\Pr[f(r_1,\dots,r_n)=0]\le d/|S|$.
+\end{lemma}
+\begin{proof}
+Induction on $n$. For $n=1$, a nonzero degree-$d$ polynomial has at most $d$ roots. For $n>1$ write $f=\sum_{i=0}^{k}X_n^i f_i(X_1,\dots,X_{n-1})$ with $f_k\ne0$, $\deg f_k\le d-k$. Let $E$ be the event $f_k(r_1..r_{n-1})=0$; $\Pr[E]\le(d-k)/|S|$ by induction. If $\neg E$, then $f(r_1,..,r_{n-1},X_n)$ is a nonzero univariate polynomial of degree $k$ so vanishes at $r_n$ with probability $\le k/|S|$. Hence $\Pr[f(\vec r)=0]\le\Pr[E]+\Pr[\neg E\wedge f=0]\le(d-k)/|S|+k/|S|=d/|S|$.
+\end{proof}
+\begin{intuition}
+Schwartz--Zippel says: \emph{a random point is a perfect polynomial-identity test}. To check two huge polynomials $f=g$, evaluate $f-g$ at a random point. This single lemma underlies sum-check, QAP verification, KZG and FRI.
+\end{intuition}
+\begin{lemma}[Lagrange interpolation]
+For distinct $x_1,\dots,x_n\in\FF$ and any $y_1..y_n$, the unique polynomial of degree $<n$ with $f(x_i)=y_i$ is $f(X)=\sum_i y_i L_i(X)$ with $L_i(X)=\prod_{j\ne i}\frac{X-x_j}{x_i-x_j}$.
+\end{lemma}
+\begin{lemma}[Factor theorem / division]\label{lem:factor}
+$f(z)=y$ if and only if $(X-z)$ divides $f(X)-y$ in $\FF[X]$.
+\end{lemma}
+This last fact powers KZG openings (Chapter~11).
+
+\section{Commitment schemes}
+\begin{definition}[Commitment scheme]
+A commitment scheme consists of PPT algorithms $\Setup(1^\lambda)\to ck$, $\Com_{ck}(m;r)\to c$, with opening $(m,r)$ to $c$. It must be
+\begin{itemize}
+\item \textbf{Hiding}: for all $m_0,m_1$ the distributions $\Com(m_0;r)$ and $\Com(m_1;r)$ are indistinguishable (perfectly / statistically / computationally);
+\item \textbf{Binding}: no PPT adversary outputs $c$ and two openings $(m,r)\neq(m',r')$, $m\ne m'$, with $\Com(m;r)=\Com(m';r')=c$ (except negligible probability; perfect binding if impossible).
+\end{itemize}
+\end{definition}
+\begin{theorem}[No scheme is both perfectly hiding and perfectly binding]
+Perfect hiding means every $c$ has openings to every message; so a computationally unbounded committer can equivocate: binding is at best computational. The reverse holds as well.
+\end{theorem}
+\begin{example}[Pedersen commitment (perfectly hiding, computationally binding)]\label{ex:pedersen}
+Let $g,h\in\GG$ generate a group of prime order $q$ with $\log_gh$ \emph{unknown}. Define $\Com(m;r)=g^mh^r$ for $m,r\in\ZZ_q$.
+\emph{Hiding:} for each $m$, $g^mh^r$ is uniform in $\GG$ when $r$ is uniform, so $c$ is independent of $m$.
+\emph{Binding:} an opening pair $g^mh^r=g^{m'}h^{r'}$ with $m\ne m'$ gives $\log_gh=(m-m')(r'-r)^{-1}\bmod q$, breaking DL.
+\emph{Homomorphic:} $\Com(m;r)\cdot\Com(m';r')=\Com(m+m';r+r')$.
+
+\textbf{Numbers.} Toy group, $g=2$, $h=3=2^8$ (so $\log_gh=8$, which in reality must be unknown). Commit $m=4,r=6$: $g^4h^6=16\cdot3^6=16\cdot16=256\equiv3$. Commit $m'=2,r'=3$: $4\cdot3^3=4\cdot4=16$. Product $3\cdot16=48\equiv2$, and $\Com(6;9)=2^6\cdot3^9=18\cdot18=324\equiv2$. \checkmark\\
+\emph{Equivocation with the trapdoor $t=8$:} to open $c=3$ (committed to $4$ with $r=6$) as $m^*=7$ we need $4+8\cdot6=7+8r^*\pmod{11}$, i.e.\ $52\equiv8\equiv7+8r^*$, so $8r^*\equiv1$, $r^*=7$ (as $8\cdot7=56\equiv1$). Check: $2^7\cdot3^7=13\cdot2=26\equiv3$. \checkmark
+\end{example}
+\begin{example}[Hash-based commitment]
+$\Com(m;r)=H(m\|r)$ with $H$ modelled as a random oracle (or collision resistant + hiding via randomness extraction). Computationally hiding and binding; the basis of Merkle trees used in FRI/STARKs. A \emph{Merkle tree} commits to a vector $(v_1..v_n)$ with a single root and opens position $i$ with a log-size authentication path.
+\end{example}
+\begin{example}[Perfectly binding: Blum / Goldwasser--Micali style]
+Given $N=PQ$, commit to a bit $b$ by $c=z^2\cdot y^b\bmod N$ for a fixed non-residue $y\in J_N^{+1}$ and random $z$. Computationally hiding under QRA and perfectly binding (a QR cannot also be a non-residue). Hence for each bit the commitment determines it uniquely.
+\end{example}
+
+\section{The random oracle model}
+A \emph{random oracle} $H:\{0,1\}^*\to\{0,1\}^\ell$ is a function chosen uniformly at random; all parties (including the adversary) access it as a black box. In proofs the simulator \emph{programs} $H$ (answers queries lazily and consistently, possibly choosing outputs in advance) and \emph{observes} the adversary's queries. The ROM is a heuristic: instantiating $H$ with SHA-3 voids the formal guarantee, but no natural attack is known for natural protocols; contrived counterexamples exist \cite{CGH04}.
+
+\chapter{Interactive Proof Systems}
+\section{Definitions}
+An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of interactive probabilistic algorithms that alternately send messages. $\pair{\Prv(w)}{\Ver}(x)$ denotes the (random) output of $\Ver$ (accept $=1$ / reject $=0$) when $\Prv$ has private input $w$ and both have common input $x$. $\Ver$ is PPT; $\Prv$ is computationally unbounded in the \emph{information-theoretic} setting.
+\begin{definition}[Interactive proof system]\label{def:ip}
+$(\Prv,\Ver)$ is an interactive proof system for $L$ with completeness error $c$ and soundness error $s$ ($c+s<1$ with a gap, typically $c=0$, $s=1/2$) if
+\begin{description}
+\item[Completeness] $\forall x\in L$: $\Pr[\pair{\Prv}{\Ver}(x)=1]\ge1-c(|x|)$.
+\item[Soundness] $\forall x\notin L$, $\forall$ (unbounded) $\Prv^*$: $\Pr[\pair{\Prv^*}{\Ver}(x)=1]\le s(|x|)$.
+\end{description}
+$\IP$ is the class of languages with an interactive proof system with $c,s$ at most $1/3$ (resp.\ $\negl$ after amplification) and polynomially many rounds. An \emph{argument system} restricts soundness to $\PPT$ provers.
+\end{definition}
+Why interaction and randomness? Without randomness and without interaction one gets exactly $\NP$ ($\Prv$ sends $w$). Allowing only interaction but a deterministic verifier also gives $\NP$ (the prover can predict every verifier message). Randomness \emph{and} interaction jointly give $\PSPACE$.
+
+\begin{theorem}[Error reduction]\label{thm:errred}
+If $(\Prv,\Ver)$ has $c=0$ and soundness $s$, then the $k$-fold \emph{sequential} (and also the \emph{parallel}) repetition, accepting iff all $k$ runs accept, has soundness $s^k$.
+\end{theorem}
+\begin{proof}[Proof (sequential case)]
+Fix $x\notin L$ and any $\Prv^*$. In each run, conditioned on any history, $\Prv^*$ with the fresh randomness of $\Ver$ is a prover for a single run, so it wins that run with probability $\le s$. Multiply conditional probabilities. (The parallel case for \emph{public-coin} protocols is a more delicate argument that holds for $\IP$ in general; it can fail for computationally-sound \emph{argument} systems with $>3$ rounds \cite{BIN97}.)
+\end{proof}
+
+\section{Example: Graph Non-Isomorphism}
+\label{sec:gni}
+$\GNI=\{(G_0,G_1): G_0\not\cong G_1\}$ is not known to be in $\NP$ (it lies in $\coNP$, but a certificate of non-isomorphism would have to rule out all $n!$ permutations), yet it has a very short interactive proof.
+\begin{protocol}{Protocol \ref{sec:gni}.1: $\GNI\in\IP$ (Goldreich--Micali--Wigderson)}
+\textbf{Common input:} graphs $G_0,G_1$ on vertex set $[n]$.
+\begin{flow}{Prover (unbounded)}{Verifier}
+ & & $b\getsr\{0,1\}$, $\sigma\getsr S_n$\\
+ & & $H=\sigma(G_b)$\\
+ & $\la{H}$ & \\
+find $b'$ with $H\cong G_{b'}$ & & \\
+ & $\ra{b'}$ & accept iff $b'=b$
+\end{flow}
+\end{protocol}
+\begin{theorem}
+The protocol has completeness $1$ and soundness error $1/2$.
+\end{theorem}
+\begin{proof}
+\emph{Completeness.} If $G_0\not\cong G_1$, then $H$ is isomorphic to exactly one of $G_0,G_1$, namely $G_b$. The unbounded prover finds it and answers $b'=b$.\\
+\emph{Soundness.} If $G_0\cong G_1$: the distribution of $H=\sigma(G_b)$ is uniform on the isomorphism class of $G_0$ (for fixed $b$, uniform $\sigma$ yields uniform output, because each graph in the class has the same number $|\Aut(G_0)|$ of permutations mapping $G_b$ to it) and does not depend on $b$. So $H$ carries no information about $b$ and any prover guesses it with probability exactly $1/2$.
+\end{proof}
+\begin{example}
+$G_0$: path $1\!-\!2\!-\!3\!-\!4$, edges $\{12,23,34\}$. $G_1$: star centred at $1$, edges $\{12,13,14\}$. Degree sequences $(1,2,2,1)$ vs.\ $(3,1,1,1)$ so non-isomorphic. Verifier picks $b=1$, $\sigma=(1\mapsto2,2\mapsto4,3\mapsto1,4\mapsto3)$: edges $12\mapsto24$, $13\mapsto21$, $14\mapsto23$, so $H=\{12,23,24\}$, a star centred at $2$. The prover sees a vertex of degree $3$, so $H\cong G_1$ and answers $b'=1$. If the graphs had been isomorphic, a vertex of degree 3 would be there with the same chance whichever $b$ was used.
+\end{example}
+\begin{remark}
+This protocol is \emph{honest-verifier} zero-knowledge (a simulator picks $b$ itself and outputs $(H,b)$), but not zero-knowledge against a cheating $\Ver^*$: $\Ver^*$ could send an $H$ of his own choosing (e.g.\ a graph isomorphic to a third graph $G_2$) and learn from the prover whether $H\cong G_0$ or $G_1$. A fix by the verifier first proving he knows $b,\sigma$ makes it full ZK \cite{GMW91}. This illustrates why ZK must be defined against \emph{arbitrary} (malicious) verifiers.
+\end{remark}
+
+\section{Public coins and the landscape of $\IP$}
+A protocol is \emph{public-coin} (Arthur--Merlin) if the verifier's messages are just his coin tosses. The $\GNI$ protocol above uses private coins ($\sigma$ is hidden). Goldwasser--Sipser showed that private coins can be converted into public coins at the cost of two extra rounds (set-lower-bound protocol), so $\IP[k]\subseteq\AM[k+2]$. Public-coin protocols are important for us: \emph{only} public-coin protocols can be made non-interactive by Fiat--Shamir.
+
+\begin{theorem}[Shamir 1990 \cite{Sha92}; LFKN 1990]
+$\IP=\PSPACE$.
+\end{theorem}
+The proof arithmetises a $\PSPACE$ computation (quantified Boolean formula, TQBF) into a low-degree polynomial identity and checks it with a variant of the sum-check protocol. We prove sum-check in Chapter~9 and discuss the arithmetisation there.
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9,every node/.style={font=\small}]
+ \draw[rounded corners,fill=gray!8] (0,0) rectangle (11,5);\node at (5.5,4.7) {$\PSPACE=\IP$};
+ \draw[rounded corners,fill=blue!6] (0.5,0.4) rectangle (7.5,4.0);\node at (4,3.7) {$\AM$ (public-coin, const rounds)};
+ \draw[rounded corners,fill=green!8] (1,0.7) rectangle (4.5,3.2);\node at (2.7,2.9) {$\NP$};
+ \node[align=center] at (2.7,1.5) {$\GI,\QR,$\\3-COL, SAT};
+ \node[align=center] at (6.1,1.7) {$\GNI$};
+ \draw[rounded corners,dashed] (8,0.7) rectangle (10.7,4.0); \node[align=center] at (9.35,2.3) {all of\\\textsf{TQBF}, $\#$SAT,\\permanent};
+\end{tikzpicture}
+\end{center}
+
+\section*{Exercises}
+\begin{exercise}
+Show that if $\Ver$ is deterministic then $L\in\IP\Rightarrow L\in\NP$.
+\end{exercise}
+\begin{exercise}
+Prove that in Protocol~\ref{sec:gni}.1 the verifier may use fresh randomness $\sigma$ and $b$ per round, and compute the soundness after $k$ parallel repetitions. Why is private-coin parallel repetition fine here?
+\end{exercise}
+
+\chapter{Zero-Knowledge: Definitions}
+\section{The simulation paradigm}
+The informal slogan ``the verifier learns nothing'' is made precise through a thought experiment of two worlds.
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small},box/.style={draw,rounded corners,minimum width=2.2cm,minimum height=1cm,align=center}]
+ \node[box,fill=red!8] (v1) at (0,1.2) {$\Ver^*$\\(cheating)};
+ \node[box,fill=blue!8] (p) at (5,1.2) {$\Prv(x,w)$\\honest, has witness};
+ \draw[<->,thick] (v1)--(p) node[midway,above] {real interaction};
+ \node[box,fill=red!8] (v2) at (0,-1.2) {$\Ver^*$\\(same code)};
+ \node[box,fill=green!8] (s) at (5,-1.2) {$\Sim(x)$\\NO witness};
+ \draw[<->,thick] (v2)--(s) node[midway,above] {ideal interaction};
+ \node[draw,dashed,rounded corners,fit=(v1)(p),inner sep=6pt,label={[left,xshift=-0.6cm]:\textbf{Real world}}] {};
+ \node[draw,dashed,rounded corners,fit=(v2)(s),inner sep=6pt,label={[left,xshift=-0.6cm]:\textbf{Ideal world}}] {};
+ \node at (8.2,0) [align=center] {the two \emph{views}\\must be\\indistinguishable};
+ \draw[<->,dotted,thick] (7.1,1.2)--(7.1,-1.2);
+\end{tikzpicture}
+\end{center}
+If $\Ver^*$ can compute some function $f(x)$ after talking to $\Prv$, the same $\Ver^*$ talking to $\Sim$ (who has no witness) computes $f(x)$ with about the same probability: so the interaction contributed nothing. The simulator may \emph{interact with $\Ver^*$ as a black box with rewinding}, and may run in \emph{expected} polynomial time.
+
+\begin{definition}[View]
+For an interactive pair and $\Ver^*$ with auxiliary input $z$, $\view^{\Prv(w)}_{\Ver^*(z)}(x)$ is the random variable $(r,m_1,m_2,\dots,m_t)$ where $r$ is the content of $\Ver^*$'s random tape and $m_i$ are the messages that $\Ver^*$ received from $\Prv$. (The messages $\Ver^*$ sent are determined by $x,z,r$ and $m_1..m_{i-1}$.)
+\end{definition}
+
+\begin{definition}[Zero-knowledge, GMR/GMW]\label{def:zk}
+Let $(\Prv,\Ver)$ be an interactive proof for the $\NP$-relation $R$. It is
+\emph{perfect / statistical / computational zero-knowledge} if for every $\PPT$ $\Ver^*$ there is a (expected) $\PPT$ simulator $\Sim_{\Ver^*}$ such that
+\[
+\Big\{\view^{\Prv(w)}_{\Ver^*(z)}(x)\Big\}_{(x,w)\in R,\;z\in\{0,1\}^*}\;\;\equiv\;/\approx_s/\approx_c\;\;\Big\{\Sim_{\Ver^*}(x,z)\Big\}_{(x,w)\in R,\;z\in\{0,1\}^*}.
+\]
+If this only holds for the honest $\Ver$ (with $z=\bot$) it is \emph{honest-verifier} zero-knowledge (HVZK).
+\end{definition}
+Points to note.
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{Quantifier order.} The simulator may depend on $\Ver^*$ (it ``knows'' its code) but not on $(x,w,z)$ other than as input.
+\item \textbf{Auxiliary input $z$.} It represents whatever the adversary knew before (earlier protocol runs, partial information on $w$). Without it, ZK is not closed under sequential composition \cite{GO94}; with it, it is (Theorem~\ref{thm:seqcomp}).
+\item \textbf{Perfect vs computational.} Perfect ZK: distributions identical; no assumption needed; typical for GI, QR. Computational ZK: needs a commitment scheme, typical for 3-COL / all of $\NP$.
+\item \textbf{Black-box simulation.} Almost all known simulators only use $\Ver^*$ as an oracle $\Sim^{\Ver^*}(x)$ and rewind it; \emph{non-black-box} simulators (Barak 2001) exist but are exotic.
+\item \textbf{Expected polynomial time.} A rewinding simulator may need a random number of attempts. (Strict polynomial-time simulation is possible for fewer protocols.)
+\end{enumerate}
+
+\begin{intuition}
+Why does the definition use \emph{views} and not only outputs? Because $\Ver^*$ could output its entire view; so view-indistinguishability is the strongest notion and equivalent to output-indistinguishability for all $\Ver^*$.
+\end{intuition}
+
+\section{Basic properties}
+\begin{proposition}[ZK for $\BPP$ is trivial]
+If $L\in\BPP$, the trivial protocol in which $\Prv$ sends nothing and $\Ver$ decides $x\in L$ is perfect ZK with the simulator outputting $(r)$ only. So ZK is only interesting for $L\notin\BPP$ (e.g.\ assuming $\GI\notin\BPP$).
+\end{proposition}
+\begin{theorem}[Sequential composition]\label{thm:seqcomp}
+If $(\Prv,\Ver)$ is (auxiliary-input) computational ZK, then the protocol obtained by running it $m=\poly$ times sequentially (with independent randomness) is also computational ZK.
+\end{theorem}
+\begin{proof}[Proof sketch]
+Let $\Ver^*$ interact with $\Prv$ for $m$ sessions. Define hybrids $H_i$: the first $i$ sessions are simulated and the remaining $m-i$ are real. $H_0$ is the real view, $H_m$ the simulated one. If a distinguisher separates $H_{i-1}$ from $H_i$, construct a $\Ver'$ which plays the first $i-1$ sessions via the simulator, session $i$ with the real prover (the challenge), and the rest honestly with $\Prv$; its auxiliary input encodes the state of $\Ver^*$ after session $i-1$ --- \emph{this is where auxiliary input is needed}. The two hybrids differ only in whether session $i$ is real or simulated, which contradicts single-session ZK for $\Ver'$. Finish by Lemma~\ref{lem:hybrid} (loss factor $m$).
+\end{proof}
+\begin{warning}[Parallel composition may break ZK]
+Running a ZK protocol $k$ times \emph{in parallel} need not preserve ZK: a rewinding simulator must guess all $k$ challenge bits at once and succeeds with probability $2^{-k}$ only. Indeed, Goldreich and Krawczyk \cite{GK96} proved that no $3$-round public-coin protocol with negligible soundness error can be \emph{black-box} ZK unless $L\in\BPP$. Remedies: (i) accept constant soundness error per round and repeat sequentially; (ii) use more rounds; (iii) use HVZK with parallel repetition (this \emph{is} safe: HVZK is preserved because the simulator generates the challenge itself); (iv) switch to non-interactive proofs.
+\end{warning}
+
+\section{Witness indistinguishability, proofs of knowledge, arguments}
+\begin{definition}[Witness indistinguishability, WI]
+$(\Prv,\Ver)$ is WI if for every PPT $\Ver^*$, all $x$, any two witnesses $w_1,w_2\in R(x)$ and every $z$: $\view^{\Prv(w_1)}_{\Ver^*(z)}(x)\approx_c\view^{\Prv(w_2)}_{\Ver^*(z)}(x)$.
+\end{definition}
+ZK $\Rightarrow$ WI (both views are indistinguishable from $\Sim(x,z)$). WI is weaker but is preserved under parallel and concurrent composition and suffices when the statement has multiple witnesses (OR-proofs, ring signatures, Chapter~7).
+
+\begin{definition}[Proof of knowledge (Bellare--Goldreich)]\label{def:pok}
+$(\Prv,\Ver)$ is a \emph{proof of knowledge} for $R$ with knowledge error $\kappa$ if there is a probabilistic \emph{knowledge extractor} $\Ext$ such that for every prover $\Prv^*$ and every $x$, with $\varepsilon(x)=\Pr[\pair{\Prv^*}{\Ver}(x)=1]$: if $\varepsilon(x)>\kappa(x)$ then $\Ext^{\Prv^*}(x)$ outputs $w\in R(x)$ in expected time at most $\poly(|x|)/(\varepsilon(x)-\kappa(x))$.
+\end{definition}
+\begin{intuition}
+``$\Prv^*$ knows a witness'' means: a witness can be efficiently \emph{computed from $\Prv^*$} (given rewinding access to it) with success tied to how often $\Prv^*$ convinces $\Ver$. A prover who convinces the verifier only $1\%$ of the time ``knows'' it at that level, requiring $\approx100\times$ more work to extract.
+\end{intuition}
+\begin{example}[Why PoK $\neq$ membership proofs]
+The statement ``$y\in\GG$ has a discrete logarithm'' is true for \emph{every} $y\in\GG$, so the language is trivial. But the \emph{knowledge} of $x$ with $g^x=y$ is a meaningful (indeed identification-enabling) claim. Only the PoK definition can express it.
+\end{example}
+\begin{remark}[Arguments]
+If soundness (or knowledge soundness) only holds against PPT provers, we speak of an \emph{argument (of knowledge)}. Pairing-based SNARKs (Ch.~12) are \emph{arguments of knowledge} (AoK). Statistical ZK arguments for $\NP$ exist from collision-resistant hashing; perfect-hiding commitments yield them, whereas statistical ZK \emph{proofs} for all of $\NP$ are unlikely (Theorem~\ref{thm:szkam}).
+\end{remark}
+
+\section{Non-interactive variants (preview)}
+A \emph{non-interactive zero-knowledge (NIZK)} proof consists of $\Setup\to\mathsf{crs}$, $\mathsf{Prove}(\mathsf{crs},x,w)\to\pi$, $\mathsf{Verify}(\mathsf{crs},x,\pi)\to\{0,1\}$ with completeness, soundness and ZK defined via a simulator $(\Sim_1,\Sim_2)$ that produces the CRS \emph{together with a trapdoor} and then proofs without a witness. In the \emph{random oracle model} the simulator programs the oracle instead. See Chapter~8.
+
+\section*{Exercises}
+\begin{exercise}
+Show that if a simulator is allowed to output any distribution at all (no indistinguishability) the definition is trivially satisfied. What stops a protocol with soundness error $1$ from being ZK?
+\end{exercise}
+\begin{exercise}
+Prove that ZK implies WI. Give an example of a WI protocol that is not ZK.
+\end{exercise}
+\begin{exercise}
+Let $\epsilon=\Pr[\pair{\Prv^*}{\Ver}(x)=1]$. For a protocol with challenge space of size $2$ and special soundness (Chapter~7), design an extractor with expected running time $O(1/\epsilon)$.
+\end{exercise}
+
+\chapter{Classical Zero-Knowledge Protocols}
+\label{ch:classical}
+In this chapter we study the first three zero-knowledge proofs, each exhibiting the same three-move pattern \emph{commit $\to$ challenge $\to$ response}, and we prove every property in full.
+
+\section{Graph isomorphism (Goldreich--Micali--Wigderson)}
+\label{sec:gi}
+\textbf{Statement:} $G_0,G_1$ are isomorphic graphs on $[n]$. \textbf{Witness:} $\pi\in S_n$ with $G_1=\pi(G_0)$ (meaning: $\{u,v\}\in E_0\iff\{\pi(u),\pi(v)\}\in E_1$).
+
+\begin{protocol}{Protocol 5.1: Zero-knowledge proof of graph isomorphism}
+\textbf{Common input} $(G_0,G_1)$. \textbf{Prover's witness} $\pi$ with $\pi(G_0)=G_1$.
+\begin{flow}{Prover $(G_0,G_1,\pi)$}{Verifier $(G_0,G_1)$}
+$\sigma\getsr S_n$; $H:=\sigma(G_0)$ & $\ra{H}$ & \\
+ & $\la{b}$ & $b\getsr\{0,1\}$\\
+$\rho:=\sigma$ if $b=0$ & & \\
+$\rho:=\sigma\circ\pi\inv$ if $b=1$ & $\ra{\rho}$ & accept iff $H=\rho(G_b)$
+\end{flow}
+\end{protocol}
+\begin{intuition}
+$H$ is a freshly shuffled copy of the graph. The verifier asks either ``show me that $H$ is a relabelling of $G_0$'' or ``\ldots of $G_1$''. Either answer alone is a random permutation (it reveals nothing about $\pi$), but if the prover could answer both, then $\rho_1\inv\circ\rho_0$ would be an isomorphism $G_0\to G_1$.
+\end{intuition}
+
+\begin{example}\label{ex:gi}
+$G_0$: edges $\{12,23,34\}$ (path $1\!-\!2\!-\!3\!-\!4$). The secret $\pi=(1\mapsto3,2\mapsto1,3\mapsto4,4\mapsto2)$ gives $G_1=\{13,14,24\}$ (path $3\!-\!1\!-\!4\!-\!2$). Prover picks $\sigma=(1\mapsto2,2\mapsto3,3\mapsto4,4\mapsto1)$ and sends $H=\sigma(G_0)=\{23,34,41\}$.
+\begin{itemize}
+\item $b=0$: sends $\rho=\sigma$. Check: $\rho(G_0)=H$. \checkmark
+\item $b=1$: $\pi\inv=(1\mapsto2,2\mapsto4,3\mapsto1,4\mapsto3)$ so $\rho=\sigma\circ\pi\inv=(1\mapsto3,2\mapsto1,3\mapsto2,4\mapsto4)$. Then $\rho(G_1)$: $13\mapsto32$, $14\mapsto34$, $24\mapsto14$, i.e.\ $\{23,34,14\}=H$. \checkmark
+\end{itemize}
+\end{example}
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle,draw,inner sep=1.5pt,font=\small},scale=0.9]
+ \begin{scope}
+ \node (a1) at (0,0) {1};\node (a2) at (1,0) {2};\node (a3) at (2,0) {3};\node (a4) at (3,0) {4};
+ \draw (a1)--(a2)--(a3)--(a4); \node[draw=none] at (1.5,-0.7) {$G_0$};
+ \end{scope}
+ \begin{scope}[xshift=5cm]
+ \node (b3) at (0,0) {3};\node (b1) at (1,0) {1};\node (b4) at (2,0) {4};\node (b2) at (3,0) {2};
+ \draw (b3)--(b1)--(b4)--(b2); \node[draw=none] at (1.5,-0.7) {$G_1=\pi(G_0)$};
+ \end{scope}
+ \begin{scope}[xshift=2.5cm,yshift=-2.2cm]
+ \node (h2) at (0,0) {2};\node (h3) at (1,0) {3};\node (h4) at (2,0) {4};\node (h1) at (3,0) {1};
+ \draw (h2)--(h3)--(h4)--(h1); \node[draw=none] at (1.5,-0.7) {$H=\sigma(G_0)$};
+ \end{scope}
+ \draw[->,thick,blue] (1.5,-0.9)--(2.7,-1.7) node[draw=none,midway,left,font=\scriptsize] {$\sigma$};
+ \draw[->,thick,red] (6.5,-0.9)--(5.3,-1.7) node[draw=none,midway,right,font=\scriptsize] {$\rho=\sigma\pi\inv$};
+\end{tikzpicture}
+\end{center}
+
+\begin{theorem}\label{thm:gi}
+Protocol~5.1 is a perfect zero-knowledge proof system for $\GI$ with completeness $1$ and soundness error $1/2$; it is also a proof of knowledge of $\pi$ with knowledge error $1/2$.
+\end{theorem}
+\begin{proof}
+\textbf{Completeness.} $b=0$: $\rho(G_0)=\sigma(G_0)=H$. $b=1$: $\rho(G_1)=\sigma(\pi\inv(\pi(G_0)))=\sigma(G_0)=H$.
+
+\textbf{Soundness.} Suppose $G_0\not\cong G_1$. Whatever $H$ the (unbounded) prover sends, $H$ is isomorphic to at most one of $G_0,G_1$. So at most one challenge value $b$ can be answered; $\Ver$ picks $b$ after seeing $H$ and independently, hence accepts with probability $\le1/2$.
+
+\textbf{Special soundness / extraction.} If the prover answers both challenges for the same $H$ with $\rho_0,\rho_1$, then $\rho_0(G_0)=H=\rho_1(G_1)$ and $\pi'=\rho_1\inv\circ\rho_0$ satisfies $\pi'(G_0)=G_1$: a witness. The extractor runs the prover, then rewinds it to just after $H$ and asks the other challenge; if $\varepsilon$ is the success probability this takes $O(1/\varepsilon)$ expected attempts.
+
+\textbf{Zero-knowledge.} Let $\Ver^*$ be any (efficient, possibly randomized) verifier with randomness $r$ and auxiliary input $z$; WLOG $r$ is fixed and we think of $\Ver^*$ as a deterministic function. We define a simulator $\Sim$ (using $\Ver^*$ as a black box) that does \emph{not} use $\pi$:
+\begin{enumerate}
+\item Pick $b'\getsr\{0,1\}$ and $\rho'\getsr S_n$; set $H':=\rho'(G_{b'})$.
+\item Run $\Ver^*(H')$ to get its challenge $b$.
+\item If $b=b'$: output $(H',\rho')$ together with $\Ver^*$'s tape. Otherwise rewind $\Ver^*$ to the start and go to step 1.
+\end{enumerate}
+\emph{Claim A.} $H'$ is uniform over the isomorphism class $\mathcal{C}$ of $G_0$ irrespective of $b'$ (since $G_0\cong G_1$, $\rho'(G_{b'})$ is uniform over $\mathcal C$ for either value of $b'$: each $H\in\mathcal C$ has exactly $|\Aut(G_0)|$ preimages $\rho'$). Consequently the challenge $b=\Ver^*(H')$ is independent of $b'$ and $\Pr[b=b']=1/2$ in each attempt. The expected number of attempts is $2$.
+
+\emph{Claim B.} The output has exactly the real distribution. In the real interaction, $(H,\rho)$ is distributed as: $H$ uniform on $\mathcal C$; given $H$, $b=\Ver^*(H)$ is determined; $\rho$ is uniform over the $|\Aut(G_0)|$ isomorphisms $G_b\to H$. In the simulation, by the above, a successful attempt outputs $(H',\rho')$ with
+\[
+\Pr[(H',\rho')=(H,\rho)\mid \text{success}]
+=\frac{\tfrac12\cdot\tfrac{1}{|\mathcal C|\,|\Aut|}\cdot\mathbf 1[\rho(G_{b(H)})=H]}{\tfrac12}=\frac{1}{|\mathcal C||\Aut|},
+\]
+because for $(H,\rho)$ with $\rho(G_{b(H)})=H$ exactly one value $b'=b(H)$ succeeds, and $\Pr[\text{success}]=\sum_H\frac{1}{|\mathcal C|}\cdot\frac12=\frac12$. This is the real probability. Hence the distributions are \emph{identical}: perfect ZK.
+\end{proof}
+\begin{example}[Simulating on Example~\ref{ex:gi}]
+The simulator never sees $\pi$. It picks $b'=1$, $\rho'=(1\mapsto2,2\mapsto4,3\mapsto1,4\mapsto3)$, so $H'=\rho'(G_1)=\{13,14,24\}^{\rho'}=\{21,23,43\}=\{12,23,34\}$ (which happens to be $G_0$ itself --- a legal element of $\mathcal C$). If $\Ver^*$ answers $b=1$ the simulator outputs $(H',\rho')$; if $b=0$ it rewinds and retries with fresh randomness.
+\end{example}
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \draw[thick] (0,0)--(0,-4.4); \node at (0,0.3) {$\Sim$}; \draw[thick] (6,0)--(6,-4.4); \node at (6,0.3) {$\Ver^*$};
+ \draw[->] (0,-0.7)--(6,-0.7) node[midway,above] {$H'=\rho'(G_{b'})$};
+ \draw[<-] (0,-1.4)--(6,-1.4) node[midway,above] {$b\ne b'$};
+ \draw[red,thick,<-,dashed,bend left=25] (6.15,-1.45) to node[right] {rewind} (6.15,-0.6);
+ \draw[->] (0,-2.3)--(6,-2.3) node[midway,above] {fresh $H''$};
+ \draw[<-] (0,-3.0)--(6,-3.0) node[midway,above] {$b=b''$ \ \checkmark};
+ \draw[->] (0,-3.7)--(6,-3.7) node[midway,above] {$\rho''$};
+ \draw[decorate,decoration={brace,amplitude=4pt}] (-0.4,-0.5)--(-0.4,-1.6) node[midway,left] {failed};
+ \draw[decorate,decoration={brace,amplitude=4pt}] (-0.4,-2.1)--(-0.4,-3.9) node[midway,left] {output};
+\end{tikzpicture}
+\end{center}
+
+\section{Quadratic residuosity}
+\label{sec:qr}
+Let $N=PQ$ and $v\in\Zs N$. The prover wants to show $v\in\QR_N$, i.e.\ knows $s$ with $s^2\equiv v$.
+\begin{protocol}{Protocol 5.2: ZK proof of quadratic residuosity (GMR 1985)}
+\begin{flow}{Prover $(N,v,s)$, $s^2=v$}{Verifier $(N,v)$}
+$r\getsr\Zs N$, $x:=r^2$ & $\ra{x}$ & \\
+ & $\la{b}$ & $b\getsr\{0,1\}$\\
+$y:=r\cdot s^b$ & $\ra{y}$ & accept iff $y^2\equiv x\cdot v^b \pmod N$
+\end{flow}
+\end{protocol}
+\begin{theorem}
+Protocol~5.2 is a perfect ZK proof (with soundness $1/2$) of $v\in\QR_N$, and a proof of knowledge of a square root.
+\end{theorem}
+\begin{proof}
+\emph{Completeness:} $y^2=r^2s^{2b}=xv^b$.
+\emph{Soundness:} If $v\notin\QR_N$ and both challenges can be answered for $x$, then $x=y_0^2\in\QR_N$ and $xv=y_1^2$, so $v=y_1^2/y_0^2\in\QR_N$ (the quadratic residues form a group): contradiction. So at most one challenge is answerable.
+\emph{Extraction:} with answers $y_0,y_1$: $s=y_1/y_0$ since $(y_1/y_0)^2=xv/x=v$.
+\emph{ZK:} The simulator guesses $b'\getsr\{0,1\}$, picks $y\getsr\Zs N$ and sets $x:=y^2v^{-b'}$. Because $v\in\QR_N$ and squaring is a 4-to-1 map onto $\QR_N$, $x$ is uniform over $\QR_N$ for both values of $b'$, exactly as the real $x=r^2$. Therefore the challenge $b=\Ver^*(x)$ equals $b'$ with probability exactly $1/2$ and, given a match, $(x,y)$ is distributed as in the real interaction: $x$ uniform in $\QR_N$ and $y$ uniform among the 4 square roots of $xv^b$.
+\end{proof}
+\begin{example}\label{ex:qr}
+$N=77=7\cdot11$, $s=10$, $v=s^2=100\equiv23\pmod{77}$.\\
+Prover: $r=3$, $x=9$. 
+\begin{itemize}
+\item $b=0$: $y=3$; check $y^2=9=x$. \checkmark
+\item $b=1$: $y=3\cdot10=30$; $y^2=900\equiv53$ ($900-11\cdot77=53$), and $x\cdot v=9\cdot23=207\equiv53$. \checkmark
+\end{itemize}
+Simulator (no $s$): guess $b'=1$, pick $y=5$; $v\inv\equiv67\pmod{77}$ (as $23\cdot67=1541=20\cdot77+1$); $x=y^2v\inv=25\cdot67=1675\equiv58$. Then if the verifier asks $b=1$, answer $y=5$: $y^2=25$ and $xv=58\cdot23=1334\equiv25$. \checkmark
+\end{example}
+
+\section{Fiat--Shamir and Feige--Fiat--Shamir identification}
+In an identification scheme, Alice publishes a public key and then repeatedly proves knowledge of the secret key. Feige--Fiat--Shamir uses $k$ secrets simultaneously to shrink the soundness error to $2^{-k}$ per round.
+\begin{protocol}{Protocol 5.3: Feige--Fiat--Shamir identification}
+\textbf{Keys.} Secret $s_1..s_k\in\Zs N$; public $v_i=s_i^2$.
+\begin{flow}{Prover}{Verifier}
+$r\getsr\Zs N$, $x=r^2$ & $\ra{x}$ & \\
+ & $\la{e_1..e_k}$ & $e\getsr\{0,1\}^k$\\
+$y=r\prod_i s_i^{e_i}$ & $\ra{y}$ & accept iff $y^2=x\prod_iv_i^{e_i}$
+\end{flow}
+\end{protocol}
+\begin{example}
+$N=77$, $s_1=10,s_2=4$, $v_1=23$, $v_2=16$. Prover: $r=3$, $x=9$. Verifier: $e=(1,1)$. $y=3\cdot10\cdot4=120\equiv43$. Check: $43^2=1849=24\cdot77+1\equiv1$ and $x v_1v_2=9\cdot23\cdot16=3312=43\cdot77+1\equiv1$. \checkmark
+\end{example}
+\begin{remark}[Soundness/ZK trade-off]
+Special soundness holds for any two challenges $e\ne e'$: with $e_i\ne e'_i$ one obtains a combination of the $s_j$'s; extracting all of them uses $k$ rewinds. HVZK holds for any $k$. Full ZK against malicious verifiers requires the simulator to guess $e$, probability $2^{-k}$, so $k=O(\log\lambda)$ is the limit for one round; for bigger $k$ one passes to HVZK + the techniques of Chapter~7 (e.g.\ committing to $e$ in advance).
+\end{remark}
+
+\section*{Exercises}
+\begin{exercise}
+Write out the knowledge extractor for Theorem~\ref{thm:gi} in detail: given a prover $\Prv^*$ that makes $\Ver$ accept with probability $\varepsilon>1/2$, show that $\Ext$ outputs an isomorphism in expected time $O(1/(\varepsilon-1/2))$.
+\end{exercise}
+\begin{exercise}
+Why must $v$ be required to lie in $\Zs N$ and the prover's $x$ also checked to be in $\Zs N$? (Hint: consider $r$ a multiple of $P$.)
+\end{exercise}
+\begin{exercise}
+Show that Protocol~5.2 is \emph{not} sound for the language $\{v:(\frac vN)=1\}$ and conclude why the Jacobi symbol does not help.
+\end{exercise}
+\begin{exercise}
+Implement the GI simulator for $n=5$ and check empirically that the distribution of transcripts is the same as the real one.
+\end{exercise}
+
+\chapter{Zero-Knowledge Proofs for all of NP}
+\label{ch:np}
+We now show: \emph{every language in $\NP$ has a (computational) zero-knowledge proof} (Goldreich--Micali--Wigderson 1986/1991), assuming one-way functions exist. The strategy: give a ZK proof for an $\NP$-complete problem (graph 3-colouring or Hamiltonicity) and compose it with the Karp reduction.
+
+\section{Commitments as ``digital envelopes''}
+Recall (Chapter 2) that a commitment hides a value yet binds the committer. In the following protocols we need a \emph{non-interactive, perfectly (or statistically) binding, computationally hiding} commitment $\Com$; Naor's construction from a PRG \cite{Nao91} requires only one-way functions (one round of interaction), and the Goldwasser--Micali commitment gives one non-interactively under QRA. Think of it as locking a value in an envelope.
+
+\section{3-colouring}
+\begin{protocol}{Protocol 6.1: ZK proof of 3-colourability (one round)}
+\textbf{Input} $G=(V,E)$. \textbf{Prover's witness} a proper colouring $\varphi:V\to\{1,2,3\}$.
+\begin{flow}{Prover}{Verifier}
+$\pi\getsr S_3$ (colour permutation); & & \\
+$c_v:=\Com(\pi(\varphi(v));r_v)\ \forall v$ & $\ra{(c_v)_{v\in V}}$ & \\
+ & $\la{\{u,w\}}$ & $\{u,w\}\getsr E$\\
+open $c_u,c_w$: & $\ra{(a,r_u),(a',r_w)}$ & accept iff openings valid, \\
+ & & $a,a'\in\{1,2,3\}$ and $a\ne a'$
+\end{flow}
+\end{protocol}
+\begin{center}
+\begin{tikzpicture}[scale=1.1,every node/.style={font=\small}]
+ \node[circle,draw,fill=red!30,minimum size=0.8cm] (a) at (0,1.2) {$a$};
+ \node[circle,draw,fill=blue!30,minimum size=0.8cm] (b) at (2,2) {$b$};
+ \node[circle,draw,fill=green!30,minimum size=0.8cm] (c) at (2,0.2) {$c$};
+ \node[circle,draw,fill=red!30,minimum size=0.8cm] (d) at (4,1.2) {$d$};
+ \draw (a)--(b)--(d)--(c)--(a) (b)--(c);
+ \node at (2,-0.6) {Graph with a proper 3-colouring $\varphi$};
+ \begin{scope}[xshift=6.5cm]
+ \foreach \n/\x/\y in {a/0/1.2,b/2/2,c/2/0.2,d/4/1.2}{
+   \node[draw,rounded corners,fill=gray!20,minimum size=0.8cm] (\n2) at (\x,\y) {\large $\bullet$};}
+ \draw (a2)--(b2)--(d2)--(c2)--(a2) (b2)--(c2);
+ \draw[red,very thick] (b2)--(c2);
+ \node at (2,-0.6) {Commitments; $\Ver$ picks edge $bc$ and sees two different colours};
+ \end{scope}
+\end{tikzpicture}
+\end{center}
+\begin{example}\label{ex:3col}
+$G$: vertices $a,b,c,d$, edges $ab,ac,bc,bd,cd$. Witness $\varphi=(a,b,c,d)\mapsto(1,2,3,1)$. Prover picks $\pi:1\mapsto3,2\mapsto1,3\mapsto2$, so commits to $(3,1,2,3)$. $\Ver$ asks $bc$; prover opens $(1,2)$; $1\neq2$: accept. Had $\Ver$ asked $ab$ he would have seen $(3,1)$; for $bd$ he would have seen $(1,3)$. In each round the pair of opened colours is a uniformly random ordered pair of \emph{distinct} colours, whatever $\varphi$ is. 
+
+\emph{Cheating prover:} for $K_4$ (6 edges, not 3-colourable) any assignment has $\ge1$ monochromatic edge, so a round detects the cheat w.p.\ $\ge1/6$. After $6k$ sequential rounds the error is $\le(5/6)^{6k}<e^{-k}$.
+\end{example}
+\begin{theorem}\label{thm:3col}
+Repeating Protocol 6.1 $|E|\cdot k$ times sequentially (independent $\pi$, fresh commitments) yields a computational zero-knowledge proof system for 3-COL with completeness $1$ and soundness error $\le e^{-k}$, provided $\Com$ is perfectly binding and computationally hiding. (With a computationally binding commitment one gets an \emph{argument}.)
+\end{theorem}
+\begin{proof}
+\emph{Completeness.} $\pi\circ\varphi$ is a proper colouring so the opened pair always differs.
+
+\emph{Soundness.} If $G$ is not 3-colourable, then perfect binding ensures that the commitments $(c_v)$ determine a unique assignment $\psi:V\to\{1,2,3,\perp\}$ (where $\perp$ means ``not a valid commitment to a colour''). Since $G$ has no proper colouring, some edge $e^*$ has equal or invalid endpoint values. $\Ver$ asks for $e^*$ with probability $\ge1/|E|$, and then the prover cannot open validly. So a single round accepts with probability $\le1-1/|E|$; by Theorem~\ref{thm:errred} the $|E|k$-fold repetition gives $(1-1/|E|)^{|E|k}\le e^{-k}$.
+
+\emph{Zero-knowledge (single round, then sequential composition by Thm.~\ref{thm:seqcomp}).} Given $\Ver^*$, define $\Sim$:
+\begin{enumerate}
+\item Pick a random edge $\{u,w\}\in E$ and a uniform pair of distinct colours $(a,a')$.
+\item Set $c_u=\Com(a)$, $c_w=\Com(a')$ and $c_v=\Com(1)$ for every other $v$ (all with fresh randomness).
+\item Send $(c_v)$ to $\Ver^*$ and obtain its edge $e^*$. If $e^*=\{u,w\}$, open $c_u,c_w$ and output $\Ver^*$'s view. Otherwise rewind to step~1 (at most $|E|\cdot n$ times, then output $\perp$).
+\end{enumerate}
+Define distributions over commitment vectors: $\mathcal R$ (the real one, to $\pi\circ\varphi$) and, for each edge $e$, $\mathcal D_e$ (the simulated one when $e$ is guessed). In both, the plaintext on $e$ is a uniform pair of distinct colours; they differ in the plaintexts of the remaining $\le n-2$ vertices. By the hybrid argument (Lemma~\ref{lem:hybrid}), replacing the commitments of vertices one at a time and using hiding,
+\[ \mathcal R\approx_c\mathcal D_e\quad\text{for each }e\in E. \]
+Let $p_e=\Pr_{\mathcal R}[\Ver^*\text{ asks }e]$, so $\sum_ep_e=1$. The test ``$\Ver^*$ asks $e$'' is an efficient test so $|\Pr_{\mathcal D_e}[\Ver^*\text{ asks }e]-p_e|=\negl$. Hence in one iteration
+\[
+\Pr[\text{success}]=\frac1{|E|}\sum_e\Pr_{\mathcal D_e}[\Ver^*\text{ asks }e]=\frac1{|E|}\pm\negl,
+\]
+so the expected number of iterations is $|E|(1\pm\negl)$ and the simulator is expected polynomial time. Conditioned on success, the output is a view with edge $e$ with probability $\frac{(1/|E|)\Pr_{\mathcal D_e}[e]}{\Pr[\text{success}]}\approx p_e$, matching the real world; and conditioned on $e$, the view (commitments to $\mathcal D_e$ vs.\ $\mathcal R$, plus the opened colours, uniformly random distinct in both worlds) are computationally indistinguishable by the same hybrid argument. Summing over the polynomially many $e$ gives $\view_{\Ver^*}\approx_c\Sim(G)$.
+\end{proof}
+\begin{intuition}
+The verifier tests one edge, sees two distinct random colours, and nothing else: all other envelopes remain closed. The permutation $\pi$ guarantees that the two colours are just ``two different random colours'' no matter what. If a coloured graph is invalid, the verifier will, with probability at least $1/|E|$, ask for a violated edge. The need for $|E|$ repetitions is a weakness addressed by Blum's protocol.
+\end{intuition}
+
+\section{Blum's protocol for Hamiltonicity}
+\textbf{Statement:} $G$ on $[n]$ has a Hamiltonian cycle $C$. Soundness error $1/2$ per round.
+\begin{protocol}{Protocol 6.2: Blum's ZK proof for Hamiltonicity}
+\begin{flow}{Prover $(G,C)$}{Verifier}
+$\pi\getsr S_n$; $A:=$ adjacency matrix of $\pi(G)$ & & \\
+commit entrywise: $c_{ij}=\Com(A_{ij})$ & $\ra{(c_{ij})}$ & \\
+ & $\la{b}$ & $b\getsr\{0,1\}$\\
+$b=0$: reveal $\pi$ and all openings & $\ra{}$ & check $A=\mathrm{adj}(\pi(G))$\\
+$b=1$: open only the $n$ entries of $\pi(C)$ & $\ra{}$ & check these are all $1$ and form an $n$-cycle
+\end{flow}
+\end{protocol}
+\emph{Why it works.} For $b=0$ the prover shows the commitments are a faithful relabelled copy of $G$; for $b=1$ she shows a Hamiltonian cycle exists in the committed graph; she cannot do both for a non-Hamiltonian $G$ (otherwise $\pi\inv(\pi(C))$ would be a Hamiltonian cycle of $G$). Revealed information: for $b=0$ a random permutation of $G$; for $b=1$ a random $n$-cycle on random labels. Simulation: guess $b'$; if $b'=0$ commit to $\pi(G)$, if $b'=1$ commit to a random $n$-cycle plus zeros; rewind on mismatch (expected 2 attempts). The soundness error $1/2$ per round, not $1-1/|E|$, is the main advantage over Protocol~6.1.
+\begin{example}
+$G=K_4$ minus edge $\{13\}$; Hamiltonian cycle $C:1\!-\!2\!-\!3\!-\!4\!-\!1$. With $\pi=(1\mapsto3,2\mapsto4,3\mapsto1,4\mapsto2)$, $\pi(C)$ is the cycle $3\!-\!4\!-\!1\!-\!2\!-\!3$. For $b=1$ she opens the four commitments $c_{34},c_{41},c_{12},c_{23}$, all containing $1$.
+\end{example}
+
+\section{The main theorem}
+\begin{theorem}[Goldreich--Micali--Wigderson \cite{GMW91}]\label{thm:gmw}
+If one-way functions exist, every language in $\NP$ has a computational zero-knowledge proof system. Moreover the prover can be implemented in probabilistic polynomial time given a witness.
+\end{theorem}
+\begin{proof}[Proof sketch]
+(i) OWF $\Rightarrow$ PRG \cite{HILL99} $\Rightarrow$ perfectly binding, computationally hiding commitment \cite{Nao91}. (ii) Theorem~\ref{thm:3col} gives a ZK proof for 3-COL, $\NP$-complete. (iii) For $L\in\NP$ let $f$ be a Karp reduction to 3-COL and map witnesses by the (efficient) witness-translation of the reduction; run Protocol 6.1 on $f(x)$. Soundness and ZK transfer because $x\in L\iff f(x)\in$ 3-COL.
+\end{proof}
+\begin{center}
+\begin{tikzpicture}[node distance=1.2cm,every node/.style={font=\small}]
+ \node[draw,rounded corners,fill=blue!6] (x) {$(x,w)\in R_L$};
+ \node[draw,rounded corners,fill=blue!6,right=of x] (g) {$(G_x,\varphi_w)$};
+ \node[draw,rounded corners,fill=green!8,right=of g,text width=3.7cm,align=center] (zk) {ZK proof of 3-colourability\\(Protocol 6.1$\times|E|k$)};
+ \draw[->] (x)--(g) node[midway,above] {Karp};
+ \draw[->] (g)--(zk);
+\end{tikzpicture}
+\end{center}
+\begin{remark}[Efficiency]
+Via Karp reductions the statement size blows up polynomially (and with a big constant): this is irrelevant for feasibility but is terrible in practice---a motivation for the direct arithmetisation techniques of Chapters 9--12, where one gets \emph{succinct} proofs.
+\end{remark}
+
+\section{Round complexity and composition limits}
+\begin{itemize}
+\item The protocols above use $\omega(\log\lambda)$ rounds when repeated sequentially. \textbf{Constant-round} ZK proofs for $\NP$ exist (Goldreich--Kahan 1996; Feige--Shamir) at the cost of non-trivial constructions; by Goldreich--Krawczyk, \emph{black-box} ZK with $3$ rounds is impossible outside $\BPP$ \cite{GK96}.
+\item \textbf{Concurrent ZK}: if the verifier interleaves many sessions, rewinding-based simulators blow up. Richardson--Kilian showed that concurrent ZK is possible but needs $\omega(\log\lambda)$ rounds for black-box simulation (Canetti--Kilian--Petrank--Rosen). Barak's \emph{non-black-box} simulation circumvents black-box lower bounds, giving constant-round bounded-concurrent ZK \cite{Bar01}.
+\item \textbf{Non-interactive ZK} (Chapter~8) removes the issue entirely, at the price of a CRS or the random oracle.
+\end{itemize}
+
+\section*{Exercises}
+\begin{exercise}
+Show formally that if the commitment in Protocol~6.1 is only computationally binding, the protocol is an argument but not a proof, and explain what a computationally unbounded prover can do.
+\end{exercise}
+\begin{exercise}
+The simulator in the proof of Theorem~\ref{thm:3col} fixes all other colours to $1$. Why would the simulator break if it also revealed those colours? What if the commitment were not hiding?
+\end{exercise}
+\begin{exercise}
+Prove the completeness, soundness and perfect ZK (with a perfectly hiding commitment!) of Protocol~6.2 formally. Which type of binding do you need, and why does a perfectly hiding commitment only give an \emph{argument}?
+\end{exercise}
+\begin{exercise}
+Compute exactly the number of rounds of Protocol~6.1 needed for soundness $2^{-80}$ on a graph with $|E|=1000$.
+\end{exercise}
+
+\chapter{$\Sigma$-Protocols}
+\label{ch:sigma}
+$\Sigma$-protocols are three-move public-coin proofs of knowledge with a very clean algebraic structure. They are the ``assembly language'' of practical zero-knowledge: Schnorr identification and signatures, Pedersen commitment proofs, the ring signatures of CDS, confidential transactions, and the building blocks of Bulletproofs/Halo2 are all $\Sigma$-protocols.
+
+\section{Definition}
+\begin{definition}[$\Sigma$-protocol]\label{def:sigma}
+A $\Sigma$-protocol for an $\NP$-relation $R$ is a 3-move protocol: $\Prv(x,w)$ sends a \emph{commitment} $a$; $\Ver(x)$ replies with a uniformly random \emph{challenge} $e\getsr\mathcal C$ ($\mathcal C$ finite, often $\ZZ_q$); $\Prv$ sends a \emph{response} $z$; $\Ver$ accepts iff $\phi(x,a,e,z)=1$ for a deterministic predicate $\phi$. It must satisfy:
+\begin{description}
+\item[Completeness] if $(x,w)\in R$ and both follow the protocol, $\Ver$ accepts.
+\item[Special soundness] there is an efficient extractor $\Ext$ which, given $x$ and two accepting transcripts $(a,e,z)$, $(a,e',z')$ with the \emph{same} first message and $e\ne e'$, outputs $w$ with $(x,w)\in R$.
+\item[Special honest-verifier ZK (SHVZK)] there is an efficient simulator $\Sim$ which on input $(x,e)$ outputs $(a,z)$ such that $(a,e,z)$ is distributed identically (or indistinguishably) to a real accepting transcript with challenge $e$.
+\end{description}
+\end{definition}
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \draw[thick] (0,0)--(0,-3.2);\draw[thick] (6,0)--(6,-3.2);
+ \node at (0,0.35) {Prover$(x,w)$};\node at (6,0.35) {Verifier$(x)$};
+ \draw[->] (0,-0.8)--(6,-0.8) node[midway,above] {$a$ (commitment)};
+ \draw[<-] (0,-1.7)--(6,-1.7) node[midway,above] {$e\getsr\mathcal C$ (challenge)};
+ \draw[->] (0,-2.6)--(6,-2.6) node[midway,above] {$z$ (response)};
+ \node[right] at (6.2,-2.6) {$\phi(x,a,e,z)\stackrel?=1$};
+\end{tikzpicture}
+\end{center}
+\begin{intuition}[Why special soundness gives knowledge]
+Two accepting answers to \emph{different} questions about the \emph{same} commitment can only be produced by someone who could ``open the commitment in two ways'', which reveals the witness. The prover cannot change her commitment after seeing the challenge, so a prover that succeeds for many challenges for a given $a$ must know $w$ (rewinding formalises this).
+\end{intuition}
+
+\begin{theorem}[Special soundness $\Rightarrow$ proof of knowledge]\label{thm:ss2pok}
+Let $(\Prv,\Ver)$ be a $\Sigma$-protocol with $|\mathcal C|=N$. Then it is a proof of knowledge with knowledge error $1/N$. More precisely, if $\Prv^*$ makes $\Ver$ accept with probability $\varepsilon\ge2/N$, there is an extractor running in expected time $O(1/\varepsilon)$ (calls to $\Prv^*$) that outputs a witness.
+\end{theorem}
+\begin{proof}
+Fix the randomness $\omega$ of $\Prv^*$; its first message $a=a(\omega)$ is then determined. Let $\varepsilon_\omega=\Pr_e[\Ver\text{ accepts}\mid\omega]$, so $\mathbb E_\omega[\varepsilon_\omega]=\varepsilon$. Call $\omega$ \emph{good} if $\varepsilon_\omega\ge\varepsilon/2$. Then
+\[\Pr[\text{accept}\wedge\omega\text{ bad}]<\varepsilon/2\ \Rightarrow\ \Pr[\omega\text{ good}\mid\text{accept}]\ge\tfrac12.\]
+\emph{Extractor.} Repeat: sample $(\omega,e)$ until $\Ver$ accepts (expected $1/\varepsilon$ trials). Now, with $\omega$ fixed, sample fresh challenges $e'$ until $\Ver$ accepts with $e'\ne e$; stop after $8/\varepsilon$ samples. If $\omega$ is good, each sample accepts with probability $\ge\varepsilon/2-1/N\ge\varepsilon/4$ (using $\varepsilon\ge 4/N$; rename constants if only $2/N$), so a second accepting transcript is found within $8/\varepsilon$ samples with constant probability. Then run $\Ext$ from special soundness. The probability that the whole procedure fails to produce a witness in one pass is $\le1-\tfrac12\cdot c$; repeating it takes expected $O(1/\varepsilon)$ time overall.
+\end{proof}
+
+\begin{theorem}[Parallel repetition and AND]
+Running $\Sigma$-protocols for $R_1,R_2$ in parallel with a \emph{single} common challenge (when $\mathcal C_1=\mathcal C_2$) yields a $\Sigma$-protocol for $R_1\wedge R_2=\{((x_1,x_2),(w_1,w_2))\}$. Special soundness follows by applying the two extractors; SHVZK by running the two simulators with the same $e$.
+\end{theorem}
+
+\section{Schnorr's protocol}
+\label{sec:schnorr}
+Let $\GG=\langle g\rangle$ of prime order $q$, $y=g^x$. The prover claims to know $x$.
+\begin{protocol}{Protocol 7.1: Schnorr identification / proof of knowledge of discrete log}
+\begin{flow}{Prover $(g,y;x)$}{Verifier $(g,y)$}
+$r\getsr\ZZ_q$, $t:=g^r$ & $\ra{t}$ & \\
+ & $\la{c}$ & $c\getsr\ZZ_q$\\
+$s:=r+cx\bmod q$ & $\ra{s}$ & accept iff $g^s=t\cdot y^c$
+\end{flow}
+\end{protocol}
+\begin{theorem}\label{thm:schnorr}
+Schnorr's protocol is a $\Sigma$-protocol for $R_{\mathrm{DL}}$ with perfect SHVZK; hence a proof of knowledge with knowledge error $1/q$.
+\end{theorem}
+\begin{proof}
+\emph{Completeness:} $g^s=g^{r+cx}=g^r(g^x)^c=ty^c$.\\
+\emph{Special soundness:} from $g^s=ty^c$ and $g^{s'}=ty^{c'}$, $c\ne c'$, divide: $g^{s-s'}=y^{c-c'}$, so $y=g^{(s-s')(c-c')\inv}$ and $x:=(s-s')(c-c')\inv\bmod q$ is a witness.\\
+\emph{SHVZK:} Given $c$, $\Sim$ picks $s\getsr\ZZ_q$ and sets $t:=g^sy^{-c}$. In a real transcript with challenge $c$, $s=r+cx$ is uniform in $\ZZ_q$ (as $r$ is), and $t$ is then determined by $t=g^sy^{-c}$ (verification equation). In the simulation, $s$ is uniform and $t$ is determined the same way. The two distributions on $(t,s)$ are identical.
+\end{proof}
+\begin{example}[Toy group: $q=11$, $g=2$ in $\Zs{23}$]\label{ex:schnorr}
+Secret $x=7$, public $y=2^7=13$.
+\begin{itemize}
+\item \textbf{Real run.} $r=8$: $t=2^8=3$. Challenge $c=4$. $s=8+4\cdot7=36\equiv3\pmod{11}$. Verify: $g^s=2^3=8$; $t\,y^c=3\cdot13^4=3\cdot18=54\equiv8$. \checkmark ($13^2=169\equiv8$, $13^4\equiv64\equiv18$.)
+\item \textbf{Extraction.} Rewind, challenge $c'=9$: $s'=8+63=71\equiv5$. Then $x=(3-5)(4-9)\inv=(-2)(-5)\inv=2\cdot5\inv\equiv2\cdot9=18\equiv7$ (since $5\cdot9=45\equiv1$). \checkmark
+\item \textbf{Simulation} for $c=4$ without $x$: pick $s=6$, $t=2^6\cdot13^{-4}=18\cdot18\inv=1$. Transcript $(t,c,s)=(1,4,6)$; verify: $2^6=18$, $t\,y^4=1\cdot18$. \checkmark
+\end{itemize}
+Note that the simulated $t=1$ happens to be the identity; in a larger group the simulated commitment looks uniform.
+\end{example}
+\begin{center}
+\begin{tikzpicture}[>=Stealth,scale=1.0,every node/.style={font=\small}]
+ % line s = r + c x in the plane (c, s): two accepted transcripts determine x as slope
+ \draw[->] (0,0)--(6.2,0) node[right] {$c$}; \draw[->] (0,0)--(0,4) node[above] {$s$};
+ \draw[thick,blue] (0,0.9)--(5.6,3.7) node[right] {$s=r+xc$};
+ \filldraw (1.4,1.6) circle (2pt) node[above left] {$(c,s)$}; \filldraw (4.2,3.0) circle (2pt) node[below right] {$(c',s')$};
+ \draw[dashed] (1.4,1.6)--(4.2,1.6)--(4.2,3.0); \node at (3.0,1.35) {$\Delta c$}; \node[right] at (4.2,2.3) {$\Delta s=x\,\Delta c$};
+ \node[align=left] at (3,-0.9) {Two points on the line determine the slope $x$ ($\Rightarrow$ special soundness);\\ one point reveals nothing, as $r$ is a uniform intercept ($\Rightarrow$ ZK).};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Zero-knowledge against malicious verifiers}
+Schnorr is only HVZK as stated. A malicious $\Ver^*$ may choose $c$ as a function of $t$, and the simulator cannot program $t$ \emph{after} seeing $c$.
+\begin{itemize}
+\item \textbf{Small challenge space.} If $|\mathcal C|=\poly$ the simulator guesses $c'$, builds $(t,s)$ by SHVZK, and rewinds if $\Ver^*(t)\ne c'$; expected $|\mathcal C|$ attempts. So $\Sigma$-protocols with polynomial-size challenge space are \emph{perfect ZK}, but need superlogarithmically many sequential repetitions for negligible soundness. 
+\item \textbf{Large challenge space, Damgård's trick.} Let $\Ver$ first commit to $c$ using a trapdoor commitment $\mathsf{tc}$ (e.g.\ Pedersen with trapdoor in the CRS or a key chosen by the prover), then the prover sends $t$, the verifier opens $c$. The simulator extracts $c$ from the commitment by rewinding (cost: one extra round) and then produces $(t,s)$ via SHVZK.
+\item \textbf{Fiat--Shamir} (Ch.~8) removes the malicious verifier by making the challenge a hash.
+\end{itemize}
+
+\section{A general view: proofs about group homomorphisms}
+\begin{theorem}[Maurer 2009]\label{thm:maurer}
+Let $\varphi:(\ZZ_q^m,+)\to(\GG,\cdot)$ be a group homomorphism (with $\GG$ of prime order $q$), $y\in\GG$, and the relation $R_\varphi=\{(y,\vec w):\varphi(\vec w)=y\}$. Then the protocol
+\[
+t=\varphi(\vec r),\ \vec r\getsr\ZZ_q^m;\qquad c\getsr\ZZ_q;\qquad \vec s=\vec r+c\vec w;\qquad\text{check }\varphi(\vec s)=t\cdot y^c
+\]
+is a $\Sigma$-protocol (special soundness: $\vec w=(\vec s-\vec s')/(c-c')$; SHVZK: $\vec s\getsr\ZZ_q^m$, $t=\varphi(\vec s)y^{-c}$).
+\end{theorem}
+\begin{proof}
+Verbatim the proof of Theorem~\ref{thm:schnorr} using $\varphi(\vec s-\vec s')=y^{c-c'}$ and the homomorphism property $\varphi(\lambda\vec v)=\varphi(\vec v)^\lambda$.
+\end{proof}
+Different choices of $\varphi$ give a whole zoo:
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}\toprule
+Name & $\varphi$ & Proves knowledge of \\\midrule
+Schnorr & $x\mapsto g^x$ & discrete log $x$ \\
+Okamoto/Pedersen opening & $(x_1,x_2)\mapsto g^{x_1}h^{x_2}$ & representation / opening of a Pedersen commitment\\
+Chaum--Pedersen & $x\mapsto(g^x,h^x)\in\GG^2$ & $x$ with $\log_gu=\log_hv$ (DDH tuple)\\
+Multi-exponentiation & $\vec x\mapsto\prod g_i^{x_i}$ & vector commitment opening\\
+Guillou--Quisquater (RSA) & $x\mapsto x^e$ in $\Zs N$ & $e$-th root (needs $c<e$, $\gcd$ arguments)\\\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Okamoto's protocol: knowledge of a representation}
+Given $y=g^{x_1}h^{x_2}$ prove knowledge of $(x_1,x_2)$---the opening of a Pedersen commitment.
+\begin{protocol}{Protocol 7.2: Okamoto / opening of a Pedersen commitment}
+\begin{flow}{Prover $(x_1,x_2)$}{Verifier}
+$k_1,k_2\getsr\ZZ_q$; $t=g^{k_1}h^{k_2}$ & $\ra{t}$ & \\
+ & $\la{c}$ & $c\getsr\ZZ_q$\\
+$s_i=k_i+cx_i$ & $\ra{s_1,s_2}$ & accept iff $g^{s_1}h^{s_2}=t\,y^c$
+\end{flow}
+\end{protocol}
+\begin{example}
+Toy group, $g=2$, $h=3$, $y=g^4h^6=3$ (the commitment of Example~\ref{ex:pedersen}), witness $(4,6)$. Pick $k=(2,5)$: $t=2^2\cdot3^5=4\cdot13=52\equiv6$. Challenge $c=3$: $s_1=2+12=14\equiv3$, $s_2=5+18=23\equiv1$. Verify: $g^3h^1=8\cdot3=24\equiv1$; $t\,y^3=6\cdot27\equiv6\cdot4=24\equiv1$. \checkmark
+\end{example}
+Special soundness: two transcripts with $c\ne c'$ give $(x_1,x_2)$. Since Pedersen commitments are \emph{binding}, a prover who knows two different representations of the same $y$ would break DL, hence the \emph{unique} witness.
+
+\subsection{Chaum--Pedersen: equality of discrete logarithms}
+\label{sec:cp}
+Statement: $(g,h,u,v)$ with $u=g^x$, $v=h^x$ (equivalently $(g,h,u,v)$ is a DH-tuple).
+\begin{protocol}{Protocol 7.3: Chaum--Pedersen}
+\begin{flow}{Prover $(x)$}{Verifier}
+$r\getsr\ZZ_q$; $a=g^r$, $b=h^r$ & $\ra{a,b}$ & \\
+ & $\la{c}$ & $c\getsr\ZZ_q$\\
+$s=r+cx$ & $\ra{s}$ & accept iff $g^s=a\,u^c$ and $h^s=b\,v^c$
+\end{flow}
+\end{protocol}
+\begin{example}
+Toy group; $g=2$, $h=3$, $x=7$: $u=2^7=13$; $v=3^7=2187=95\cdot23+2\equiv2$. Prover $r=5$: $a=2^5=9$, $b=3^5=243=10\cdot23+13\equiv13$. Challenge $c=4$: $s=5+28=33\equiv0$. Check: $g^0=1$ and $a\,u^4=9\cdot18=162=7\cdot23+1\equiv1$ \checkmark; $h^0=1$ and $b\,v^4=13\cdot16=208=9\cdot23+1\equiv1$ \checkmark.
+\end{example}
+Proof as in Theorem~\ref{thm:maurer} with $\varphi(x)=(g^x,h^x)$. \emph{Applications:} proving correct decryption of ElGamal ($\log_gpk=\log_{c_1}(c_1^{sk})$), correct re-randomisation in mixnets, verifiable random functions (VRFs), threshold cryptography (proof that a partial decryption share is honest).
+
+\section{Compound statements: AND, equality, OR}
+\subsection{AND and equality}
+To prove $(x_1,x_2)\in R_1\wedge R_2$, run the two protocols with the same challenge. To prove two statements with the \emph{same} witness (e.g.\ $y_1=g_1^x$, $y_2=g_2^x$) use the same response $s$---this is exactly Chaum--Pedersen.
+
+\subsection{OR proofs (Cramer--Damgård--Schoenmakers 1994)}
+Prove: ``I know $w_0$ with $(x_0,w_0)\in R_0$ \emph{or} $w_1$ with $(x_1,w_1)\in R_1$'' without revealing which. The trick: the prover simulates the branch whose witness she lacks, and splits the verifier's challenge.
+\begin{protocol}{Protocol 7.4: Schnorr OR-proof (knows $\log_gy_0$ or $\log_gy_1$)}
+Suppose the prover knows $x_b$, $b\in\{0,1\}$, and let $\bar b=1-b$.
+\begin{enumerate}
+\item \textbf{Commit.} Real branch: $r\getsr\ZZ_q$, $t_b=g^r$. Simulated branch: choose $c_{\bar b},s_{\bar b}\getsr\ZZ_q$, set $t_{\bar b}=g^{s_{\bar b}}y_{\bar b}^{-c_{\bar b}}$. Send $(t_0,t_1)$.
+\item \textbf{Challenge.} Verifier sends $c\getsr\ZZ_q$.
+\item \textbf{Respond.} $c_b=c-c_{\bar b}$, $s_b=r+c_bx_b$. Send $(c_0,c_1,s_0,s_1)$.
+\item \textbf{Verify.} $c_0+c_1\equiv c$, and $g^{s_i}=t_iy_i^{c_i}$ for $i=0,1$.
+\end{enumerate}
+\end{protocol}
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \node[draw,rounded corners,fill=green!10,text width=3.4cm,align=center] (r) at (0,1.2) {\textbf{real branch} $b$\\ $t_b=g^r$\\ $c_b=c-c_{\bar b}$ (forced)\\ $s_b=r+c_bx_b$};
+ \node[draw,rounded corners,fill=red!10,text width=3.4cm,align=center] (s) at (0,-1.4) {\textbf{simulated branch} $\bar b$\\ pick $c_{\bar b},s_{\bar b}$\\ $t_{\bar b}=g^{s_{\bar b}}y_{\bar b}^{-c_{\bar b}}$};
+ \node[draw,circle,fill=yellow!20] (c) at (5.5,0) {$c$};
+ \draw[->] (r) -- (c) node[midway,above,sloped] {$c_b+c_{\bar b}=c$};
+ \draw[->] (s) -- (c);
+ \node[align=left] at (9.2,0) {the verifier's $c$ is \emph{free},\\ but the prover has only\\ one degree of freedom:\\ whichever $c_{\bar b}$ she fixed in\\ advance, $c_b$ is determined.};
+\end{tikzpicture}
+\end{center}
+\begin{theorem}
+Protocol 7.4 is a $\Sigma$-protocol for $R_0\vee R_1$ (with $\mathcal C=\ZZ_q$) and is \emph{witness indistinguishable}: the verifier's view is identically distributed for $b=0$ and $b=1$.
+\end{theorem}
+\begin{proof}
+\emph{Completeness:} for the real branch Schnorr completeness; for the simulated branch $g^{s_{\bar b}}=t_{\bar b}y_{\bar b}^{c_{\bar b}}$ by construction; $c_0+c_1=c$.
+\emph{Special soundness:} two accepting transcripts with the same $(t_0,t_1)$ and challenges $c\ne c'$ yield $(c_0,c_1)$, $(c_0',c_1')$ with $c_0+c_1\ne c_0'+c_1'$, hence $c_i\ne c_i'$ for some $i$. For this $i$, the transcripts $(t_i,c_i,s_i)$, $(t_i,c_i',s_i')$ satisfy Schnorr's special soundness and give $x_i$. (The prover ``cannot have cheated in both branches'', since $c_0+c_1$ varies with $c$.)
+\emph{WI:} In both cases the distribution of $(t_0,t_1,c_0,c_1,s_0,s_1)$ is: $c_0$ uniform in $\ZZ_q$, $c_1=c-c_0$, $s_i$ uniform, $t_i=g^{s_i}y_i^{-c_i}$. In the real branch $c_b=c-c_{\bar b}$ is uniform as $c_{\bar b}$ is; $s_b=r+c_bx_b$ is uniform since $r$ is. The distribution does not depend on $b$.
+\end{proof}
+\begin{example}[Numerical OR-proof]
+Toy group. Statement: $y_0=13$ (prover knows $x_0=7$) OR $y_1=3$ (prover pretends not to know $\log_23$). So $b=0$.
+\begin{itemize}
+\item Simulated branch 1: choose $c_1=3$, $s_1=4$; $t_1=g^4y_1^{-3}=16\cdot3^{-3}=16\cdot27\inv=16\cdot4\inv=16\cdot6=96\equiv4$ (since $4\cdot6=24\equiv1$).
+\item Real branch 0: $r=5$, $t_0=2^5=9$. Send $(t_0,t_1)=(9,4)$.
+\item Verifier's $c=8$. Then $c_0=c-c_1=5$, $s_0=r+c_0x_0=5+35=40\equiv7$.
+\item Verify: $c_0+c_1=8$ \checkmark; $g^{s_0}=2^7=13$ and $t_0y_0^{c_0}=9\cdot13^5=9\cdot4=36\equiv13$ \checkmark ($13^5=13^4\cdot13=18\cdot13=234\equiv4$); $g^{s_1}=2^4=16$ and $t_1y_1^{c_1}=4\cdot27\equiv4\cdot4=16$ \checkmark.
+\end{itemize}
+\end{example}
+\begin{example}[Proving a committed bit; building block for range proofs]
+Let $C=g^bh^r$ be a Pedersen commitment. To show $b\in\{0,1\}$ prove ``$C=h^r$ or $C/g=h^r$''---an OR of two Schnorr proofs w.r.t.\ base $h$ for statements $C$ and $Cg^{-1}$. Applying it to bits $b_0..b_{n-1}$ and showing $C=\prod C_i^{2^i}$ (using the homomorphism) proves $C$ commits to a value in $[0,2^n)$: a range proof of size $O(n)$ (Bulletproofs improve this to $O(\log n)$, Chapter~11).
+\end{example}
+\begin{remark}[Threshold / general access structures]
+CDS generalise OR to ``know witnesses for $k$ of $n$ statements'' by sharing the verifier's challenge via Shamir secret sharing: the simulated branches get $n-k$ free shares which determine a degree-$(n-k)$ polynomial $f$ with $f(0)=c$. This yields ring signatures (Rivest--Shamir--Tauman; Abe--Ohkubo--Suzuki) and privacy-preserving credentials.
+\end{remark}
+
+\section{From identification to signatures: preview}
+A Schnorr transcript $(t,c,s)$ where $c=H(t,m)$ is a signature on $m$. Security and the forking lemma are the subject of Chapter~8.
+
+\section*{Exercises}
+\begin{exercise}
+Show that Schnorr's protocol is not special-sound if $\mathcal C$ is allowed to contain $c,c'$ with $c-c'$ not invertible mod the group order (e.g.\ over $\ZZ_{pq}$).
+\end{exercise}
+\begin{exercise}
+Prove that if the prover reuses the nonce $r$ across two proofs with different challenges, the secret key is revealed. (This is how Sony's PS3 ECDSA key was extracted.)
+\end{exercise}
+\begin{exercise}
+Design a $\Sigma$-protocol for ``$y_1=g^{x}$ and $y_2=h^{x^{2}}$'' (hint: Pedersen-commit to $x$, prove a multiplicative relation).
+\end{exercise}
+\begin{exercise}
+Write the 1-out-of-3 OR proof for Schnorr statements and prove WI. How does the challenge splitting generalise?
+\end{exercise}
+\begin{exercise}
+Prove that the Okamoto protocol is perfectly HVZK and that, for a given $y$, a prover who can produce two different representations of $y$ can compute $\log_gh$.
+\end{exercise}
+
+\chapter{Fiat--Shamir, Random Oracles and Non-Interactive Zero-Knowledge}
+\label{ch:fs}
+Interaction is costly: a verifier must be online, and a transcript convinces only the verifier who took part. Can the challenge be generated without a verifier? Fiat and Shamir (1986) suggested: let the prover compute the challenge herself as a hash of everything said so far.
+
+\section{The Fiat--Shamir transform}
+Let $(\Prv,\Ver)$ be a public-coin $\Sigma$-protocol with transcript $(a,e,z)$ and $H:\{0,1\}^*\to\mathcal C$ a hash function.
+\begin{protocol}{Algorithm 8.1: Fiat--Shamir transform (non-interactive proof of knowledge)}
+\textbf{Prove}$(x,w;\,m)$: compute $a\leftarrow\Prv(x,w)$; set $e:=H(x,a,m)$; compute $z\leftarrow\Prv(x,w,a,e)$; output $\pi=(a,z)$ (or $(e,z)$).\\
+\textbf{Verify}$(x,\pi=(a,z);\,m)$: $e:=H(x,a,m)$; accept iff $\phi(x,a,e,z)=1$.
+\end{protocol}
+The optional message $m$ turns the proof into a \emph{signature of knowledge} / \emph{signature on $m$}.
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \node[draw,rounded corners,fill=blue!6] (p) at (0,0) {Prover};
+ \node[draw,rounded corners,fill=yellow!15] (h) at (4,0) {$H(x,a,m)$};
+ \node[draw,rounded corners,fill=green!8] (v) at (8.3,0) {Verifier (offline)};
+ \draw[->] (p) to[bend left=25] node[above] {$a$} (h);
+ \draw[->] (h) to[bend left=25] node[below] {$e$} (p);
+ \draw[->,thick] (p) -- ++(0,-1.4) -| node[pos=0.25,below] {$\pi=(a,z)$} (v);
+\end{tikzpicture}
+\end{center}
+\begin{example}[Schnorr signature, toy group]\label{ex:schnorrsig}
+Key: $x=7$, $y=13$. Message $m$. Sign: $r=8$, $t=3$; suppose $H(t\|m)=c=4$ (mod 11). Then $s=r+cx=3$; signature $(t,s)=(3,3)$ (or $(c,s)$). Verify: recompute $c=H(3\|m)=4$; check $g^3=8$ equals $t\,y^c=3\cdot18=54\equiv8$. \checkmark In the compact form $(c,s)$, verify $t'=g^sy^{-c}=8\cdot18\inv$ and check $H(t'\|m)=c$. Anyone can verify; nobody can forge without $x$ (see below).
+\end{example}
+
+\section{Security in the random oracle model}
+\begin{theorem}[FS preserves ZK and soundness in the ROM]\label{thm:fs}
+Let $\Pi$ be a $\Sigma$-protocol with SHVZK and special soundness and with $\mathcal C$ super-polynomially large. Then FS$(\Pi)$ in the ROM is
+\begin{enumerate}
+\item \textbf{Non-interactive zero-knowledge}: there is a simulator that, with the power to program $H$, outputs proofs indistinguishable from real;
+\item \textbf{Sound / proof of knowledge}: for every PPT adversary $\mathcal A$ making $Q$ random-oracle queries and outputting an accepting $(x,\pi)$ with probability $\varepsilon$, there is an extractor which outputs a witness with probability roughly $\varepsilon^2/Q-\varepsilon/|\mathcal C|$ (forking lemma).
+\end{enumerate}
+\end{theorem}
+\begin{proof}[Proof of ZK part]
+Simulator: on a request to prove $x$ (for $x\in L$), sample $e\getsr\mathcal C$, run the SHVZK simulator to get $(a,z)$, and \emph{program} $H(x,a,m):=e$. If $H$ was already queried on that input (probability $\le Q/\text{(entropy of }a)$, negligible if $a$ has superlogarithmic min-entropy) abort. Because $e$ is uniform, $H(x,a,m)=e$ is a perfectly valid lazily-sampled answer, and $(a,e,z)$ has the real distribution by SHVZK.
+\end{proof}
+
+\subsection{The forking lemma}
+The extractor must obtain two accepting transcripts with the same $a$ but different $e$ from a non-interactive adversary: it \emph{reruns the adversary with the oracle answers changed from the critical query onward}.
+\begin{lemma}[General forking lemma, Bellare--Neven]\label{lem:fork}
+Let $\mathcal A$ be a randomized algorithm that takes random coins $\rho$ and oracle answers $h_1,\dots,h_Q\in\mathcal C$ ($|\mathcal C|=N$) and outputs either $\perp$ or a pair $(I,\text{out})$ with $I\in[Q]$. Let $\mathrm{acc}=\Pr[\mathcal A\ne\perp]$ over uniform $\rho,\vec h$. The forking algorithm $\mathcal F_{\mathcal A}$: pick $\rho$, $h_1..h_Q$; run $\mathcal A$; if $\perp$ return $\perp$; else let $I$ be its index; pick fresh $h'_I..h'_Q$ and rerun $\mathcal A(\rho;h_1..h_{I-1},h'_I..h'_Q)$; if it returns the same index $I$ and $h_I\ne h'_I$ output success. Then
+\[\mathrm{frk}:=\Pr[\mathcal F_{\mathcal A}\text{ succeeds}]\ \ge\ \mathrm{acc}\Big(\frac{\mathrm{acc}}{Q}-\frac1N\Big).\]
+\end{lemma}
+\begin{proof}
+Let $S_i$ be the set of $(\rho,\vec h)$ on which $\mathcal A$ succeeds with index $i$, so $\Pr[S_i]$ sums over $i$ to $\mathrm{acc}$. Fix $i$ and a prefix $(\rho,h_1,\dots,h_{i-1})$ and let
+\[\alpha_i(\rho,h_{<i})=\Pr_{h_i,\dots,h_Q}\big[(\rho,\vec h)\in S_i\big].\]
+Conditioned on the prefix, the two runs of $\mathcal F_{\mathcal A}$ use independent suffixes, so both land in $S_i$ with probability $\alpha_i^2$. The probability that additionally $h_i=h_i'$ is at most $\alpha_i/N$ (given the first run, the fresh $h'_i$ equals $h_i$ with probability $1/N$). Hence the probability of a successful fork at index $i$ is at least $\alpha_i^2-\alpha_i/N$. Averaging over prefixes and using Jensen's inequality $\mathbb E[\alpha_i^2]\ge\mathbb E[\alpha_i]^2$ with $\beta_i:=\mathbb E[\alpha_i]=\Pr[S_i]$:
+\[
+\mathrm{frk}\ \ge\ \sum_{i=1}^Q\Big(\beta_i^2-\frac{\beta_i}{N}\Big)\ \ge\ \frac{(\sum_i\beta_i)^2}{Q}-\frac{\sum_i\beta_i}{N}=\frac{\mathrm{acc}^2}{Q}-\frac{\mathrm{acc}}N,
+\]
+where we used Cauchy--Schwarz, $\sum_i\beta_i^2\ge(\sum_i\beta_i)^2/Q$.
+\end{proof}
+\begin{intuition}
+Run the cheater once. Find the oracle query that determined its commitment $a$. Wind time back to just before that query and give a \emph{different} random answer. If the cheater still produces a valid proof (about $1/Q$ of the time it is ``the same query'' again), you hold two proofs of the same $a$ under different challenges---special soundness extracts $w$. The price is the quadratic loss $\varepsilon^2/Q$: forking proofs are \emph{not tight}.
+\end{intuition}
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \draw[->,thick] (0,0)--(10,0) node[right] {time};
+ \filldraw (3,0) circle (2pt) node[above] {query $I$: $H(x,a,m)$};
+ \draw[->,blue,thick] (3,0) .. controls (5,1) .. (9,1.2) node[right] {$h_I$, accepts $(a,z)$};
+ \draw[->,red,thick] (3,0) .. controls (5,-1) .. (9,-1.2) node[right] {$h'_I$, accepts $(a,z')$};
+ \draw[dashed] (3,0)--(3,-1.8);
+ \node[align=center] at (3,-2.3) {same coins $\rho$ and same answers up to this point};
+\end{tikzpicture}
+\caption{Forking: two executions diverge at the critical oracle query.}
+\end{figure}
+\begin{corollary}[EUF-CMA security of Schnorr signatures in the ROM]
+If DL is hard in $\GG$, Schnorr signatures are existentially unforgeable under chosen message attacks in the random oracle model (Pointcheval--Stern 1996, with signing-oracle queries answered by the ZK simulator that programs $H$).
+\end{corollary}
+\begin{proof}[Idea]
+Given a DL instance $y$, set the public key to $y$. Answer signing queries via the simulator (no secret needed); answer $H$ queries lazily and consistently. When the forger outputs a forgery $(t,s)$ on a fresh $m^*$, fork on the query $H(t\|m^*)$ to obtain another accepting transcript with the same $t$ and a different $c$; special soundness yields $x=\dlog_gy$.
+\end{proof}
+
+\begin{warning}[Pitfalls: ``weak'' Fiat--Shamir and the Frozen Heart family]
+\begin{itemize}
+\item \textbf{Hash the statement!} The challenge must bind the \emph{statement} $x$ (and all public parameters) as well as the commitment. Omitting $x$ ("weak FS") allows a prover to pick $(a,e,z)$ first and then solve for a statement $x$ consistent with it (e.g.\ Schnorr: pick $s,c$, set $y=(g^s/t)^{1/c}$ for any $t$). This is exactly the class of bugs known as \emph{Frozen Heart} in several zk-SNARK/Bulletproofs implementations (2022).
+\item \textbf{Nonce reuse/bias.} The randomness $r$ of Schnorr/ECDSA must be fresh (or derived deterministically: RFC 6979/EdDSA). Reuse leaks $x$.
+\item \textbf{Multi-round protocols.} For $(2\mu+1)$-move protocols, \emph{every} challenge must hash the full transcript so far (``strong FS''); security then requires \emph{round-by-round soundness} or $(k_1,\dots,k_\mu)$-special soundness; the knowledge error grows with the number of rounds (Attema--Fehr--Klooß).
+\item \textbf{Grinding.} If the proof has soundness error $2^{-\kappa}$ per round and the adversary can retry, repeat/grind; parameters must absorb the adversary's number of hash queries ($\kappa+\log Q$ bits).
+\item \textbf{Not secure for all protocols.} There exist (contrived) protocols secure interactively whose FS compilation is insecure for every instantiation of $H$ \cite{GK03}; for natural protocols, FS from correlation-intractable hash functions (Canetti et al.\ 2019, Peikert--Shiehian) is secure from standard assumptions such as LWE.
+\end{itemize}
+\end{warning}
+
+\section{NIZK in the common reference string model}
+The CRS model assumes a trusted setup that samples a string $\mathsf{crs}$ from some distribution known to all.
+\begin{definition}[NIZK]\label{def:nizk}
+A tuple $(\Setup,\mathsf{Prove},\mathsf{Verify})$ is a NIZK argument/proof for $R$ if:
+\begin{description}
+\item[Completeness] $\Pr[\mathsf{Verify}(\mathsf{crs},x,\mathsf{Prove}(\mathsf{crs},x,w))=1]=1$ for $(x,w)\in R$.
+\item[Soundness] For all (PPT) $\mathcal A$, $\Pr[\mathsf{Verify}(\mathsf{crs},x,\pi)=1\wedge x\notin L]\le\negl$.
+\item[Zero-knowledge] There is a PPT $\Sim=(\Sim_1,\Sim_2)$ with $(\mathsf{crs}_{sim},\tau)\leftarrow\Sim_1(1^\lambda)$, $\pi\leftarrow\Sim_2(\mathsf{crs}_{sim},\tau,x)$ so that $(\mathsf{crs},\mathsf{Prove}(\mathsf{crs},x,w))\approx_c(\mathsf{crs}_{sim},\Sim_2(\mathsf{crs}_{sim},\tau,x))$.
+\item[Knowledge soundness (optional)] An extractor $\Ext_{\mathsf{crs}}$ with a trapdoor outputs $w$ from any accepting proof.
+\end{description}
+\end{definition}
+\begin{remark}
+The simulator \emph{chooses the CRS}: it knows a trapdoor $\tau$ that the real prover does not. Whoever knows $\tau$ can forge proofs for false statements; hence the setup ceremony must be trusted or run as a multi-party computation (Zcash Powers of Tau). NIZK is impossible in the plain model for nontrivial languages (Goldreich--Oren): a deterministic non-interactive verifier lets the simulator output a proof, then a decider for $L$ exists.
+\end{remark}
+
+\subsection{Feige--Lapidot--Shamir/Blum--Feldman--Micali sketch}
+The classical construction (BFM88) proves 3-colourability/Hamiltonicity with a CRS of random bits $\sigma$ interpreted as the verifier's coins. \emph{Idea:} use a trapdoor permutation $f$ to commit; the CRS contains the hidden string; the prover simulates Blum's protocol with challenge bits derived from the CRS, and the simulator, who chooses the CRS with a trapdoor, can ``see'' what the challenges are in advance. In modern language: (i) NIZK for a ``Hidden Bits Model'' (the prover sees a random string $r$ of which she chooses to reveal certain positions to the verifier, with the unrevealed ones staying random); (ii) compile via a trapdoor permutation with hard-core predicate.
+\begin{theorem}[FLS90]
+If trapdoor permutations exist (e.g.\ RSA), every $L\in\NP$ has a (statistical) NIZK argument with perfect completeness and the prover efficient given $w$.
+\end{theorem}
+\begin{theorem}[Groth--Ostrovsky--Sahai 2006; Groth--Sahai 2008]
+Pairing-based NIZK for satisfiability of pairing-product equations exists under DLIN/SXDH: practical for proving statements such as ``this ciphertext decrypts to a valid signature'', without going through $\NP$-reductions. Proofs are linear in the number of variables.
+\end{theorem}
+\begin{theorem}[Peikert--Shiehian 2019; Canetti et al.\ 2019]
+NIZK for $\NP$ exists from LWE, in the CRS (or even the common random string) model, by instantiating FS with a correlation-intractable hash function.
+\end{theorem}
+
+\section{Interactive vs.\ non-interactive: a summary}
+\begin{center}\small
+\begin{tabular}{@{}p{3.3cm}p{5.5cm}p{5.5cm}@{}}\toprule
+ & Interactive ZK & NIZK \\\midrule
+Prover/verifier & online both & prover offline; verifier any time\\
+Transferability & transcript deniable (simulatable) & proof can be forwarded/verified publicly \\
+Setup & none & CRS or random oracle\\
+Soundness against & unbounded or PPT provers & PPT (arguments) typically\\
+Example & Schnorr ID, GMW 3-COL & Schnorr signature, Groth16, STARK \\\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Exercises}
+\begin{exercise}
+Show that Schnorr signatures with hash $H(t\|m)$ are insecure if $m$ is replaced by a hash that omits $t$ (i.e.\ $c=H(m)$).
+\end{exercise}
+\begin{exercise}
+Prove that the weak Fiat--Shamir variant $c=H(t)$ (statement omitted) allows forging proofs for \emph{some} statement of the adversary's choice. Give the attack for Schnorr.
+\end{exercise}
+\begin{exercise}
+Work through the forking lemma with $Q=1$, and conclude that in this special case $\mathrm{frk}\ge\mathrm{acc}^2-\mathrm{acc}/N$. Compare with the extraction in Theorem~\ref{thm:ss2pok}.
+\end{exercise}
+\begin{exercise}
+Using your answer to the previous exercise, estimate the security loss: if the best attacker against the DL problem in the group runs in time $2^{128}$ and $Q=2^{60}$, what bit security can the forking-lemma reduction guarantee for Schnorr signatures?
+\end{exercise}
+
+\chapter{The Sum-Check Protocol and Interactive Proofs for Computation}
+\label{ch:sumcheck}
+From here on our goal changes: we want proofs that are \emph{succinct}---much shorter and faster to verify than the computation they certify. The first tool is the sum-check protocol of Lund, Fortnow, Karloff and Nisan (1990), the engine behind $\IP=\PSPACE$, GKR, and many modern SNARKs (Spartan, HyperPlonk, Lasso/Jolt).
+
+\section{Multivariate polynomials and multilinear extensions}
+\begin{definition}[Multilinear extension]
+For $f:\{0,1\}^v\to\FF$ the \emph{multilinear extension} (MLE) is the unique polynomial $\tilde f\in\FF[X_1..X_v]$ of degree $\le1$ in each variable agreeing with $f$ on $\{0,1\}^v$:
+\[\tilde f(\vec X)=\sum_{\vec b\in\{0,1\}^v}f(\vec b)\cdot\chi_{\vec b}(\vec X),\qquad\chi_{\vec b}(\vec X)=\prod_{i=1}^v\big(b_iX_i+(1-b_i)(1-X_i)\big).\]
+\end{definition}
+\begin{example}
+$f:\{0,1\}^2\to\FF$ with $f(00)=6$, $f(01)=9$, $f(10)=1$, $f(11)=4$. Then $\tilde f(X_1,X_2)=6(1-X_1)(1-X_2)+9(1-X_1)X_2+X_1(1-X_2)+4X_1X_2$. At $(X_1,X_2)=(2,3)$: $6(-1)(-2)+9(-1)(3)+2(-2)+4\cdot6=12-27-4+24=5$.
+\end{example}
+Uniqueness: a multilinear polynomial vanishing on $\{0,1\}^v$ is zero (induction on $v$). An MLE of a vector of length $2^v$ is evaluable at any point in $O(2^v)$ operations. Key advantage over univariate encodings: \emph{no FFT is required}, and evaluations on the Boolean hypercube correspond to the original data.
+
+\section{The protocol}
+\textbf{Claim:} $H=\sum_{\vec b\in\{0,1\}^v}g(\vec b)$ where $g\in\FF[X_1..X_v]$ has degree $\le d$ in each variable. The verifier can evaluate $g$ at a single random point (via an oracle, or through a commitment, or via recursion).
+\begin{protocol}{Protocol 9.1: Sum-check}
+\textbf{Round 1.} $\Prv$ sends univariate $g_1(X)=\sum_{\vec b\in\{0,1\}^{v-1}}g(X,\vec b)$. $\Ver$ checks $g_1(0)+g_1(1)=H$, picks $r_1\getsr\FF$, sends it.\\
+\textbf{Round $i$ ($2\le i\le v$).} $\Prv$ sends $g_i(X)=\sum_{\vec b\in\{0,1\}^{v-i}}g(r_1,\dots,r_{i-1},X,\vec b)$. $\Ver$ checks $g_i(0)+g_i(1)=g_{i-1}(r_{i-1})$, picks $r_i$.\\
+\textbf{Final check.} $\Ver$ checks $g_v(r_v)=g(r_1,\dots,r_v)$ (one evaluation of $g$).\\
+(Each $g_i$ has degree $\le d$, so is sent as $d+1$ field elements.)
+\end{protocol}
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \foreach \i/\w in {0/3.6,1/2.6,2/1.6,3/0.6}{
+   \draw[fill=blue!\the\numexpr 10+\i*10\relax!white] (0,-\i*1.1) rectangle (\w*1.6,-\i*1.1-0.7);}
+ \node[right] at (6.0,-0.35) {$H=\sum_{b_1b_2b_3b_4}g(b)$ \quad (claim)};
+ \node[right] at (4.3,-1.45) {$g_1(X_1)$: $2^{3}$ terms, fix $r_1$};
+ \node[right] at (3.0,-2.55) {$g_2(X_2)$: $2^{2}$ terms, fix $r_2$};
+ \node[right] at (1.8,-3.65) {$g_3,g_4$: remaining; final check $g(r_1..r_4)$};
+ \node[left] at (-0.2,-0.35) {$2^4$};
+\end{tikzpicture}
+\end{center}
+\begin{theorem}[Completeness and soundness]\label{thm:sumcheck}
+The protocol has perfect completeness. If $H\ne\sum_{\vec b}g(\vec b)$, then for every prover $\Prv^*$, $\Ver$ accepts with probability at most $vd/|\FF|$.
+\end{theorem}
+\begin{proof}
+\emph{Completeness} is immediate from $g_i(0)+g_i(1)=\sum_{b_i}\sum_{\vec b'}g(r_{<i},b_i,\vec b')=g_{i-1}(r_{i-1})$.
+
+\emph{Soundness} by induction on $v$. For $v=1$: $\Prv^*$ sends some polynomial $g_1^*$ of degree $\le d$ with $g_1^*(0)+g_1^*(1)=H$ (otherwise reject). Since $H\ne g(0)+g(1)$, $g_1^*\ne g$ as polynomials, so they agree on at most $d$ points: $\Pr_{r_1}[g_1^*(r_1)=g(r_1)]\le d/|\FF|$, and the final check passes only then. For $v>1$: let $g_1^*$ be the first message. If $g_1^*=g_1$ (the true polynomial) then $g_1(0)+g_1(1)=\sum_{\vec b}g(\vec b)\ne H$ and the verifier rejects at once. So $g^*_1\ne g_1$, and with probability $\ge1-d/|\FF|$ over $r_1$, $g_1^*(r_1)\ne g_1(r_1)=\sum_{\vec b'}g(r_1,\vec b')$. Then the remaining $(v-1)$-round protocol is on a \emph{false} claim about $g(r_1,\cdot)$, which by the inductive hypothesis is accepted with probability $\le(v-1)d/|\FF|$. A union bound gives $vd/|\FF|$.
+\end{proof}
+\begin{example}\label{ex:sumcheck}
+Let $g(x_1,x_2,x_3)=2x_1^3+x_1x_3+x_2x_3$ over a large field (here integers suffice for the arithmetic). The true sum over $\{0,1\}^3$ is $H=12$: on Boolean points $x_1^3=x_1$ so the $2x_1$ term contributes $2\cdot4=8$, $x_1x_3$ contributes $2$ and $x_2x_3$ contributes $2$.
+\begin{enumerate}
+\item $\Prv$: $g_1(X)=\sum_{x_2,x_3}g(X,x_2,x_3)=8X^3+2X+1$. $\Ver$: $g_1(0)+g_1(1)=1+11=12=H$ \checkmark. $r_1=2$; $g_1(2)=64+4+1=69$.
+\item $\Prv$: $g_2(X)=\sum_{x_3}g(2,X,x_3)=g(2,X,0)+g(2,X,1)=16+(16+2+X)=34+X$. $\Ver$: $g_2(0)+g_2(1)=34+35=69=g_1(2)$ \checkmark. $r_2=3$; $g_2(3)=37$.
+\item $\Prv$: $g_3(X)=g(2,3,X)=16+2X+3X=16+5X$. $\Ver$: $g_3(0)+g_3(1)=16+21=37$ \checkmark. $r_3=5$; $g_3(5)=41$.
+\item Final: $\Ver$ computes $g(2,3,5)=16+10+15=41$. \checkmark
+\end{enumerate}
+A cheating prover claiming $H'=13$ must send a $g_1^*$ with $g^*_1(0)+g^*_1(1)=13$, hence $g_1^*\ne g_1$; it is caught unless $r_1$ is one of the $\le3$ roots of $g_1^*-g_1$.
+\end{example}
+\begin{theorem}[Efficiency]
+The verifier does $O(vd)$ field operations plus one evaluation of $g$ and communicates $O(vd)$ elements. If $g$ is given as a table of $2^v$ values (e.g.\ products of MLEs of tables), the prover can be implemented in time $O(2^v\cdot\poly(d))$ by halving the table in each round (Thaler/Libra/Virgo).
+\end{theorem}
+
+\section{Application 1: $\#$SAT, so $\mathsf{coNP}\subseteq\IP$}
+Arithmetise a 3-CNF $\varphi$ with polynomial $p_\varphi$: variable $x\mapsto x$; $\neg x\mapsto1-x$; clause $\ell_1\vee\ell_2\vee\ell_3\mapsto1-\prod_j(1-\ell_j)$; $\varphi=\bigwedge_k C_k\mapsto\prod_kp_{C_k}$. On Boolean inputs $p_\varphi(\vec b)=\varphi(\vec b)\in\{0,1\}$, hence $\#\mathrm{SAT}(\varphi)=\sum_{\vec b}p_\varphi(\vec b)$, with $\deg\le m$ (the number of clauses) in total and per variable $\le$ clause occurrences.
+\begin{example}
+$\varphi=(x_1\vee x_2)\wedge(\neg x_1\vee x_2)$. $p=\big(x_1+x_2-x_1x_2\big)\big(1-x_1+x_1x_2\big)$, per-variable degree $2$. Boolean evaluations: $p(00)=0$, $p(01)=1$, $p(10)=0$, $p(11)=1$, so $\#\mathrm{SAT}=2$ ($x_2=1$).\\
+Sum-check over $\FF_{17}$: $g_1(X)=p(X,0)+p(X,1)=X(1-X)+1=1+X-X^2$; $g_1(0)+g_1(1)=1+1=2$ \checkmark. $r_1=5$: $g_1(5)=1+5-25=-19\equiv15$. $g_2(X)=p(5,X)=(5-4X)(-4+5X)=-20+41X-20X^2$; $g_2(0)+g_2(1)=-20+1=-19\equiv15$ \checkmark. $r_2=3$: $g_2(3)=-20+123-180=-77\equiv8$. Final: $p(5,3)=(5+3-15)(1-5+15)=(-7)(11)=-77\equiv8$ \checkmark.
+\end{example}
+Since $\coNP$-complete \textsf{UNSAT} $=\{\varphi:\#\mathrm{SAT}(\varphi)=0\}$, we get $\coNP\subseteq\IP$---a result that astonished the community in 1989--90 because $\coNP$ proofs were thought to need exponential length. For $\IP=\PSPACE$ one must handle the degree blow-up in the quantifier arithmetisation (LFKN's ``degree-reduction'' linearisation operators).
+
+\section{Application 2: GKR---delegating computation}
+\label{sec:gkr}
+Goldwasser, Kalai and Rothblum (2008) verify a layered arithmetic circuit $C$ of size $S$, depth $D$, fan-in 2 with a prover of time $\tilde O(S)$ and verifier of time $\tilde O(n+D\log S)$---far less than $S$ when $C$ is low-depth and ``regular''.
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small},gate/.style={circle,draw,minimum size=0.7cm}]
+ \node at (-1.7,2.2) {layer 0 (output)};\node at (-1.7,1.1) {layer 1};\node at (-1.7,0) {layer 2 (input)};
+ \node[gate] (o) at (2,2.2) {$\times$};
+ \node[gate] (g1) at (1,1.1) {$\times$};\node[gate] (g2) at (3,1.1) {$+$};
+ \foreach \n/\x/\v in {i1/0.4/2,i2/1.6/3,i3/2.4/4,i4/3.6/5}{\node[gate] (\n) at (\x,0) {\v};}
+ \draw[->] (g1)--(o);\draw[->] (g2)--(o);
+ \draw[->] (i1)--(g1);\draw[->] (i2)--(g1);\draw[->] (i3)--(g2);\draw[->] (i4)--(g2);
+ \node[right] at (4.4,2.2) {$V_0=(54)$};\node[right] at (4.4,1.1) {$V_1=(6,9)$};\node[right] at (4.4,0) {$V_2=(2,3,4,5)$};
+\end{tikzpicture}
+\end{center}
+\textbf{Layer function.} Let $V_i:\{0,1\}^{k_i}\to\FF$ give the gate values at layer $i$ and $\mathrm{add}_i,\mathrm{mult}_i:\{0,1\}^{k_i+2k_{i+1}}\to\{0,1\}$ be wiring predicates (1 iff gate $z$ at layer $i$ is an add/mult of gates $x,y$ at layer $i+1$). Then for all $z$,
+\[
+V_i(z)=\sum_{x,y\in\{0,1\}^{k_{i+1}}}\Big[\mathrm{add}_i(z,x,y)\big(V_{i+1}(x)+V_{i+1}(y)\big)+\mathrm{mult}_i(z,x,y)V_{i+1}(x)V_{i+1}(y)\Big].
+\]
+Replacing every function by its MLE extends this identity to all $z\in\FF^{k_i}$: $\tilde V_i(z)=\sum_{x,y}f_{z}(x,y)$ where $f_z$ is a low-degree polynomial in $(x,y)$.
+\begin{protocol}{Algorithm 9.2: GKR (outline)}
+\begin{enumerate}
+\item $\Prv$ sends claimed output $\tilde V_0$; $\Ver$ picks random $z_0$ and obtains the claim $\tilde V_0(z_0)=m_0$.
+\item For $i=0,\dots,D-1$: run sum-check on $\tilde V_i(z_i)=\sum_{x,y}f_{z_i}(x,y)$. At the end the verifier needs $\tilde V_{i+1}(x^*)$ and $\tilde V_{i+1}(y^*)$ at two random points. The prover claims two values; to avoid doubling the claims at each layer, $\Ver$ sends a line $\ell(t)$ through $x^*,y^*$, $\Prv$ sends $\tilde V_{i+1}\circ\ell$ (degree $\le k_{i+1}$), $\Ver$ checks consistency at $t=0,1$, picks $t^*$ and defines $z_{i+1}=\ell(t^*)$ with claim $m_{i+1}=\tilde V_{i+1}\circ\ell(t^*)$.
+\item At the input layer, $\Ver$ computes $\tilde V_D(z_D)$ directly from the inputs (an MLE evaluation, $O(n)$) and compares with $m_D$.
+\end{enumerate}
+\end{protocol}
+\begin{example}[One layer of GKR on the circuit above]
+Output $V_0=54$. The single output gate multiplies gates $0$ and $1$ of layer 1, so $\mathrm{mult}_0(0,x,y)=(1-x)\,y$ for $x,y\in\{0,1\}$ and $\tilde V_1(x)=6(1-x)+9x=6+3x$. The identity says $54=\sum_{x,y\in\{0,1\}}(1-x)y\,(6+3x)(6+3y)$ (only $(x,y)=(0,1)$ survives: $6\cdot9=54$ \checkmark). Run sum-check on $f(x,y)=(1-x)y(6+3x)(6+3y)$:
+\begin{itemize}
+\item $g_1(X)=f(X,0)+f(X,1)=9(1-X)(6+3X)=54-27X-27X^2$, and $g_1(0)+g_1(1)=54+0=54$ \checkmark. $r_1=2$: $g_1(2)=-108$.
+\item $g_2(Y)=f(2,Y)=(1-2)\,Y\,(12)(6+3Y)=-72Y-36Y^2$; $g_2(0)+g_2(1)=-108$ \checkmark. $r_2=3$: $g_2(3)=-216-324=-540$.
+\item Final: $\Ver$ needs $\mathrm{mult}_0(0,2,3)=(1-2)\cdot3=-3$ (computable by itself), $\tilde V_1(2)=12$, $\tilde V_1(3)=15$ (claimed by the prover): $-3\cdot12\cdot15=-540$ \checkmark. The claims about $\tilde V_1$ at $2$ and $3$ are reduced (via the line trick) to a single claim about $\tilde V_1$ at one random point, which feeds layer 1's sum-check, and so on until the inputs.
+\end{itemize}
+\end{example}
+\begin{theorem}[GKR 2008]
+For every log-space uniform fan-in-two layered circuit of depth $D$, size $S$, with $n$ inputs, there is a public-coin interactive proof with soundness error $O(D\log S/|\FF|)$, $O(D\log S)$ rounds, communication $O(D\log S)$ field elements, verifier time $\tilde O(n+D)$ and prover time $\poly(S)$ (quasi-linear $O(S\log S)$ for regular circuits \cite{Tha13}).
+\end{theorem}
+Via Fiat--Shamir, GKR gives non-interactive proofs; combined with a polynomial commitment for the inputs and zero-knowledge masking, one obtains a zk-SNARK (Libra, Virgo, Spartan).
+
+\section*{Exercises}
+\begin{exercise}
+Run the sum-check protocol for $g(x_1,x_2)=x_1x_2+3x_2$ over $\FF_{11}$ with $H=\sum g$, using challenges $r_1=4,r_2=7$. Then simulate a cheating prover that claims $H'=H+1$ and find which $r_1$ let it succeed.
+\end{exercise}
+\begin{exercise}
+Prove that the MLE of the equality function $\mathrm{eq}(x,y)=\prod_i(x_iy_i+(1-x_i)(1-y_i))$ is itself; deduce $\tilde f(r)=\sum_{b}f(b)\,\mathrm{eq}(b,r)$.
+\end{exercise}
+\begin{exercise}
+Show that the sum-check prover can be implemented in $O(2^v)$ time for $g=\tilde f\cdot\tilde h$ when $f,h$ are given as tables (hint: "bookkeeping tables" which are folded by $T[b]\leftarrow(1-r)T[0b]+rT[1b]$ after each round).
+\end{exercise}
+\begin{exercise}
+Verify that the exact degree bound matters: why would $\FF=\FF_2$ break the soundness argument?
+\end{exercise}
+
+\chapter{Arithmetisation: From Programs to Polynomial Identities}
+\label{ch:arith}
+To prove statements about computation we convert them into algebraic constraints over a large finite field $\FF$ (typically $|\FF|\approx2^{254}$ or $2^{64}$ with extension fields). This process is called \emph{arithmetisation}. Its aim is to turn ``this program ran correctly'' into ``these polynomials satisfy certain identities'', which Schwartz--Zippel allows us to check at a single random point.
+\begin{center}
+\begin{tikzpicture}[node distance=0.55cm,every node/.style={font=\small},b/.style={draw,rounded corners,fill=blue!6,minimum height=0.8cm,align=center}]
+ \node[b] (p) {Program\\(Rust, Circom,\\Cairo,\ldots)};
+ \node[b,right=of p] (c) {Arithmetic\\circuit};
+ \node[b,right=of c] (r) {R1CS /\\PLONKish /\\AIR};
+ \node[b,right=of r] (q) {QAP /\\polynomial\\identities};
+ \node[b,right=of q,fill=green!8] (s) {SNARK /\\STARK};
+ \draw[->] (p)--(c);\draw[->] (c)--(r);\draw[->] (r)--(q);\draw[->] (q)--(s);
+\end{tikzpicture}
+\end{center}
+
+\section{Arithmetic circuits and constraint systems}
+\begin{definition}[Arithmetic circuit]
+A DAG whose input nodes are labelled by variables or constants of $\FF$ and whose inner nodes are $+$ or $\times$ gates. \textsf{CircuitSAT}: given $C$ and public input $\vec x$ does there exist $\vec w$ with $C(\vec x,\vec w)=0$?
+\end{definition}
+Every Boolean statement is embedded by means of the constraint $b(1-b)=0$ ($b\in\{0,1\}$): $\mathrm{AND}(a,b)=ab$, $\mathrm{NOT}(a)=1-a$, $\mathrm{XOR}(a,b)=a+b-2ab$, $\mathrm{OR}(a,b)=a+b-ab$. Comparison and range proofs use bit decomposition: $v=\sum_{i<n}2^ib_i$ with $b_i(1-b_i)=0$ proves $0\le v<2^n$ (if $2^n<|\FF|$).
+
+\begin{definition}[R1CS]\label{def:r1cs}
+A \emph{Rank-1 Constraint System} over $\FF$ with $m$ variables and $d$ constraints is a triple of matrices $A,B,C\in\FF^{d\times m}$. A vector $\vec a=(1,\vec x,\vec w)\in\FF^m$ (first entry the constant $1$, then public inputs, then private witness) \emph{satisfies} it if for every row $j\in[d]$
+\[
+\Big(\sum_iA_{ji}a_i\Big)\cdot\Big(\sum_iB_{ji}a_i\Big)=\sum_iC_{ji}a_i,\qquad\text{i.e. }(A\vec a)\circ(B\vec a)=C\vec a.
+\]
+\end{definition}
+Each constraint is ``(linear form) $\times$ (linear form) = (linear form)''; additions are free. R1CS is equivalent to circuits up to a constant factor.
+
+\begin{example}[Running example: ``I know $x$ with $x^3+x+5=35$'']\label{ex:r1cs}
+Flatten into gates:
+\[ v_1=x\cdot x,\quad v_2=v_1\cdot x,\quad v_3=(v_2+x)\cdot1,\quad \mathrm{out}=(v_3+5)\cdot1. \]
+Variable vector $\vec a=(1,\mathrm{out},x,v_1,v_2,v_3)$; public inputs $(1,\mathrm{out})$, private $(x,v_1,v_2,v_3)$. The witness $x=3$ gives $\vec a=(1,35,3,9,27,30)$. The four constraints, rows of $A,B,C$ (columns in the order of $\vec a$):
+\begin{center}\small
+\begin{tabular}{c|c|c|c|l}
+gate & $A_j$ & $B_j$ & $C_j$ & constraint\\\hline
+1 & $(0,0,1,0,0,0)$ & $(0,0,1,0,0,0)$ & $(0,0,0,1,0,0)$ & $x\cdot x=v_1$\\
+2 & $(0,0,0,1,0,0)$ & $(0,0,1,0,0,0)$ & $(0,0,0,0,1,0)$ & $v_1\cdot x=v_2$\\
+3 & $(0,0,1,0,1,0)$ & $(1,0,0,0,0,0)$ & $(0,0,0,0,0,1)$ & $(x+v_2)\cdot1=v_3$\\
+4 & $(5,0,0,0,0,1)$ & $(1,0,0,0,0,0)$ & $(0,1,0,0,0,0)$ & $(5+v_3)\cdot1=\mathrm{out}$
+\end{tabular}
+\end{center}
+Check: gate 1: $3\cdot3=9$; gate 2: $9\cdot3=27$; gate 3: $(3+27)\cdot1=30$; gate 4: $(5+30)\cdot1=35$. \checkmark
+\end{example}
+
+\section{Quadratic Arithmetic Programs}
+R1CS has $d$ constraints that a verifier would check one by one---linear work. QAPs (Gennaro--Gentry--Parno--Raykova 2013) encode all $d$ constraints in a \emph{single} polynomial divisibility.
+\begin{definition}[QAP]\label{def:qap}
+Fix distinct points $\omega_1,\dots,\omega_d\in\FF$ and $t(X)=\prod_j(X-\omega_j)$. For each variable index $i\in\{0..m-1\}$ let $u_i(X),v_i(X),w_i(X)$ be the unique polynomials of degree $<d$ with
+\[u_i(\omega_j)=A_{ji},\quad v_i(\omega_j)=B_{ji},\quad w_i(\omega_j)=C_{ji}\qquad(j\in[d]).\]
+For a vector $\vec a$ define $A(X)=\sum_ia_iu_i(X)$, $B(X)=\sum a_iv_i(X)$, $C(X)=\sum a_iw_i(X)$.
+\end{definition}
+\begin{theorem}[R1CS $\Leftrightarrow$ QAP]\label{thm:qap}
+$\vec a$ satisfies the R1CS if and only if $t(X)$ divides $P(X):=A(X)B(X)-C(X)$. Equivalently, there is $h(X)$ of degree $\le d-2$ with $A(X)B(X)-C(X)=h(X)t(X)$.
+\end{theorem}
+\begin{proof}
+For each $j$, $P(\omega_j)=\big(\sum_ia_iA_{ji}\big)\big(\sum_ia_iB_{ji}\big)-\sum_ia_iC_{ji}$, which is zero exactly when constraint $j$ holds. A polynomial vanishes on all $\omega_j$ iff it is divisible by $\prod_j(X-\omega_j)=t(X)$ (Lemma~\ref{lem:factor} repeatedly). Degrees: $\deg A,\deg B\le d-1$, so $\deg P\le2d-2$ and $\deg h\le d-2$.
+\end{proof}
+\begin{intuition}
+Think of $\omega_1,\dots,\omega_d$ as ``time stamps'' of the gates. $A(X)$ is the left operand wire of the gate active at ``time'' $X$, etc. $A\cdot B-C$ is the ``error polynomial''; it vanishes on all time stamps iff all gates are correct.
+\end{intuition}
+\begin{example}[QAP for Example~\ref{ex:r1cs}]
+Take $\omega=(1,2,3,4)$, $t(X)=(X-1)(X-2)(X-3)(X-4)=X^4-10X^3+35X^2-50X+24$. The column of $A$ for variable $x$ (index 2) is $(1,0,1,0)^\top$, so $u_2$ is the cubic through $(1,1),(2,0),(3,1),(4,0)$:
+\[u_2(X)=-\tfrac23X^3+5X^2-\tfrac{34}3X+8.\]
+Similarly $v_2(X)=\tfrac13X^3-\tfrac52X^2+\tfrac{31}6X-2$ (column $(1,1,0,0)$) and $w_1(X)=\tfrac16X^3-X^2+\tfrac{11}6X-1$ (column $(0,0,0,1)$). Summing with the witness $(1,35,3,9,27,30)$:
+\begin{align*}
+A(X)&=-\tfrac{31}{6}X^3+\tfrac{77}{2}X^2-\tfrac{220}{3}X+43, & B(X)&=\tfrac23X^3-5X^2+\tfrac{31}3X-3,\\
+C(X)&=\tfrac{17}{6}X^3-\tfrac{49}{2}X^2+\tfrac{215}3X-41.
+\end{align*}
+Spot checks: $A(1)=3,B(1)=3,C(1)=9$ (gate~1: $3\cdot3=9$). Polynomial division gives remainder $0$ and
+\[h(X)=\frac{A(X)B(X)-C(X)}{t(X)}=-\tfrac{31}{9}X^2+\tfrac{307}{18}X-\tfrac{11}{3}.\]
+A wrong witness, e.g.\ $v_2=28$, makes $A(3)B(3)-C(3)\ne0$ so the division leaves a nonzero remainder.
+\end{example}
+\paragraph{Probabilistic check.} A prover who claims $\vec a$ satisfies the R1CS gives $h$; the verifier picks random $\tau\in\FF$ and checks $A(\tau)B(\tau)-C(\tau)=h(\tau)t(\tau)$. If the claim were false, $P-ht$ would be a nonzero polynomial of degree $\le2d-2$, so by Schwartz--Zippel (Lemma~\ref{lem:sz}) the check passes with probability $\le(2d-2)/|\FF|$. The chapters that follow differ in \emph{how} the evaluation at the hidden point $\tau$ is made succinct, non-interactive and zero-knowledge.
+
+\section{PLONKish arithmetisation}
+PLONK replaces R1CS by a single universal gate type plus a \emph{permutation} argument for wiring:
+\[q_L\,a+q_R\,b+q_O\,c+q_M\,ab+q_C=0.\]
+Each row $i$ of the \emph{execution trace} has wire values $(a_i,b_i,c_i)$ and fixed selectors $(q_L,q_R,q_O,q_M,q_C)_i$ (circuit-specific, public). Addition gate: $q_L=q_R=1,q_O=-1$. Multiplication gate: $q_M=1,q_O=-1$. Constant check: $q_L=1,q_C=-k,\ldots$
+\begin{example}[Example~\ref{ex:r1cs} in PLONK form]
+\begin{center}\small
+\begin{tabular}{c|ccc|ccccc|l}
+row & $a$ & $b$ & $c$ & $q_L$ & $q_R$ & $q_O$ & $q_M$ & $q_C$ & meaning\\\hline
+1 & $x$ & $x$ & $v_1$ & 0&0&$-1$&1&0 & $x\cdot x-v_1=0$\\
+2 & $v_1$ & $x$ & $v_2$ & 0&0&$-1$&1&0 & $v_1x-v_2=0$\\
+3 & $v_2$ & $x$ & $v_3$ & 1&1&$-1$&0&0 & $v_2+x-v_3=0$\\
+4 & $v_3$ & 0 & $\mathrm{out}$ & 1&0&$-1$&0&5 & $v_3+5-\mathrm{out}=0$
+\end{tabular}
+\end{center}
+With the witness: $(a,b,c)$ rows are $(3,3,9)$, $(9,3,27)$, $(27,3,30)$, $(30,0,35)$. Row-wise constraints hold. What is \emph{not} yet enforced is that the same variable is used in different cells: $x$ appears in $a_1,b_1,b_2,b_3$, and $c_1=a_2$, $c_2=a_3$, $c_3=a_4$. These are \emph{copy constraints}, enforced by a permutation $\sigma$ on cells (Chapter~12).
+\end{example}
+
+\section{Algebraic Intermediate Representation (AIR)}
+For long, uniform computations (a CPU or VM running $T$ steps), STARKs use an \emph{execution trace}: a matrix with $T$ rows (time) and $w$ columns (registers), plus
+\begin{itemize}
+\item \textbf{transition constraints}: low-degree polynomials $\mathcal P_k(\vec s_i,\vec s_{i+1})=0$ relating a row to the next;
+\item \textbf{boundary constraints}: initial and final values.
+\end{itemize}
+\begin{example}[Fibonacci]
+Single column $s_0..s_7=1,1,2,3,5,8,13,21$. Claim: ``the 8th Fibonacci number is $21$''. Transition: $s_{i+2}-s_{i+1}-s_i=0$ for $i=0..5$. Boundary: $s_0=1$, $s_1=1$, $s_7=21$. Let $\omega$ be a generator of the multiplicative subgroup of order $8$, $f(\omega^i)=s_i$ (interpolate). The transition constraint becomes the polynomial identity $f(\omega^2X)-f(\omega X)-f(X)=0$ for $X\in\{\omega^0,\dots,\omega^5\}$, i.e.\ the polynomial
+\[Q_{\mathrm{tr}}(X)=\frac{f(\omega^2X)-f(\omega X)-f(X)}{\prod_{i=0}^{5}(X-\omega^i)}\]
+must be a \emph{polynomial} (of low degree). Similarly $Q_{\mathrm{bd}}(X)=(f(X)-1)/(X-\omega^0)$ etc. The prover commits to $f$ and to the quotients; the verifier checks that each is of low degree via FRI (Chapter~11).
+\end{example}
+\begin{remark}[Comparison]
+R1CS/QAP: unstructured, flexible, constant-size proofs with pairings. PLONKish: custom gates and lookups, universal SRS. AIR: uniform/repeating computations, transparent (hash-based). Hybrids exist: Halo2, Plonky2/3 (AIR over small fields + FRI), Nova/HyperNova (folding R1CS instances).
+\end{remark}
+
+\section*{Exercises}
+\begin{exercise}
+Write an R1CS (give $A,B,C$) for ``$y=x^4$'' and for the Boolean constraint ``$b\in\{0,1\}$ and $z=b\cdot c_1+(1-b)\cdot c_0$'' (a multiplexer).
+\end{exercise}
+\begin{exercise}
+In the toy QAP above, compute the polynomial $A(X)B(X)-C(X)$ modulo $t(X)$ for the wrong witness $(1,35,3,9,28,30)$ and find which gates it violates.
+\end{exercise}
+\begin{exercise}
+Prove that for $d$ points and $\omega_j$ the $d$-th roots of unity, $t(X)=X^d-1$, and that Lagrange interpolation can be done by an inverse FFT in $O(d\log d)$.
+\end{exercise}
+\begin{exercise}
+Show that R1CS satisfiability is $\NP$-complete by reducing from \textsf{CircuitSAT}.
+\end{exercise}
+
+\chapter{Polynomial Commitment Schemes}
+\label{ch:pcs}
+A polynomial commitment scheme (PCS) lets a prover commit to a polynomial $f$ with a short string $C$ and later prove, with a short proof, that $f(z)=y$ for a point $z$ chosen by the verifier. PCS are the cryptographic core of modern proof systems: an \emph{information-theoretic} proof system (a ``polynomial IOP'') in which the verifier queries oracles to polynomials becomes a real argument by replacing the oracles with commitments (and Fiat--Shamir).
+\begin{definition}[Polynomial commitment scheme]
+A tuple $(\Setup,\mathsf{Commit},\mathsf{Open},\mathsf{Verify})$:
+\begin{itemize}
+\item $\Setup(1^\lambda,D)\to\mathsf{pp}$ for degree bound $D$;
+\item $\mathsf{Commit}(\mathsf{pp},f)\to C$;
+\item $\mathsf{Open}(\mathsf{pp},f,z)\to(y,\pi)$ with $y=f(z)$;
+\item $\mathsf{Verify}(\mathsf{pp},C,z,y,\pi)\to\{0,1\}$.
+\end{itemize}
+\textbf{Correctness}; \textbf{evaluation binding} (no PPT adversary opens one $C$ to $(z,y)$ and $(z,y')$, $y\ne y'$, both accepted); \textbf{knowledge soundness} (an extractor recovers an $f$ of degree $\le D$ consistent with all accepted openings); optionally \textbf{hiding} (commitment and openings reveal nothing about $f$ beyond evaluated points).
+\end{definition}
+The main PCS families:
+\begin{center}\small
+\begin{tabular}{@{}p{3.1cm}p{2.6cm}p{3.2cm}p{2.8cm}p{2.4cm}@{}}\toprule
+Scheme & Setup & Proof size & Verifier & Assumption\\\midrule
+KZG & trusted (universal) & $O(1)$ (1 group element) & $O(1)$ (2 pairings) & $q$-SDH / AGM\\
+IPA (Bulletproofs/Halo) & transparent & $O(\log n)$ & $O(n)$ (amortisable) & DL\\
+FRI & transparent & $O(\log^2n)$ & $O(\log^2n)$ & collision-resistant hash (PQ)\\
+Dory / Hyrax / Brakedown & transparent & varies & varies & DLIN / hash / codes\\\bottomrule
+\end{tabular}
+\end{center}
+
+\section{KZG commitments (Kate--Zaverucha--Goldberg 2010)}
+\subsection{The construction}
+Let $e:\GG_1\times\GG_2\to\GG_T$ be a pairing of prime order $q$ and generators $g_1,g_2$; bracket notation $[a]_i=g_i^a$.
+\begin{protocol}{Algorithm 11.1: KZG polynomial commitment}
+\textbf{Setup} ($D$): sample the \emph{toxic waste} $\tau\getsr\FF_q$ and publish the structured reference string
+\[\mathsf{srs}=\big([1]_1,[\tau]_1,[\tau^2]_1,\dots,[\tau^D]_1;\ [1]_2,[\tau]_2\big),\]
+then \textbf{delete} $\tau$.\\
+\textbf{Commit}$(f=\sum_{i\le D}f_iX^i)$: $C:=\sum_if_i[\tau^i]_1=[f(\tau)]_1$ (a multi-scalar multiplication, no knowledge of $\tau$ needed).\\
+\textbf{Open}$(f,z)$: $y=f(z)$; quotient $\psi(X)=\dfrac{f(X)-y}{X-z}$ (a polynomial of degree $\le D-1$ by Lemma~\ref{lem:factor}); $\pi:=[\psi(\tau)]_1$.\\
+\textbf{Verify}$(C,z,y,\pi)$: accept iff
+\[e\big(C-[y]_1,\,[1]_2\big)=e\big(\pi,\,[\tau]_2-[z]_2\big).\]
+\end{protocol}
+\begin{theorem}\label{thm:kzg}
+KZG is correct. It is evaluation-binding under the $q$-strong Diffie--Hellman assumption ($q$-SDH): given $([\tau^i]_1,[\tau^i]_2)_{i\le D}$ no PPT algorithm outputs $(z,[1/(\tau-z)]_1)$. Knowledge soundness holds in the algebraic group model.
+\end{theorem}
+\begin{proof}
+\emph{Correctness.} $f(X)-y=(X-z)\psi(X)$, evaluate at $\tau$: $f(\tau)-y=(\tau-z)\psi(\tau)$. Taking pairings, $e([f(\tau)-y]_1,[1]_2)=e([\psi(\tau)]_1,[\tau-z]_2)$, which is the verification equation.
+
+\emph{Binding.} Suppose $\mathcal A$ outputs $C,z$ and two valid openings $(y,\pi)$, $(y',\pi')$ with $y\ne y'$. Then
+$e(C-[y]_1,[1]_2)=e(\pi,[\tau-z]_2)$ and $e(C-[y']_1,[1]_2)=e(\pi',[\tau-z]_2)$. Dividing, $e([y'-y]_1,[1]_2)=e(\pi-\pi',[\tau-z]_2)$; so $\pi-\pi'=\big[\tfrac{y'-y}{\tau-z}\big]_1$, hence $\Big[\tfrac1{\tau-z}\Big]_1=(y'-y)^{-1}(\pi-\pi')$ is computed, breaking $q$-SDH.
+\end{proof}
+\begin{intuition}
+The commitment is a \emph{point evaluation at a secret place} $\tau$. Since the prover does not know $\tau$, the only way she can produce $[\psi(\tau)]_1$ with the property $\psi(X)(X-z)=f(X)-y$ is to know an actual quotient polynomial, which exists only if $f(z)=y$ really holds. The pairing checks one multiplicative relation between three hidden numbers.
+\end{intuition}
+\begin{example}[KZG ``in the exponent'']
+Work with scalars modulo $q=11$ (we show the exponents; $[a]_1$ corresponds to $a$). Let $f(X)=X^2+1$, $z=2$, $y=f(2)=5$. Quotient: $(X^2+1-5)/(X-2)=(X^2-4)/(X-2)=X+2=:\psi(X)$. With secret $\tau=7$: commitment exponent $f(\tau)=50\equiv6$; proof exponent $\psi(\tau)=9$. The pairing equation in the exponent reads $f(\tau)-y=(\tau-z)\psi(\tau)$: LHS $6-5=1$; RHS $(7-2)\cdot9=45\equiv1\pmod{11}$. \checkmark
+A false claim $y'=4$ would require a proof element $\pi'$ with $(\tau-z)\pi'=f(\tau)-y'=2$, i.e.\ $\pi'=2/(\tau-z)$. The element $[1/(\tau-z)]_1$ is not a polynomial expression of degree $\le D$ in $\tau$, so it cannot be formed from the SRS; computing it is exactly the $q$-SDH problem.
+\end{example}
+
+\subsection{Extensions}
+\begin{itemize}
+\item \textbf{Batch opening at many points.} To prove $f(z_i)=y_i$ for $i\in[k]$ let $I(X)$ interpolate $(z_i,y_i)$ and $Z(X)=\prod(X-z_i)$; then $\psi=(f-I)/Z$, $\pi=[\psi(\tau)]_1$, check $e(C-[I(\tau)]_1,[1]_2)=e(\pi,[Z(\tau)]_2)$.
+\item \textbf{Several polynomials at the same point.} Random linear combination $\sum_j\gamma^jf_j$ (challenge $\gamma$): by Schwartz--Zippel an incorrect combination is caught except with probability $k/|\FF|$. One proof for all.
+\item \textbf{Hiding.} Add a random multiple of a blinding polynomial: $C=[f(\tau)+\rho\,\eta(\tau)]_1$ with an additional SRS element.
+\item \textbf{Universal setup.} The SRS depends only on a degree bound $D$, not on the circuit; the ``Powers of Tau'' ceremony has thousands of contributors, and security needs only \emph{one} honest participant.
+\end{itemize}
+
+\section{FRI: a hash-based low-degree test}
+\subsection{Reed--Solomon codes and proximity}
+Evaluating a polynomial of degree $<k$ on a domain $D\subseteq\FF$ with $|D|=n=k/\rho$ ($\rho$ = \emph{rate}, e.g.\ $\rho=1/4$) gives a codeword of the Reed--Solomon code $\mathrm{RS}[\FF,D,\rho]$. A function $f:D\to\FF$ is $\delta$-\emph{far} if every codeword differs in at least $\delta n$ positions. FRI (Fast Reed--Solomon IOP of Proximity, Ben-Sasson--Bentov--Horesh--Riabzev) allows a verifier to distinguish ``$f$ is a codeword'' from ``$f$ is $\delta$-far'' with $O(\log n)$ queries to a Merkle commitment.
+
+\subsection{Folding}
+Any polynomial splits into even and odd parts: $f(X)=f_e(X^2)+X\,f_o(X^2)$ with $\deg f_e,\deg f_o<k/2$. For a verifier challenge $\beta$ define
+\[f^{(1)}(Y)=f_e(Y)+\beta f_o(Y).\]
+Then $\deg f^{(1)}<k/2$ and, at $Y=x^2$ for $x\in D$,
+\[f^{(1)}(x^2)=\frac{f(x)+f(-x)}2+\beta\,\frac{f(x)-f(-x)}{2x}.\]
+So the folded evaluation on $D^2=\{x^2\}$ (half the size) is computable from just two values of $f$. If $f$ is far from low degree, then so is $f^{(1)}$ for most $\beta$ (the ``proximity gap'' lemma).
+\begin{protocol}{Algorithm 11.2: FRI (commit and query phases)}
+\textbf{Commit phase.} $f^{(0)}=f$ on $D_0=D$; Merkle-commit to $f^{(0)}$. For $r=0..R-1$: $\Ver$ sends $\beta_r$; $\Prv$ computes $f^{(r+1)}=\mathrm{Fold}(f^{(r)},\beta_r)$ on $D_{r+1}=D_r^2$ and commits. Finally $\Prv$ sends the (constant or small) last polynomial in the clear.\\
+\textbf{Query phase} (repeated $s$ times): $\Ver$ picks a random $x\in D_0$. For each $r$ $\Prv$ opens (with Merkle paths) $f^{(r)}(x_r)$ and $f^{(r)}(-x_r)$ ($x_r=x^{2^r}$), and $\Ver$ checks the folding equation $f^{(r+1)}(x_r^2)=\frac{f^{(r)}(x_r)+f^{(r)}(-x_r)}2+\beta_r\frac{f^{(r)}(x_r)-f^{(r)}(-x_r)}{2x_r}$, and finally the last-layer value.
+\end{protocol}
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small}]
+ \foreach \r/\n/\c in {0/8/blue!15,1/4/blue!25,2/2/blue!35,3/1/blue!45}{
+   \foreach \i in {1,...,\n}{
+     \pgfmathsetmacro{\w}{8/\n}
+     \draw[fill=\c] ({(\i-1)*\w},-\r*1.1) rectangle ({\i*\w},{-\r*1.1-0.6});}
+   \node[left] at (-0.1,{-\r*1.1-0.3}) {$f^{(\r)}$ ($|D_\r|=\n$)};}
+ \draw[->,thick] (4.2,-0.65)--(4.2,-1.05) node[midway,right] {\scriptsize fold, $\beta_0$};
+ \draw[->,thick] (4.2,-1.75)--(4.2,-2.15) node[midway,right] {\scriptsize fold, $\beta_1$};
+ \draw[->,thick] (4.2,-2.85)--(4.2,-3.25) node[midway,right] {\scriptsize fold, $\beta_2$};
+\end{tikzpicture}
+\end{center}
+\begin{example}[One folding step, $\FF_{17}$]
+Let $\FF=\FF_{17}$, $D_0=\{1,2,4,8,9,13,15,16\}$ (the quadratic residues, order 8), $D_1=D_0^2=\{1,4,13,16\}$. Take $f(X)=X^3+2X^2+3X+4$ ($k=4$, rate $1/2$). Then $f_e(Y)=2Y+4$ (even-degree terms $2X^2+4$ with $Y=X^2$) and $f_o(Y)=Y+3$ (as $X^3+3X=X(X^2+3)$). With $\beta=3$: $f^{(1)}(Y)=2Y+4+3(Y+3)=5Y+13$, degree $1<k/2=2$.\\
+Consistency check at $x=2$ (so $x^2=4$): $f(2)=8+8+6+4=26\equiv9$, $f(-2)=f(15)=-8+8-6+4=-2\equiv15$. Then $\frac{9+15}2=12$ and $\frac{9-15}{2\cdot2}=\frac{-6}{4}\equiv-6\cdot13=-78\equiv7$ (as $4\cdot13=52\equiv1$), so $f^{(1)}(4)=12+3\cdot7=33\equiv16$. Directly: $5\cdot4+13=33\equiv16$. \checkmark\\
+After $\log_2k$ folds the polynomial is constant and the verifier can check it directly.
+\end{example}
+\begin{theorem}[FRI soundness, informal]
+If $f$ is $\delta$-far from $\mathrm{RS}[\FF,D,\rho]$ then, for $\delta$ below the Johnson bound, the verifier rejects with probability $\ge1-(1-\delta)^s-\varepsilon_{\mathrm{fold}}$ where $s$ is the number of queries and $\varepsilon_{\mathrm{fold}}=O(n/|\FF|)$ accounts for unlucky folding challenges. Querying $s\approx\lambda/\log_2(1/(1-\delta))$ locations gives $\lambda$ bits of security; smaller rate $\rho$ means larger $\delta$, i.e.\ fewer queries but a larger domain.
+\end{theorem}
+FRI turns a Merkle commitment into a polynomial commitment: to open $f(z)=y$, run FRI on the quotient $(f(X)-y)/(X-z)$; the check that this is low-degree convinces the verifier $f(z)=y$ (otherwise the quotient has a pole at $z$).
+
+\section{Inner-product arguments and Bulletproofs}
+\subsection{Pedersen vector commitment}
+For generators $\vec g=(g_1..g_n)\in\GG^n$ with unknown relations, $\mathsf{Com}(\vec a;r)=\prod_ig_i^{a_i}\cdot h^r$ commits to a vector; binding under DL; perfectly hiding.
+\subsection{The core: proving an inner product in $O(\log n)$}
+Statement: given $P=\vec g^{\vec a}\vec h^{\vec b}u^{\langle\vec a,\vec b\rangle}$ ($\vec g^{\vec a}:=\prod g_i^{a_i}$), prove knowledge of $\vec a,\vec b\in\ZZ_q^n$ ($n$ a power of two). Naively send $\vec a,\vec b$ ($2n$ elements); the trick is \emph{recursive folding}.
+\begin{protocol}{Protocol 11.3: Inner-product argument (one folding round)}
+Write $\vec a=(\vec a_L\|\vec a_R)$ and likewise $\vec b,\vec g,\vec h$ (halves of size $n/2$). 
+\begin{flow}{Prover}{Verifier}
+$L=\vec g_R^{\,\vec a_L}\,\vec h_L^{\,\vec b_R}\,u^{\langle\vec a_L,\vec b_R\rangle}$ & & \\
+$R=\vec g_L^{\,\vec a_R}\,\vec h_R^{\,\vec b_L}\,u^{\langle\vec a_R,\vec b_L\rangle}$ & $\ra{L,R}$ & \\
+ & $\la{x}$ & $x\getsr\ZZ_q^*$\\
+$\vec a'=x\vec a_L+x\inv\vec a_R$ & & $\vec g'=\vec g_L^{\,x\inv}\circ\vec g_R^{\,x}$\\
+$\vec b'=x\inv\vec b_L+x\vec b_R$ & & $\vec h'=\vec h_L^{\,x}\circ\vec h_R^{\,x\inv}$\\
+ & & $P'=L^{x^2}\,P\,R^{x^{-2}}$
+\end{flow}
+Now the same statement is claimed for $(\vec g',\vec h',P',\vec a',\vec b')$ with length $n/2$. Recurse until $n=1$, then the prover sends the two scalars $a,b$ and the verifier checks $P=g^ah^bu^{ab}$.
+\end{protocol}
+\begin{lemma}[Invariant]
+If $P=\vec g^{\vec a}\vec h^{\vec b}u^{\langle\vec a,\vec b\rangle}$ then $P'=\vec g'^{\vec a'}\vec h'^{\vec b'}u^{\langle\vec a',\vec b'\rangle}$.
+\end{lemma}
+\begin{proof}
+Expand:
+\begin{align*}
+\vec g'^{\vec a'}&=\vec g_L^{\,\vec a_L}\ \vec g_R^{\,\vec a_R}\ \vec g_L^{\,x^{-2}\vec a_R}\ \vec g_R^{\,x^2\vec a_L},\\
+\vec h'^{\vec b'}&=\vec h_L^{\,\vec b_L}\ \vec h_R^{\,\vec b_R}\ \vec h_L^{\,x^2\vec b_R}\ \vec h_R^{\,x^{-2}\vec b_L},\\
+u^{\langle\vec a',\vec b'\rangle}&=u^{\langle\vec a,\vec b\rangle+x^2\langle\vec a_L,\vec b_R\rangle+x^{-2}\langle\vec a_R,\vec b_L\rangle}.
+\end{align*}
+Collect: $\vec g^{\vec a}\vec h^{\vec b}u^{\langle\vec a,\vec b\rangle}\cdot\big(\vec g_R^{\vec a_L}\vec h_L^{\vec b_R}u^{\langle\vec a_L,\vec b_R\rangle}\big)^{x^2}\cdot\big(\vec g_L^{\vec a_R}\vec h_R^{\vec b_L}u^{\langle\vec a_R,\vec b_L\rangle}\big)^{x^{-2}}=P\,L^{x^2}R^{x^{-2}}=P'$.
+\end{proof}
+\begin{example}[Scalar folding in $\ZZ_{11}$]
+$\vec a=(1,2,3,4)$, $\vec b=(5,6,7,8)$, $\langle\vec a,\vec b\rangle=70\equiv4$. Halves: $\vec a_L=(1,2)$, $\vec a_R=(3,4)$, $\vec b_L=(5,6)$, $\vec b_R=(7,8)$; cross terms $\langle\vec a_L,\vec b_R\rangle=23$, $\langle\vec a_R,\vec b_L\rangle=39$. Challenge $x=2$, $x\inv=6$, $x^2=4$, $x^{-2}=3$.\\
+$\vec a'=2(1,2)+6(3,4)=(20,28)\equiv(9,6)$; $\vec b'=6(5,6)+2(7,8)=(44,52)\equiv(0,8)$; $\langle\vec a',\vec b'\rangle=48\equiv4$. Predicted by the invariant: $\langle\vec a,\vec b\rangle+4\cdot23+3\cdot39=70+92+117=279=25\cdot11+4\equiv4$. \checkmark\\
+Two vectors of length 4 became vectors of length 2 at the cost of two group elements $L,R$.
+\end{example}
+\begin{theorem}
+The protocol has $\log_2n$ rounds, proof size $2\log_2n$ group elements plus $2$ scalars, and is an argument of knowledge under DL (extraction by $3$-special soundness per round: transcripts for three challenges $x_1,x_2,x_3$ yield a ``witness'' of length $n$ via a linear system, forming a tree of $3^{\log n}=n^{\log3}$ transcripts---polynomial).
+\end{theorem}
+\subsection{Application: range proofs (Bulletproofs, B\"unz et al.\ 2018)}
+To show a Pedersen commitment $V=g^vh^\gamma$ hides $v\in[0,2^n)$: let $\vec a_L$ be the bits of $v$, $\vec a_R=\vec a_L-\vec1^n$. The conditions $\langle\vec a_L,2^n\rangle=v$, $\vec a_L\circ\vec a_R=\vec0$, $\vec a_L-\vec a_R=\vec1^n$ are packed by a random linear combination (challenges $y,z$) into a \emph{single inner-product equation} $\langle l(X),r(X)\rangle=t(X)$ with $l,r$ degree-1 vector polynomials, and the polynomial $t(X)=t_0+t_1X+t_2X^2$ is committed and checked at a random $x$; finally the IPA proves $\langle l(x),r(x)\rangle=t(x)$ in $O(\log n)$. A 64-bit range proof is $\approx700$ bytes; aggregating $m$ proofs costs only $2\log_2m$ extra group elements. Used in Monero, Mimblewimble and confidential assets.
+
+\section*{Exercises}
+\begin{exercise}
+Prove that if the prover commits to a polynomial of degree $>D$ the KZG verification fails for most $z$ or the prover cannot form $\pi$ (hint: the SRS only contains powers up to $\tau^D$; discuss degree enforcement through a second commitment shifted by $\tau^{D-d}$).
+\end{exercise}
+\begin{exercise}
+Derive the KZG multi-point opening verification equation, and the batched version for several polynomials at the same point.
+\end{exercise}
+\begin{exercise}
+Check, for $f(X)=X^3+2X^2+3X+4$ over $\FF_{17}$ with $\beta=3$, that the folding relation holds at $x=4$ as well (compute $f(4),f(13)$, then $f^{(1)}(16)$).
+\end{exercise}
+\begin{exercise}
+Verify the final round of the inner-product argument for $n=2$: show that with $\vec a=(a_1,a_2)$, $\vec b=(b_1,b_2)$ and challenge $x$, $P'$ equals $g'^{a'}h'^{b'}u^{a'b'}$.
+\end{exercise}
+\begin{exercise}
+Explain why IPA verification is $O(n)$ (hint: the folded generators $\vec g'$ are the verifier's burden) and how a single multi-exponentiation with scalars $s_i=\prod_jx_j^{\pm1}$ resolves it.
+\end{exercise}
+
+\chapter{SNARKs and STARKs}
+\label{ch:snark}
+\section{Definitions}
+\begin{definition}[zk-SNARK]\label{def:snark}
+A \emph{zk-SNARK} (zero-knowledge Succinct Non-interactive ARgument of Knowledge) for an $\NP$ relation $R$ is a triple $(\mathsf{Setup},\mathsf{Prove},\mathsf{Verify})$ with $\mathsf{Setup}(R)\to(\mathsf{pk},\mathsf{vk})$ (the CRS), $\mathsf{Prove}(\mathsf{pk},x,w)\to\pi$, $\mathsf{Verify}(\mathsf{vk},x,\pi)\to\{0,1\}$ such that
+\begin{description}
+\item[Completeness] honest proofs verify;
+\item[Knowledge soundness] for every PPT prover $\mathcal A$ there is a PPT extractor $\Ext_{\mathcal A}$ (non-black-box; given $\mathcal A$'s coins) such that whenever $\mathcal A$ outputs an accepting $(x,\pi)$ then $\Ext_{\mathcal A}$ outputs $w$ with $(x,w)\in R$, except with negligible probability;
+\item[Zero-knowledge] there is a simulator with trapdoor that outputs proofs indistinguishable from real ones (for the same $x$);
+\item[Succinctness] $|\pi|=\poly(\lambda)$ independent of $|w|$ (typically $O(1)$ or $O(\log|C|)$) and verification time $\poly(\lambda,|x|)$ (+ $\polylog|C|$).
+\end{description}
+\end{definition}
+\begin{remark}[Why non-black-box extraction?]
+Gentry--Wichs (2011) show that succinct non-interactive arguments with black-box (falsifiable) soundness for $\NP$ cannot be proven secure under falsifiable assumptions. So SNARK security rests on knowledge assumptions (KEA, AGM, generic group model) or the random oracle model.
+\end{remark}
+
+\section{Groth16}
+Groth16 \cite{Gro16} is the pairing-based zk-SNARK for QAPs with the smallest known proof size (3 group elements: $\approx128$ bytes on BN254 / 192 bytes on BLS12-381) and cheapest verification (3 pairings), and is deployed in Zcash Sapling, Tornado Cash and many rollups.
+
+\subsection{Algorithm}
+Let the QAP be $(\{u_i,v_i,w_i\}_{i=0}^{m-1},t)$ over $\FF_q$ for the relation, with the first $\ell$ variables public ($a_0=1$ and the statement). Let $\pi=(A,B,C)$.
+\begin{protocol}{Algorithm 12.1: Groth16}
+\textbf{Setup.} Sample toxic waste $\tau,\alpha,\beta,\gamma,\delta\getsr\FF_q^*$. Set
+\begin{itemize}[nosep]
+\item $\mathsf{pk}\supseteq[\alpha]_1,[\beta]_1,[\delta]_1,[\beta]_2,[\delta]_2,\ \{[\tau^k]_1\}_{k<d},\ \{[\tau^k]_2\}_{k<d}$,
+\item $\mathsf{pk}\supseteq\Big\{\Big[\tfrac{\beta u_i(\tau)+\alpha v_i(\tau)+w_i(\tau)}{\delta}\Big]_1\Big\}_{i\ge\ell}$ (private variables), $\ \Big\{\Big[\tfrac{\tau^kt(\tau)}{\delta}\Big]_1\Big\}_{k\le d-2}$,
+\item $\mathsf{vk}=\Big([\alpha]_1,[\beta]_2,[\gamma]_2,[\delta]_2,\ \Big\{\Big[\tfrac{\beta u_i(\tau)+\alpha v_i(\tau)+w_i(\tau)}{\gamma}\Big]_1\Big\}_{i<\ell}\Big)$.
+\end{itemize}
+\textbf{Prove}$(\mathsf{pk},\vec a)$: compute $h(X)=(A(X)B(X)-C(X))/t(X)$ for the witness polynomials. Sample $r,s\getsr\FF_q$ (\emph{zero-knowledge randomisers}). Output
+\begin{align*}
+A&=\big[\alpha+\textstyle\sum_ia_iu_i(\tau)+r\delta\big]_1,\qquad B=\big[\beta+\textstyle\sum_ia_iv_i(\tau)+s\delta\big]_2,\\
+C&=\Big[\tfrac{\sum_{i\ge\ell}a_i(\beta u_i(\tau)+\alpha v_i(\tau)+w_i(\tau))+h(\tau)t(\tau)}{\delta}+sA_\bullet+rB_\bullet-rs\delta\Big]_1
+\end{align*}
+where $A_\bullet=\alpha+\sum a_iu_i(\tau)+r\delta$ and $B_\bullet=\beta+\sum a_iv_i(\tau)+s\delta$ are the exponents of $A$ and $B$; $B$ is also needed in $\GG_1$ (publish $[\beta]_1,[v_i(\tau)]_1$ to form it).\\
+\textbf{Verify}$(\mathsf{vk},\vec x,\pi)$: with $\mathsf{IC}=\sum_{i<\ell}a_i\Big[\tfrac{\beta u_i+\alpha v_i+w_i}{\gamma}\Big]_1$, accept iff
+\[e(A,B)=e([\alpha]_1,[\beta]_2)\cdot e(\mathsf{IC},[\gamma]_2)\cdot e(C,[\delta]_2).\]
+\end{protocol}
+\subsection{Correctness}
+Write $\bar A=\sum_ia_iu_i(\tau)$, $\bar B=\sum a_iv_i(\tau)$, $\bar C=\sum a_iw_i(\tau)$, so $\bar A\bar B-\bar C=h(\tau)t(\tau)$. The exponent of $A$ is $\alpha+\bar A+r\delta$ and of $B$ is $\beta+\bar B+s\delta$. The right-hand side of the verification equation has exponent
+\begin{align*}
+&\alpha\beta+\underbrace{\textstyle\sum_{i<\ell}a_i(\beta u_i+\alpha v_i+w_i)}_{\text{from }\mathsf{IC}\cdot\gamma}+\underbrace{\textstyle\sum_{i\ge\ell}a_i(\beta u_i+\alpha v_i+w_i)+ht}_{\delta\cdot(\text{first part of }C)}+\delta(sA_\bullet+rB_\bullet-rs\delta)\\
+&=\alpha\beta+\beta\bar A+\alpha\bar B+\bar C+(\bar A\bar B-\bar C)+\delta(sA_\bullet+rB_\bullet)-rs\delta^2\\
+&=\alpha\beta+\beta\bar A+\alpha\bar B+\bar A\bar B+\delta sA_\bullet+\delta rB_\bullet-rs\delta^2.
+\end{align*}
+Expanding $A_\bullet B_\bullet=(\alpha+\bar A+r\delta)(\beta+\bar B+s\delta)=\alpha\beta+\alpha\bar B+\alpha s\delta+\bar A\beta+\bar A\bar B+\bar As\delta+r\delta\beta+r\delta\bar B+rs\delta^2$ and
+$\delta sA_\bullet+\delta rB_\bullet-rs\delta^2=\alpha s\delta+\bar As\delta+rs\delta^2+r\delta\beta+r\delta\bar B+rs\delta^2-rs\delta^2$ show both sides coincide.
+\hfill$\square$
+
+\begin{example}[Numerical Groth16 ``in the exponent'']\label{ex:groth16}
+Take the QAP of Example~\ref{ex:r1cs} over $\FF_{101}$, points $\omega=(1,2,3,4)$ and the witness $\vec a=(1,35,3,9,27,30)$. Public variables: $\ell=2$ ($a_0=1$, $a_1=35$). Setup randomness $\tau=7,\alpha=2,\beta=3,\gamma=5,\delta=11$. Prover randomness $r=4$, $s=9$. We display exponents (a real implementation hides them in $\GG_1,\GG_2$).
+\begin{center}\small
+\begin{tabular}{c|cccccc}
+$i$ & 0 & 1 & 2 & 3 & 4 & 5\\\hline
+$u_i(\tau)$ & 100 & 0 & 46 & 36 & 56 & 20\\
+$v_i(\tau)$ & 76 & 0 & 26 & 0 & 0 & 0\\
+$w_i(\tau)$ & 0 & 20 & 0 & 91 & 36 & 56
+\end{tabular}
+\end{center}
+$t(\tau)=(6)(5)(4)(3)=360\equiv57$. Then $\bar A=48$, $\bar B=53$, $\bar C=30$, $\bar A\bar B-\bar C=2514\equiv90$ and $h(\tau)=90\cdot57^{-1}\equiv76$ (indeed $57\cdot76=4332\equiv90$).\\
+\textbf{Proof exponents:} $A=\alpha+\bar A+r\delta=2+48+44=94$; $B=\beta+\bar B+s\delta=3+53+99=155\equiv54$; $C=44$.\\
+\textbf{Verifier:} $\mathsf{IC}\cdot\gamma=\sum_{i<2}a_i(\beta u_i+\alpha v_i+w_i)=(300+152)+35\cdot20=452+700\equiv41$. Then
+\[AB=94\cdot54=5076\equiv26,\qquad \alpha\beta+\mathsf{IC}\gamma+C\delta=6+41+44\cdot11=6+41+484\equiv26\pmod{101}.\ \checkmark\]
+A forged witness e.g.\ $v_2=28$ makes $h$ non-polynomial; the prover cannot produce $C$ without the exact (hidden) $\tau$ powers.
+\end{example}
+
+\subsection{Zero-knowledge and soundness}
+\begin{theorem}[Groth 2016]
+In the generic bilinear group model, the above is a perfectly zero-knowledge, knowledge-sound SNARK for QAPs.
+\end{theorem}
+\begin{proof}[Proof idea]
+\emph{ZK.} Given the trapdoor $(\tau,\alpha,\beta,\gamma,\delta)$ the simulator picks $A,B$ uniformly and sets $C=\frac{AB-\alpha\beta-\mathsf{IC}\gamma}{\delta}$, satisfying the verification equation by definition. A real proof has $A=\alpha+\bar A+r\delta$ and $B=\beta+\bar B+s\delta$ with $r,s$ uniform, so $(A,B)$ is uniform, and $C$ is determined by the verification equation: same distribution.
+\emph{Soundness.} Any proof is a generic-group computation; the adversary's $A$, $B$, $C$ are linear combinations of the SRS elements. Matching the formal polynomial identity in the indeterminates $(\tau,\alpha,\beta,\gamma,\delta)$ shows that the coefficient of $\alpha\beta$ forces the shape $A=\alpha+\sum a_iu_i+\dots$; the $\gamma$ and $\delta$ divisions separate public from private parts; finally the polynomial identity holds over the indeterminate $\tau$, so $(\sum a_iu_i)(\sum a_iv_i)-\sum a_iw_i$ is divisible by $t(X)$, i.e.\ $\vec a$ is a QAP witness (Theorem~\ref{thm:qap}), and the extractor reads off $\vec a$ from the coefficients.
+\end{proof}
+\begin{warning}[Trusted setup]
+Whoever knows $\tau,\alpha,\beta,\gamma,\delta$ can forge proofs of false statements (the simulator above). Groth16 requires a \emph{circuit-specific} setup (phase 2 of an MPC ceremony after a universal phase 1 ``Powers of Tau''); as long as one participant destroys her share, the CRS is secure. Another limitation: Groth16 proofs are malleable (re-randomisable) unless bound to a context.
+\end{warning}
+
+\section{PLONK}
+PLONK \cite{GWC19} uses the PLONKish arithmetisation (Section 10.3) and KZG to obtain a SNARK with \emph{universal and updatable} setup: one SRS for all circuits of size $\le D$.
+\subsection{Setup of the argument}
+Let $H=\{\omega^0,\dots,\omega^{n-1}\}$ be the subgroup of $n$-th roots of unity in $\FF$ (so $Z_H(X)=X^n-1$). The prover interpolates wire polynomials $a(X),b(X),c(X)$ with $a(\omega^i)=a_i$, etc.; selector polynomials $q_L,q_R,q_O,q_M,q_C$ are fixed by the circuit. The \emph{gate constraint}
+\[G(X)=q_La+q_Rb+q_Oc+q_Mab+q_C+\mathrm{PI}(X)\ \equiv\ 0\ \text{ on }H,\]
+($\mathrm{PI}$ encodes public inputs) holds iff $Z_H(X)$ divides $G(X)$.
+\subsection{Copy constraints: the permutation argument}
+Let the $3n$ cells be indexed by $\{1..3n\}$ and $\sigma$ a permutation mapping each cell to the \emph{next} cell containing the same variable (cycles = equivalence classes). Define $f:\{1..3n\}\to\FF$ the cell values. Copy constraints hold iff $f(i)=f(\sigma(i))$ for all $i$.
+\begin{lemma}[Multiset equality via grand product]\label{lem:perm}
+For random $\beta,\gamma$: $f(i)=f(\sigma(i))\ \forall i$ iff (w.h.p.) $\prod_i\big(f(i)+\beta i+\gamma\big)=\prod_i\big(f(i)+\beta\sigma(i)+\gamma\big)$.
+\end{lemma}
+\begin{proof}
+($\Rightarrow$) If $f=f\circ\sigma$ then the right product is a reordering of the left. ($\Leftarrow$) Consider the pairs $(i,f(i))$ and $(\sigma(i),f(i))$ as multisets. The identity as polynomials in $\beta,\gamma$ is $\prod_i(\gamma+f(i)+\beta i)=\prod_i(\gamma+f(i)+\beta\sigma(i))$; by unique factorisation of polynomials in $\FF[\beta,\gamma]$ the multisets of linear factors $\{(f(i),i)\}$ and $\{(f(i),\sigma(i))\}$ coincide, i.e.\ $\{(i,f(i))\}=\{(\sigma(i),f(i))\}$, which means $f(i)=f(\sigma(i))$ exactly (as $\sigma$ is a permutation). If they are unequal as polynomials, Schwartz--Zippel shows the identity holds for random $(\beta,\gamma)$ with probability $\le3n/|\FF|$.
+\end{proof}
+\begin{example}
+Three cells with values $f=(3,9,3)$ and the copy constraint ``cell 1 equals cell 3'', i.e.\ $\sigma=(1\ 3)$ ($\sigma(1)=3,\sigma(3)=1,\sigma(2)=2$). Take $\beta=2,\gamma=1$. LHS $=(3+2+1)(9+4+1)(3+6+1)=6\cdot14\cdot10=840$; RHS $=(3+6+1)(9+4+1)(3+2+1)=10\cdot14\cdot6=840$. Equal. If the prover cheats with $f=(3,9,4)$: LHS $=6\cdot14\cdot11=924$, RHS $=(3+6+1)(14)(4+2+1)=980\ne924$ --- detected.
+\end{example}
+To verify a product over $H$ with a low-degree identity, the prover defines the accumulator $Z(\omega^0)=1$ and
+\[Z(\omega^{i+1})=Z(\omega^i)\cdot\frac{(f_i+\beta\omega^i+\gamma)}{(f_i+\beta S_{\sigma}(i)+\gamma)},\]
+(with $S_\sigma$ the encoding of $\sigma$ as polynomials), requires $Z(\omega^{n})=Z(\omega^0)=1$ and checks the recurrence as polynomial identity on $H$.
+\subsection{Putting it together}
+\begin{protocol}{Algorithm 12.2: PLONK prover (simplified)}
+\begin{enumerate}
+\item \textbf{Round 1.} Commit (KZG) to $a(X),b(X),c(X)$ (blinded).
+\item \textbf{Round 2.} Challenges $\beta,\gamma$; commit to the accumulator $Z(X)$.
+\item \textbf{Round 3.} Challenge $\alpha$. Form the \emph{quotient polynomial} $T(X)=\frac{G(X)+\alpha\,\text{(perm. constraint)}+\alpha^2\,(Z(X)-1)L_0(X)}{Z_H(X)}$. Split $T$ into pieces of degree $<n$ and commit.
+\item \textbf{Round 4.} Challenge $\mathfrak z$ (evaluation point). Send the evaluations $\bar a=a(\mathfrak z),\bar b,\bar c,\bar s_{\sigma1},\bar s_{\sigma2},\overline{Z\omega}=Z(\mathfrak z\omega)$.
+\item \textbf{Round 5.} Challenge $v$. Send two KZG opening proofs (batched with powers of $v$) for the linearisation polynomial at $\mathfrak z$ and for $Z$ at $\mathfrak z\omega$.
+\end{enumerate}
+Make non-interactive by Fiat--Shamir.
+\end{protocol}
+The verifier recomputes $T(\mathfrak z)$ from the evaluations, checks the quotient identity at the single point $\mathfrak z$ and verifies the two KZG openings with one pairing equation (batched). By Schwartz--Zippel a polynomial identity checked at a random $\mathfrak z\notin H$ implies the identity holds, except with probability $O(n/|\FF|)$. Proof size: 9 group elements + 6 field elements ($\approx600$ bytes); verifier: 2 pairings + $O(\ell)$ group ops.
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \draw[thick] (0,0)--(0,-5.2);\draw[thick] (7,0)--(7,-5.2);
+ \node at (0,0.3) {Prover};\node at (7,0.3) {Verifier (or hash)};
+ \draw[->] (0,-0.6)--(7,-0.6) node[midway,above] {$[a],[b],[c]$};
+ \draw[<-] (0,-1.3)--(7,-1.3) node[midway,above] {$\beta,\gamma$};
+ \draw[->] (0,-2.0)--(7,-2.0) node[midway,above] {$[Z]$};
+ \draw[<-] (0,-2.7)--(7,-2.7) node[midway,above] {$\alpha$};
+ \draw[->] (0,-3.4)--(7,-3.4) node[midway,above] {$[T_{lo}],[T_{mid}],[T_{hi}]$};
+ \draw[<-] (0,-4.1)--(7,-4.1) node[midway,above] {$\mathfrak z$};
+ \draw[->] (0,-4.8)--(7,-4.8) node[midway,above] {evals at $\mathfrak z$, KZG proofs};
+\end{tikzpicture}
+\end{center}
+\begin{example}[PLONK gate and permutation on Example~\ref{ex:r1cs}]
+The rows $(a,b,c)$ are $(3,3,9)$, $(9,3,27)$, $(27,3,30)$, $(30,0,35)$; take $n=4$ and let $H=\{1,\omega,\omega^2,\omega^3\}$ with $\omega$ of order $4$. The gate polynomial at $\omega^2$ (row 3, where $q_L=q_R=1$, $q_O=-1$) gives $27+3-30=0$. \checkmark
+
+The copy constraints partition the twelve cells into cycles:
+\begin{itemize}[nosep]
+\item $\{a_1,b_1,b_2,b_3\}$ (all equal to $x=3$),
+\item $\{c_1,a_2\}$ (value $9$), $\{c_2,a_3\}$ (value $27$), $\{c_3,a_4\}$ (value $30$).
+\end{itemize}
+The grand product equals $1$ iff every cycle carries a single value. Changing $b_2$ to $4$ would break the gate ($9\cdot4\ne27$) and the cycle of $x$.
+\end{example}
+\paragraph{Extensions.} \emph{Custom gates} (e.g.\ a degree-5 gate for Poseidon S-boxes), \emph{lookup arguments} (plookup, Halo2 lookups, Lasso/LogUp: prove $f\subseteq T$ for a table $T$, replacing bit decompositions for range checks and bitwise ops), \emph{recursion} (Halo: accumulate IPA openings so a proof can verify a proof).
+
+\section{STARKs}
+STARKs (Ben-Sasson, Bentov, Horesh, Riabzev 2018; ``Scalable Transparent ARguments of Knowledge'') eliminate trusted setup and pairings: only hash functions (collision-resistant / random oracle), hence plausibly post-quantum.
+\begin{protocol}{Algorithm 12.3: STARK for an AIR}
+\textbf{Input:} AIR over trace length $T=2^k$, trace polynomials $f_1..f_w$ over the subgroup $G=\langle g\rangle$, $|G|=T$.
+\begin{enumerate}
+\item \textbf{Trace commitment.} Prover interpolates each column, evaluates on a larger \emph{LDE domain} $D\supset G$ ($|D|=\rho^{-1}T$ — blow-up e.g.\ $\times4$ or $\times8$), Merkle-commits.
+\item \textbf{Constraint composition.} Verifier sends random $\alpha_j$. Prover forms the composition polynomial
+\[C(X)=\sum_j\alpha_j\,\frac{P_j\big(f_1(X),..,f_w(X),f_1(gX),..,f_w(gX)\big)}{Z_j(X)}\]
+where $Z_j$ is the vanishing polynomial of the set of points where the $j$-th constraint must hold. If the trace is valid, each quotient is a polynomial, hence $C$ has low degree; otherwise, some quotient has a pole and $C$ is far from low degree. Commit to $C$ on $D$.
+\item \textbf{OOD/DEEP sampling} (optional) fix consistency between $C$ and $f_i$ at a random point $\mathfrak z$ outside $D$.
+\item \textbf{FRI.} Run FRI on $C$ (and the DEEP quotient) to prove low degree (Alg.~11.2).
+\item \textbf{Queries.} Verifier checks, at random positions $x\in D$, that $C(x)$ equals the constraint combination computed from the opened trace values $f_i(x),f_i(gx)$ (Merkle openings).
+\end{enumerate}
+\end{protocol}
+\begin{example}[Fibonacci STARK]
+Trace $s=(1,1,2,3,5,8,13,21)$, $T=8$. Let $g$ generate a multiplicative subgroup $G$ of order $8$ of the field and let $f$ be the degree-$\le7$ polynomial with $f(g^i)=s_i$. The transition polynomial $R(X)=f(g^2X)-f(gX)-f(X)$ must vanish at $g^0,\dots,g^5$, so
+\[Q_{\mathrm{tr}}(X)=\frac{R(X)}{\prod_{i=0}^{5}(X-g^i)}\]
+is a polynomial of degree $\le7-6=1$. The boundary quotients $\frac{f(X)-1}{X-g^0}$, $\frac{f(X)-1}{X-g^1}$, $\frac{f(X)-21}{X-g^7}$ have degree $\le6$. The prover Merkle-commits to $f$ on an evaluation domain of size $32$ (blow-up $4$), commits to the random combination of the quotients, and runs FRI. If the prover cheats by changing one entry (say $s_4=6$), then $R$ is nonzero at $g^2$ and $g^3$ (because $s_4$ occurs in two transitions), so the corresponding quotient has a pole there and is far from a low-degree polynomial; FRI rejects with high probability.
+\end{example}
+\paragraph{Properties.} Transparent (public randomness only); proof size $O(\log^2 T)$ (50--200 KB in practice); prover quasi-linear $O(T\log T)$ (FFTs and hashing); verifier $O(\log^2T)$; plausibly post-quantum. ZK is obtained by randomising the trace (adding random rows and masking polynomials) so that the $O(\lambda)$ opened values reveal nothing.
+
+\section{Comparison}
+\begin{center}\small
+\begin{tabular}{@{}p{1.8cm}p{2.4cm}p{2.3cm}p{2.6cm}p{2.5cm}p{2.5cm}@{}}\toprule
+ & Groth16 & PLONK(KZG) & Bulletproofs & STARK & Spartan/Libra\\\midrule
+Setup & circuit-specific & universal & none & none & none/universal\\
+Proof size & $\approx 128$ B & $\approx 0.5$ KB & $O(\log n)$ (1--2 KB) & $\approx 50$--$200$ KB & $O(\log^2)$ \\
+Verifier & 3 pairings & 2 pairings & $O(n)$ & polylog & polylog / $\sqrt n$\\
+Prover & $O(n\log n)$ FFT+MSM & $O(n\log n)$ & $O(n)$ MSM & $O(n\log n)$ hashes & $O(n)$\\
+Assumption & GGM/AGM (pairings) & AGM, $q$-SDH & DL & Hash (PQ) & DL / hash\\\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Recursion and folding}
+A SNARK verifier is itself a small circuit, so a prover can prove ``I verified the previous proof''. This \emph{proof-carrying data} / recursion approach yields incrementally verifiable computation (IVC): constant-size proof for an unbounded computation. Folding schemes (Nova, SuperNova, HyperNova, ProtoStar) avoid verifying a full SNARK at each step: two R1CS instances $(u_1,w_1)$, $(u_2,w_2)$ are linearly combined, $u=u_1+ru_2$ with random $r$, into one relaxed instance; the cross-term $E$ is committed; only the final folded instance is proven.
+
+\section*{Exercises}
+\begin{exercise}
+Re-derive the Groth16 verification equation starting from the requirement that the verifier tests $AB=\alpha\beta+\ldots$; explain the role of $\gamma$ and $\delta$ (they separate public from private parts and prevent mix-and-match attacks).
+\end{exercise}
+\begin{exercise}
+Recompute Example~\ref{ex:groth16} with a different $\tau$ and randomisers; check the pairing equation. What happens if you change $a_5=30$ to $31$ (and keep $h$ as computed from the honest witness)?
+\end{exercise}
+\begin{exercise}
+Prove Lemma~\ref{lem:perm} carefully, including the soundness error $\le 3n/|\FF|$.
+\end{exercise}
+\begin{exercise}
+Compute, for a STARK over a field with $\lambda=100$ bits of security, blow-up factor $8$ (rate $1/8$) and proximity parameter $\delta\approx0.4$, the number of FRI queries needed (use $s\approx\lambda/\log_2\frac1{1-\delta}$).
+\end{exercise}
+\begin{exercise}
+Show that Groth16's $(A,B)$ is uniform (zero-knowledge) when $r,s$ are uniform, and explain what leaks if $r=s=0$.
+\end{exercise}
+
+\chapter{Complexity-Theoretic Foundations and Limits}
+\label{ch:theory}
+\section{Classes of zero-knowledge languages}
+Let $\PZK,\SZK,\CZK$ be the classes of languages with perfect, statistical, and computational zero-knowledge \emph{proof} systems (against malicious verifiers); $\HVSZK$ restricts to honest verifiers.
+\begin{theorem}[Landscape]\label{thm:landscape}
+\begin{enumerate}
+\item $\BPP\subseteq\PZK\subseteq\SZK\subseteq\CZK\subseteq\IP=\PSPACE$.
+\item $\GI,\ \GNI,\ \QR,\ \QNR\in\PZK$/$\SZK$ (Sections 5.1--5.2, GMW, GMR).
+\item (Goldreich--Micali--Wigderson; Impagliazzo--Yung; Ben-Or et al.) If one-way functions exist then $\CZK=\IP=\PSPACE$. Conversely, if $\CZK$ contains a language outside $\BPP$ then (Ostrovsky--Wigderson) a weak form of one-way function exists.
+\item $\HVSZK=\SZK$ (Goldreich--Sahai--Vadhan).
+\item $\SZK\subseteq\AM\cap\coAM$ (Fortnow; Aiello--H{\aa}stad). Hence an $\NP$-complete language is not in $\SZK$ unless the polynomial hierarchy collapses.
+\item $\SZK$ is closed under complement (Okamoto) and has the complete problems \textsc{Statistical Difference} and \textsc{Entropy Difference} (Sahai--Vadhan).
+\end{enumerate}
+\end{theorem}
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small}]
+ \draw[rounded corners,fill=gray!6] (0,0) rectangle (11,5.2);\node at (5.5,4.9) {$\IP=\PSPACE=\CZK$ (under OWF)};
+ \draw[rounded corners,fill=blue!6] (0.4,0.4) rectangle (7.2,4.4);\node at (3.8,4.1) {$\AM$};
+ \draw[rounded corners,fill=green!8] (0.8,0.8) rectangle (6.4,3.4);\node at (3.6,3.1) {$\SZK\subseteq\AM\cap\coAM$};
+ \draw[rounded corners,fill=yellow!15] (1.2,1.2) rectangle (4.2,2.6);\node at (2.7,2.3) {$\PZK$};
+ \node at (2.7,1.6) {$\GI,\QR$};
+ \node at (5.6,1.7) {\textsc{SD},\textsc{ED}};
+ \node[align=center] at (8.9,2.6) {3-COL, SAT\\ (only under\\ assumptions)};
+\end{tikzpicture}
+\end{center}
+\begin{theorem}[$\SZK\subseteq\AM\cap\coAM$, sketch]\label{thm:szkam}
+$\SZK\subseteq\AM$: it is enough to put \textsc{Entropy Difference} in $\AM$. Statistical zero-knowledge implies that the simulator's output on $x\in L$ has some specific entropy relation with the output on $x\notin L$. The $\AM$ verifier uses the Goldwasser--Sipser set lower bound protocol to certify that the entropy of the simulator's output distribution is above a threshold. Since $\SZK$ is closed under complement, $\SZK\subseteq\coAM$ as well.
+\end{theorem}
+Interpretation: statistical ZK proofs are for problems of ``intermediate'' complexity (factoring-like, lattice-like), not for $\NP$-hard problems. Statistical ZK \emph{arguments} for $\NP$ do exist (from collision-resistant hash functions: Brassard--Chaum--Cr\'epeau; Naor--Ostrovsky--Venkatesan--Yung), since computationally bounded provers cannot exploit binding.
+
+\section{Sahai--Vadhan problems: the SD problem}
+\begin{definition}[Statistical Difference, $\mathrm{SD}_{\alpha,\beta}$]
+Input: circuits $C_0,C_1$ sampling distributions $D_0,D_1$. YES if $\SD(D_0,D_1)\ge\beta$; NO if $\SD(D_0,D_1)\le\alpha$, with $\alpha<\beta$ and $(\beta-\alpha)^2>\ldots$ a constant gap of squared inverse-polynomial type.
+\end{definition}
+\begin{theorem}[Sahai--Vadhan]
+$\mathrm{SD}$ is $\SZK$-complete; for $\GI$, $\GNI$, $\QR$ this is seen by taking $D_b$ = random isomorphic copies of $G_b$.
+\end{theorem}
+\begin{example}[$\GNI\le\mathrm{SD}$]
+Let $D_b$ be the distribution of $\sigma(G_b)$, $\sigma\getsr S_n$. If $G_0\cong G_1$ then $D_0=D_1$ ($\SD=0$); if not then their supports are disjoint ($\SD=1$). So $(G_0,G_1)\in\GNI$ iff $\SD(D_0,D_1)=1$. Conversely every $\SD$ instance has a GNI-like ZK proof: the verifier flips a coin $b$ and sends a sample from $D_b$; the prover guesses $b$; its success probability is $\frac12+\frac12\SD(D_0,D_1)$. This is exactly the protocol of Section~3.2, generalised.
+\end{example}
+
+\section{Impossibility results}
+\begin{theorem}[Goldreich--Oren 1994]
+If $L$ has a ZK proof system (with auxiliary input) then the verifier must be randomized and interactive: non-interactive ZK in the plain model is possible only for $L\in\BPP$.
+\end{theorem}
+\begin{proof}
+In a one-message protocol the verifier's decision is a function of $(x,\pi)$ and its coins. Run $\Sim(x)$ (the simulator for the honest verifier): by ZK, on $x\in L$ the simulator outputs views indistinguishable from accepting ones; on $x\notin L$, soundness says no $\pi$ is accepted except w.p. $s$, so the simulator's output (which can be checked by running $\Ver$) is rejected w.h.p. Hence $L\in\BPP$ is decided by ``simulate and verify''.
+\end{proof}
+\begin{theorem}[Goldreich--Krawczyk 1996]
+If a language has a 3-round (auxiliary-input) black-box ZK proof system, then $L\in\BPP$. If it has a constant-round public-coin black-box ZK proof system, then $L\in\BPP$.
+\end{theorem}
+\begin{intuition}
+A black-box simulator can only rewind. With a verifier that answers with $c=\mathrm{PRF}(a)$, a pseudorandom function of the first message, rewinding gains nothing: the simulator must predict the challenge. A simulator that produces a convincing transcript for a (pseudo)random challenge must, by an extractor-like argument, have been able to answer \emph{two} challenges, whence it decides $L$.
+\end{intuition}
+\begin{theorem}[Barak 2001]
+Non-black-box simulation circumvents these: there is a constant-round public-coin ZK argument for $\NP$ with negligible soundness error. The simulator uses the \emph{code} of $\Ver^*$: the protocol includes a branch that is provable only by knowing a short commitment to a program that predicts the verifier's next message; the simulator commits to the verifier's own code.
+\end{theorem}
+\begin{theorem}[Gentry--Wichs 2011]
+No SNARG for $\NP$ has a security reduction to a falsifiable assumption in a black-box way; knowledge assumptions are unavoidable for succinct non-interactive \emph{arguments} (hence SNARK's extractability assumptions and ROM-based STARKs).
+\end{theorem}
+\begin{theorem}[Composition: parallel and concurrent]
+The sequential composition theorem (Thm.~\ref{thm:seqcomp}) holds, but parallel composition of ZK may fail (a counterexample is a protocol in which the verifier's second message depends on a challenge asked before; Goldreich--Krawczyk). Concurrent ZK requires $\tilde\Omega(\log\lambda)$ rounds for black-box simulation (Canetti--Kilian--Petrank--Rosen) and is achievable (Richardson--Kilian, Prabhakaran--Rosen--Sahai).
+\end{theorem}
+
+\section{PCPs, IOPs and the origins of succinctness}
+The sum-check protocol (Ch.~9) led to the PCP theorem: an $\NP$ statement has a proof that can be verified by reading only $O(1)$ bits of it.
+\begin{definition}[PCP]
+$L\in\PCP[r(n),q(n)]$ if there is a polynomial-time verifier that tosses $r(n)$ coins, queries $q(n)$ positions of an oracle $\pi$, accepts $x\in L$ with some $\pi$ with probability $1$ and rejects $x\notin L$ with probability $\ge1/2$ for all $\pi$.
+\end{definition}
+\begin{theorem}[ALMSS 1992]
+$\NP=\PCP[O(\log n),O(1)]$.
+\end{theorem}
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \node[draw,rounded corners,fill=blue!6,text width=2.9cm,align=center] (a) at (0,0) {PCP\\(long proof $\pi$,\\ query a few bits)};
+ \node[draw,rounded corners,fill=blue!6,text width=2.9cm,align=center] (b) at (4.2,0) {Merkle-commit $\pi$,\\ open queried bits};
+ \node[draw,rounded corners,fill=blue!6,text width=2.9cm,align=center] (c) at (8.4,0) {Fiat--Shamir:\\ queries = hash\\of root};
+ \node[draw,rounded corners,fill=green!8,text width=2.0cm,align=center] (d) at (12.0,0) {Kilian / Micali\\ SNARG};
+ \draw[->] (a)--(b);\draw[->] (b)--(c);\draw[->] (c)--(d);
+\end{tikzpicture}
+\end{center}
+\begin{theorem}[Kilian 1992; Micali 2000]
+PCP + Merkle commitments (collision-resistant hash) gives a 4-message succinct argument for $\NP$ (Kilian), which Fiat--Shamir makes non-interactive in the random oracle model (Micali's computationally sound proofs).
+\end{theorem}
+\emph{Interactive oracle proofs (IOPs)} (Ben-Sasson--Chiesa--Spooner; Reingold--Rothblum--Rothblum) generalise PCPs and interactive proofs: in each round the prover sends an oracle (a long string) and the verifier sends randomness; the verifier queries only a few symbols. STARKs, Aurora, Fractal, Plonky2, Ligero are IOP + hash-based compilations; Marlin/PLONK are \emph{polynomial IOPs} compiled using a polynomial commitment scheme.
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth,every node/.style={font=\small}]
+ \node[draw,rounded corners,fill=yellow!10,text width=3.2cm,align=center] (io) at (0,0) {\textbf{Information-theoretic}\\ polynomial IOP / IOP\\ (oracles)};
+ \node[draw,rounded corners,fill=blue!6,text width=3.2cm,align=center] (pc) at (5.2,0) {\textbf{Cryptographic compiler}\\ KZG / FRI / IPA\\ (commitments)};
+ \node[draw,rounded corners,fill=green!8,text width=3.2cm,align=center] (fs) at (10.4,0) {\textbf{Fiat--Shamir}\\ $\Rightarrow$ non-interactive\\ SNARK/STARK};
+ \draw[->] (io)--(pc);\draw[->] (pc)--(fs);
+\end{tikzpicture}
+\end{center}
+This modular ``IOP $\to$ PCS $\to$ FS'' pipeline explains the modern landscape: choosing a different PCS changes setup, proof size and assumptions (Table in Ch.~12.5) without touching the arithmetisation.
+
+\section{Quantum considerations}
+\begin{itemize}
+\item \emph{Soundness against quantum provers.} Rewinding is problematic for quantum adversaries (no-cloning): classical proofs of knowledge via rewinding do not carry over (Unruh's quantum rewinding, quantum PoK).
+\item \emph{Fiat--Shamir in the quantum random oracle model} (QROM): Don et al., Liu--Zhandry give tight-ish reductions for some protocols; Dilithium/Falcon-like signatures (Fiat--Shamir with aborts) use lattice $\Sigma$-protocols.
+\item \emph{Post-quantum ZK:} lattice-based (Lyubashevsky; LaBRADOR), hash-based (STARKs, Ligero++, Brakedown), MPC-in-the-head (Ishai--Kushilevitz--Ostrovsky--Sahai: simulate an MPC protocol among $n$ virtual parties, open $t$ views; used in Picnic and Banquet).
+\item \emph{Quantum advantage:} $\mathsf{MIP}^*=\mathsf{RE}$ (Ji--Natarajan--Vidick--Wright--Yuen 2020) shows entangled provers can prove astonishingly hard statements; ZK analogues exist.
+\end{itemize}
+
+\section*{Exercises}
+\begin{exercise}
+Prove that $\PZK\subseteq\SZK\subseteq\CZK$ and that $\BPP\subseteq\PZK$.
+\end{exercise}
+\begin{exercise}
+Show that $\GNI\le\mathrm{SD}$ and $\QNR\le\mathrm{SD}$ by exhibiting the sampling circuits.
+\end{exercise}
+\begin{exercise}
+Give the details of the argument that a one-message ZK proof system in the plain model implies $L\in\BPP$ (Goldreich--Oren). Where does the argument fail in the CRS model?
+\end{exercise}
+\begin{exercise}
+State precisely why the Kilian PCP-to-argument transformation needs a \emph{commitment with local opening} and construct one from a Merkle tree; analyse the soundness error when the verifier makes $q$ queries.
+\end{exercise}
+
+\chapter{Applications, Practical Considerations and Further Reading}
+\label{ch:apps}
+\section{Applications}
+\begin{description}
+\item[Identification and authentication.] Schnorr/FFS identification; passwordless authentication (OPAQUE with ZK password proofs); proving age or residency from a government credential without revealing the credential (ISO 18013-5 mDL + zk).
+\item[Signatures.] Schnorr/EdDSA, BLS (not FS-based), Dilithium; ring signatures and group signatures (CDS OR-proofs, linkable ring signatures in Monero); blind signatures.
+\item[Anonymous credentials.] Camenisch--Lysyanskaya, U-Prove, BBS+ signatures with selective disclosure: the holder proves in ZK possession of a signed credential with attribute predicates.
+\item[Private payments.] Zerocash/Zcash: a note commitment $\mathsf{cm}=\mathsf{Com}(v,\mathsf{pk};\rho)$ is inserted into a Merkle tree; spending proves (in ZK) knowledge of the opening, Merkle membership, a correctly derived nullifier $\mathsf{nf}$, and balance $\sum v_{in}=\sum v_{out}$. Confidential transactions in Monero use Pedersen commitments and Bulletproofs for range.
+\item[Verifiable computation and blockchain scaling.] zk-rollups (zkSync, StarkNet, Polygon zkEVM, Scroll, Linea): a prover executes thousands of transactions off-chain and posts a SNARK/STARK of the state transition; L1 verifies one proof. zkVMs (RISC Zero, SP1, Jolt) prove arbitrary RISC-V execution.
+\item[Verifiable machine learning, data and databases.] zkML proofs of inference; proofs of SQL queries; proofs of solvency of an exchange (Merkle sum tree + ZK range proofs).
+\item[Secure multi-party computation.] GMW compiler: each party attaches a ZK proof of correct behaviour. Also MPC-in-the-head signatures and ZK proofs.
+\item[Voting and auctions.] Verifiable shuffles (Neff/Groth), proofs of correct ElGamal decryption (Chaum--Pedersen), sealed-bid auctions.
+\end{description}
+
+\section{Choosing a proof system}
+\begin{center}\small
+\begin{tabular}{@{}p{4.2cm}p{9.5cm}@{}}\toprule
+Requirement & Suggested tool\\\midrule
+Prove discrete-log relations, few statements & $\Sigma$-protocols + Fiat--Shamir\\
+Range proofs, no trusted setup, small statement & Bulletproofs\\
+Smallest proof, on-chain verification, fixed circuit & Groth16\\
+Evolving circuits, universal setup & PLONK/Halo2 with KZG\\
+No trusted setup, large computation, post-quantum & STARKs (FRI)\\
+Proving long iterative computations & Folding (Nova) / recursion\\
+Maximum prover speed, structured computations & sum-check based (Spartan, Jolt, Lasso) \\\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Implementation pitfalls (a checklist)}
+\begin{enumerate}
+\item Hash \emph{everything} in Fiat--Shamir (statement, public parameters, all prior messages); use domain separation.
+\item Check group membership/subgroup of every received point (small-subgroup and invalid-curve attacks); reject the identity where inappropriate.
+\item Use constant-time scalar operations; generate nonces deterministically or from a CSPRNG.
+\item Under-constrained circuits are the dominant real-world bug: every witness variable must be pinned by constraints (range checks, boolean checks, non-zero checks via inverse witnesses $x\cdot x^{-1}=1$). Audit with formal tools (Circomspect, Picus, ZKAP).
+\item Trusted setup hygiene: verify transcripts of the ceremony; sample $\tau$ in an MPC; use a beacon.
+\item Soundness bits: with $|\FF|\approx2^{64}$, Schwartz--Zippel error $d/|\FF|$ is not negligible; sample challenges from an extension field.
+\item Malleability and replay: bind proofs to application context (contract address, nonce) by including them as public inputs.
+\end{enumerate}
+
+\section{Where to go from here}
+\begin{itemize}
+\item Foundational texts: Goldreich, \emph{Foundations of Cryptography Vol.\ 1} (Ch.\ 4); Goldwasser--Micali--Rackoff; Arora--Barak Ch.\ 8--11; Vadhan's thesis on SZK.
+\item $\Sigma$-protocols and applications: Damgård's lecture notes ``On $\Sigma$-protocols''; Boneh--Shoup, \emph{A Graduate Course in Applied Cryptography} (Ch.\ 19, 20).
+\item SNARKs/STARKs: Thaler, \emph{Proofs, Arguments, and Zero-Knowledge}; Ben-Sasson et al.\ STARK papers; Justin Thaler's survey; Vitalik Buterin's QAP/PLONK blog posts; Groth16 paper; the PLONK paper; ZK Hack lectures.
+\item Open problems: tight Fiat--Shamir security in the standard model; transparent SNARKs with $O(1)$ verification; post-quantum SNARKs with short proofs; ZK with optimal prover overhead (linear time, small constant); concurrent security of recursion; formal verification of circuits.
+\end{itemize}
+
+\section*{Capstone exercises}
+\begin{exercise}
+Design a Schnorr-based protocol that lets a prover show that a Pedersen commitment $C=g^vh^r$ hides a value $v\in\{3,5,7\}$. Give completeness, special soundness and SHVZK, and run it with the toy group.
+\end{exercise}
+\begin{exercise}
+Implement (in Python, using the toy group and a prime field of 17 elements) Schnorr, Chaum--Pedersen, the OR-proof, sum-check (Example~\ref{ex:sumcheck}), the KZG ``in the exponent'' check and one FRI fold; test the soundness of each by simulating cheating provers.
+\end{exercise}
+\begin{exercise}
+Write an R1CS for the statement ``I know a preimage $s$ with $s^2+3s+2=0$ over $\FF_{101}$'', convert to QAP (with points $1,2,\ldots$), and produce the Groth16 ``exponent-level'' proof with your own toxic waste.
+\end{exercise}
+\begin{exercise}
+Prove that Protocol 7.4 (OR-proof) is not zero-knowledge against a malicious verifier unless the challenge is committed in advance, by exhibiting the verifier that biases challenges.
+\end{exercise}
+\begin{exercise}
+Survey: pick a deployed system (Zcash Sapling/Orchard, a zk-rollup, or a zkVM) and identify: the arithmetisation, the PCS, the setup, the Fiat--Shamir hashes, and the assumptions; compare with Table in Chapter~12.
+\end{exercise}
+
+\begin{thebibliography}{99}
+\bibitem{GMR89} S.\ Goldwasser, S.\ Micali, C.\ Rackoff. The knowledge complexity of interactive proof systems. \emph{SIAM J.\ Comput.} 18(1):186--208, 1989 (STOC 1985).
+\bibitem{GMW91} O.\ Goldreich, S.\ Micali, A.\ Wigderson. Proofs that yield nothing but their validity or all languages in NP have zero-knowledge proof systems. \emph{J.\ ACM} 38(3):690--728, 1991.
+\bibitem{FFS88} U.\ Feige, A.\ Fiat, A.\ Shamir. Zero-knowledge proofs of identity. \emph{J.\ Cryptology} 1(2):77--94, 1988.
+\bibitem{FS86} A.\ Fiat, A.\ Shamir. How to prove yourself. CRYPTO 1986.
+\bibitem{Sch91} C.-P.\ Schnorr. Efficient signature generation by smart cards. \emph{J.\ Cryptology} 4(3):161--174, 1991.
+\bibitem{CP92} D.\ Chaum, T.\ Pedersen. Wallet databases with observers. CRYPTO 1992.
+\bibitem{CDS94} R.\ Cramer, I.\ Damgård, B.\ Schoenmakers. Proofs of partial knowledge and simplified design of witness hiding protocols. CRYPTO 1994.
+\bibitem{Ped91} T.\ Pedersen. Non-interactive and information-theoretic secure verifiable secret sharing. CRYPTO 1991.
+\bibitem{PS96} D.\ Pointcheval, J.\ Stern. Security proofs for signature schemes. EUROCRYPT 1996.
+\bibitem{BN06} M.\ Bellare, G.\ Neven. Multi-signatures in the plain public-key model and a general forking lemma. CCS 2006.
+\bibitem{Sha92} A.\ Shamir. IP $=$ PSPACE. \emph{J.\ ACM} 39(4):869--877, 1992.
+\bibitem{LFKN92} C.\ Lund, L.\ Fortnow, H.\ Karloff, N.\ Nisan. Algebraic methods for interactive proof systems. \emph{J.\ ACM} 39(4):859--868, 1992.
+\bibitem{GKR15} S.\ Goldwasser, Y.\ Kalai, G.\ Rothblum. Delegating computation: interactive proofs for muggles. \emph{J.\ ACM} 62(4), 2015.
+\bibitem{Tha13} J.\ Thaler. Time-optimal interactive proofs for circuit evaluation. CRYPTO 2013.
+\bibitem{GGPR13} R.\ Gennaro, C.\ Gentry, B.\ Parno, M.\ Raykova. Quadratic span programs and succinct NIZKs without PCPs. EUROCRYPT 2013.
+\bibitem{Gro16} J.\ Groth. On the size of pairing-based non-interactive arguments. EUROCRYPT 2016.
+\bibitem{GWC19} A.\ Gabizon, Z.\ Williamson, O.\ Ciobotaru. PLONK: Permutations over Lagrange-bases for oecumenical noninteractive arguments of knowledge. ePrint 2019/953.
+\bibitem{KZG10} A.\ Kate, G.\ Zaverucha, I.\ Goldberg. Constant-size commitments to polynomials and their applications. ASIACRYPT 2010.
+\bibitem{BBHR18} E.\ Ben-Sasson, I.\ Bentov, Y.\ Horesh, M.\ Riabzev. Fast Reed--Solomon interactive oracle proofs of proximity. ICALP 2018.
+\bibitem{BBHR19} E.\ Ben-Sasson, I.\ Bentov, Y.\ Horesh, M.\ Riabzev. Scalable zero knowledge with no trusted setup. CRYPTO 2019.
+\bibitem{BBBPWM18} B.\ B\"unz, J.\ Bootle, D.\ Boneh, A.\ Poelstra, P.\ Wuille, G.\ Maxwell. Bulletproofs: short proofs for confidential transactions and more. IEEE S\&P 2018.
+\bibitem{BCS16} E.\ Ben-Sasson, A.\ Chiesa, N.\ Spooner. Interactive oracle proofs. TCC 2016.
+\bibitem{Kil92} J.\ Kilian. A note on efficient zero-knowledge proofs and arguments. STOC 1992.
+\bibitem{Mic00} S.\ Micali. Computationally sound proofs. \emph{SIAM J.\ Comput.} 30(4), 2000.
+\bibitem{BFM88} M.\ Blum, P.\ Feldman, S.\ Micali. Non-interactive zero-knowledge and its applications. STOC 1988.
+\bibitem{FLS99} U.\ Feige, D.\ Lapidot, A.\ Shamir. Multiple non-interactive zero knowledge proofs under general assumptions. \emph{SIAM J.\ Comput.} 29(1), 1999.
+\bibitem{GOS06} J.\ Groth, R.\ Ostrovsky, A.\ Sahai. Perfect non-interactive zero knowledge for NP. EUROCRYPT 2006.
+\bibitem{GS08} J.\ Groth, A.\ Sahai. Efficient non-interactive proof systems for bilinear groups. EUROCRYPT 2008.
+\bibitem{Nao91} M.\ Naor. Bit commitment using pseudorandomness. \emph{J.\ Cryptology} 4(2), 1991.
+\bibitem{HILL99} J.\ H{\aa}stad, R.\ Impagliazzo, L.\ Levin, M.\ Luby. A pseudorandom generator from any one-way function. \emph{SIAM J.\ Comput.} 28(4), 1999.
+\bibitem{GK96} O.\ Goldreich, H.\ Krawczyk. On the composition of zero-knowledge proof systems. \emph{SIAM J.\ Comput.} 25(1), 1996.
+\bibitem{GO94} O.\ Goldreich, Y.\ Oren. Definitions and properties of zero-knowledge proof systems. \emph{J.\ Cryptology} 7(1), 1994.
+\bibitem{Bar01} B.\ Barak. How to go beyond the black-box simulation barrier. FOCS 2001.
+\bibitem{BIN97} M.\ Bellare, R.\ Impagliazzo, M.\ Naor. Does parallel repetition lower the error in computationally sound protocols? FOCS 1997.
+\bibitem{GK03} S.\ Goldwasser, Y.\ Kalai. On the (in)security of the Fiat--Shamir paradigm. FOCS 2003.
+\bibitem{CGH04} R.\ Canetti, O.\ Goldreich, S.\ Halevi. The random oracle methodology, revisited. \emph{J.\ ACM} 51(4), 2004.
+\bibitem{SV03} A.\ Sahai, S.\ Vadhan. A complete problem for statistical zero knowledge. \emph{J.\ ACM} 50(2), 2003.
+\bibitem{GW11} C.\ Gentry, D.\ Wichs. Separating succinct non-interactive arguments from all falsifiable assumptions. STOC 2011.
+\bibitem{CCHLRR19} R.\ Canetti et al. Fiat--Shamir: from practice to theory. STOC 2019.
+\bibitem{PS19} C.\ Peikert, S.\ Shiehian. Noninteractive zero knowledge for NP from (plain) LWE. CRYPTO 2019.
+\bibitem{Mau09} U.\ Maurer. Unifying zero-knowledge proofs of knowledge. AFRICACRYPT 2009.
+\bibitem{Tha22} J.\ Thaler. \emph{Proofs, Arguments, and Zero-Knowledge}. Foundations and Trends in Privacy and Security, 2022.
+\bibitem{Gol01} O.\ Goldreich. \emph{Foundations of Cryptography, Vol.\ 1: Basic Tools}. Cambridge University Press, 2001.
+\bibitem{BS23} D.\ Boneh, V.\ Shoup. \emph{A Graduate Course in Applied Cryptography}. 2023.
+\bibitem{ALMSS98} S.\ Arora, C.\ Lund, R.\ Motwani, M.\ Sudan, M.\ Szegedy. Proof verification and the hardness of approximation problems. \emph{J.\ ACM} 45(3), 1998.
+\bibitem{BCCT} N.\ Bitansky, R.\ Canetti, A.\ Chiesa, E.\ Tromer. From extractable collision resistance to succinct non-interactive arguments of knowledge. ITCS 2012.
+\bibitem{Kothapalli} A.\ Kothapalli, S.\ Setty, I.\ Tzialla. Nova: recursive zero-knowledge arguments from folding schemes. CRYPTO 2022.
+\end{thebibliography}
+\end{document}
