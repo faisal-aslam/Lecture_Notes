@@ -6,10 +6,13 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,decorations.pathreplacing,fit,backgrounds}
 \usepackage[most]{tcolorbox}
-\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[hypertexnames=false,plainpages=false,pdfpagelabels,colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
 \usepackage{cleveref}
 \usepackage[expansion=false]{microtype}
 \setlength{\parskip}{0.4em}
+\setlength{\emergencystretch}{6em}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\prob}[1]{\textsf{#1}}
 \setlist{itemsep=0.15em,topsep=0.3em}
 
 % ---------- theorem environments ----------
@@ -32,7 +35,7 @@
 \crefname{claim}{Claim}{Claims}
 
 % ---------- boxes ----------
-\tcbset{protostyle/.style={enhanced,breakable,colback=blue!3,colframe=blue!50!black,fonttitle=\bfseries}}
+\tcbset{protostyle/.style={enhanced,breakable,colback=blue!3,colframe=blue!50!black,fonttitle=\bfseries,before upper={\raggedright}}}
 \newtcolorbox[auto counter,number within=chapter]{protocol}[2][]{protostyle,title={Protocol~\thetcbcounter: #2},#1}
 \newtcolorbox[use counter from=protocol]{algorithm}[2][]{protostyle,title={Algorithm~\thetcbcounter: #2},#1}
 \newtcolorbox{intuition}[1][Intuition]{enhanced,breakable,colback=yellow!8,colframe=orange!70!black,
@@ -80,7 +83,7 @@
 % a two-party transcript table: three columns P | channel | V
 \newenvironment{flow}[2]{%
   \par\smallskip\noindent
-  \begin{tabular}{@{}p{0.34\linewidth} c p{0.34\linewidth}@{}}
+  \begin{tabular}{@{}L{0.34\linewidth} c L{0.34\linewidth}@{}}
   \textbf{#1} & & \textbf{#2}\\ \hline}{\end{tabular}\par\smallskip}
 
 \title{\Huge\bfseries Zero-Knowledge Proofs\\[4pt]\Large From Foundations to zk-SNARKs and STARKs\\[10pt]
@@ -89,6 +92,7 @@
 \date{\today}
 
 \begin{document}
+\pagenumbering{roman}
 \maketitle
 \begin{abstract}\noindent
 These notes give a self-contained, proof-oriented treatment of zero-knowledge proofs.
@@ -102,6 +106,7 @@ worked numerical example (small enough to be verified by hand) and by a diagram.
 Chapters end with exercises. Starred sections are optional on a first reading.
 \end{abstract}
 \tableofcontents
+\clearpage\pagenumbering{arabic}
 
 \chapter{Introduction and Motivation}
 \section{What is a zero-knowledge proof?}
@@ -211,7 +216,7 @@ Let $p_i=\Pr[D(X^{(i)})=1]$. Then $\varepsilon\le|p_0-p_m|=\big|\sum_{i<m}(p_i-p
 \end{proof}
 The hybrid argument is the workhorse for every ZK proof with polynomially many commitments (e.g.\ Chapter~\ref{ch:np}). Its constructive form: a distinguisher for the endpoints yields a distinguisher for an adjacent pair that you can \emph{embed a challenge into}, by guessing $i$ with probability $1/m$.
 
-\section{Languages, relations and $\NP$}
+\section{Languages, relations and \texorpdfstring{$\NP$}{NP}}
 \begin{definition}
 A binary relation $R\subseteq\{0,1\}^*\times\{0,1\}^*$ is an \emph{$\NP$-relation} if membership $(x,w)\in R$ is decidable in time $\poly(|x|)$ and there is a polynomial $p$ with $(x,w)\in R\Rightarrow|w|\le p(|x|)$. Its language is $L_R=\{x:\exists w,(x,w)\in R\}$; $w$ is a \emph{witness} for $x$. We write $R(x)$ for the set of witnesses.
 \end{definition}
@@ -388,7 +393,7 @@ $G_0$: path $1\!-\!2\!-\!3\!-\!4$, edges $\{12,23,34\}$. $G_1$: star centred at 
 This protocol is \emph{honest-verifier} zero-knowledge (a simulator picks $b$ itself and outputs $(H,b)$), but not zero-knowledge against a cheating $\Ver^*$: $\Ver^*$ could send an $H$ of his own choosing (e.g.\ a graph isomorphic to a third graph $G_2$) and learn from the prover whether $H\cong G_0$ or $G_1$. A fix by the verifier first proving he knows $b,\sigma$ makes it full ZK \cite{GMW91}. This illustrates why ZK must be defined against \emph{arbitrary} (malicious) verifiers.
 \end{remark}
 
-\section{Public coins and the landscape of $\IP$}
+\section{Public coins and the landscape of \texorpdfstring{$\IP$}{IP}}
 A protocol is \emph{public-coin} (Arthur--Merlin) if the verifier's messages are just his coin tosses. The $\GNI$ protocol above uses private coins ($\sigma$ is hidden). Goldwasser--Sipser showed that private coins can be converted into public coins at the cost of two extra rounds (set-lower-bound protocol), so $\IP[k]\subseteq\AM[k+2]$. Public-coin protocols are important for us: \emph{only} public-coin protocols can be made non-interactive by Fiat--Shamir.
 
 \begin{theorem}[Shamir 1990 \cite{Sha92}; LFKN 1990]
@@ -473,7 +478,7 @@ Let $\Ver^*$ interact with $\Prv$ for $m$ sessions. Define hybrids $H_i$: the fi
 Running a ZK protocol $k$ times \emph{in parallel} need not preserve ZK: a rewinding simulator must guess all $k$ challenge bits at once and succeeds with probability $2^{-k}$ only. Indeed, Goldreich and Krawczyk \cite{GK96} proved that no $3$-round public-coin protocol with negligible soundness error can be \emph{black-box} ZK unless $L\in\BPP$. Remedies: (i) accept constant soundness error per round and repeat sequentially; (ii) use more rounds; (iii) use HVZK with parallel repetition (this \emph{is} safe: HVZK is preserved because the simulator generates the challenge itself); (iv) switch to non-interactive proofs.
 \end{warning}
 
-\section{Witness indistinguishability, proofs of knowledge, arguments}
+\section{Witness indistinguishability and proofs of knowledge}
 \begin{definition}[Witness indistinguishability, WI]
 $(\Prv,\Ver)$ is WI if for every PPT $\Ver^*$, all $x$, any two witnesses $w_1,w_2\in R(x)$ and every $z$: $\view^{\Prv(w_1)}_{\Ver^*(z)}(x)\approx_c\view^{\Prv(w_2)}_{\Ver^*(z)}(x)$.
 \end{definition}
@@ -778,7 +783,7 @@ Prove the completeness, soundness and perfect ZK (with a perfectly hiding commit
 Compute exactly the number of rounds of Protocol~\ref{pr:col3} needed for soundness $2^{-80}$ on a graph with $|E|=1000$.
 \end{exercise}
 
-\chapter{$\Sigma$-Protocols}
+\chapter{\texorpdfstring{$\Sigma$}{Sigma}-Protocols}
 \label{ch:sigma}
 $\Sigma$-protocols are three-move public-coin proofs of knowledge with a very clean algebraic structure. They are the ``assembly language'' of practical zero-knowledge: Schnorr identification and signatures, Pedersen commitment proofs, the ring signatures of CDS, confidential transactions, and the building blocks of Bulletproofs/Halo2 are all $\Sigma$-protocols.
 
@@ -883,7 +888,7 @@ Verbatim the proof of Theorem~\ref{thm:schnorr} using $\varphi(\vec s-\vec s')=y
 \end{proof}
 Different choices of $\varphi$ give a whole zoo:
 \begin{center}\small
-\begin{tabular}{@{}lll@{}}\toprule
+\begin{tabular}{@{}L{3.6cm}L{4.4cm}L{6.6cm}@{}}\toprule
 Name & $\varphi$ & Proves knowledge of \\\midrule
 Schnorr & $x\mapsto g^x$ & discrete log $x$ \\
 Okamoto/Pedersen opening & $(x_1,x_2)\mapsto g^{x_1}h^{x_2}$ & representation / opening of a Pedersen commitment\\
@@ -893,7 +898,7 @@ Guillou--Quisquater (RSA) & $x\mapsto x^e$ in $\Zs N$ & $e$-th root (needs $c<e$
 \end{tabular}
 \end{center}
 
-\subsection{Guillou--Quisquater: knowledge of an $e$-th root}
+\subsection{Guillou--Quisquater: knowledge of an \texorpdfstring{$e$}{e}-th root}
 Let $N=PQ$, $e$ a prime with $\gcd(e,\varphi(N))=1$, public $Y=s^e\bmod N$ and secret $s$. Here the homomorphism is $\varphi(s)=s^e$ on the \emph{multiplicative} group $\Zs N$ and the challenge space is $\mathcal C=\{0,\dots,e-1\}$.
 \begin{protocol}[label=pr:gq]{Guillou--Quisquater}
 \begin{flow}{Prover $(N,e,Y;s)$}{Verifier}
@@ -1122,7 +1127,7 @@ NIZK for $\NP$ exists from LWE, in the CRS (or even the common random string) mo
 
 \section{Interactive vs.\ non-interactive: a summary}
 \begin{center}\small
-\begin{tabular}{@{}p{3.3cm}p{5.5cm}p{5.5cm}@{}}\toprule
+\begin{tabular}{@{}L{3.0cm}L{5.4cm}L{5.4cm}@{}}\toprule
  & Interactive ZK & NIZK \\\midrule
 Prover/verifier & online both & prover offline; verifier any time\\
 Transferability & transcript deniable (simulatable) & proof can be forwarded/verified publicly \\
@@ -1201,7 +1206,7 @@ A cheating prover claiming $H'=13$ must send a $g_1^*$ with $g^*_1(0)+g^*_1(1)=1
 The verifier does $O(vd)$ field operations plus one evaluation of $g$ and communicates $O(vd)$ elements. If $g$ is given as a table of $2^v$ values (e.g.\ products of MLEs of tables), the prover can be implemented in time $O(2^v\cdot\poly(d))$ by halving the table in each round (Thaler/Libra/Virgo).
 \end{theorem}
 
-\section{Application 1: $\#$SAT, so $\mathsf{coNP}\subseteq\IP$}\label{sec:sharpsat}
+\section{Application 1: \texorpdfstring{$\#$}{\#}SAT, so \texorpdfstring{$\mathsf{coNP}\subseteq\IP$}{coNP in IP}}\label{sec:sharpsat}
 Arithmetise a 3-CNF $\varphi$ with polynomial $p_\varphi$: variable $x\mapsto x$; $\neg x\mapsto1-x$; clause $\ell_1\vee\ell_2\vee\ell_3\mapsto1-\prod_j(1-\ell_j)$; $\varphi=\bigwedge_k C_k\mapsto\prod_kp_{C_k}$. On Boolean inputs $p_\varphi(\vec b)=\varphi(\vec b)\in\{0,1\}$, hence $\#\mathrm{SAT}(\varphi)=\sum_{\vec b}p_\varphi(\vec b)$, with $\deg\le m$ (the number of clauses) in total and per variable $\le$ clause occurrences.
 \begin{example}
 $\varphi=(x_1\vee x_2)\wedge(\neg x_1\vee x_2)$. $p=\big(x_1+x_2-x_1x_2\big)\big(1-x_1+x_1x_2\big)$, per-variable degree $2$. Boolean evaluations: $p(00)=0$, $p(01)=1$, $p(10)=0$, $p(11)=1$, so $\#\mathrm{SAT}=2$ ($x_2=1$).\\
@@ -1209,7 +1214,7 @@ Sum-check over $\FF_{17}$: $g_1(X)=p(X,0)+p(X,1)=X(1-X)+1=1+X-X^2$; $g_1(0)+g_1(
 \end{example}
 Since $\coNP$-complete \textsf{UNSAT} $=\{\varphi:\#\mathrm{SAT}(\varphi)=0\}$, we get $\coNP\subseteq\IP$---a result that astonished the community in 1989--90 because $\coNP$ proofs were thought to need exponential length. For $\IP=\PSPACE$ one must handle the degree blow-up in the quantifier arithmetisation (LFKN's ``degree-reduction'' linearisation operators).
 
-\section{Application 2: the proof of $\IP=\PSPACE$}
+\section{Application 2: the proof of \texorpdfstring{$\IP=\PSPACE$}{IP = PSPACE}}
 \label{sec:ippspace}
 Since \textsf{TQBF} (true quantified Boolean formulas) is $\PSPACE$-complete, it suffices to give an interactive proof for $\Phi=\exists x_1\forall x_2\exists x_3\cdots\,\psi(x_1,\dots,x_n)$ with $\psi$ a 3-CNF.
 
@@ -1368,7 +1373,7 @@ A wrong witness, e.g.\ $v_2=28$, makes $A(3)B(3)-C(3)\ne0$ so the division leave
 \section{PLONKish arithmetisation}\label{sec:plonkish}
 PLONK replaces R1CS by a single universal gate type plus a \emph{permutation} argument for wiring:
 \[q_L\,a+q_R\,b+q_O\,c+q_M\,ab+q_C=0.\]
-Each row $i$ of the \emph{execution trace} has wire values $(a_i,b_i,c_i)$ and fixed selectors $(q_L,q_R,q_O,q_M,q_C)_i$ (circuit-specific, public). Addition gate: $q_L=q_R=1,q_O=-1$. Multiplication gate: $q_M=1,q_O=-1$. Constant check: $q_L=1,q_C=-k,\ldots$
+Row $i$ of the \emph{execution trace} holds the wire values $(a_i,b_i,c_i)$, together with five public selector values $(q_L,q_R,q_O,q_M,q_C)_i$ fixed by the circuit. Addition gate: $q_L=q_R=1,q_O=-1$. Multiplication gate: $q_M=1,q_O=-1$. Constant check: $q_L=1,q_C=-k,\ldots$
 \begin{example}[Example~\ref{ex:r1cs} in PLONK form]
 \begin{center}\small
 \begin{tabular}{c|ccc|ccccc|l}
@@ -1426,7 +1431,7 @@ A tuple $(\Setup,\mathsf{Commit},\mathsf{Open},\mathsf{Verify})$:
 \end{definition}
 The main PCS families:
 \begin{center}\small
-\begin{tabular}{@{}p{3.1cm}p{2.6cm}p{3.2cm}p{2.8cm}p{2.4cm}@{}}\toprule
+\begin{tabular}{@{}L{2.8cm}L{2.4cm}L{3.0cm}L{2.7cm}L{2.4cm}@{}}\toprule
 Scheme & Setup & Proof size & Verifier & Assumption\\\midrule
 KZG & trusted (universal) & $O(1)$ (1 group element) & $O(1)$ (2 pairings) & $q$-SDH / AGM\\
 IPA (Bulletproofs/Halo) & transparent & $O(\log n)$ & $O(n)$ (amortisable) & DL\\
@@ -1511,7 +1516,7 @@ FRI turns a Merkle commitment into a polynomial commitment: to open $f(z)=y$, ru
 \section{Inner-product arguments and Bulletproofs}
 \subsection{Pedersen vector commitment}
 For generators $\vec g=(g_1..g_n)\in\GG^n$ with unknown relations, $\mathsf{Com}(\vec a;r)=\prod_ig_i^{a_i}\cdot h^r$ commits to a vector; binding under DL; perfectly hiding.
-\subsection{The core: proving an inner product in $O(\log n)$}
+\subsection{The core: proving an inner product in \texorpdfstring{$O(\log n)$}{O(log n)}}
 Statement: given $P=\vec g^{\vec a}\vec h^{\vec b}u^{\langle\vec a,\vec b\rangle}$ ($\vec g^{\vec a}:=\prod g_i^{a_i}$), prove knowledge of $\vec a,\vec b\in\ZZ_q^n$ ($n$ a power of two). Naively send $\vec a,\vec b$ ($2n$ elements); the trick is \emph{recursive folding}.
 \begin{protocol}[label=pr:ipa]{Inner-product argument (one folding round)}
 Write $\vec a=(\vec a_L\|\vec a_R)$ and likewise $\vec b,\vec g,\vec h$ (halves of size $n/2$). 
@@ -1739,9 +1744,9 @@ is a polynomial of degree $\le7-6=1$. The boundary quotients $\frac{f(X)-1}{X-g^
 
 \section{Comparison}\label{sec:snarkcomp}
 \begin{center}\small
-\begin{tabular}{@{}p{1.8cm}p{2.4cm}p{2.3cm}p{2.6cm}p{2.5cm}p{2.5cm}@{}}\toprule
- & Groth16 & PLONK(KZG) & Bulletproofs & STARK & Spartan/Libra\\\midrule
-Setup & circuit-specific & universal & none & none & none/universal\\
+\footnotesize\setlength{\tabcolsep}{4pt}\begin{tabular}{@{}L{1.9cm}L{2.2cm}L{2.0cm}L{2.5cm}L{2.2cm}L{2.1cm}@{}}\toprule
+ & Groth16 & PLONK (KZG) & Bulletproofs & STARK & Spartan/Libra\\\midrule
+Setup & circuit-specific & universal & none & none & none / universal\\
 Proof size & $\approx 128$ B & $\approx 0.5$ KB & $O(\log n)$ (1--2 KB) & $\approx 50$--$200$ KB & $O(\log^2)$ \\
 Verifier & 3 pairings & 2 pairings & $O(n)$ & polylog & polylog / $\sqrt n$\\
 Prover & $O(n\log n)$ FFT+MSM & $O(n\log n)$ & $O(n)$ MSM & $O(n\log n)$ hashes & $O(n)$\\
@@ -1780,7 +1785,7 @@ Let $\PZK,\SZK,\CZK$ be the classes of languages with perfect, statistical, and 
 \item (Goldreich--Micali--Wigderson; Impagliazzo--Yung; Ben-Or et al.) If one-way functions exist then $\CZK=\IP=\PSPACE$. Conversely, if $\CZK$ contains a language outside $\BPP$ then (Ostrovsky--Wigderson) a weak form of one-way function exists.
 \item $\HVSZK=\SZK$ (Goldreich--Sahai--Vadhan).
 \item $\SZK\subseteq\AM\cap\coAM$ (Fortnow; Aiello--H{\aa}stad). Hence an $\NP$-complete language is not in $\SZK$ unless the polynomial hierarchy collapses.
-\item $\SZK$ is closed under complement (Okamoto) and has the complete problems \textsc{Statistical Difference} and \textsc{Entropy Difference} (Sahai--Vadhan).
+\item $\SZK$ is closed under complement (Okamoto) and has the complete problems \prob{Statistical Difference} and \prob{Entropy Difference} (Sahai--Vadhan).
 \end{enumerate}
 \end{theorem}
 \begin{center}
@@ -1790,12 +1795,12 @@ Let $\PZK,\SZK,\CZK$ be the classes of languages with perfect, statistical, and 
  \draw[rounded corners,fill=green!8] (0.8,0.8) rectangle (6.4,3.4);\node at (3.6,3.1) {$\SZK\subseteq\AM\cap\coAM$};
  \draw[rounded corners,fill=yellow!15] (1.2,1.2) rectangle (4.2,2.6);\node at (2.7,2.3) {$\PZK$};
  \node at (2.7,1.6) {$\GI,\QR$};
- \node at (5.6,1.7) {\textsc{SD},\textsc{ED}};
+ \node at (5.6,1.7) {\prob{SD},\prob{ED}};
  \node[align=center] at (8.9,2.6) {3-COL, SAT\\ (only under\\ assumptions)};
 \end{tikzpicture}
 \end{center}
 \begin{theorem}[$\SZK\subseteq\AM\cap\coAM$, sketch]\label{thm:szkam}
-$\SZK\subseteq\AM$: it is enough to put \textsc{Entropy Difference} in $\AM$. Statistical zero-knowledge implies that the simulator's output on $x\in L$ has some specific entropy relation with the output on $x\notin L$. The $\AM$ verifier uses the Goldwasser--Sipser set lower bound protocol to certify that the entropy of the simulator's output distribution is above a threshold. Since $\SZK$ is closed under complement, $\SZK\subseteq\coAM$ as well.
+$\SZK\subseteq\AM$: it is enough to put \prob{Entropy Difference} in $\AM$. Statistical zero-knowledge implies that the simulator's output on $x\in L$ has some specific entropy relation with the output on $x\notin L$. The $\AM$ verifier uses the Goldwasser--Sipser set lower bound protocol to certify that the entropy of the simulator's output distribution is above a threshold. Since $\SZK$ is closed under complement, $\SZK\subseteq\coAM$ as well.
 \end{theorem}
 Interpretation: statistical ZK proofs are for problems of ``intermediate'' complexity (factoring-like, lattice-like), not for $\NP$-hard problems. Statistical ZK \emph{arguments} for $\NP$ do exist (from collision-resistant hash functions: Brassard--Chaum--Cr\'epeau; Naor--Ostrovsky--Venkatesan--Yung), since computationally bounded provers cannot exploit binding.
 
@@ -1903,7 +1908,7 @@ State precisely why the Kilian PCP-to-argument transformation needs a \emph{comm
 
 \section{Choosing a proof system}
 \begin{center}\small
-\begin{tabular}{@{}p{4.2cm}p{9.5cm}@{}}\toprule
+\begin{tabular}{@{}L{4.0cm}L{9.6cm}@{}}\toprule
 Requirement & Suggested tool\\\midrule
 Prove discrete-log relations, few statements & $\Sigma$-protocols + Fiat--Shamir\\
 Range proofs, no trusted setup, small statement & Bulletproofs\\
@@ -1919,7 +1924,7 @@ Maximum prover speed, structured computations & sum-check based (Spartan, Jolt, 
 \begin{enumerate}
 \item Hash \emph{everything} in Fiat--Shamir (statement, public parameters, all prior messages); use domain separation.
 \item Check group membership/subgroup of every received point (small-subgroup and invalid-curve attacks); reject the identity where inappropriate.
-\item Use constant-time scalar operations; generate nonces deterministically or from a CSPRNG.
+\item Use constant-time scalar arithmetic, and generate nonces either deterministically or from a CSPRNG.
 \item Under-constrained circuits are the dominant real-world bug: every witness variable must be pinned by constraints (range checks, boolean checks, non-zero checks via inverse witnesses $x\cdot x^{-1}=1$). Audit with formal tools (Circomspect, Picus, ZKAP).
 \item Trusted setup hygiene: verify transcripts of the ceremony; sample $\tau$ in an MPC; use a beacon.
 \item Soundness bits: with $|\FF|\approx2^{64}$, Schwartz--Zippel error $d/|\FF|$ is not negligible; sample challenges from an extension field.
@@ -1956,7 +1961,7 @@ Survey: pick a deployed system (Zcash Sapling/Orchard, a zk-rollup, or a zkVM) a
 \chapter{Notation and Toy-Parameter Reference}
 \section{Notation}
 \begin{center}\small
-\begin{tabular}{@{}p{3.3cm}p{10.5cm}@{}}\toprule
+\begin{tabular}{@{}L{3.3cm}L{10.5cm}@{}}\toprule
 Symbol & Meaning\\\midrule
 $\lambda$, $\negl$, $\poly$ & security parameter; negligible / polynomial functions\\
 $x\getsr S$ & sample $x$ uniformly from the finite set $S$\\
@@ -1969,7 +1974,7 @@ $\GG,g,q$ & cyclic group, generator, prime order\\
 $[a]_1,[a]_2,[a]_T$ & $g_1^a,g_2^a,e(g_1,g_2)^a$\\
 $\tilde f$ & multilinear extension of $f:\{0,1\}^v\to\FF$\\
 $u_i,v_i,w_i,t,h$ & QAP polynomials, vanishing polynomial, quotient\\
-$\ra{m}$, $\la{m}$ & message $m$ sent prover$\to$verifier / verifier$\to$prover\\\bottomrule
+$\xrightarrow{m}$, $\xleftarrow{m}$ & message $m$ sent prover$\to$verifier / verifier$\to$prover\\\bottomrule
 \end{tabular}
 \end{center}
 \section{Toy group and fields used in the examples}
