@@ -178,24 +178,129 @@ Figure~\ref{fig:treedag} shows the syntax tree (left) and the DAG (right). In th
 \end{examplebox}
 
 \subsubsection{The value-number method for constructing DAGs}
-Nodes are stored in an array of records $(\text{op}, \text{left}, \text{right})$; the index of a record is its \textbf{value number}. Before creating a node $\langle op, l, r\rangle$, search the array; if an identical node exists, return its number, otherwise create a new one (use a hash table for speed).
+\textbf{The problem.} While building the tree for an expression, we want to \emph{reuse} a node if the same sub-expression has already been built. To do this we need a fast way to answer: ``Have I already created a node for $b - c$?'' The \textbf{value-number method} gives a simple answer.
 
-\begin{center}
-\begin{tabular}{@{}c l c c@{}}
+\textbf{The idea.} Keep all nodes in an \textbf{array of records}. Each record describes one node of the DAG, and the \emph{position (index) of the record in the array is the node's value number}. The value number is therefore just the node's \emph{name}: ``node 4'' means ``the record at position 4''.
+
+\begin{defbox}{What the numbers mean}
+\begin{itemize}
+\item \textbf{Value number} = the index of a record in the array = the identity of one DAG node. It is \emph{not} the numeric value of the expression (the number 4 does not mean the expression evaluates to 4).
+\item A \textbf{leaf record} stores the kind of leaf and what it is: $(\mathbf{id},\ \text{pointer to symbol-table entry})$ for a variable, or $(\mathbf{num},\ \text{value})$ for a constant.
+\item An \textbf{interior record} has the form $(\mathit{op},\ \mathit{left},\ \mathit{right})$. Here $\mathit{op}$ is the operator, and \textbf{\textit{left} and \textit{right} are the value numbers of the two child nodes}, i.e., they are \emph{pointers} to other records (the operands).
+\end{itemize}
+\end{defbox}
+
+\textbf{Example.} The record $(*,\ 1,\ 4)$ means: ``a node for the operator $*$ whose left child is node~1 and whose right child is node~4''. Looking up the array, node 1 is the leaf $a$ and node 4 is $b - c$; so this record stands for $a * (b - c)$.
+
+\begin{defbox}{Algorithm: finding or creating a node}
+To create a node with signature $\langle \mathit{op},\ l,\ r\rangle$ (where $l$ and $r$ are value numbers of the children that were already created):
+\begin{enumerate}[nosep]
+\item \textbf{Search} the array for a record with exactly the same $\mathit{op}$, $\mathit{left}=l$, and $\mathit{right}=r$.
+\item If such a record \textbf{exists}, do not create anything; \textbf{return its value number}. (This is the common sub-expression being shared.)
+\item Otherwise \textbf{append} a new record $(\mathit{op},\ l,\ r)$ at the end of the array and \textbf{return its index} as the new value number.
+\end{enumerate}
+(For speed, a hash table keyed on $(\mathit{op},l,r)$ replaces the linear search in step 1.)
+\end{defbox}
+
+\textbf{Why does comparing only $(\mathit{op},l,r)$ work?} Two nodes represent the same expression exactly when they have the same operator and the same children. Children are the same exactly when they have the same value numbers (because every distinct sub-expression gets exactly one number). So, by building from the leaves upward, equal sub-expressions always get equal numbers.
+
+\paragraph{Step-by-step example: $a + a*(b-c) + (b-c)*d$.}
+The expression is processed in the order in which a parser would build it (operands before operators). Table~\ref{tab:vntrace} shows each request and what the algorithm does.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}c l l l c@{}}
 \toprule
-Value no. & Op & Left & Right \\ \midrule
-1 & \texttt{id}\ $a$ & -- & -- \\
-2 & \texttt{id}\ $b$ & -- & -- \\
-3 & \texttt{id}\ $c$ & -- & -- \\
-4 & $-$ & 2 & 3 \\
-5 & $*$ & 1 & 4 \\
-6 & $+$ & 1 & 5 \\
-7 & \texttt{id}\ $d$ & -- & -- \\
-8 & $*$ & 4 & 7 \\
-9 & $+$ & 6 & 8 \\ \bottomrule
+\textbf{Step} & \textbf{Request} & \textbf{Found in array?} & \textbf{Action} & \textbf{Returns} \\ \midrule
+1 & leaf $a$ & no & create record 1: $(\mathbf{id}, a)$ & 1 \\
+2 & leaf $a$ (2nd time) & \textbf{yes, record 1} & nothing created & 1 \\
+3 & leaf $b$ & no & create record 2: $(\mathbf{id}, b)$ & 2 \\
+4 & leaf $c$ & no & create record 3: $(\mathbf{id}, c)$ & 3 \\
+5 & $\langle -, 2, 3\rangle$ \quad ($b-c$) & no & create record 4: $(-,2,3)$ & 4 \\
+6 & $\langle *, 1, 4\rangle$ \quad ($a*(b-c)$) & no & create record 5: $(*,1,4)$ & 5 \\
+7 & $\langle +, 1, 5\rangle$ \quad ($a + a*(b-c)$) & no & create record 6: $(+,1,5)$ & 6 \\
+8 & leaf $b$ (2nd time) & \textbf{yes, record 2} & nothing created & 2 \\
+9 & leaf $c$ (2nd time) & \textbf{yes, record 3} & nothing created & 3 \\
+10 & $\langle -, 2, 3\rangle$ \quad ($b-c$ again) & \textbf{yes, record 4} & nothing created -- \emph{shared!} & 4 \\
+11 & leaf $d$ & no & create record 7: $(\mathbf{id}, d)$ & 7 \\
+12 & $\langle *, 4, 7\rangle$ \quad ($(b-c)*d$) & no & create record 8: $(*,4,7)$ & 8 \\
+13 & $\langle +, 6, 8\rangle$ \quad (whole expression) & no & create record 9: $(+,6,8)$ & 9 \\ \bottomrule
 \end{tabular}
-\end{center}
-When $a$ is seen the second time, and when $b-c$ is seen the second time, the existing numbers 1 and 4 are returned -- no new nodes are made.
+\caption{Trace of the value-number method. Steps 2, 8, 9, 10 reuse existing nodes; step 10 is where the common sub-expression $b-c$ is detected.}
+\label{tab:vntrace}
+\end{table}
+
+The result has only $9$ nodes (a plain syntax tree would have $13$: it repeats $a$, $b$, $c$ and the whole $b-c$ sub-tree). The final value number $9$ identifies the root of the DAG.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  n/.style={circle,draw,minimum size=7mm,inner sep=0pt,font=\small},
+  tag/.style={font=\scriptsize\bfseries,text=red!70!black}]
+ \node[n,label={[tag]above right:9}] (n9) at (0,0) {$+$};
+ \node[n,label={[tag]above left:6}]  (n6) at (-2,-1.1) {$+$};
+ \node[n,label={[tag]above right:8}] (n8) at (2,-1.1) {$*$};
+ \node[n,label={[tag]above right:5}] (n5) at (-0.7,-2.2) {$*$};
+ \node[n,label={[tag]left:1}]  (n1) at (-2.7,-3.3) {$a$};
+ \node[n,label={[tag]above right:4}] (n4) at (1,-3.3) {$-$};
+ \node[n,label={[tag]left:2}]  (n2) at (0.3,-4.5) {$b$};
+ \node[n,label={[tag]right:3}] (n3) at (1.7,-4.5) {$c$};
+ \node[n,label={[tag]right:7}] (n7) at (3.2,-2.2) {$d$};
+ \draw (n9)--(n6); \draw (n9)--(n8);
+ \draw (n6)--(n1); \draw (n6)--(n5);
+ \draw (n5)--(n1); \draw (n5)--(n4);
+ \draw (n8)--(n4); \draw (n8)--(n7);
+ \draw (n4)--(n2); \draw (n4)--(n3);
+ \node[font=\small,align=left,anchor=west] at (4.6,-1.6) {\textcolor{red!70!black}{\textbf{red number}} = value number\\(index of the node's record\\in the array)\\[4pt] Nodes 1 and 4 each have\\\textbf{two parents}: they are shared.};
+\end{tikzpicture}
+\caption{The DAG for $a + a*(b-c) + (b-c)*d$ with the value number of every node in red.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  c/.style={draw,minimum height=0.62cm,font=\small},
+  hd/.style={minimum height=0.62cm,font=\small\bfseries}]
+ % header
+ \node[hd,minimum width=1.5cm] at (0.75,0.65) {value no.};
+ \node[hd,minimum width=1.9cm] at (2.45,0.65) {op};
+ \node[hd,minimum width=1.2cm] at (3.95,0.65) {left};
+ \node[hd,minimum width=1.2cm] at (5.15,0.65) {right};
+ \foreach \i/\op/\l/\r/\y in {
+   1/{id $a$}/--/--/0,
+   2/{id $b$}/--/--/-0.62,
+   3/{id $c$}/--/--/-1.24,
+   4/$-$/2/3/-1.86,
+   5/$*$/1/4/-2.48,
+   6/$+$/1/5/-3.10,
+   7/{id $d$}/--/--/-3.72,
+   8/$*$/4/7/-4.34,
+   9/$+$/6/8/-4.96} {
+   \node[c,minimum width=1.5cm,fill=gray!15] (v\i) at (0.75,\y) {\i};
+   \node[c,minimum width=1.9cm] (o\i) at (2.45,\y) {\op};
+   \node[c,minimum width=1.2cm] (l\i) at (3.95,\y) {\l};
+   \node[c,minimum width=1.2cm] (r\i) at (5.15,\y) {\r};
+ }
+ % highlight record 5
+ \node[c,minimum width=1.2cm,fill=blue!20] at (3.95,-2.48) {1};
+ \node[c,minimum width=1.2cm,fill=green!25] at (5.15,-2.48) {4};
+ \node[c,minimum width=1.5cm,fill=orange!25] at (0.75,-2.48) {5};
+ % arrows from record 5 to its children
+ \draw[-{Stealth},blue!70!black,thick] (5.75,-2.48) to[bend left=0] (6.3,-2.48) |- (6.3,0) -- (5.75,0);
+ \draw[-{Stealth},green!50!black,thick] (5.75,-2.48) -- (6.6,-2.48) |- (6.6,-1.86) -- (5.75,-1.86);
+ \node[font=\small,align=left,anchor=west] at (7.1,-0.6) {\textcolor{blue!70!black}{\textbf{left = 1}} points to\\record 1 (the leaf $a$)};
+ \node[font=\small,align=left,anchor=west] at (7.1,-1.86) {\textcolor{green!50!black}{\textbf{right = 4}} points to\\record 4 (the node $b-c$)};
+ \node[font=\small,align=left,anchor=west] at (7.1,-3.4) {So record 5 $=(*,1,4)$\\represents $a*(b-c)$.};
+\end{tikzpicture}
+\caption{The array of records after processing the example. Interior records contain \emph{value numbers of their children}; here record 5 refers to records 1 and 4.}
+\end{figure}
+
+\paragraph{Connection with SDD/SDT.} In the syntax-tree SDD, $\at{E}{node}$ becomes just an \emph{integer} (a value number). The semantic action for $E \to E_1 + T$ is
+\[
+\at{E}{node} = \mathit{makeNode}(\tok{'+'},\ \at{E_1}{node},\ \at{T}{node}),
+\]
+where $\mathit{makeNode}$ performs the search-or-create algorithm above. Using $\mathit{makeNode}$ instead of \textbf{new} \textit{Node} automatically turns the syntax tree into a DAG.
 
 \subsection{Three-address code (TAC)}
 In \textbf{three-address code} every instruction has \emph{at most one operator on the right side} and at most three addresses (two operands and one result). Compound expressions are broken into temporaries, so the order of evaluation is made explicit.
