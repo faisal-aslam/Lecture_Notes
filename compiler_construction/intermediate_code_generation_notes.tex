@@ -1,0 +1,1343 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,decorations.pathreplacing}
+\usepackage[most]{tcolorbox}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{fancyhdr}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.25}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Compiler Design -- Intermediate Code Generation}
+\rhead{\small SDD \& SDT}
+\cfoot{\thepage}
+
+% ---------- Boxes ----------
+\newtcolorbox{defbox}[1]{colback=blue!4,colframe=blue!55!black,fonttitle=\bfseries,title={#1},breakable}
+\newtcolorbox{examplebox}[1]{colback=green!4,colframe=green!45!black,fonttitle=\bfseries,title={#1},breakable}
+\newtcolorbox{notebox}[1]{colback=orange!6,colframe=orange!75!black,fonttitle=\bfseries,title={#1},breakable}
+
+% ---------- Macros ----------
+\newcommand{\kw}[1]{\textbf{#1}}
+\newcommand{\gen}[1]{\ensuremath{\mathbf{gen}(#1)}}
+\newcommand{\cc}{\mathbin{\|}}
+\newcommand{\at}[2]{\ensuremath{#1.\mathit{#2}}}
+\newcommand{\tok}[1]{\ensuremath{\mathtt{#1}}}
+\newcommand{\lbl}[1]{\ensuremath{\mathbf{label}(#1)}}
+\newcommand{\goto}{\kw{goto}}
+
+\lstdefinestyle{tac}{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  backgroundcolor=\color{gray!8},
+  rulecolor=\color{gray!60},
+  columns=fullflexible,
+  keepspaces=true,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+  aboveskip=4pt,
+  belowskip=4pt
+}
+\lstset{style=tac}
+
+\title{\textbf{Intermediate Code Generation\\[2pt] using Syntax-Directed Definitions (SDD) \\ and Syntax-Directed Translation (SDT)}\\[6pt]
+\large Lecture Notes based on \emph{Compilers: Principles, Techniques, and Tools} (the ``Dragon Book''),\\ 2nd Edition, Aho, Lam, Sethi, Ullman -- Chapters 5 and 6}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{tcolorbox}[colback=gray!5,colframe=gray!50,title=\textbf{Lecture Plan (suggested: 2 lectures $\times$ 75 min)}]
+\begin{description}[leftmargin=2.2cm,style=nextline]
+\item[Lecture 1] Role of intermediate code; forms of IR (syntax tree, DAG, three-address code, quadruples, triples); recap of SDD and SDT (synthesized/inherited attributes, S- and L-attributed definitions, translation schemes); translation of expressions, assignments, and array references; type conversion.
+\item[Lecture 2] Boolean expressions and short-circuit code; flow-of-control statements with inherited labels; backpatching; switch statements and procedure calls (briefly); worked examples, exercises.
+\end{description}
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+%====================================================================
+\section{Introduction: Why Intermediate Code?}
+%====================================================================
+
+In the \emph{analysis--synthesis} model of a compiler, the \textbf{front end} analyses the source program and produces an \textbf{intermediate representation (IR)}; the \textbf{back end} synthesises the target program from that IR.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw,rounded corners=2pt,minimum height=1.1cm,minimum width=2.3cm,text width=2.1cm,align=center,font=\footnotesize,fill=blue!6},
+  ir/.style={draw,rounded corners=2pt,minimum height=1.1cm,minimum width=2.3cm,text width=2.1cm,align=center,font=\footnotesize,fill=orange!25,very thick},
+  arr/.style={-{Stealth[length=2.5mm]}}]
+ \node[box] (lex) at (0,0) {Lexical analyzer};
+ \node[box] (par) at (2.9,0) {Syntax analyzer (parser)};
+ \node[box] (sem) at (5.8,0) {Semantic analyzer (static checker)};
+ \node[ir]  (icg) at (8.7,0) {Intermediate code generator};
+ \node[box] (cg)  at (11.6,0) {Code generator};
+ \draw[arr] (-1.9,0)--(lex.west) node[pos=0,above,font=\scriptsize]{source};
+ \draw[arr] (lex)--(par) node[midway,above,font=\scriptsize]{tokens};
+ \draw[arr] (par)--(sem) node[midway,above,font=\scriptsize]{tree};
+ \draw[arr] (sem)--(icg) node[midway,above,font=\scriptsize]{tree};
+ \draw[arr] (icg)--(cg) node[midway,above,font=\scriptsize]{IR};
+ \draw[arr] (cg.east)--++(0.8,0) node[right,font=\scriptsize]{target};
+ \draw[decorate,decoration={brace,amplitude=6pt}] (-1.2,-0.9)--(9.9,-0.9) node[midway,below=7pt,font=\small]{Front end (machine-independent)};
+ \draw[decorate,decoration={brace,amplitude=6pt}] (12.8,-0.9)--(10.4,-0.9) node[midway,below=7pt,font=\small]{Back end};
+\end{tikzpicture}}
+\caption{Position of the intermediate code generator in a compiler. The shaded (thick) box is the topic of these notes. In practice, static checking and intermediate code generation are often done together in one pass.}
+\end{figure}
+
+\subsection{Advantages of using an intermediate representation}
+\begin{itemize}
+\item \textbf{Retargeting.} A compiler for $m$ languages and $n$ machines needs only $m$ front ends and $n$ back ends (instead of $m \times n$ compilers) if they share one IR.
+\item \textbf{Machine-independent optimisation.} Optimisations (common sub-expression elimination, constant folding, loop-invariant code motion, ...) are applied once on the IR.
+\item \textbf{Simplicity.} Complex source constructs are lowered to a few simple operations, making code generation easier.
+\end{itemize}
+
+\begin{notebox}{Static checking vs.\ intermediate code}
+Static checking includes type checking and syntactic checks that the grammar cannot enforce (e.g., \texttt{break} must be inside a loop). Dragon Book Chapter 6 treats type checking and intermediate-code generation together, because both are done by attaching attributes and actions to the grammar.
+\end{notebox}
+
+%====================================================================
+\section{Variants of Syntax Trees and Intermediate Representations}
+%====================================================================
+
+\subsection{Syntax trees (abstract syntax trees)}
+A \textbf{syntax tree} is a condensed form of the parse tree: operators and keywords appear as \emph{interior nodes}, and operands as children. Chains of single productions disappear.
+
+\subsection{Directed acyclic graphs (DAGs) for expressions}
+A \textbf{DAG} identifies the \emph{common sub-expressions}: a node is shared if the same sub-expression appears more than once. It shows the same information as a syntax tree but is more compact, and it directly suggests how to generate efficient code that computes a common sub-expression only once.
+
+\begin{examplebox}{Example: tree vs.\ DAG for $a + a*(b-c) + (b-c)*d$}
+Figure~\ref{fig:treedag} shows the syntax tree (left) and the DAG (right). In the DAG, the leaf $a$ and the sub-expression $b-c$ are each shared by two parents.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  n/.style={circle,draw,minimum size=6.5mm,inner sep=0pt,font=\small},
+  sibling distance=0pt]
+ % ---- syntax tree ----
+ \node[n] (r) at (0,0) {$+$};
+ \node[n] (l) at (-2.2,-1) {$+$};
+ \node[n] (rm) at (1.6,-1) {$*$};
+ \node[n] (a1) at (-3.2,-2) {$a$};
+ \node[n] (lm) at (-1.2,-2) {$*$};
+ \node[n] (a2) at (-1.9,-3) {$a$};
+ \node[n] (m1) at (-0.5,-3) {$-$};
+ \node[n] (b1) at (-0.9,-4) {$b$};
+ \node[n] (c1) at (-0.1,-4) {$c$};
+ \node[n] (m2) at (0.9,-2) {$-$};
+ \node[n] (d)  at (2.3,-2) {$d$};
+ \node[n] (b2) at (0.5,-3) {$b$};
+ \node[n] (c2) at (1.3,-3) {$c$};
+ \draw (r)--(l); \draw (r)--(rm);
+ \draw (l)--(a1); \draw (l)--(lm);
+ \draw (lm)--(a2); \draw (lm)--(m1);
+ \draw (m1)--(b1); \draw (m1)--(c1);
+ \draw (rm)--(m2); \draw (rm)--(d);
+ \draw (m2)--(b2); \draw (m2)--(c2);
+ \node at (-0.5,-5) {(a) Syntax tree};
+ % ---- DAG ----
+ \begin{scope}[xshift=8cm]
+ \node[n] (R) at (0,0) {$+$};
+ \node[n] (L) at (-1.8,-1) {$+$};
+ \node[n] (RM) at (1.8,-1) {$*$};
+ \node[n] (LM) at (-0.6,-2) {$*$};
+ \node[n] (A) at (-2.4,-3) {$a$};
+ \node[n] (M) at (0.9,-3) {$-$};
+ \node[n] (B) at (0.3,-4) {$b$};
+ \node[n] (C) at (1.5,-4) {$c$};
+ \node[n] (D) at (2.8,-2) {$d$};
+ \draw (R)--(L); \draw (R)--(RM);
+ \draw (L)--(A); \draw (L)--(LM);
+ \draw (LM)--(A); \draw (LM)--(M);
+ \draw (RM)--(M); \draw (RM)--(D);
+ \draw (M)--(B); \draw (M)--(C);
+ \node at (0.2,-5) {(b) DAG};
+ \end{scope}
+\end{tikzpicture}
+\caption{Syntax tree and DAG for $a + a*(b-c) + (b-c)*d$.}
+\label{fig:treedag}
+\end{figure}
+\end{examplebox}
+
+\subsubsection{The value-number method for constructing DAGs}
+Nodes are stored in an array of records $(\text{op}, \text{left}, \text{right})$; the index of a record is its \textbf{value number}. Before creating a node $\langle op, l, r\rangle$, search the array; if an identical node exists, return its number, otherwise create a new one (use a hash table for speed).
+
+\begin{center}
+\begin{tabular}{@{}c l c c@{}}
+\toprule
+Value no. & Op & Left & Right \\ \midrule
+1 & \texttt{id}\ $a$ & -- & -- \\
+2 & \texttt{id}\ $b$ & -- & -- \\
+3 & \texttt{id}\ $c$ & -- & -- \\
+4 & $-$ & 2 & 3 \\
+5 & $*$ & 1 & 4 \\
+6 & $+$ & 1 & 5 \\
+7 & \texttt{id}\ $d$ & -- & -- \\
+8 & $*$ & 4 & 7 \\
+9 & $+$ & 6 & 8 \\ \bottomrule
+\end{tabular}
+\end{center}
+When $a$ is seen the second time, and when $b-c$ is seen the second time, the existing numbers 1 and 4 are returned -- no new nodes are made.
+
+\subsection{Three-address code (TAC)}
+In \textbf{three-address code} every instruction has \emph{at most one operator on the right side} and at most three addresses (two operands and one result). Compound expressions are broken into temporaries, so the order of evaluation is made explicit.
+
+For $a + a*(b-c) + (b-c)*d$ the TAC (from the DAG, reusing $t_1 = b-c$) is:
+\begin{lstlisting}
+t1 = b - c
+t2 = a * t1
+t3 = a + t2
+t4 = t1 * d
+t5 = t3 + t4
+\end{lstlisting}
+Without the DAG (from the tree) $b-c$ would be computed twice.
+
+\subsubsection{Addresses and instructions}
+An \textbf{address} can be: (i) a \emph{name} (source variable; a pointer to its symbol-table entry), (ii) a \emph{constant}, or (iii) a compiler-generated \emph{temporary}.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Instruction form} & \textbf{Meaning} \\ \midrule
+\texttt{x = y op z} & binary assignment \\
+\texttt{x = op y} & unary assignment (\texttt{minus}, \texttt{not}, conversions) \\
+\texttt{x = y} & copy \\
+\texttt{goto L} & unconditional jump \\
+\texttt{if x goto L}\ /\ \texttt{ifFalse x goto L} & conditional jump on truth value \\
+\texttt{if x relop y goto L} & conditional jump on comparison \\
+\texttt{param x}, \texttt{call p, n}, \texttt{y = call p, n}, \texttt{return y} & procedure calls \\
+\texttt{x = y[i]}, \texttt{x[i] = y} & indexed copy (memory at address $y + i$) \\
+\texttt{x = \&y}, \texttt{x = *y}, \texttt{*x = y} & address and pointer assignments \\
+\texttt{L:} & label (a symbolic name for an instruction) \\ \bottomrule
+\end{tabular}
+\caption{Common three-address instruction forms.}
+\end{table}
+
+\subsubsection{Representations of three-address code}
+Take the source statement $a = b * -c + b * -c$.
+
+\begin{center}
+\begin{minipage}[t]{0.30\textwidth}
+\textbf{(a) Three-address code}
+\begin{lstlisting}
+t1 = minus c
+t2 = b * t1
+t3 = minus c
+t4 = b * t3
+t5 = t2 + t4
+a  = t5
+\end{lstlisting}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.65\textwidth}
+\textbf{(b) Quadruples} -- (op, arg1, arg2, result)
+
+\smallskip
+\small
+\begin{tabular}{@{}c l l l l@{}}
+\toprule
+ & op & arg$_1$ & arg$_2$ & result \\ \midrule
+0 & \texttt{minus} & c  &    & t1 \\
+1 & \texttt{*}     & b  & t1 & t2 \\
+2 & \texttt{minus} & c  &    & t3 \\
+3 & \texttt{*}     & b  & t3 & t4 \\
+4 & \texttt{+}     & t2 & t4 & t5 \\
+5 & \texttt{=}     & t5 &    & a  \\ \bottomrule
+\end{tabular}
+\end{minipage}
+\end{center}
+
+\begin{center}
+\begin{minipage}[t]{0.47\textwidth}
+\textbf{(c) Triples} -- (op, arg1, arg2); a result is referred to by the \emph{position} of its triple.
+
+\smallskip
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+ & op & arg$_1$ & arg$_2$ \\ \midrule
+0 & \texttt{minus} & c  &   \\
+1 & \texttt{*}     & b  & (0) \\
+2 & \texttt{minus} & c  &   \\
+3 & \texttt{*}     & b  & (2) \\
+4 & \texttt{+}     & (1) & (3) \\
+5 & \texttt{=}     & a  & (4) \\ \bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.47\textwidth}
+\textbf{(d) Indirect triples} -- a list of pointers to triples.
+
+\smallskip
+\small
+\begin{tabular}{@{}c c@{}}
+\toprule
+ instruction & pointer \\ \midrule
+35 & (0) \\ 36 & (1) \\ 37 & (2) \\ 38 & (3) \\ 39 & (4) \\ 40 & (5) \\ \bottomrule
+\end{tabular}
+\quad (triples as in (c))
+\end{minipage}
+\end{center}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{2.6cm} p{5.6cm} p{5.6cm}@{}}
+\toprule
+ & \textbf{Advantage} & \textbf{Disadvantage} \\ \midrule
+Quadruples & Results are named explicitly (temporaries); instructions can be moved freely during optimisation. & Needs extra space for temporaries and symbol-table entries. \\
+Triples & No temporaries; more compact. & Moving a triple changes positions, so all references to it must be updated. \\
+Indirect triples & Reordering only rearranges the pointer list, so triples keep their positions. & Extra level of indirection; an additional list is needed. \\ \bottomrule
+\end{tabular}
+\caption{Comparison of the three representations.}
+\end{table}
+
+\subsubsection{Static single-assignment (SSA) form -- a brief note}
+In \textbf{SSA form} every variable is assigned exactly once; different assignments to the same source variable get different subscripts, and a $\phi$-function merges values at control-flow joins:
+\begin{center}
+\begin{tabular}{@{}l@{\qquad}l@{}}
+\begin{lstlisting}
+p = a + b
+q = p - c
+p = q * d
+p = e - p
+q = p + q
+\end{lstlisting}
+&
+\begin{lstlisting}
+p1 = a + b
+q1 = p1 - c
+p2 = q1 * d
+p3 = e - p2
+q2 = p3 + q1
+\end{lstlisting}
+\end{tabular}
+\end{center}
+\begin{lstlisting}
+if (flag) x = -1; else x = 1;  y = x * a;
+  ==>   if (flag) x1 = -1; else x2 = 1;   x3 = phi(x1, x2);   y = x3 * a;
+\end{lstlisting}
+
+%====================================================================
+\section{Syntax-Directed Definitions (SDD): A Recap}
+%====================================================================
+
+\begin{defbox}{Syntax-Directed Definition (SDD)}
+A \textbf{syntax-directed definition} is a context-free grammar together with \textbf{attributes} attached to grammar symbols and \textbf{semantic rules} attached to productions. For a production $A \to \alpha$ every rule has the form
+\[
+b = f(c_1, c_2, \dots, c_k)
+\]
+where $f$ is a function and either
+\begin{enumerate}[label=(\arabic*),nosep]
+\item $b$ is a \textbf{synthesized} attribute of $A$ and $c_1,\dots,c_k$ are attributes of the symbols in $\alpha$ (the children) or of $A$ itself; or
+\item $b$ is an \textbf{inherited} attribute of a symbol $B$ in $\alpha$ and $c_1,\dots,c_k$ are attributes of $A$ (the parent) or of symbols in $\alpha$ (the siblings), or of $B$ itself.
+\end{enumerate}
+\end{defbox}
+
+\subsection{Synthesized and inherited attributes}
+\begin{itemize}
+\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children} (and $N$ itself). Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
+\item An \textbf{inherited attribute} at $N$ is computed from attributes of $N$'s \emph{parent and siblings}. Information flows \emph{top-down / sideways}. Useful when the structure of the parse tree does not match the abstract syntax, e.g., passing a type to a list of identifiers, or passing the label to jump to.
+\end{itemize}
+
+\begin{examplebox}{Example: synthesized attributes only (desk calculator)}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$L \to E\ \mathbf{n}$ & $\at{L}{val} = \at{E}{val}$ \\
+$E \to E_1 + T$ & $\at{E}{val} = \at{E_1}{val} + \at{T}{val}$ \\
+$E \to T$ & $\at{E}{val} = \at{T}{val}$ \\
+$T \to T_1 * F$ & $\at{T}{val} = \at{T_1}{val} \times \at{F}{val}$ \\
+$T \to F$ & $\at{T}{val} = \at{F}{val}$ \\
+$F \to (\,E\,)$ & $\at{F}{val} = \at{E}{val}$ \\
+$F \to \mathbf{digit}$ & $\at{F}{val} = \at{\mathbf{digit}}{lexval}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=1.5pt,align=center}]
+ \node[nd] (L) at (0,0) {$L$\\[-1pt]{\scriptsize $val=19$}};
+ \node[nd] (E) at (-1.4,-1.5) {$E$\\[-1pt]{\scriptsize $val=19$}};
+ \node[nd] (n) at (1.4,-1.5) {\textbf{n}};
+ \node[nd] (E1) at (-3.2,-3) {$E$\\[-1pt]{\scriptsize $val=15$}};
+ \node[nd] (p) at (-1.4,-3) {$+$};
+ \node[nd] (T4) at (0.4,-3) {$T$\\[-1pt]{\scriptsize $val=4$}};
+ \node[nd] (T1) at (-3.2,-4.5) {$T$\\[-1pt]{\scriptsize $val=15$}};
+ \node[nd] (F4) at (0.4,-4.5) {$F$\\[-1pt]{\scriptsize $val=4$}};
+ \node[nd] (T3) at (-4.6,-6) {$T$\\[-1pt]{\scriptsize $val=3$}};
+ \node[nd] (st) at (-3.2,-6) {$*$};
+ \node[nd] (F5) at (-1.8,-6) {$F$\\[-1pt]{\scriptsize $val=5$}};
+ \node[nd] (d4) at (0.4,-6) {\textbf{digit}\\[-1pt]{\scriptsize $lexval=4$}};
+ \node[nd] (F3) at (-4.6,-7.5) {$F$\\[-1pt]{\scriptsize $val=3$}};
+ \node[nd] (d5) at (-1.8,-7.5) {\textbf{digit}\\[-1pt]{\scriptsize $lexval=5$}};
+ \node[nd] (d3) at (-4.6,-9) {\textbf{digit}\\[-1pt]{\scriptsize $lexval=3$}};
+ \foreach \a/\b in {L/E,L/n,E/E1,E/p,E/T4,E1/T1,T1/T3,T1/st,T1/F5,T4/F4,F4/d4,T3/F3,F5/d5,F3/d3}
+   \draw[gray] (\a.south)--(\b.north);
+\end{tikzpicture}
+\caption{Annotated parse tree for \texttt{3*5+4 n}. Each node shows the value of its synthesized attribute \textit{val}.}
+\end{figure}
+\end{examplebox}
+
+\subsection{Annotated parse trees and dependency graphs}
+An \textbf{annotated parse tree} shows the attribute values at every node. To evaluate attributes we build a \textbf{dependency graph}: one node per attribute instance, and an edge $x \to y$ whenever $y$ is computed from $x$. A valid evaluation order is any \emph{topological order} of this graph; if the graph has a cycle, no order exists.
+
+\begin{examplebox}{Example: inherited attributes (declaration list)}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$D \to T\ L$ & $\at{L}{inh} = \at{T}{type}$ \\
+$T \to \mathbf{int}$ & $\at{T}{type} = integer$ \\
+$T \to \mathbf{float}$ & $\at{T}{type} = float$ \\
+$L \to L_1\,,\ \mathbf{id}$ & $\at{L_1}{inh} = \at{L}{inh}$;\ \ $\mathit{addType}(\at{\mathbf{id}}{entry},\ \at{L}{inh})$ \\
+$L \to \mathbf{id}$ & $\mathit{addType}(\at{\mathbf{id}}{entry},\ \at{L}{inh})$ \\ \bottomrule
+\end{tabular}
+\end{center}
+
+For the input \texttt{float id$_1$, id$_2$} the dashed arrows in Fig.~\ref{fig:inh} are the dependency-graph edges. The type is passed \emph{down and across} from $T$ to $L$, then down through the list to each identifier.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={draw,rounded corners=2pt,inner sep=3pt,align=center,fill=white},
+  dep/.style={-{Stealth[length=2mm]},dashed,red!70!black,thick}]
+ \node[nd] (D)  at (0,0) {$D$};
+ \node[nd] (T)  at (-2.6,-1.7) {$T$\\{\scriptsize $type=float$}};
+ \node[nd] (L)  at (2.2,-1.7) {$L$\\{\scriptsize $inh=float$}};
+ \node[nd] (fl) at (-2.6,-3.4) {\textbf{float}};
+ \node[nd] (L1) at (0.4,-3.4) {$L_1$\\{\scriptsize $inh=float$}};
+ \node (cm) at (2.2,-3.4) {$,$};
+ \node[nd] (i2) at (3.9,-3.4) {\textbf{id}$_2$\\{\scriptsize addType}};
+ \node[nd] (i1) at (0.4,-5.1) {\textbf{id}$_1$\\{\scriptsize addType}};
+ \foreach \a/\b in {D/T,D/L,T/fl,L/L1,L/cm,L/i2,L1/i1} \draw (\a)--(\b);
+ \draw[dep] (T.east) to[bend left=18] (L.west);
+ \draw[dep] (L.south west) to[bend right=15] (L1.north east);
+ \draw[dep] (L.south east) to[bend left=15] (i2.north);
+ \draw[dep] (L1.south) to[bend right=10] (i1.north);
+\end{tikzpicture}
+\caption{Parse tree for \texttt{float id$_1$, id$_2$} with dependency edges (dashed) for the inherited attribute \textit{inh}.}
+\label{fig:inh}
+\end{figure}
+\end{examplebox}
+
+\subsection{Classes of SDDs that are easy to implement}
+
+\begin{defbox}{S-attributed and L-attributed definitions}
+\begin{itemize}
+\item An SDD is \textbf{S-attributed} if \emph{every attribute is synthesized}. It can be evaluated in any bottom-up order, e.g., during LR parsing, at the time of reduction.
+\item An SDD is \textbf{L-attributed} if each attribute is either synthesized, or inherited such that, for a production $A \to X_1 X_2 \cdots X_n$, the inherited attribute of $X_i$ depends only on:
+ \begin{enumerate}[label=(\alph*),nosep]
+ \item inherited attributes of $A$, and
+ \item attributes (inherited or synthesized) of $X_1,\dots,X_{i-1}$ (the symbols to its \emph{left}), and
+ \item attributes of $X_i$ itself, provided there is no cycle.
+ \end{enumerate}
+ Evaluation is possible in a single left-to-right depth-first traversal (e.g., during top-down/LL parsing).
+\end{itemize}
+Every S-attributed SDD is also L-attributed.
+\end{defbox}
+
+\begin{examplebox}{Not L-attributed}
+For $A \to B\,C$, the rule $\at{C}{i} = \at{B}{s}$ is fine (the inherited attribute of $C$ uses its \emph{left} sibling $B$). But the rule $\at{B}{i} = f(\at{C}{x})$ makes the inherited attribute of $B$ depend on its \emph{right} sibling $C$, so the SDD is \emph{not} L-attributed.
+\end{examplebox}
+
+\subsection{SDD for constructing syntax trees}
+Syntax trees can be built using synthesized attribute \textit{node}, which points to the root of a (sub)tree, and constructor functions $\mathit{Node}(op, c_1,\dots)$ and $\mathit{Leaf}(\mathbf{id}, entry)$ / $\mathit{Leaf}(\mathbf{num}, val)$.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$E \to E_1 + T$ & $\at{E}{node} = \mathbf{new}\ \mathit{Node}(\tok{'+'},\ \at{E_1}{node},\ \at{T}{node})$ \\
+$E \to E_1 - T$ & $\at{E}{node} = \mathbf{new}\ \mathit{Node}(\tok{'-'},\ \at{E_1}{node},\ \at{T}{node})$ \\
+$E \to T$ & $\at{E}{node} = \at{T}{node}$ \\
+$T \to (\,E\,)$ & $\at{T}{node} = \at{E}{node}$ \\
+$T \to \mathbf{id}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \at{\mathbf{id}}{entry})$ \\
+$T \to \mathbf{num}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ \\ \bottomrule
+\end{tabular}
+\end{center}
+This is S-attributed. If the grammar is made LL by eliminating left recursion, the same tree is built with an inherited attribute (see the L-attributed SDT in Section~\ref{sec:lattr}).
+
+%====================================================================
+\section{Syntax-Directed Translation Schemes (SDT)}
+%====================================================================
+
+\begin{defbox}{Syntax-Directed Translation Scheme}
+A \textbf{syntax-directed translation scheme} (SDT) is a context-free grammar with \textbf{program fragments} (\emph{semantic actions}) embedded within the production bodies, written in braces. The position of an action defines \emph{when} it is executed during parsing.
+\[
+B \to X\ \{a\}\ Y
+\]
+Here action $a$ is executed after $X$ has been recognised (and before $Y$).
+\end{defbox}
+
+SDD $\Rightarrow$ \emph{what} to compute (specification, no order); SDT $\Rightarrow$ \emph{how/when} (implementation, order is explicit).
+
+\subsection{Postfix translation schemes}
+If the grammar is LR-parsable and the SDD is \textbf{S-attributed}, we can build an SDT with every action at the \emph{right end} of its production (a \textbf{postfix SDT}). The actions then execute at \emph{reduction time}, so the attribute of each grammar symbol can be stored beside it on the parser stack.
+
+\begin{examplebox}{Postfix SDT for the desk calculator}
+\begin{align*}
+L &\to E\ \mathbf{n} &&\{\ \mathit{print}(\at{E}{val})\ \}\\
+E &\to E_1 + T &&\{\ \at{E}{val} = \at{E_1}{val} + \at{T}{val}\ \}\\
+E &\to T &&\{\ \at{E}{val} = \at{T}{val}\ \}\\
+T &\to T_1 * F &&\{\ \at{T}{val} = \at{T_1}{val} \times \at{F}{val}\ \}\\
+T &\to F &&\{\ \at{T}{val} = \at{F}{val}\ \}\\
+F &\to (\,E\,) &&\{\ \at{F}{val} = \at{E}{val}\ \}\\
+F &\to \mathbf{digit} &&\{\ \at{F}{val} = \at{\mathbf{digit}}{lexval}\ \}
+\end{align*}
+\end{examplebox}
+
+\paragraph{Implementation on the LR parse stack.} Each stack entry holds a grammar symbol and its attribute value. When $A \to X Y Z$ is reduced, the actions read the values in the top three entries (\texttt{stack[top-2].val}, \texttt{stack[top-1].val}, \texttt{stack[top].val}), compute \at{A}{val}, pop three entries, and push $A$ with the new value.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l l l@{}}
+\toprule
+\textbf{Stack (symbol:val)} & \textbf{Remaining input} & \textbf{Action} \\ \midrule
+$\$$ & \texttt{3 * 5 + 4 n} & shift \\
+$\$\ \mathbf{digit}{:}3$ & \texttt{* 5 + 4 n} & reduce $F\to\mathbf{digit}$ \\
+$\$\ F{:}3$ & \texttt{* 5 + 4 n} & reduce $T\to F$ \\
+$\$\ T{:}3$ & \texttt{* 5 + 4 n} & shift $*$, shift \textbf{digit} \\
+$\$\ T{:}3\ *\ \mathbf{digit}{:}5$ & \texttt{+ 4 n} & reduce $F\to\mathbf{digit}$ \\
+$\$\ T{:}3\ *\ F{:}5$ & \texttt{+ 4 n} & reduce $T\to T*F$ \quad ($3\times5=15$) \\
+$\$\ T{:}15$ & \texttt{+ 4 n} & reduce $E\to T$ \\
+$\$\ E{:}15$ & \texttt{+ 4 n} & shift $+$, shift \textbf{digit}, reduce to $T{:}4$ \\
+$\$\ E{:}15\ +\ T{:}4$ & \texttt{n} & reduce $E\to E+T$ \quad ($15+4=19$) \\
+$\$\ E{:}19$ & \texttt{n} & shift \textbf{n}, reduce $L\to E\,\mathbf{n}$, print 19 \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{SDTs with actions inside productions}
+When an action is in the middle of a production, it is performed \emph{immediately after all grammar symbols to its left have been matched}. In a top-down parser the action is executed at that point of the recursive-descent procedure; in a bottom-up parser it is performed right after the symbols to its left are on the stack.
+
+\begin{examplebox}{Example: infix to postfix (action placed after the operand)}
+\begin{align*}
+E &\to T\ R\\
+R &\to +\ T\ \{\ \mathit{print}(\tok{'+'})\ \}\ R_1 \mid -\ T\ \{\ \mathit{print}(\tok{'-'})\ \}\ R_1 \mid \varepsilon\\
+T &\to \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{num}}{val})\ \}
+\end{align*}
+For \texttt{9-5+2} the output is \texttt{95-2+}.
+\end{examplebox}
+
+\subsection{Eliminating left recursion from SDTs and marker nonterminals}
+\paragraph{Marker nonterminals (for bottom-up parsing).} Suppose an action must appear in the middle of a production, e.g., $B \to X\ \{a\}\ Y$. For an LR parser we replace the action by a \textbf{marker nonterminal} $M$ with an empty production:
+\[
+B \to X\ M\ Y, \qquad M \to \varepsilon\ \{a\}
+\]
+The action $a$ is then executed upon reducing $M \to \varepsilon$. (This can introduce conflicts if the grammar is not careful; the marker must not cause a parsing-action conflict.) We will use markers $M$ and $N$ extensively in backpatching (Section~\ref{sec:backpatch}).
+
+\subsection{Converting an L-attributed SDD into an SDT}
+\label{sec:lattr}
+\begin{defbox}{Rules for converting an L-attributed SDD to an SDT}
+\begin{enumerate}[nosep]
+\item \textbf{Inherited attribute} of a nonterminal $X$ in the body: embed the action that computes it \emph{immediately before} $X$ in the body. If several inherited attributes of $X$ depend on one another, order the actions appropriately.
+\item \textbf{Synthesized attribute} of the head $A$: place the action that computes it at the \emph{end} of the production body.
+\end{enumerate}
+\end{defbox}
+
+\begin{examplebox}{Example: syntax tree for a left-recursion-free grammar}
+After removing left recursion from $E \to E_1 + T \mid E_1 - T \mid T$:
+\begin{align*}
+E &\to T\ \{\ \at{R}{i} = \at{T}{node}\ \}\ R\ \{\ \at{E}{node} = \at{R}{s}\ \}\\
+R &\to +\ T\ \{\ \at{R_1}{i} = \mathbf{new}\ \mathit{Node}(\tok{'+'},\at{R}{i},\at{T}{node})\ \}\ R_1\ \{\ \at{R}{s} = \at{R_1}{s}\ \}\\
+R &\to -\ T\ \{\ \at{R_1}{i} = \mathbf{new}\ \mathit{Node}(\tok{'-'},\at{R}{i},\at{T}{node})\ \}\ R_1\ \{\ \at{R}{s} = \at{R_1}{s}\ \}\\
+R &\to \varepsilon\ \{\ \at{R}{s} = \at{R}{i}\ \}\\
+T &\to \mathbf{id}\ \{\ \at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\at{\mathbf{id}}{entry})\ \}
+\end{align*}
+Here $R.i$ (inherited) carries the tree built \emph{so far}; $R.s$ (synthesized) returns the final tree. For \texttt{a - 4 + c} the tree $((a - 4) + c)$ is produced with the correct left-associativity.
+\end{examplebox}
+
+%====================================================================
+\section{Translation of Expressions and Assignments}
+%====================================================================
+
+\subsection{SDD for three-address code}
+We use the following:
+\begin{itemize}
+\item \at{E}{addr}: the address (name, constant, or temporary) that holds the value of $E$.
+\item \at{E}{code} (or \at{S}{code}): the three-address instructions that evaluate $E$ (or execute $S$).
+\item $\mathit{newTemp}()$ (written \textbf{new} \textit{Temp}): returns a fresh temporary $t_1, t_2,\dots$ in successive calls.
+\item $\gen{\cdots}$: builds a three-address instruction. $\cc$ denotes concatenation of instruction sequences.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{3.3cm} p{11.4cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$S \to \mathbf{id} = E\ ;$ &
+$\at{S}{code} = \at{E}{code} \cc \gen{\mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme})\ \tok{=}\ \at{E}{addr}}$ \\
+$E \to E_1 + E_2$ &
+$\at{E}{addr} = \mathbf{new}\ \mathit{Temp}()$\\ &
+$\at{E}{code} = \at{E_1}{code} \cc \at{E_2}{code} \cc \gen{\at{E}{addr}\ \tok{=}\ \at{E_1}{addr}\ \tok{+}\ \at{E_2}{addr}}$ \\
+$E \to -\,E_1$ &
+$\at{E}{addr} = \mathbf{new}\ \mathit{Temp}()$\\ &
+$\at{E}{code} = \at{E_1}{code} \cc \gen{\at{E}{addr}\ \tok{=}\ \tok{minus}\ \at{E_1}{addr}}$ \\
+$E \to (\,E_1\,)$ &
+$\at{E}{addr} = \at{E_1}{addr}$;\quad $\at{E}{code} = \at{E_1}{code}$ \\
+$E \to \mathbf{id}$ &
+$\at{E}{addr} = \mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme})$;\quad $\at{E}{code} = \tok{''}$ \\ \bottomrule
+\end{tabular}
+\caption{SDD to produce three-address code for expressions and assignments (Dragon Book Fig.~6.19).}
+\label{tab:expr-sdd}
+\end{table}
+
+\begin{notebox}{Remark}
+Here $\mathit{top}$ is the current symbol table; $\mathit{top}.\mathit{get}(\textit{name})$ returns the symbol-table entry. The code of a node is the \emph{concatenation} of its children's code followed by one new instruction, so the instructions are produced in postfix (evaluation) order. The $\at{}{code}$ attribute is a long string, so this SDD is inefficient in practice, which motivates the incremental approach below.
+\end{notebox}
+
+\begin{examplebox}{Worked example: $a = b * -c + b * -c\ ;$}
+\begin{center}
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=1.5pt,align=center}]
+ \node[nd] (S)  at (0,0) {$S$};
+ \node[nd] (id) at (-3.5,-1.3) {\textbf{id}\\[-1pt]{\scriptsize $a$}};
+ \node[nd] (eq) at (-2,-1.3) {$=$};
+ \node[nd] (E)  at (0,-1.3) {$E$\\[-1pt]{\scriptsize $addr=t_5$}};
+ \node[nd] (sc) at (2.8,-1.3) {$;$};
+ \node[nd] (E1) at (-2.4,-3) {$E_1$\\[-1pt]{\scriptsize $addr=t_2$}};
+ \node[nd] (pl) at (0,-3) {$+$};
+ \node[nd] (E2) at (2.4,-3) {$E_2$\\[-1pt]{\scriptsize $addr=t_4$}};
+ \node[nd] (b1) at (-3.6,-4.7) {$E$\\[-1pt]{\scriptsize $b$}};
+ \node[nd] (st1) at (-2.4,-4.7) {$*$};
+ \node[nd] (m1) at (-0.9,-4.7) {$E$\\[-1pt]{\scriptsize $t_1$}};
+ \node[nd] (b2) at (1.2,-4.7) {$E$\\[-1pt]{\scriptsize $b$}};
+ \node[nd] (st2) at (2.4,-4.7) {$*$};
+ \node[nd] (m2) at (3.9,-4.7) {$E$\\[-1pt]{\scriptsize $t_3$}};
+ \node[nd] (c1) at (-0.9,-6.2) {$-\ E\ (c)$};
+ \node[nd] (c2) at (3.9,-6.2) {$-\ E\ (c)$};
+ \foreach \a/\b in {S/id,S/eq,S/E,S/sc,E/E1,E/pl,E/E2,E1/b1,E1/st1,E1/m1,E2/b2,E2/st2,E2/m2,m1/c1,m2/c2}
+   \draw[gray] (\a.south)--(\b.north);
+\end{tikzpicture}
+\end{center}
+Concatenating the code in the order of evaluation gives:
+\begin{lstlisting}
+t1 = minus c
+t2 = b * t1
+t3 = minus c
+t4 = b * t3
+t5 = t2 + t4
+a  = t5
+\end{lstlisting}
+\end{examplebox}
+
+\subsection{Incremental translation (SDT with \texttt{gen} emitting directly)}
+Building \at{E}{code} as a string copies code repeatedly. In an \emph{incremental} scheme, $\mathit{gen}()$ \textbf{appends} the instruction to an output stream/array as soon as the action is executed. The code attribute is not stored. Since actions run in the correct order (postfix), the instructions come out in the right order.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{2.6cm} p{12cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Translation scheme (actions in braces)} \\ \midrule
+$S \to \mathbf{id} = E\ ;$ & $\{\ \mathit{gen}(\mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme})\ \tok{=}\ \at{E}{addr});\ \}$ \\
+$E \to E_1 + E_2$ & $\{\ \at{E}{addr} = \mathbf{new}\ \mathit{Temp}();\ \mathit{gen}(\at{E}{addr}\ \tok{=}\ \at{E_1}{addr}\ \tok{+}\ \at{E_2}{addr});\ \}$ \\
+$\ \ \mid\ -E_1$ & $\{\ \at{E}{addr} = \mathbf{new}\ \mathit{Temp}();\ \mathit{gen}(\at{E}{addr}\ \tok{=}\ \tok{minus}\ \at{E_1}{addr});\ \}$ \\
+$\ \ \mid\ (E_1)$ & $\{\ \at{E}{addr} = \at{E_1}{addr};\ \}$ \\
+$\ \ \mid\ \mathbf{id}$ & $\{\ \at{E}{addr} = \mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme});\ \}$ \\ \bottomrule
+\end{tabular}
+\caption{Incremental SDT for expressions (all actions are at the right end, so it is a postfix SDT, suitable for LR parsing).}
+\end{table}
+
+\subsection{Addressing array elements}
+Let an array be stored in a contiguous block of memory with base address $\mathit{base}$ and element width $w$.
+
+\paragraph{One-dimensional array} $A[\mathit{low}\ \dots\ \mathit{high}]$:
+\[
+\text{address of } A[i] \;=\; \mathit{base} + (i - \mathit{low}) \times w
+\]
+If $\mathit{low}=0$ this is simply $\mathit{base} + i \times w$.
+
+\paragraph{Two-dimensional array} (row-major) $A[n_1][n_2]$ with element width $w$:
+\[
+\text{address of } A[i_1][i_2] \;=\; \mathit{base} + (i_1 \times n_2 + i_2) \times w
+\]
+\paragraph{$k$ dimensions} $A[n_1]\cdots[n_k]$ (row-major, 0-based):
+\[
+\mathit{base} + \bigl( (\cdots((i_1 n_2 + i_2) n_3 + i_3) \cdots ) n_k + i_k \bigr)\times w
+\]
+Equivalently, using the \emph{widths of sub-arrays} $w_1 = n_2 \cdots n_k \cdot w,\ w_2 = n_3\cdots n_k \cdot w, \dots,\ w_k = w$:
+\[
+\mathit{base} + i_1 \times w_1 + i_2 \times w_2 + \cdots + i_k \times w_k.
+\]
+This form is the one used in the translation scheme.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  cell/.style={draw,minimum width=1.9cm,minimum height=0.8cm,font=\small}]
+ \foreach \i/\n/\o in {0/a[0][0]/0, 1/a[0][1]/4, 2/a[0][2]/8, 3/a[1][0]/12, 4/a[1][1]/16, 5/a[1][2]/20} {
+   \node[cell,fill=blue!8] at (\i*1.9,0) {\n};
+   \node[font=\scriptsize,below] at (\i*1.9,-0.5) {\o};
+ }
+ \foreach \i in {3,4,5} \node[cell,fill=green!10] at (\i*1.9,0) {};
+ \foreach \i/\n in {3/a[1][0],4/a[1][1],5/a[1][2]} \node[font=\small] at (\i*1.9,0) {\n};
+ \draw[decorate,decoration={brace,amplitude=5pt}] (-0.95,0.55)--(4.75,0.55) node[midway,above=6pt,font=\small]{row 0 \ ($i_1=0$)};
+ \draw[decorate,decoration={brace,amplitude=5pt}] (4.85,0.55)--(10.45,0.55) node[midway,above=6pt,font=\small]{row 1 \ ($i_1=1$)};
+ \node[font=\small,anchor=east] at (-1.1,-0.5) {offset:};
+\end{tikzpicture}
+\caption{Row-major layout of \texttt{int a[2][3]} ($w=4$). Offset of $a[i][j]$ is $i\times 12 + j\times 4$.}
+\end{figure}
+
+\subsection{Translation of array references}
+Grammar (with nonterminal $L$ for an array location):
+\begin{align*}
+S &\to \mathbf{id} = E\ ;\ \mid\ L = E\ ;\\
+E &\to E_1 + E_2\ \mid\ \mathbf{id}\ \mid\ L\\
+L &\to \mathbf{id}\,[\,E\,]\ \mid\ L_1\,[\,E\,]
+\end{align*}
+Attributes of $L$: \at{L}{array} (symbol-table entry of the array), \at{L}{type} (type of the \emph{sub-array} generated by $L$), \at{L}{addr} (a temporary accumulating the \emph{offset}).
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{2.4cm} p{12.2cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic action} \\ \midrule
+$S \to \mathbf{id}=E\ ;$ & $\{\ \mathit{gen}(\mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme})\ \tok{=}\ \at{E}{addr});\ \}$ \\[2pt]
+$S \to L=E\ ;$ & $\{\ \mathit{gen}(\at{L}{array}.\mathit{base}\ \tok{[}\ \at{L}{addr}\ \tok{]}\ \tok{=}\ \at{E}{addr});\ \}$ \\[2pt]
+$E \to E_1+E_2$ & $\{\ \at{E}{addr}=\mathbf{new}\ \mathit{Temp}();\ \mathit{gen}(\at{E}{addr}\ \tok{=}\ \at{E_1}{addr}\ \tok{+}\ \at{E_2}{addr});\ \}$ \\[2pt]
+$E \to \mathbf{id}$ & $\{\ \at{E}{addr}=\mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme});\ \}$ \\[2pt]
+$E \to L$ & $\{\ \at{E}{addr}=\mathbf{new}\ \mathit{Temp}();\ \mathit{gen}(\at{E}{addr}\ \tok{=}\ \at{L}{array}.\mathit{base}\ \tok{[}\ \at{L}{addr}\ \tok{]});\ \}$ \\[2pt]
+$L \to \mathbf{id}\,[\,E\,]$ & $\{\ \at{L}{array}=\mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme});\ \at{L}{type}=\at{L}{array}.\mathit{type}.\mathit{elem};$\\
+ & $\ \ \at{L}{addr}=\mathbf{new}\ \mathit{Temp}();\ \mathit{gen}(\at{L}{addr}\ \tok{=}\ \at{E}{addr}\ \tok{*}\ \at{L}{type}.\mathit{width});\ \}$ \\[2pt]
+$L \to L_1\,[\,E\,]$ & $\{\ \at{L}{array}=\at{L_1}{array};\ \at{L}{type}=\at{L_1}{type}.\mathit{elem};$\\
+ & $\ \ t=\mathbf{new}\ \mathit{Temp}();\ \at{L}{addr}=\mathbf{new}\ \mathit{Temp}();$\\
+ & $\ \ \mathit{gen}(t\ \tok{=}\ \at{E}{addr}\ \tok{*}\ \at{L}{type}.\mathit{width});\ \mathit{gen}(\at{L}{addr}\ \tok{=}\ \at{L_1}{addr}\ \tok{+}\ t);\ \}$ \\ \bottomrule
+\end{tabular}
+\caption{Semantic actions for array references (Dragon Book Fig.~6.22).}
+\end{table}
+
+\begin{examplebox}{Worked example: $c + a[i][j]$ where \texttt{a} is \texttt{int a[2][3]}}
+Types: \at{a}{type} $= \mathit{array}(2,\ \mathit{array}(3,\ \mathit{integer}))$, so the width of one row is $3\times 4 = 12$ and of an element is $4$.
+
+\begin{enumerate}[nosep]
+\item $L \to \mathbf{id}[E]$ with $E = i$: $\at{L}{type}=\mathit{array}(3,\mathit{integer})$, width 12 \;$\Rightarrow$\; \texttt{t1 = i * 12}.
+\item $L \to L_1[E]$ with $E = j$: $\at{L}{type}=\mathit{integer}$, width 4 \;$\Rightarrow$\; \texttt{t2 = j * 4}, \texttt{t3 = t1 + t2}.
+\item $E \to L$: \texttt{t4 = a[t3]}.
+\item $E \to E_1 + E_2$: \texttt{t5 = c + t4}.
+\end{enumerate}
+\begin{lstlisting}
+t1 = i * 12
+t2 = j * 4
+t3 = t1 + t2
+t4 = a[t3]
+t5 = c + t4
+\end{lstlisting}
+
+And for the assignment $x = a[i][j]$ the code is the first four instructions followed by \texttt{x = t4}.
+\end{examplebox}
+
+%====================================================================
+\section{Type Checking and Type Conversion}
+%====================================================================
+
+\paragraph{Type expressions} represent the type of a language construct: basic types (\texttt{int}, \texttt{float}, \texttt{char}, \texttt{boolean}, \texttt{void}), \textit{array}$(n, T)$, \textit{record}, pointer, and function types $s \to t$.
+
+\paragraph{Type checking} comes in two forms: \textbf{synthesis} (the type of an expression is built from the types of its sub-expressions, e.g., for $E_1 + E_2$) and \textbf{inference} (the type of a construct is determined from the way it is used).
+
+\subsection{Type conversion (coercion)}
+For $E \to E_1 + E_2$ where operand types may differ (e.g., \texttt{int} and \texttt{float}), the compiler inserts conversions. Define the widening hierarchy \texttt{int} $<$ \texttt{float}. Then
+\[
+\at{E}{type} = \max(\at{E_1}{type},\ \at{E_2}{type}),
+\]
+and the helper $\mathit{widen}(a, t, w)$ converts address $a$ of type $t$ to type $w$:
+
+\begin{lstlisting}
+Addr widen(Addr a, Type t, Type w) {
+    if (t == w) return a;
+    else if (t == integer && w == float) {
+        temp = new Temp();
+        gen(temp '=' '(float)' a);
+        return temp;
+    }
+    else error;
+}
+\end{lstlisting}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.1cm} p{11.4cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic action} \\ \midrule
+$E \to E_1 + E_2$ &
+$\{\ \at{E}{type}=\max(\at{E_1}{type},\at{E_2}{type});$\\
+& $\ \ a_1=\mathit{widen}(\at{E_1}{addr},\at{E_1}{type},\at{E}{type});$\\
+& $\ \ a_2=\mathit{widen}(\at{E_2}{addr},\at{E_2}{type},\at{E}{type});$\\
+& $\ \ \at{E}{addr}=\mathbf{new}\ \mathit{Temp}();\ \mathit{gen}(\at{E}{addr}\ \tok{=}\ a_1\ \tok{+}\ a_2);\ \}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{examplebox}{Example}
+Let \texttt{x} be \texttt{float}, and \texttt{i, j} be \texttt{int}. For $x = i * j + x$ we get:
+\begin{lstlisting}
+t1 = i * j          // int * int -> int
+t2 = (float) t1     // widen to float
+t3 = t2 + x         // float + float
+x  = t3
+\end{lstlisting}
+\end{examplebox}
+
+%====================================================================
+\section{Control Flow: Boolean Expressions and Statements}
+%====================================================================
+
+In programming languages, boolean expressions are used for two purposes:
+\begin{enumerate}[nosep]
+\item to \textbf{compute logical values} (e.g., \texttt{flag = a < b \&\& c;}), and
+\item as \textbf{conditional expressions} in \texttt{if}, \texttt{while}, and \texttt{for} (flow-of-control).
+\end{enumerate}
+We use the grammar
+\[
+B \to B \,\|\!\|\, B \ \mid\ B\ \&\&\ B\ \mid\ !\,B\ \mid\ (B)\ \mid\ E\ \mathit{rel}\ E\ \mid\ \mathbf{true}\ \mid\ \mathbf{false}
+\]
+with $\|\!\|$ standing for the C operator \texttt{||}; \texttt{||} and \texttt{\&\&} are left-associative, \texttt{||} has lower precedence than \texttt{\&\&}, which is lower than \texttt{!}.
+
+\subsection{Short-circuit (jumping) code}
+In \textbf{short-circuit code}, the operators \texttt{\&\&}, \texttt{||} and \texttt{!} do not appear in the generated code. Instead a boolean expression is translated into jumps to labels: control \emph{reaches} one position if the expression is true and another if it is false. In
+\[
+\texttt{if (x < 100 || x > 200 \&\& x != y) x = 0;}
+\]
+the first test \texttt{x<100} being true makes the other tests unnecessary. The generated code is:
+
+\begin{lstlisting}
+        if x < 100 goto L2
+        goto L3
+L3:     if x > 200 goto L4
+        goto L1
+L4:     if x != y goto L2
+        goto L1
+L2:     x = 0
+L1:     ...
+\end{lstlisting}
+(Compare with \emph{value} code, which would compute 0/1 into temporaries and use \texttt{\&\&} and \texttt{||} at run time.)
+
+\subsection{Flow-of-control statements: SDD with inherited labels}
+Grammar for statements:
+\[
+P \to S, \qquad S \to \mathbf{assign}\ \mid\ \mathbf{if}\,(B)\,S_1\ \mid\ \mathbf{if}\,(B)\,S_1\ \mathbf{else}\ S_2\ \mid\ \mathbf{while}\,(B)\,S_1\ \mid\ S_1\,S_2
+\]
+\textbf{Inherited attributes} (labels):
+\begin{itemize}
+\item \at{B}{true}: the label to jump to if $B$ is true; \at{B}{false}: the label if $B$ is false.
+\item \at{S}{next}: the label of the instruction that follows the code for $S$.
+\end{itemize}
+\textbf{Synthesized attribute}: \at{S}{code}, \at{B}{code}. The function $\mathit{newlabel}()$ creates a fresh label $L_1, L_2, \dots$, and $\lbl{L}$ attaches label $L$ to the next instruction.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{3.6cm} p{11cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$P \to S$ &
+$\at{S}{next}=\mathit{newlabel}()$;\quad $\at{P}{code}=\at{S}{code}\cc\lbl{\at{S}{next}}$ \\[3pt]
+$S \to \mathbf{assign}$ &
+$\at{S}{code}=\at{\mathbf{assign}}{code}$ \\[3pt]
+$S \to \mathbf{if}\,(B)\,S_1$ &
+$\at{B}{true}=\mathit{newlabel}()$;\quad $\at{B}{false}=\at{S_1}{next}=\at{S}{next}$\\
+& $\at{S}{code}=\at{B}{code}\cc\lbl{\at{B}{true}}\cc\at{S_1}{code}$ \\[3pt]
+$S \to \mathbf{if}\,(B)\,S_1\ \mathbf{else}\ S_2$ &
+$\at{B}{true}=\mathit{newlabel}()$;\quad $\at{B}{false}=\mathit{newlabel}()$;\quad $\at{S_1}{next}=\at{S_2}{next}=\at{S}{next}$\\
+& $\at{S}{code}=\at{B}{code}\cc\lbl{\at{B}{true}}\cc\at{S_1}{code}\cc\gen{\goto\ \at{S}{next}}\cc\lbl{\at{B}{false}}\cc\at{S_2}{code}$ \\[3pt]
+$S \to \mathbf{while}\,(B)\,S_1$ &
+$\mathit{begin}=\mathit{newlabel}()$;\quad $\at{B}{true}=\mathit{newlabel}()$;\quad $\at{B}{false}=\at{S}{next}$;\quad $\at{S_1}{next}=\mathit{begin}$\\
+& $\at{S}{code}=\lbl{\mathit{begin}}\cc\at{B}{code}\cc\lbl{\at{B}{true}}\cc\at{S_1}{code}\cc\gen{\goto\ \mathit{begin}}$ \\[3pt]
+$S \to S_1\,S_2$ &
+$\at{S_1}{next}=\mathit{newlabel}()$;\quad $\at{S_2}{next}=\at{S}{next}$\\
+& $\at{S}{code}=\at{S_1}{code}\cc\lbl{\at{S_1}{next}}\cc\at{S_2}{code}$ \\ \bottomrule
+\end{tabular}
+\caption{SDD for flow-of-control statements (Dragon Book Fig.~6.36). \at{S}{next}, \at{B}{true}, and \at{B}{false} are inherited.}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  blk/.style={draw,minimum width=4.2cm,minimum height=0.75cm,font=\small,fill=blue!6},
+  lab/.style={font=\footnotesize\ttfamily,anchor=east}]
+ % if-else
+ \node[blk] (b) at (0,0) {$B.code$};
+ \node[blk] (s1) at (0,-0.75) {$S_1.code$};
+ \node[blk,fill=orange!15] (g) at (0,-1.5) {\texttt{goto S.next}};
+ \node[blk] (s2) at (0,-2.25) {$S_2.code$};
+ \node[lab] at (-2.2,-0.75) {B.true:};
+ \node[lab] at (-2.2,-2.25) {B.false:};
+ \node[lab] at (-2.2,-3.0) {S.next:};
+ \node[font=\small] at (0,-3.9) {(a) \textbf{if} (B) $S_1$ \textbf{else} $S_2$};
+ % while
+ \begin{scope}[xshift=8.6cm]
+ \node[blk] (wb) at (0,0) {$B.code$};
+ \node[blk] (ws) at (0,-0.75) {$S_1.code$};
+ \node[blk,fill=orange!15] (wg) at (0,-1.5) {\texttt{goto begin}};
+ \node[lab] at (-2.2,0) {begin:};
+ \node[lab] at (-2.2,-0.75) {B.true:};
+ \node[lab] at (-2.2,-2.0) {B.false/S.next:};
+ \node[font=\small] at (0,-3.9) {(b) \textbf{while} (B) $S_1$};
+ \end{scope}
+\end{tikzpicture}
+\caption{Layout of the generated code. $B.code$ contains jumps to \textit{B.true} or \textit{B.false}; it ``falls through'' to neither, so the labels can be placed anywhere.}
+\end{figure}
+
+\subsection{SDD for boolean expressions (jumping code)}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{3.1cm} p{11.5cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$B \to B_1 \,\|\!\|\, B_2$ &
+$\at{B_1}{true}=\at{B}{true}$;\ \ $\at{B_1}{false}=\mathit{newlabel}()$;\ \ $\at{B_2}{true}=\at{B}{true}$;\ \ $\at{B_2}{false}=\at{B}{false}$\\
+& $\at{B}{code}=\at{B_1}{code}\cc\lbl{\at{B_1}{false}}\cc\at{B_2}{code}$ \\[3pt]
+$B \to B_1\ \&\&\ B_2$ &
+$\at{B_1}{true}=\mathit{newlabel}()$;\ \ $\at{B_1}{false}=\at{B}{false}$;\ \ $\at{B_2}{true}=\at{B}{true}$;\ \ $\at{B_2}{false}=\at{B}{false}$\\
+& $\at{B}{code}=\at{B_1}{code}\cc\lbl{\at{B_1}{true}}\cc\at{B_2}{code}$ \\[3pt]
+$B \to !\,B_1$ &
+$\at{B_1}{true}=\at{B}{false}$;\ \ $\at{B_1}{false}=\at{B}{true}$;\ \ $\at{B}{code}=\at{B_1}{code}$ \\[3pt]
+$B \to E_1\ \mathit{rel}\ E_2$ &
+$\at{B}{code}=\at{E_1}{code}\cc\at{E_2}{code}\cc\gen{\mathbf{if}\ \at{E_1}{addr}\ \mathit{rel.op}\ \at{E_2}{addr}\ \goto\ \at{B}{true}}\cc\gen{\goto\ \at{B}{false}}$ \\[3pt]
+$B \to \mathbf{true}$ & $\at{B}{code}=\gen{\goto\ \at{B}{true}}$ \\[3pt]
+$B \to \mathbf{false}$ & $\at{B}{code}=\gen{\goto\ \at{B}{false}}$ \\ \bottomrule
+\end{tabular}
+\caption{SDD to generate jumping code for boolean expressions (Dragon Book Fig.~6.37).}
+\end{table}
+
+\begin{notebox}{How to remember the \texttt{||} and \texttt{\&\&} rules}
+\begin{itemize}[nosep]
+\item $B_1 \,||\, B_2$: if $B_1$ is true we are done (go to \textit{B.true}); if false, \emph{test $B_2$}, so $B_1.\mathit{false}$ is a new label placed in front of $B_2.\mathit{code}$.
+\item $B_1 \,\&\&\, B_2$: if $B_1$ is false we are done (go to \textit{B.false}); if true, \emph{test $B_2$}, so $B_1.\mathit{true}$ is a new label in front of $B_2.\mathit{code}$.
+\item $!\,B_1$: simply \emph{swap} the true and false labels.
+\end{itemize}
+\end{notebox}
+
+\begin{examplebox}{Worked example: \texttt{if (x < 100 || x > 200 \&\& x != y) x = 0;}}
+\textbf{Step 1.} $P \to S$: \at{S}{next} $= L_1$.
+
+\textbf{Step 2.} $S \to \mathbf{if}(B)S_1$: \at{B}{true} $= L_2$, \at{B}{false} $= L_1$, \at{S_1}{next} $= L_1$.
+
+\textbf{Step 3.} $B = B_1 \,||\, B_2$, where $B_1 \equiv x<100$ and $B_2 \equiv (x>200 \;\&\&\; x\ne y)$:
+\begin{itemize}[nosep]
+\item $B_1$: true $= L_2$, false $= L_3$ (new).
+\item $B_2$: true $= L_2$, false $= L_1$.
+\end{itemize}
+\textbf{Step 4.} $B_2 = B_3 \,\&\&\, B_4$ with $B_3 \equiv x>200$, $B_4 \equiv x \ne y$:
+\begin{itemize}[nosep]
+\item $B_3$: true $= L_4$ (new), false $= L_1$.
+\item $B_4$: true $= L_2$, false $= L_1$.
+\end{itemize}
+\textbf{Step 5.} Assemble: $B_1.code \cc L_3{:}\ B_2.code$, with $B_2.code = B_3.code \cc L_4{:}\ B_4.code$, followed by $L_2{:}\ S_1.code$ and finally $L_1{:}$
+
+\begin{lstlisting}
+        if x < 100 goto L2
+        goto L3
+L3:     if x > 200 goto L4
+        goto L1
+L4:     if x != y goto L2
+        goto L1
+L2:     x = 0
+L1:
+\end{lstlisting}
+Observe the redundant jumps (\texttt{goto L3} immediately followed by \texttt{L3:}) -- a later optimisation phase or the \emph{backpatching} method with fall-through can remove them.
+\end{examplebox}
+
+\begin{examplebox}{Worked example: \texttt{while (a < b) \{ if (c < d) x = y + z; \}}}
+\begin{lstlisting}
+L1:     if a < b goto L2        // begin / B.code
+        goto L0                 // B.false = S.next
+L2:     if c < d goto L3        // inner if: B.true = L3
+        goto L1                 // inner S.next = begin = L1
+L3:     t1 = y + z
+        x = t1
+        goto L1                 // goto begin
+L0:                             // S.next
+\end{lstlisting}
+\end{examplebox}
+
+\subsection{Avoiding redundant gotos (fall-through)}
+Instead of
+\begin{lstlisting}
+        if x > 200 goto L4
+        goto L1
+L4:     ...
+\end{lstlisting}
+we can generate the shorter form \texttt{ifFalse x > 200 goto L1} followed by the code at \texttt{L4}: if the true label is the next instruction (denote it by the special label \textit{fall}), only one jump is needed. The rule for $B \to E_1\ \mathit{rel}\ E_2$ becomes: let $\mathit{test} = E_1.addr\ rel.op\ E_2.addr$:
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Condition} & \textbf{Generated jump code} \\ \midrule
+\at{B}{true}\ $\ne$ \textit{fall} and \at{B}{false}\ $\ne$ \textit{fall} & \texttt{if test goto B.true} \quad \texttt{goto B.false} \\
+\at{B}{true}\ $\ne$ \textit{fall} and \at{B}{false} = \textit{fall} & \texttt{if test goto B.true} \\
+\at{B}{true} = \textit{fall} and \at{B}{false}\ $\ne$ \textit{fall} & \texttt{ifFalse test goto B.false} \\
+both = \textit{fall} & (no instruction) \\ \bottomrule
+\end{tabular}
+\end{center}
+
+%====================================================================
+\section{Backpatching}
+\label{sec:backpatch}
+%====================================================================
+
+\subsection{The problem and the idea}
+In the one-pass, label-based scheme above we needed \emph{inherited} labels (\at{B}{true}, \at{S}{next}) because a jump may be generated \emph{before} its target is known. Inherited attributes make one-pass \textbf{bottom-up} translation awkward. \textbf{Backpatching} avoids this:
+\begin{itemize}
+\item When a jump is generated, its \emph{target is left blank}.
+\item Each such incomplete jump is put on a \textbf{list} of jumps that will eventually go to the same target.
+\item When the target address becomes known, the instructions on the list are \emph{patched} (filled in).
+\end{itemize}
+Thus we only need \emph{synthesized} attributes (lists of instruction indices), and the whole translation can be done in a single bottom-up pass.
+
+\begin{defbox}{Backpatching primitives}
+\begin{itemize}
+\item $\mathit{makelist}(i)$: create a new list containing only $i$, an index into the instruction array; return a pointer to it.
+\item $\mathit{merge}(p_1, p_2)$: concatenate the lists pointed to by $p_1$ and $p_2$; return the merged list.
+\item $\mathit{backpatch}(p, i)$: insert $i$ as the target label for each instruction on the list $p$.
+\item $\mathit{nextinstr}$: global variable containing the index of the next instruction to be generated. $\mathit{emit}(\dots)$ appends an instruction and increments it.
+\end{itemize}
+\end{defbox}
+
+\subsection{Boolean expressions}
+Synthesized attributes: \at{B}{truelist} (instructions that jump when $B$ is true) and \at{B}{falselist} (when false). A \textbf{marker nonterminal} $M \to \varepsilon$ records the index of the next instruction (\at{M}{instr}).
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{3.3cm} p{11.3cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic action} \\ \midrule
+$B \to B_1 \,\|\!\|\, M\ B_2$ &
+$\{\ \mathit{backpatch}(\at{B_1}{falselist},\ \at{M}{instr});$\\
+& $\ \ \at{B}{truelist}=\mathit{merge}(\at{B_1}{truelist},\ \at{B_2}{truelist});\ \ \at{B}{falselist}=\at{B_2}{falselist};\ \}$ \\[3pt]
+$B \to B_1\ \&\&\ M\ B_2$ &
+$\{\ \mathit{backpatch}(\at{B_1}{truelist},\ \at{M}{instr});$\\
+& $\ \ \at{B}{truelist}=\at{B_2}{truelist};\ \ \at{B}{falselist}=\mathit{merge}(\at{B_1}{falselist},\ \at{B_2}{falselist});\ \}$ \\[3pt]
+$B \to !\,B_1$ &
+$\{\ \at{B}{truelist}=\at{B_1}{falselist};\ \at{B}{falselist}=\at{B_1}{truelist};\ \}$ \\[3pt]
+$B \to (\,B_1\,)$ &
+$\{\ \at{B}{truelist}=\at{B_1}{truelist};\ \at{B}{falselist}=\at{B_1}{falselist};\ \}$ \\[3pt]
+$B \to E_1\ \mathit{rel}\ E_2$ &
+$\{\ \at{B}{truelist}=\mathit{makelist}(\mathit{nextinstr});\ \at{B}{falselist}=\mathit{makelist}(\mathit{nextinstr}+1);$\\
+& $\ \ \mathit{emit}(\tok{if}\ \at{E_1}{addr}\ \mathit{rel.op}\ \at{E_2}{addr}\ \tok{goto}\ \_);\ \ \mathit{emit}(\tok{goto}\ \_);\ \}$ \\[3pt]
+$B \to \mathbf{true}$ &
+$\{\ \at{B}{truelist}=\mathit{makelist}(\mathit{nextinstr});\ \mathit{emit}(\tok{goto}\ \_);\ \}$ \\[3pt]
+$B \to \mathbf{false}$ &
+$\{\ \at{B}{falselist}=\mathit{makelist}(\mathit{nextinstr});\ \mathit{emit}(\tok{goto}\ \_);\ \}$ \\[3pt]
+$M \to \varepsilon$ &
+$\{\ \at{M}{instr}=\mathit{nextinstr};\ \}$ \\ \bottomrule
+\end{tabular}
+\caption{Translation scheme for boolean expressions using backpatching (Dragon Book Fig.~6.43).}
+\end{table}
+
+\begin{examplebox}{Worked example: $x < 100 \;||\; x > 200 \;\&\&\; x \ne y$ (instructions start at index 100)}
+\textbf{Parse structure:} $B \Rightarrow B_1 \,||\, M_1\, B_2$, where $B_2 \Rightarrow B_3 \,\&\&\, M_2\, B_4$.
+
+\begin{enumerate}[nosep]
+\item $B_1 \equiv x<100$: emit \texttt{100: if x<100 goto \_}, \texttt{101: goto \_}\\
+ \hspace*{1em} $B_1.truelist=\{100\}$, $B_1.falselist=\{101\}$.
+\item $M_1.instr = 102$.
+\item $B_3 \equiv x>200$: emit \texttt{102: if x>200 goto \_}, \texttt{103: goto \_}\\
+ \hspace*{1em} $B_3.truelist=\{102\}$, $B_3.falselist=\{103\}$.
+\item $M_2.instr = 104$.
+\item $B_4 \equiv x\ne y$: emit \texttt{104: if x!=y goto \_}, \texttt{105: goto \_}\\
+ \hspace*{1em} $B_4.truelist=\{104\}$, $B_4.falselist=\{105\}$.
+\item Reduce $B_2 \to B_3 \,\&\&\, M_2\, B_4$:\ \ $\mathit{backpatch}(\{102\},104)$ $\Rightarrow$ instruction 102 becomes \texttt{if x>200 goto 104}.\\
+ \hspace*{1em} $B_2.truelist=\{104\}$, $B_2.falselist=\mathit{merge}(\{103\},\{105\})=\{103,105\}$.
+\item Reduce $B \to B_1 \,||\, M_1\, B_2$:\ \ $\mathit{backpatch}(\{101\},102)$ $\Rightarrow$ instruction 101 becomes \texttt{goto 102}.\\
+ \hspace*{1em} $B.truelist=\mathit{merge}(\{100\},\{104\})=\{100,104\}$, $B.falselist=\{103,105\}$.
+\end{enumerate}
+\textbf{Result} (still incomplete -- the lists will be patched by the enclosing statement):
+\begin{lstlisting}
+100:  if x < 100 goto _      <- on truelist
+101:  goto 102
+102:  if x > 200 goto 104
+103:  goto _                 <- on falselist
+104:  if x != y goto _       <- on truelist
+105:  goto _                 <- on falselist
+\end{lstlisting}
+\end{examplebox}
+
+\subsection{Flow-of-control statements}
+Synthesized attribute \at{S}{nextlist}: list of jumps to the instruction that follows $S$. We use markers $M \to \varepsilon$ (records \textit{nextinstr}) and $N \to \varepsilon$ (emits an incomplete \texttt{goto} and returns it on a list).
+
+Grammar:
+\begin{align*}
+S &\to \mathbf{if}\,(B)\,S_1 \mid \mathbf{if}\,(B)\,S_1\ \mathbf{else}\ S_2 \mid \mathbf{while}\,(B)\,S_1 \mid \{\,L\,\} \mid A\,;\\
+L &\to L_1\,S \mid S
+\end{align*}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}p{4.3cm} p{10.3cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic action} \\ \midrule
+$S \to \mathbf{if}\,(B)\ M\ S_1$ &
+$\{\ \mathit{backpatch}(\at{B}{truelist},\ \at{M}{instr});$\ \ $\at{S}{nextlist}=\mathit{merge}(\at{B}{falselist},\ \at{S_1}{nextlist});\ \}$ \\[3pt]
+$S \to \mathbf{if}\,(B)\ M_1\ S_1\ N\ \mathbf{else}\ M_2\ S_2$ &
+$\{\ \mathit{backpatch}(\at{B}{truelist},\ \at{M_1}{instr});\ \mathit{backpatch}(\at{B}{falselist},\ \at{M_2}{instr});$\\
+& $\ \ \mathit{temp}=\mathit{merge}(\at{S_1}{nextlist},\ \at{N}{nextlist});\ \at{S}{nextlist}=\mathit{merge}(\mathit{temp},\ \at{S_2}{nextlist});\ \}$ \\[3pt]
+$S \to \mathbf{while}\ M_1\,(B)\ M_2\ S_1$ &
+$\{\ \mathit{backpatch}(\at{S_1}{nextlist},\ \at{M_1}{instr});\ \mathit{backpatch}(\at{B}{truelist},\ \at{M_2}{instr});$\\
+& $\ \ \at{S}{nextlist}=\at{B}{falselist};\ \mathit{emit}(\tok{goto}\ \at{M_1}{instr});\ \}$ \\[3pt]
+$S \to \{\ L\ \}$ & $\{\ \at{S}{nextlist}=\at{L}{nextlist};\ \}$ \\[3pt]
+$S \to A\ ;$ & $\{\ \at{S}{nextlist}=\mathbf{null};\ \}$ \\[3pt]
+$L \to L_1\ M\ S$ & $\{\ \mathit{backpatch}(\at{L_1}{nextlist},\ \at{M}{instr});\ \at{L}{nextlist}=\at{S}{nextlist};\ \}$ \\[3pt]
+$L \to S$ & $\{\ \at{L}{nextlist}=\at{S}{nextlist};\ \}$ \\[3pt]
+$M \to \varepsilon$ & $\{\ \at{M}{instr}=\mathit{nextinstr};\ \}$ \\[3pt]
+$N \to \varepsilon$ & $\{\ \at{N}{nextlist}=\mathit{makelist}(\mathit{nextinstr});\ \mathit{emit}(\tok{goto}\ \_);\ \}$ \\ \bottomrule
+\end{tabular}
+\caption{Translation of statements with backpatching (Dragon Book Fig.~6.46).}
+\end{table}
+
+\begin{notebox}{Why the markers?}
+$M$ \emph{remembers a position}: ``this is where the code for $S_1$ (or for the test) begins''. $N$ \emph{generates the jump over the else-part} and returns it for later patching. In the \textbf{while} rule the loop-back jump uses $M_1$, which was recorded \emph{before} $B.code$ was generated.
+\end{notebox}
+
+\begin{examplebox}{Worked example: \texttt{while (a < b) \{ if (c < d) x = y + z; \}}}
+Assume numbering starts at 100; $M_1.instr=100$.
+
+\begin{enumerate}[nosep]
+\item $B \equiv a<b$: \texttt{100: if a<b goto \_}, \texttt{101: goto \_}; $\ B.truelist=\{100\}$, $B.falselist=\{101\}$.
+\item $M_2.instr = 102$.
+\item Inner $B' \equiv c<d$: \texttt{102: if c<d goto \_}, \texttt{103: goto \_}; $\ B'.truelist=\{102\}$, $B'.falselist=\{103\}$.
+\item $M.instr = 104$; assignment $x=y+z$: \texttt{104: t1 = y + z}, \texttt{105: x = t1}; $S_1.nextlist=\mathbf{null}$.
+\item Inner \textbf{if}: $\mathit{backpatch}(\{102\},104)$; $\ S.nextlist=\mathit{merge}(\{103\},\mathbf{null})=\{103\}$.
+\item \textbf{while}: $\mathit{backpatch}(\{103\},100)$ (i.e., \texttt{103: goto 100}); $\ \mathit{backpatch}(\{100\},102)$ (i.e., \texttt{100: if a<b goto 102}); $\ S.nextlist=B.falselist=\{101\}$; emit \texttt{106: goto 100}.
+\end{enumerate}
+\begin{lstlisting}
+100:  if a < b goto 102
+101:  goto _              <- S.nextlist, patched by whoever follows
+102:  if c < d goto 104
+103:  goto 100
+104:  t1 = y + z
+105:  x = t1
+106:  goto 100
+107:  ...                 <- (101 will be backpatched with 107)
+\end{lstlisting}
+\end{examplebox}
+
+\begin{examplebox}{Worked example: \texttt{if (a < b) x = 1; else x = 2;}}
+\begin{lstlisting}
+100:  if a < b goto 102      // B.truelist = {100}, patched to M1 = 102
+101:  goto 104               // B.falselist = {101}, patched to M2 = 104
+102:  x = 1
+103:  goto _                 // N: on S.nextlist
+104:  x = 2
+105:  ...                    // 103 is patched to 105 by the enclosing construct
+\end{lstlisting}
+\end{examplebox}
+
+\subsection{Comparison: inherited labels vs.\ backpatching}
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.3cm} p{5.6cm} p{5.6cm}@{}}
+\toprule
+ & \textbf{Label-based SDD (Fig.~6.36/6.37)} & \textbf{Backpatching (Fig.~6.43/6.46)} \\ \midrule
+Attributes & Inherited labels (\textit{true, false, next}) & Synthesized lists (\textit{truelist, falselist, nextlist}) \\
+Class of SDD & L-attributed & S-attributed (with markers $M$, $N$) \\
+Best suited for & Top-down / recursive-descent (or AST traversal) & Bottom-up (LR) parsing, single pass \\
+Code storage & Attribute \at{}{code}, or incremental \textit{gen} & Instruction array; patched later \\
+Labels & Symbolic labels generated eagerly & Instruction indices known late \\ \bottomrule
+\end{tabular}
+\end{center}
+
+%====================================================================
+\section{Switch Statements and Procedure Calls (Brief)}
+%====================================================================
+
+\subsection{Switch statement}
+\begin{lstlisting}
+switch (E) {
+    case V1: S1
+    case V2: S2
+    ...
+    case V(n-1): S(n-1)
+    default: Sn
+}
+\end{lstlisting}
+\textbf{Translation scheme:} evaluate $E$ into a temporary $t$, then a sequence of tests, followed by the code of each case.
+\begin{lstlisting}
+        code to evaluate E into t
+        goto test
+L1:     code for S1
+        goto next
+L2:     code for S2
+        goto next
+ ...
+Ln:     code for Sn
+        goto next
+test:   if t = V1 goto L1
+        if t = V2 goto L2
+        ...
+        if t = V(n-1) goto L(n-1)
+        goto Ln
+next:
+\end{lstlisting}
+Putting the tests \emph{after} the case bodies lets the code generator recognise the test sequence and implement it with a \textbf{jump table} (for dense values) or binary search. The \texttt{case} instruction can also be used: \texttt{case t V1 L1}\; \dots\; \texttt{case t Vn Ln}; \texttt{case t t Ldefault}.
+
+\subsection{Procedure calls}
+For a call $\mathit{id}(E_1, E_2, \dots, E_n)$:
+\begin{lstlisting}
+        code to evaluate E1 into t1
+        code to evaluate E2 into t2
+        ...
+        code to evaluate En into tn
+        param t1
+        param t2
+        ...
+        param tn
+        call id, n          // or:  y = call id, n   if a value is returned
+\end{lstlisting}
+Grammar and actions (the parameter addresses are collected in a queue, and then emitted as \texttt{param}):
+\begin{align*}
+S &\to \mathbf{call}\ \mathbf{id}\,(\,\mathit{Elist}\,) &&\{\ \text{for each } t \text{ in queue: } \mathit{gen}(\tok{param}\ t);\ \mathit{gen}(\tok{call}\ \at{\mathbf{id}}{addr},\ \mathit{size}(\mathit{queue}));\ \}\\
+\mathit{Elist} &\to \mathit{Elist}\,,\,E &&\{\ \text{append } \at{E}{addr} \text{ to the end of } \mathit{queue};\ \}\\
+\mathit{Elist} &\to E &&\{\ \mathit{queue}=[\,\at{E}{addr}\,];\ \}
+\end{align*}
+
+%====================================================================
+\section{A Complete Worked Example}
+%====================================================================
+
+\begin{examplebox}{Translating a small program fragment to three-address code}
+Source fragment (all variables are \texttt{int}; \texttt{a} is \texttt{int a[10]}, so $w=4$):
+\begin{lstlisting}
+i = 0;
+while (i < n && a[i] != key)
+    i = i + 1;
+\end{lstlisting}
+
+\textbf{Using the label-based SDD.} $P \to S$ gives \at{S}{next} $=L_0$. For the sequence $S_1\,S_2$ (the assignment, then the loop) a label $L_1 = \at{S_1}{next}$ is placed between them. For the loop, $\mathit{begin}=L_2$, \at{B}{true} $=L_3$, \at{B}{false} $=L_0$, and the body's \at{S_1}{next} $= L_2$. For $B = B_1 \,\&\&\, B_2$ a new label $L_4 = B_1.\mathit{true}$ is created, with $B_1.\mathit{false}=L_0$, $B_2.\mathit{true}=L_3$, $B_2.\mathit{false}=L_0$.
+
+\begin{lstlisting}
+        i = 0
+L1:
+L2:     if i < n goto L4     // B1 (begin of while)
+        goto L0              // B1 false -> exit loop
+L4:     t1 = i * 4           // B2: a[i] != key
+        t2 = a[t1]
+        if t2 != key goto L3
+        goto L0              // B false -> exit loop
+L3:     t3 = i + 1           // loop body
+        i = t3
+        goto L2              // back to begin
+L0:
+\end{lstlisting}
+(\texttt{L1} and \texttt{L2} label the same instruction; a later pass can merge them.)
+
+\textbf{Using backpatching} (instruction numbering from 100). Here $M_1.\mathit{instr}=101$ (start of loop), the marker of $\&\&$ gives $103$, and $M_2.\mathit{instr}=107$ (start of body).
+\begin{lstlisting}
+100:  i = 0
+101:  if i < n goto 103         // patched by the && marker
+102:  goto _                    // on B.falselist = S.nextlist
+103:  t1 = i * 4
+104:  t2 = a[t1]
+105:  if t2 != key goto 107     // truelist patched with M2 = 107
+106:  goto _                    // on B.falselist = S.nextlist
+107:  t3 = i + 1
+108:  i = t3
+109:  goto 101                  // emitted by the while rule (M1)
+110:  ...                       // {102, 106} are backpatched with 110
+\end{lstlisting}
+Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; whoever follows the loop will patch them with the index of the next instruction, here 110.
+\end{examplebox}
+
+%====================================================================
+\section{Summary and Key Takeaways}
+%====================================================================
+
+\begin{itemize}
+\item Intermediate code (syntax trees, DAGs, three-address code in quadruple/triple form) decouples front and back ends and enables machine-independent optimisation.
+\item An \textbf{SDD} specifies semantics via attributes and rules; \textbf{synthesized} attributes flow upward, \textbf{inherited} attributes flow downward or sideways. \textbf{S-attributed} $\subset$ \textbf{L-attributed}.
+\item An \textbf{SDT} embeds the actions in the grammar and fixes the order of evaluation. S-attributed SDDs $\to$ \emph{postfix SDTs} (bottom-up). L-attributed SDDs can be implemented during top-down parsing, or, with marker nonterminals, during bottom-up parsing.
+\item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
+\item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
+\item \textbf{Backpatching} replaces inherited labels by synthesized lists (\textit{makelist, merge, backpatch}), allowing one-pass bottom-up generation with markers $M$ and $N$.
+\end{itemize}
+
+%====================================================================
+\section{Practice Problems}
+%====================================================================
+
+\begin{enumerate}[label=\textbf{Q\arabic*.}]
+\item Translate $x = a * (b + c) - d / (b + c)$ into (a) a syntax tree and DAG, (b) three-address code, (c) quadruples, triples, and indirect triples.
+\item Using the SDD of Table~\ref{tab:expr-sdd}, annotate the parse tree and generate TAC for $a = -(b + c) * (b + c)$.
+\item For \texttt{int a[5][4]} (int width $=4$), write the TAC for $x = a[i][j] + a[j][i]$. Give the width used at each dimension.
+\item Generate jumping code (with inherited labels) for \texttt{if (a < b \&\& !(c < d)) x = 1; else x = 2;}
+\item Show, step by step, the \textit{truelist}/\textit{falselist} and the final code (with backpatching, starting at 100) for $a<b \;||\; c<d \;\&\&\; e<f$.
+\item Using backpatching, translate: \texttt{while (x < 10) \{ x = x + 1; if (x == 5) y = 0; \}}
+\item Classify as S-attributed, L-attributed, or neither: (a) $A \to B\,C$ with $C.i = B.s$ and $A.s = C.s$; (b) $A \to B\,C$ with $B.i = C.s$; (c) the SDD of Table~\ref{tab:expr-sdd}.
+\item Write the SDT for $E \to E_1 * E_2 \mid E_1 + E_2 \mid (E) \mid \mathbf{id}$ that prints the \emph{postfix} form, and show its output for \texttt{a + b * (c + d)}.
+\end{enumerate}
+
+\subsection*{Answers to selected problems}
+\textbf{Q1(b).} The DAG shares $b+c$, so the TAC is
+\begin{lstlisting}
+t1 = b + c
+t2 = a * t1
+t3 = d / t1
+t4 = t2 - t3
+x  = t4
+\end{lstlisting}
+
+\textbf{Q3.} Row width $=4\times4=16$; element width $=4$.
+\begin{lstlisting}
+t1 = i * 16
+t2 = j * 4
+t3 = t1 + t2
+t4 = a[t3]
+t5 = j * 16
+t6 = i * 4
+t7 = t5 + t6
+t8 = a[t7]
+t9 = t4 + t8
+x  = t9
+\end{lstlisting}
+
+\textbf{Q4.} \at{B}{true}$=L_2$, \at{B}{false}$=L_3$, \at{S}{next}$=L_1$; for $B_1\,\&\&\,B_2$ with $B_2=\,!B_3$: $B_1.\mathit{true}=L_4$, $B_3.\mathit{true}=L_3$, $B_3.\mathit{false}=L_2$.
+\begin{lstlisting}
+        if a < b goto L4
+        goto L3
+L4:     if c < d goto L3
+        goto L2
+L2:     x = 1
+        goto L1
+L3:     x = 2
+L1:
+\end{lstlisting}
+
+\textbf{Q7.} (a) L-attributed ($C.i$ depends on the left sibling $B$) but not S-attributed. (b) Neither (inherited attribute of $B$ depends on the right sibling $C$). (c) S-attributed (and hence L-attributed).
+
+\textbf{Q8.} Postfix SDT: $E \to E_1 * E_2\ \{\mathit{print}(\tok{'*'})\}$, $E \to E_1 + E_2\ \{\mathit{print}(\tok{'+'})\}$, $E \to (E)$, $E \to \mathbf{id}\ \{\mathit{print}(\at{\mathbf{id}}{lexeme})\}$ (with precedence/associativity declared or via an unambiguous grammar). Output for \texttt{a + b * (c + d)}: \texttt{a b c d + * +}.
+
+%====================================================================
+\section*{References}
+%====================================================================
+\begin{enumerate}[nosep]
+\item A.~V. Aho, M.~S. Lam, R. Sethi, J.~D. Ullman, \emph{Compilers: Principles, Techniques, and Tools}, 2nd ed., Pearson, 2007. -- Chapter 5 (Syntax-Directed Translation) and Chapter 6 (Intermediate-Code Generation).
+\end{enumerate}
+
+\end{document}
