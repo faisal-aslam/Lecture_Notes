@@ -61,10 +61,12 @@
 \maketitle
 \thispagestyle{fancy}
 
-\begin{tcolorbox}[colback=gray!5,colframe=gray!50,title=\textbf{Lecture Plan (suggested: 2 lectures $\times$ 75 min)}]
+\begin{tcolorbox}[colback=gray!5,colframe=gray!50,title=\textbf{Suggested Lecture Plan (3--4 lectures)}]
 \begin{description}[leftmargin=2.2cm,style=nextline]
-\item[Lecture 1] Role of intermediate code; forms of IR (syntax tree, DAG, three-address code, quadruples, triples); recap of SDD and SDT (synthesized/inherited attributes, S- and L-attributed definitions, translation schemes); translation of expressions, assignments, and array references; type conversion.
-\item[Lecture 2] Boolean expressions and short-circuit code; flow-of-control statements with inherited labels; backpatching; switch statements and procedure calls (briefly); worked examples, exercises.
+\item[Lecture 1] Role of intermediate code; forms of IR: syntax trees, DAGs, three-address code, quadruples, triples, indirect triples.
+\item[Lecture 2] \emph{Syntax-directed definitions and translation, from scratch:} why syntax alone is not enough, attributes, semantic rules, synthesized and inherited attributes, dependency graphs, S- and L-attributed definitions; then SDTs: actions inside productions, postfix translation, marker nonterminals.
+\item[Lecture 3] Translation of expressions and assignments, array references, type checking and conversion.
+\item[Lecture 4] Boolean expressions and short-circuit code, flow-of-control statements, backpatching, switch statements and procedure calls; revision and exercises.
 \end{description}
 \end{tcolorbox}
 
@@ -335,9 +337,72 @@ if (flag) x = -1; else x = 1;  y = x * a;
 \end{lstlisting}
 
 %====================================================================
-\section{Syntax-Directed Definitions (SDD): A Recap}
+\section{Syntax-Directed Definitions (SDD)}
 %====================================================================
 
+\subsection{Why do we need them? Syntax is not enough}
+So far, parsing has answered only one question: \emph{``Is this string a legal program, and what is its structure?''} A grammar and its parse tree describe \textbf{syntax}. They say nothing about \textbf{meaning} (\emph{semantics}).
+
+For example, the parse tree of \texttt{3 * 5 + 4} shows that $3*5$ is grouped first, but nowhere does it contain the number 19. The parse tree of \texttt{a = b * c + d} does not contain any machine or three-address instructions either. To translate a program we must \emph{attach extra information to the nodes of the parse tree and compute it}. Typical questions are:
+\begin{itemize}[nosep]
+\item What is the \textbf{value} of this expression? \hfill (calculators, constant folding)
+\item What is the \textbf{type} of this expression? \hfill (type checking)
+\item In which temporary or variable is its result \textbf{stored}? \hfill (code generation)
+\item Which \textbf{instructions} implement this statement? \hfill (code generation)
+\item To which \textbf{label} should control jump if this condition is true? \hfill (control flow)
+\end{itemize}
+A \textbf{syntax-directed definition} is the formal tool that answers such questions. The idea is simple:
+\begin{center}
+\fbox{\parbox{0.85\textwidth}{\centering \textbf{Grammar} \;+\; \textbf{extra information (attributes) on every grammar symbol} \;+\; \textbf{small rules (semantic rules) that say how to compute that information from the production being used.}}}
+\end{center}
+``Syntax-directed'' means that the computation is \emph{driven by the syntactic structure} (the productions) of the input.
+
+\subsection{Attributes}
+An \textbf{attribute} is any value that we attach to a grammar symbol. It helps to picture the parse tree as a tree of \emph{records}: every node has the grammar symbol as its name plus a few fields (the attributes). If $X$ is a symbol and $a$ is an attribute, we write $X.a$ for the value of $a$ at a particular node labelled $X$. Attributes can be of any kind: numbers, strings, types, pointers to symbol-table entries, or even whole code sequences.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l p{6.4cm} l@{}}
+\toprule
+\textbf{Attribute} & \textbf{Meaning} & \textbf{Typical symbols} \\ \midrule
+\at{E}{val} & numeric value of the expression & $E,\,T,\,F$ \\
+\at{E}{type} & type of the expression (\texttt{int}, \texttt{float}, \dots) & $E$ \\
+\at{\mathbf{id}}{lexeme} & the actual characters of the identifier (supplied by the lexer) & \textbf{id} \\
+\at{\mathbf{digit}}{lexval} & numeric value of a digit token (supplied by the lexer) & \textbf{digit}, \textbf{num} \\
+\at{E}{addr} & name/temporary holding the result of $E$ & $E$ \\
+\at{S}{code} & three-address code for statement $S$ & $S$, $E$, $B$ \\
+\at{B}{true}, \at{B}{false} & labels to jump to if $B$ is true or false & $B$ \\
+\at{E}{node} & pointer to the syntax-tree node for $E$ & $E$, $T$ \\ \bottomrule
+\end{tabular}
+\end{center}
+Different \emph{occurrences} of the same nonterminal in a production are distinguished by subscripts, e.g., in $E \to E_1 + T$ the $E$ on the left is the \emph{head} and $E_1$ is the $E$ in the body; both have a \textit{val}.
+
+\subsection{Semantic rules: a first tiny example}
+A \textbf{semantic rule} is attached to a production and says how to compute one attribute from other attributes \emph{of the symbols in that same production}. For the production $E \to E_1 + T$ the rule
+\[
+\at{E}{val} = \at{E_1}{val} + \at{T}{val}
+\]
+says: ``the value of the whole expression is the value of the left sub-expression plus the value of the term.'' Consider the grammar $E \to E + T \mid T,\ T \to \mathbf{digit}$, together with the rules
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} \\ \midrule
+$E \to E_1 + T$ & $\at{E}{val} = \at{E_1}{val} + \at{T}{val}$ \\
+$E \to T$ & $\at{E}{val} = \at{T}{val}$ \\
+$T \to \mathbf{digit}$ & $\at{T}{val} = \at{\mathbf{digit}}{lexval}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+Evaluate it on the input \texttt{2 + 3}. The parse tree is $E \Rightarrow E_1 + T$ with $E_1 \Rightarrow T \Rightarrow \mathbf{digit}(2)$ and $T \Rightarrow \mathbf{digit}(3)$. Working \emph{from the leaves upward}:
+\begin{enumerate}[nosep]
+\item The lexer supplies $\at{\mathbf{digit}}{lexval}=2$ and $3$.
+\item $T \to \mathbf{digit}$ gives $\at{T}{val}=2$ (left) and $\at{T}{val}=3$ (right).
+\item $E \to T$ gives $\at{E_1}{val}=2$.
+\item $E \to E_1 + T$ gives $\at{E}{val}=2+3=5$.
+\end{enumerate}
+That is all an SDD does: it decorates the parse tree with attribute values by repeatedly applying the rules.
+
+\subsection{Formal definition}
 \begin{defbox}{Syntax-Directed Definition (SDD)}
 A \textbf{syntax-directed definition} is a context-free grammar together with \textbf{attributes} attached to grammar symbols and \textbf{semantic rules} attached to productions. For a production $A \to \alpha$ every rule has the form
 \[
@@ -351,6 +416,10 @@ where $f$ is a function and either
 \end{defbox}
 
 \subsection{Synthesized and inherited attributes}
+\begin{notebox}{Analogy}
+Think of the parse tree as a company. A \textbf{synthesized} attribute is a \emph{report sent up} to the manager: the manager's value is built from the reports of the subordinates (e.g., the value of $2+3$ is built from the values of $2$ and $3$). An \textbf{inherited} attribute is an \emph{instruction or information passed down or across}, from a parent or a left sibling (e.g., the declared type \texttt{float} is passed down to every identifier in \texttt{float a, b, c}).
+\end{notebox}
+
 \begin{itemize}
 \item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children} (and $N$ itself). Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
 \item An \textbf{inherited attribute} at $N$ is computed from attributes of $N$'s \emph{parent and siblings}. Information flows \emph{top-down / sideways}. Useful when the structure of the parse tree does not match the abstract syntax, e.g., passing a type to a list of identifiers, or passing the label to jump to.
@@ -397,10 +466,27 @@ $F \to \mathbf{digit}$ & $\at{F}{val} = \at{\mathbf{digit}}{lexval}$ \\ \bottomr
 \end{tikzpicture}
 \caption{Annotated parse tree for \texttt{3*5+4 n}. Each node shows the value of its synthesized attribute \textit{val}.}
 \end{figure}
+
+\paragraph{How to read the figure (evaluation recipe).}
+\begin{enumerate}[nosep]
+\item The lexer supplies the \textit{lexval} of every \textbf{digit} leaf (3, 5, 4).
+\item Each $F \to \mathbf{digit}$ copies it into \at{F}{val}; each $T \to F$ copies it up again.
+\item $T \to T_1 * F$ is applied once both its children are known: $3 \times 5 = 15$.
+\item $E \to E_1 + T$ then adds $15 + 4 = 19$, and $L \to E\,\mathbf{n}$ passes $19$ to the root.
+\end{enumerate}
+Every node is computed \emph{after} its children, i.e., in \textbf{post-order}. This is natural for synthesized attributes, and it is exactly the order in which an LR parser performs reductions.
 \end{examplebox}
 
 \subsection{Annotated parse trees and dependency graphs}
 An \textbf{annotated parse tree} shows the attribute values at every node. To evaluate attributes we build a \textbf{dependency graph}: one node per attribute instance, and an edge $x \to y$ whenever $y$ is computed from $x$. A valid evaluation order is any \emph{topological order} of this graph; if the graph has a cycle, no order exists.
+
+\begin{notebox}{A circular definition}
+For $A \to B$ with the rules $\at{A}{s} = \at{B}{i} + 1$ and $\at{B}{i} = \at{A}{s} \times 2$, the value of \at{A}{s} needs \at{B}{i}, which needs \at{A}{s}. The dependency graph has a \emph{cycle}, so no evaluation order exists. A good SDD must be \emph{non-circular}; the classes S-attributed and L-attributed below guarantee this automatically.
+\end{notebox}
+
+\begin{notebox}{Side effects}
+A semantic rule may also do something besides computing a value, e.g., \textit{addType}$(\mathit{entry},\,t)$ writes into the symbol table, \textit{print} writes to the output, and \textit{gen} emits an instruction. Such rules are called \textbf{side effects}; they are fine as long as the order in which they run does not change the result (or the order is controlled, which is the job of an SDT).
+\end{notebox}
 
 \begin{examplebox}{Example: inherited attributes (declaration list)}
 \begin{center}
@@ -485,6 +571,34 @@ This is S-attributed. If the grammar is made LL by eliminating left recursion, t
 \section{Syntax-Directed Translation Schemes (SDT)}
 %====================================================================
 
+\subsection{From specification to implementation}
+An SDD tells us \emph{what} every attribute must equal, but it does not say \emph{when} each rule should run. A real compiler, however, runs the rules \emph{while it is parsing}, in one definite order, and often without ever building the whole parse tree. A \textbf{syntax-directed translation scheme (SDT)} solves this: it takes the program fragments of the rules and writes them \emph{inside the production body, at the exact position where they should run}.
+
+The same rule written both ways:
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{SDD} (specification) & \textbf{SDT} (implementation) \\ \midrule
+\begin{tabular}[t]{@{}l@{}}$E \to E_1 + T$\\ \ \ rule: $\at{E}{val} = \at{E_1}{val} + \at{T}{val}$\end{tabular}
+&
+$E \to E_1 + T\ \ \{\ \at{E}{val} = \at{E_1}{val} + \at{T}{val}\ \}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.2cm} p{5.6cm} p{5.6cm}@{}}
+\toprule
+ & \textbf{SDD} & \textbf{SDT} \\ \midrule
+Nature & High-level specification: rules attached to productions & Concrete implementation: actions embedded in productions \\
+Order of evaluation & Not specified (any order consistent with dependencies) & Explicit: actions run in the left-to-right order of the production body \\
+Rules/actions & Written next to the production & Written in braces $\{\dots\}$ inside the body \\
+Used for & Designing and reasoning about the translation & Building the actual translator \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Definition and the meaning of an action's position}
 \begin{defbox}{Syntax-Directed Translation Scheme}
 A \textbf{syntax-directed translation scheme} (SDT) is a context-free grammar with \textbf{program fragments} (\emph{semantic actions}) embedded within the production bodies, written in braces. The position of an action defines \emph{when} it is executed during parsing.
 \[
@@ -493,7 +607,40 @@ B \to X\ \{a\}\ Y
 Here action $a$ is executed after $X$ has been recognised (and before $Y$).
 \end{defbox}
 
-SDD $\Rightarrow$ \emph{what} to compute (specification, no order); SDT $\Rightarrow$ \emph{how/when} (implementation, order is explicit).
+\paragraph{How an SDT is executed.} Imagine the parse tree in which every action appears as an \emph{extra child}, exactly at the position where it is written in the production. Perform a \textbf{depth-first traversal from left to right}; whenever the traversal reaches an action, it is executed. Figure~\ref{fig:actiontree} shows this for a scheme that translates infix to postfix: \texttt{expr $\to$ expr + term \{print('+')\}\ |\ expr - term \{print('-')\}\ |\ term} and \texttt{term $\to$ digit \{print(digit)\}}.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt},
+  act/.style={inner sep=2pt,draw,dashed,rounded corners=2pt,fill=orange!15,font=\footnotesize}]
+ \node[nd] (e0) at (0,0) {expr};
+ \node[nd] (e1) at (-3.4,-1.4) {expr};
+ \node[nd] (p1) at (0.2,-1.4) {$+$};
+ \node[nd] (t2) at (2.8,-1.4) {term};
+ \node[act] (a2) at (5.2,-1.4) {$\{\mathit{print}(\texttt{'+'})\}$};
+ \node[nd] (e2) at (-5.4,-2.8) {expr};
+ \node[nd] (m1) at (-3.6,-2.8) {$-$};
+ \node[nd] (t5) at (-2.0,-2.8) {term};
+ \node[act] (am) at (-0.3,-2.8) {$\{\mathit{print}(\texttt{'-'})\}$};
+ \node[nd] (d2) at (2.2,-2.8) {2};
+ \node[act] (ad2) at (3.9,-2.8) {$\{\mathit{print}(2)\}$};
+ \node[nd] (t9) at (-5.4,-4.2) {term};
+ \node[nd] (d5) at (-2.8,-4.2) {5};
+ \node[act] (ad5) at (-1.0,-4.2) {$\{\mathit{print}(5)\}$};
+ \node[nd] (d9) at (-6.3,-5.6) {9};
+ \node[act] (ad9) at (-4.5,-5.6) {$\{\mathit{print}(9)\}$};
+ \foreach \a/\b in {e0/e1,e0/p1,e0/t2,e0/a2,e1/e2,e1/m1,e1/t5,e1/am,e2/t9,t5/d5,t5/ad5,t2/d2,t2/ad2,t9/d9,t9/ad9}
+   \draw[gray] (\a.south)--(\b.north);
+ \node[anchor=west] at (-1.5,-5.6) {Output (actions visited left to right): \ \texttt{9\ 5\ -\ 2\ +}};
+\end{tikzpicture}}
+\caption{Parse tree of \texttt{9-5+2} with actions (dashed boxes) as extra children. Visiting the tree depth-first, left to right, executes the actions in the order $9,\,5,\,-,\,2,\,+$, producing the postfix form.}
+\label{fig:actiontree}
+\end{figure}
+
+In practice the parser does not need to build this tree: a bottom-up parser executes an action when the symbols to its left have been reduced, and a top-down parser executes it at the corresponding point of the recursive-descent procedure.
 
 \subsection{Postfix translation schemes}
 If the grammar is LR-parsable and the SDD is \textbf{S-attributed}, we can build an SDT with every action at the \emph{right end} of its production (a \textbf{postfix SDT}). The actions then execute at \emph{reduction time}, so the attribute of each grammar symbol can be stored beside it on the parser stack.
@@ -1271,7 +1418,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 
 \begin{itemize}
 \item Intermediate code (syntax trees, DAGs, three-address code in quadruple/triple form) decouples front and back ends and enables machine-independent optimisation.
-\item An \textbf{SDD} specifies semantics via attributes and rules; \textbf{synthesized} attributes flow upward, \textbf{inherited} attributes flow downward or sideways. \textbf{S-attributed} $\subset$ \textbf{L-attributed}.
+\item Syntax alone does not give meaning. An \textbf{SDD} attaches \emph{attributes} to grammar symbols and \emph{semantic rules} to productions; \textbf{synthesized} attributes flow upward, \textbf{inherited} attributes flow downward or sideways. \textbf{S-attributed} $\subset$ \textbf{L-attributed}.
 \item An \textbf{SDT} embeds the actions in the grammar and fixes the order of evaluation. S-attributed SDDs $\to$ \emph{postfix SDTs} (bottom-up). L-attributed SDDs can be implemented during top-down parsing, or, with marker nonterminals, during bottom-up parsing.
 \item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
 \item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
