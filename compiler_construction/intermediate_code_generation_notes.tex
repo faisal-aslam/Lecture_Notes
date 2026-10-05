@@ -178,7 +178,8 @@ Figure~\ref{fig:treedag} shows the syntax tree (left) and the DAG (right). In th
 \end{examplebox}
 
 \subsubsection{The value-number method for constructing DAGs}
-\textbf{The problem.} While building the tree for an expression, we want to \emph{reuse} a node if the same sub-expression has already been built. To do this we need a fast way to answer: ``Have I already created a node for $b - c$?'' The \textbf{value-number method} gives a simple answer.
+\label{sec:vn}
+\textbf{The problem.} While building the tree for an expression, we want to \emph{reuse} a node if the same sub-expression has already been built. To do this we need a fast way to answer: ``Have I already created a node for $b - c$?'' The \textbf{value-number method} gives a simple answer. Here we assume the \emph{syntax tree} of the expression has already been built (Figure~\ref{fig:treedag}(a)). We convert it into a DAG by visiting the tree nodes in \textbf{post-order} (left subtree, right subtree, then the node itself), so that the children of a node are always handled before the node.
 
 \textbf{The idea.} Keep all nodes in an \textbf{array of records}. Each record describes one node of the DAG, and the \emph{position (index) of the record in the array is the node's value number}. The value number is therefore just the node's \emph{name}: ``node 4'' means ``the record at position 4''.
 
@@ -205,7 +206,7 @@ To create a node with signature $\langle \mathit{op},\ l,\ r\rangle$ (where $l$ 
 \textbf{Why does comparing only $(\mathit{op},l,r)$ work?} Two nodes represent the same expression exactly when they have the same operator and the same children. Children are the same exactly when they have the same value numbers (because every distinct sub-expression gets exactly one number). So, by building from the leaves upward, equal sub-expressions always get equal numbers.
 
 \paragraph{Step-by-step example: $a + a*(b-c) + (b-c)*d$.}
-The expression is processed in the order in which a parser would build it (operands before operators). Table~\ref{tab:vntrace} shows each request and what the algorithm does.
+We walk the syntax tree of Figure~\ref{fig:treedag}(a) in post-order: $a$, $a$, $b$, $c$, then $-$, $*$, $+$ of the left part, then $b$, $c$, $-$, $d$, $*$, and finally the root $+$. At every tree node we ask the array for the matching DAG node. Table~\ref{tab:vntrace} shows each request and what the algorithm does.
 
 \begin{table}[H]
 \centering
@@ -296,11 +297,21 @@ The result has only $9$ nodes (a plain syntax tree would have $13$: it repeats $
 \caption{The array of records after processing the example. Interior records contain \emph{value numbers of their children}; here record 5 refers to records 1 and 4.}
 \end{figure}
 
-\paragraph{Connection with SDD/SDT.} In the syntax-tree SDD, $\at{E}{node}$ becomes just an \emph{integer} (a value number). The semantic action for $E \to E_1 + T$ is
-\[
-\at{E}{node} = \mathit{makeNode}(\tok{'+'},\ \at{E_1}{node},\ \at{T}{node}),
-\]
-where $\mathit{makeNode}$ performs the search-or-create algorithm above. Using $\mathit{makeNode}$ instead of \textbf{new} \textit{Node} automatically turns the syntax tree into a DAG.
+\paragraph{The whole procedure.} Converting a syntax tree into a DAG is a single post-order traversal:
+\begin{lstlisting}
+int buildDAG(TreeNode t) {            // returns a value number
+    if (t is a leaf)
+        return findOrCreateLeaf(t);   // search (id/num, entry); create if absent
+    l = buildDAG(t.left);             // children first (post-order)
+    r = buildDAG(t.right);
+    return findOrCreateNode(t.op, l, r);   // search (op,l,r); create if absent
+}
+\end{lstlisting}
+The ``search'' is only a \emph{lookup of an identical record} in the array (or hash table); it is not a second traversal of the tree.
+
+\begin{notebox}{Looking ahead}
+Building the tree first and then converting it is easy to understand. Later, after we study syntax-directed definitions (Section~\ref{sec:sddtree}), we will see that the same DAG can be built \emph{directly while parsing}, without constructing the tree at all: the parser simply calls the find-or-create routine each time it recognises an operator.
+\end{notebox}
 
 \subsection{Three-address code (TAC)}
 In \textbf{three-address code} every instruction has \emph{at most one operator on the right side} and at most three addresses (two operands and one result). Compound expressions are broken into temporaries, so the order of evaluation is made explicit.
@@ -655,6 +666,7 @@ For $A \to B\,C$, the rule $\at{C}{i} = \at{B}{s}$ is fine (the inherited attrib
 \end{examplebox}
 
 \subsection{SDD for constructing syntax trees}
+\label{sec:sddtree}
 Syntax trees can be built using synthesized attribute \textit{node}, which points to the root of a (sub)tree, and constructor functions $\mathit{Node}(op, c_1,\dots)$ and $\mathit{Leaf}(\mathbf{id}, entry)$ / $\mathit{Leaf}(\mathbf{num}, val)$.
 
 \begin{center}
@@ -670,6 +682,8 @@ $T \to \mathbf{id}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ 
 $T \to \mathbf{num}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ \\ \bottomrule
 \end{tabular}
 \end{center}
+\textbf{Building a DAG directly.} If each $\mathbf{new}\ \mathit{Node}(\dots)$ / $\mathbf{new}\ \mathit{Leaf}(\dots)$ is replaced by the find-or-create routine of Section~\ref{sec:vn} (which returns an existing node when an identical one exists), the same SDD builds a DAG during parsing, and $\at{E}{node}$ holds a value number.
+
 This is S-attributed. If the grammar is made LL by eliminating left recursion, the same tree is built with an inherited attribute (see the L-attributed SDT in Section~\ref{sec:lattr}).
 
 %====================================================================
