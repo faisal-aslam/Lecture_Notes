@@ -326,6 +326,61 @@ t5 = t3 + t4
 \end{lstlisting}
 Without the DAG (from the tree) $b-c$ would be computed twice.
 
+\subsubsection{Generating three-address code from a DAG}
+\label{sec:dag2tac}
+Three-address code can be generated from the DAG alone; no SDD or SDT is needed.
+
+\paragraph{Idea.} Every \emph{interior} node of the DAG becomes exactly \emph{one} three-address instruction, with a fresh temporary holding its result. \emph{Leaves} generate no instruction: they only supply a name (a variable such as $a$, or a constant). A shared node is still one node, so it produces only one instruction; this is how the DAG removes the common sub-expression.
+
+\paragraph{Order.} Process the records of the array in increasing order of value number. A node's children were always created before the node, so their value numbers are smaller, and their results are ready when the node is reached. The array order is therefore already a valid evaluation order.
+
+\begin{lstlisting}
+for i = 1 to n:                          // records in the array, in index order
+    if record i is a leaf:
+        name[i] = the variable or constant it stands for
+    else:                                // record i = (op, left, right)
+        name[i] = newTemp()
+        emit( name[i] = name[left] op name[right] )
+\end{lstlisting}
+Here $\mathit{name}[i]$ is the address that holds the value of node $i$. For an assignment $x = \langle\text{expression}\rangle$ we finish with one more instruction, \texttt{x = name[root]}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}c l c c c l@{}}
+\toprule
+\textbf{Record} & \textbf{Content} & $\mathit{name}[\mathit{left}]$ & $\mathit{name}[\mathit{right}]$ & $\mathit{name}[i]$ & \textbf{Instruction emitted} \\ \midrule
+1 & \texttt{id} $a$ & -- & -- & $a$ & (none, leaf) \\
+2 & \texttt{id} $b$ & -- & -- & $b$ & (none, leaf) \\
+3 & \texttt{id} $c$ & -- & -- & $c$ & (none, leaf) \\
+4 & $(-,2,3)$ & $b$ & $c$ & $t_1$ & \texttt{t1 = b - c} \\
+5 & $(*,1,4)$ & $a$ & $t_1$ & $t_2$ & \texttt{t2 = a * t1} \\
+6 & $(+,1,5)$ & $a$ & $t_2$ & $t_3$ & \texttt{t3 = a + t2} \\
+7 & \texttt{id} $d$ & -- & -- & $d$ & (none, leaf) \\
+8 & $(*,4,7)$ & $t_1$ & $d$ & $t_4$ & \texttt{t4 = t1 * d} \\
+9 & $(+,6,8)$ & $t_3$ & $t_4$ & $t_5$ & \texttt{t5 = t3 + t4} \\ \bottomrule
+\end{tabular}
+\caption{Generating three-address code from the array of Figure~4 (the DAG of $a + a*(b-c) + (b-c)*d$). Node 4 has two parents (nodes 5 and 8) but produces only one instruction; both parents use $t_1$.}
+\end{table}
+
+\paragraph{Three ways to obtain three-address code.}
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.6cm} p{4.7cm} p{5.4cm}@{}}
+\toprule
+\textbf{Method} & \textbf{How} & \textbf{Common sub-expressions} \\ \midrule
+1.\ From a finished DAG & Scan the array in index order (above); no SDD/SDT needed. & Computed once (shared nodes). \\
+2.\ During DAG construction & Whenever find-or-create \emph{creates} a node, emit its instruction; when it finds an existing node, emit nothing. Needs SDT (Section~\ref{sec:sddtree}). & Computed once. \\
+3.\ SDD/SDT directly from the parse (Section~\ref{sec:exprtac}) & Each reduction emits an instruction using \textit{newTemp} and \textit{gen}; no DAG is built. & Computed again each time they occur (e.g., $b-c$ twice). \\ \bottomrule
+\end{tabular}
+\end{center}
+SDD/SDT is the \emph{mechanism} for generating code in one pass while parsing; the DAG is what gives \emph{sharing}. Methods 1 and 2 give the same code.
+
+\begin{notebox}{Caution: assignments inside the DAG}
+If the DAG covers several statements and a variable is \emph{reassigned} in between (e.g., \texttt{a = a + 1}), a later use of $a$ is a different value and must not share the old leaf or any node built from it. Compilers handle this by creating a new leaf (a new value number) after each assignment. For single expressions, as in these notes, the issue does not arise.
+\end{notebox}
+
+
 \subsubsection{Addresses and instructions}
 An \textbf{address} can be: (i) a \emph{name} (source variable; a pointer to its symbol-table entry), (ii) a \emph{constant}, or (iii) a compiler-generated \emph{temporary}.
 
@@ -841,6 +896,7 @@ Here $R.i$ (inherited) carries the tree built \emph{so far}; $R.s$ (synthesized)
 %====================================================================
 
 \subsection{SDD for three-address code}
+\label{sec:exprtac}
 We use the following:
 \begin{itemize}
 \item \at{E}{addr}: the address (name, constant, or temporary) that holds the value of $E$.
