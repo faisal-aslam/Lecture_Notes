@@ -18,7 +18,7 @@
 \newtcolorbox{fixbox}{colback=green!8,colframe=green!45!black,
   title=\textbf{Takeaway and fix},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
 
-\title{\textbf{Five RSA Attacks:\\ Håstad, Common Modulus, Cycling, Bleichenbacher, and Shared Primes}}
+\title{\textbf{Six RSA Attacks:\\ Håstad, Common Modulus, Bleichenbacher, Shared Primes,\\ Fermat, and Pollard's $p-1$}}
 \author{}
 \date{}
 
@@ -26,19 +26,20 @@
 \maketitle
 \vspace{-2.5em}
 
-Every attack below has the same shape: RSA is used with a small mistake in \emph{how it is deployed}, and a tool from Lesson 1 --- the Chinese Remainder Theorem, the Extended Euclidean Algorithm, Euler's theorem, RSA's multiplicative malleability, or the plain gcd --- turns that mistake into a full break. None of them attacks the hardness of factoring itself.
+Every attack below has the same shape: RSA is used with a small mistake in \emph{how it is deployed or how its keys are generated}, and a tool from Lesson 1 --- the Chinese Remainder Theorem, the Extended Euclidean Algorithm, RSA's multiplicative malleability, the plain gcd, the difference of two squares, or Fermat's little theorem --- turns that mistake into a full break. The first four attacks never factor $n$ at all. The last two do factor $n$, but only because a flawed key generator made $n$ much easier to factor than a product of two independent random primes. None of them breaks correctly generated and correctly used RSA.
 
 \medskip
 \renewcommand{\arraystretch}{1.25}
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{4.9cm}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{3.6cm}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{4.9cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}@{}}
 \toprule
 \textbf{Attack} & \textbf{The mistake} & \textbf{Tool used} & \textbf{Fix} \\
 \midrule
 1. Håstad & Same message, small $e$, many recipients & CRT & Randomized padding (OAEP) \\
 2. Common modulus & One $n$ shared by several users & Extended Euclid & Never share $n$ \\
-3. Cycling & (none --- works in principle on any RSA) & Euler / group cycles & Large parameters (already true) \\
-4. Bleichenbacher & Server reveals ``padding valid?'' & Malleability & OAEP, uniform errors \\
-5. Shared prime & Bad randomness reuses one prime $p$ & gcd (Euclid) & Good entropy at key generation \\
+3. Bleichenbacher & Server reveals ``padding valid?'' & Malleability & OAEP, uniform errors \\
+4. Shared prime & Bad randomness reuses one prime $p$ & gcd (Euclid) & Good entropy at key generation \\
+5. Fermat & Primes $p,q$ chosen too close together & Difference of squares & Pick $p,q$ independently at random \\
+6. Pollard $p-1$ & $p-1$ has only small prime factors & Fermat's little theorem + gcd & Primes with a large prime factor in $p-1$ \\
 \bottomrule
 \end{tabular}
 
@@ -147,48 +148,7 @@ Never share a modulus across users or purposes, even with different exponents. I
 \hrulefill
 
 %=====================================================================
-\section*{3. Cycling Attack (Conceptual)}
-
-\begin{intuition}
-Shuffle a deck of cards the same way over and over. Because there are only finitely many orderings, and each shuffle can be undone, you eventually return to the starting order. Whichever ordering you saw \emph{just before} the deck came back was the one you started with. RSA encryption is exactly such a shuffle of the numbers modulo $n$: it moves each number $x$ to $x^e$. Keep encrypting a ciphertext and it must eventually return to itself, and the step before that is the plaintext.
-\end{intuition}
-
-\textbf{When this arises.} Unlike attacks 1, 2 and 5, this needs \emph{no} mistake in key generation or usage; it applies in principle to any RSA ciphertext. It is not a practical threat, because the cycle is astronomically long for real parameters. It is included because it gives the cleanest picture of what RSA encryption \emph{is}: iteration of a permutation on a finite set. It also explains why cryptographers historically advised choosing primes so that $\lambda(n)$ has a large prime factor.
-
-\textbf{Setup.} The attacker knows only $(n,e,c)$ with $c=m^e\bmod n$. Re-encrypt repeatedly:
-\[
-c_0=c,\quad c_1=c_0^{\,e}\bmod n,\quad c_2=c_1^{\,e}\bmod n,\ \dots
-\]
-until some $c_k$ equals $c$ again.
-
-\begin{theorem}
-Let $k$ be the smallest positive integer with $c_k=c$. Then $m=c_{k-1}$.
-\end{theorem}
-
-\textbf{Why it works.}
-\begin{enumerate}[nosep]
-\item The map $E(x)=x^e \bmod n$ is a bijection on $\{0,\dots,n-1\}$, since $x\mapsto x^d$ undoes it.
-\item A bijection on a finite set splits the set into disjoint cycles: starting anywhere and applying $E$ repeatedly always leads back to the starting point.
-\item The plaintext $m$ lies on one such cycle, and $c=E(m)$ is the very next element on it. So iterating $E$ from $c$ walks around the cycle and returns to $c$ after some $k$ steps.
-\item The element visited just before returning to $c$ is the unique element that $E$ sends to $c$, namely $m$. So $c_{k-1}=m$.
-\end{enumerate}
-
-\textbf{Worked example.} $p=47$, $q=59$, so $n=2773$; $e=17$; secret $m=123$. The ciphertext is $c=123^{17}\bmod2773=1924$. Now keep raising to the 17th power:
-\[
-1924 \to 2254 \to 1280 \to 1067 \to 1570 \to \cdots \to 2224 \to \boxed{123} \to 1924.
-\]
-Precisely, $c_1=2254$, $c_2=1280,\dots$, $c_{42}=2224$, $c_{43}=123$, and $c_{44}=1924=c$. So $k=44$ and $m=c_{43}=123$. It took 44 modular exponentiations against a toy modulus of about 2800.
-
-\textbf{Why it stays conceptual.} The cycle length is governed by the multiplicative order of $e$ modulo $\mathrm{ord}_n(m)$, a divisor of $\lambda(n)$. For properly generated 2048-bit keys this is far too large to walk, so the attack is infeasible; it would only succeed against deliberately weak parameters.
-
-\begin{fixbox}
-Nothing to patch here: real key sizes already make the cycle unreachable. Use it as a mental model --- RSA encryption is stepping around a huge cycle inside a finite group --- and as a preview of why the structure of $\lambda(n)$ (for instance, avoiding smooth $p-1$, from Lesson 1) matters.
-\end{fixbox}
-
-\hrulefill
-
-%=====================================================================
-\section*{4. Bleichenbacher's Padding Oracle Attack}
+\section*{3. Bleichenbacher's Padding Oracle Attack}
 
 \begin{intuition}
 Picture the hidden number $m$ as a runner on a circular track of length $n$. A bouncer stands at one narrow gate (the window $[2B,3B)$) and answers only ``yes, someone is in the gate'' or ``no''. You cannot see $m$. But you can make the runner go $s$ times faster than $m$ does --- that is just multiplying by $s$ --- and ask whether the sped-up runner is now in the gate. A ``yes'' means the true $m$ lies in one of a few thin, evenly spaced slices of the track. Choose the next $s$ so that only one slice remains consistent, repeat, and the slices shrink like a game of Twenty Questions until only $m$ is left.
@@ -265,7 +225,7 @@ Never let the reason for a decryption failure be distinguishable --- by error co
 \hrulefill
 
 %=====================================================================
-\section*{5. Shared-Prime (Batch GCD) Attack}
+\section*{4. Shared-Prime (Batch GCD) Attack}
 
 \begin{intuition}
 Factoring a single 2048-bit number is like trying to un-bake a cake: hopeless. But if two cakes were baked with a common ingredient, you can find it just by comparing them --- and Euclid's algorithm does that comparison in a fraction of a millisecond. If two RSA moduli happen to share a prime, computing $\gcd(n_1,n_2)$ hands you that prime, and dividing gives the other prime of each. Both keys are broken, and neither owner did anything obviously wrong.
@@ -317,7 +277,187 @@ Generate keys only after the system has gathered enough entropy, use the operati
 \hrulefill
 
 %=====================================================================
+\section*{5. Fermat's Factorization (Close Primes)}
+
+\begin{intuition}
+Think of $n=pq$ as the area of a $p\times q$ rectangle of unit tiles. Any rectangle can be rearranged into a big square with a smaller square cut out of one corner. Let $a$ be the \emph{midpoint} of $p$ and $q$ and $b$ the \emph{distance from the midpoint to each}, so $p=a-b$ and $q=a+b$. Then the rectangle has the same area as a square of side $a$ minus a square of side $b$:
+\[ pq=(a-b)(a+b)=a^2-b^2. \]
+If $p$ and $q$ are nearly equal, the rectangle is almost a square already, so $a$ is only slightly above $\sqrt n$ and the cut-out square is tiny. The attacker simply tries $a=\lceil\sqrt n\rceil,\ \lceil\sqrt n\rceil+1,\dots$ until $a^2-n$ turns out to be a perfect square. That is a search from a known starting point, not a blind one.
+\end{intuition}
+
+\textbf{When this arises.} A key generator picks one random prime $p$ and then, to save time or because of a flawed random source, picks $q$ close to it --- for instance the next prime after $p$, or $p$ plus a small random offset. The idea itself dates to 1643, and for a long time it was regarded as a textbook curiosity. In 2022 Hanno Böck applied it to large collections of real public keys and found vulnerable ones: some Canon and Fujifilm (Fuji Xerox) printers generated keys with a cryptographic module that did not randomize its two primes enough (the Canon issue is tracked as CVE-2022-26351). It is a rare flaw, but it is real, and it needs nothing except the public modulus.
+
+\textbf{Setup.} The attacker knows only $n=pq$ with $p<q$ odd primes. Nothing else.
+
+\begin{theorem}
+Let $a=\tfrac{p+q}{2}$ and $b=\tfrac{q-p}{2}$ (integers, since $p,q$ are odd). Then $a^2-n=b^2$, and $a$ is the smallest integer $\ge\sqrt n$ for which $a^2-n$ is a perfect square. Testing $a=\lceil\sqrt n\rceil,\lceil\sqrt n\rceil+1,\dots$ therefore finds $a$ after at most
+\[
+\frac{(q-p)^2}{8\sqrt n}+1
+\]
+tries, and then $p=a-b$, $q=a+b$.
+\end{theorem}
+
+\textbf{Why it works.}
+\begin{enumerate}[nosep]
+\item Algebra: $a^2-b^2=(a-b)(a+b)=p\cdot q=n$, so $a^2-n=b^2$ is a perfect square.
+\item Conversely, if $a^2-n=b^2$ for any integers $a>b\ge0$, then $n=(a-b)(a+b)$ is a factorization. Since $n=pq$ has only one pair of nontrivial factors, the first hit gives exactly $p$ and $q$.
+\item How many tries? The search starts at $\lceil\sqrt n\rceil\ge\sqrt n$ and stops at $a=\tfrac{p+q}{2}$, so it takes at most $\tfrac{p+q}{2}-\sqrt{pq}+1$ steps. Now
+\[
+\frac{p+q}{2}-\sqrt{pq}=\frac{(\sqrt q-\sqrt p)^2}{2}=\frac{(q-p)^2}{2(\sqrt q+\sqrt p)^2}\le\frac{(q-p)^2}{8\sqrt n},
+\]
+because $(\sqrt p+\sqrt q)^2=p+q+2\sqrt n\ge4\sqrt n$ (as $p+q\ge2\sqrt{pq}$).
+\end{enumerate}
+So the work depends on the \emph{gap} $q-p$, and grows with its square.
+
+\textbf{Worked example.} Eve sees the public key $n=5959$, $e=17$. Here $\sqrt{5959}\approx77.2$, so she starts at $a=78$:
+\begin{center}
+\begin{tabular}{@{}rrrl@{}}
+\toprule
+$a$ & $a^2$ & $a^2-5959$ & perfect square? \\
+\midrule
+78 & 6084 & 125 & no ($11^2=121,\ 12^2=144$) \\
+79 & 6241 & 282 & no ($16^2=256,\ 17^2=289$) \\
+80 & 6400 & 441 & \textbf{yes}, $441=21^2$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+So $a=80$, $b=21$, and $p=80-21=59$, $q=80+21=101$. Check: $59\cdot101=5959$. Three tries, and no factoring in the usual sense.
+
+\emph{Finishing the break.} $\varphi(n)=58\cdot100=5800$ and $d=17^{-1}\bmod5800=3753$ (check: $17\cdot3753=63801=11\cdot5800+1$). If Alice's ciphertext is $c=2029$, Eve computes $2029^{3753}\bmod5959=1234$, the plaintext.
+
+\emph{Contrast: primes that are far apart.} Take $p=101$, $q=1009$, so $n=101909$ and $\sqrt n\approx319.2$. Now $a$ must climb all the way to $\tfrac{101+1009}{2}=555$ (with $b=454$), which is $236$ tries, against a bound of $\tfrac{908^2}{8\sqrt n}+1\approx323$. The bigger the gap, the longer the climb.
+
+\textbf{How big a gap is safe?} For a 2048-bit modulus, $8\sqrt n\approx2^{1027}$. The bound above then says:
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{6.8cm}>{\raggedright\arraybackslash}p{7.6cm}@{}}
+\toprule
+\textbf{Gap $q-p$} & \textbf{Tries needed (at most)} \\
+\midrule
+below about $2^{512}$ & 1 \\
+$2^{512+t}$ & about $2^{2t}/8$ (each extra bit of gap quadruples the work) \\
+about $2^{1023}$ (two independent random 1024-bit primes) & about $2^{1019}$, hopeless \\
+\bottomrule
+\end{tabular}
+\end{center}
+So Fermat only works when the two primes agree in roughly their top half of bits. Independent random primes never do.
+
+\textbf{Try it (about 10 lines of Python).}
+\begin{verbatim}
+from math import isqrt
+
+def fermat(n):
+    a = isqrt(n)
+    if a * a < n:            # a = ceil(sqrt(n))
+        a += 1
+    while True:
+        b2 = a * a - n
+        b = isqrt(b2)
+        if b * b == b2:      # a^2 - n is a perfect square
+            return a - b, a + b
+        a += 1
+\end{verbatim}
+\texttt{fermat(5959)} returns \texttt{(59, 101)}. A good classroom demo: generate two $512$-bit primes with \texttt{p = nextprime(r)} and \texttt{q = nextprime(p + 10**9)}. The $1024$-bit modulus falls on the very first try.
+
+\begin{fixbox}
+Choose $p$ and $q$ \emph{independently} from a good random source, and reject the pair if they are too close. Standards such as FIPS~186-4 require $|p-q|>2^{\,n_{\text{len}}/2-100}$. With independent random primes this is satisfied automatically, so the attack only ever hits a faulty generator, never a correct one.
+\end{fixbox}
+
+\hrulefill
+
+%=====================================================================
+\section*{6. Pollard's $p-1$ Factoring Method}
+
+\begin{intuition}
+Look at the powers of a number $a$ on a clock with $p$ hours. By Fermat's little theorem the sequence $a,a^2,a^3,\dots$ lands back on $1$ exactly when the exponent is a multiple of (the period dividing) $p-1$. Now suppose $p-1$ is built only from small steps, such as $2^4\cdot3^2\cdot7$. Then a number like $B!=1\cdot2\cdot3\cdots B$ is a multiple of $p-1$, so $a^{B!}$ reads $1$ on the $p$-clock. The attacker cannot see the $p$-clock --- all she has is $n=pq$ --- but she can compute $a^{B!}\bmod n$ anyway. The other prime $q$ has its own, much longer period $q-1$, so on the $q$-clock the same number almost surely does \emph{not} read $1$. Subtracting $1$ and taking a gcd with $n$ cleanly separates the two clocks and reveals $p$.
+\end{intuition}
+
+\textbf{Vocabulary.} A number is \emph{$B$-smooth} if all its prime factors are at most $B$. For example $1008=2^4\cdot3^2\cdot7$ is $7$-smooth, while $1018=2\cdot509$ is not even $100$-smooth.
+
+\textbf{When this arises.} A key generator builds a prime from small pieces, say $p=2m+1$ where $m$ is a product of small primes, because such a form makes it easy to prove $p$ prime. The resulting $p-1$ is smooth. Standards from the 1990s therefore asked for ``strong primes'', and modern ones such as FIPS~186 still require $p-1$ to contain a large prime factor. John Pollard published the method in 1974, and it remains one of the first things factoring software tries on a number, because it costs almost nothing.
+
+\textbf{Setup.} The attacker knows only $n=pq$ and picks a bound $B$ (a guess about how smooth $p-1$ might be).
+
+\begin{theorem}
+Let $M=B!$ and $a$ coprime to $n$. Suppose $p-1$ divides $M$ but $a^M\not\equiv1\pmod q$. Then
+\[
+\gcd\bigl(a^M-1,\ n\bigr)=p.
+\]
+\end{theorem}
+
+\textbf{Why it works.}
+\begin{enumerate}[nosep]
+\item Write $M=(p-1)t$. By Fermat's little theorem $a^{p-1}\equiv1\pmod p$, so $a^M=(a^{p-1})^t\equiv1\pmod p$. Hence $p\mid a^M-1$, and $p\mid n$, so $p\mid\gcd(a^M-1,n)$.
+\item By assumption $a^M\not\equiv1\pmod q$, so $q\nmid a^M-1$. The gcd is therefore a divisor of $n=pq$ that contains $p$ but not $q$, so it equals $p$.
+\item The attacker never needs $p$ to compute this: $a^M\bmod n$ is an ordinary modular exponentiation, and $\gcd\bigl((a^M\bmod n)-1,\,n\bigr)$ equals $\gcd(a^M-1,n)$.
+\end{enumerate}
+
+\textbf{The algorithm.} Start with $a=2$. For $j=2,3,4,\dots$ replace $a$ by $a^j\bmod n$. After step $j$ we have $a\equiv2^{j!}\pmod n$, because $\bigl(2^{(j-1)!}\bigr)^j=2^{j!}$. After each step compute $d=\gcd(a-1,n)$:
+\begin{itemize}[nosep]
+\item $d=1$: not yet; keep going (up to $B$).
+\item $1<d<n$: success, $d$ is a prime factor.
+\item $d=n$: both $p-1$ and $q-1$ divide $j!$ at the same time. Retry with a different base $a$.
+\end{itemize}
+
+\textbf{Worked example 1 (by hand).} $n=299$. In fact $299=13\cdot23$, with $13-1=12=2^2\cdot3$ (smooth) and $23-1=22=2\cdot11$. Eve does not know this.
+\begin{center}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+$j$ & $a=2^{j!}\bmod299$ & $a-1$ & $\gcd(a-1,299)$ \\
+\midrule
+2 & $2^2=4$ & 3 & 1 \\
+3 & $4^3=64$ & 63 & 1 \\
+4 & $64^4\equiv27$ & 26 & \textbf{13} \\
+\bottomrule
+\end{tabular}
+\end{center}
+(For $j=4$: $64^2=4096\equiv209$, and $209^2=43681\equiv27\pmod{299}$.) At $j=4$ we have $j!=24$, and $12\mid24$. So $2^{24}\equiv1\pmod{13}$; indeed $27=2\cdot13+1$. But $22\nmid24$, and indeed $27\equiv4\pmod{23}$, not $1$. The gcd isolates $13$, and $299/13=23$.
+
+\textbf{Worked example 2 (a small RSA key).} $n=1028171=1009\cdot1019$, $e=17$. The hidden structure is $1009-1=1008=2^4\cdot3^2\cdot7$ and $1019-1=1018=2\cdot509$. Since $1008\mid7!=5040$ (indeed $5040=5\cdot1008$), the attack should succeed at $j=7$, but $509$ is a prime factor of $q-1$ that $7!$ cannot cancel.
+\begin{center}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+$j$ & $a=2^{j!}\bmod n$ & $\gcd(a-1,n)$ & \\
+\midrule
+2 & 4 & 1 & \\
+3 & 64 & 1 & \\
+4 & 326\,480 & 1 & \\
+5 & 321\,438 & 1 & \\
+6 & 709\,177 & 1 & ($720$ is not a multiple of $1008$) \\
+7 & 615\,491 & \textbf{1009} & ($5040=5\cdot1008$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+So $p=1009$, $q=n/p=1019$, and with $\varphi(n)=1008\cdot1018$ Eve computes $d=e^{-1}\bmod\varphi(n)$ and owns the key. Seven modular exponentiations did what trial division by about $1000$ numbers would have done here, but the point is how it scales.
+
+\textbf{Scaling up.} The work is only about $B$ small modular exponentiations, no matter how large $p$ is. In a test with a $754$-bit modulus, whose smaller prime $p$ ($242$ bits) had $p-1$ made of primes below $300$ and whose other prime was a random $512$-bit prime, the method returned $p$ at $j=281$ in a fraction of a second. By contrast, on a modulus with a $512$-bit \emph{safe} prime ($p=2p'+1$ with $p'$ prime), the same code with $B=3000$ found nothing.
+
+\textbf{Try it (Python).}
+\begin{verbatim}
+from math import gcd
+
+def pollard_p_minus_1(n, B=100000):
+    a = 2
+    for j in range(2, B + 1):
+        a = pow(a, j, n)         # now a = 2^(j!) mod n
+        d = gcd(a - 1, n)
+        if 1 < d < n:
+            return d             # a nontrivial factor
+        if d == n:
+            return None          # both p-1, q-1 smooth: change base
+    return None                  # B too small
+\end{verbatim}
+\texttt{pollard\_p\_minus\_1(299)} returns \texttt{13}, and \texttt{pollard\_p\_minus\_1(1028171)} returns \texttt{1009}.
+
+\textbf{What stops it.} If $p-1$ has a large prime factor $r$, the attacker needs $B\ge r$ before $B!$ becomes a multiple of $p-1$. For a safe prime $p=2p'+1$ this means $B\ge p'\approx p/2$, which costs as much as trial division and is hopeless. A random $1024$-bit prime has $p-1$ smooth up to $B=2^{20}$ with a probability far below $2^{-100}$, so smoothness is essentially never an accident. The danger comes only from generators that build $p$ so that $p-1$ is smooth, on purpose or by structure.
+
+\begin{fixbox}
+Generate primes so that $p-1$ (and $q-1$) contains a large prime factor, as FIPS~186 key generation does. Safe primes $p=2p'+1$ achieve this but are not required; random large primes already work with overwhelming probability. Together with Section~5 the lesson is the same: the key generator must produce $p$ and $q$ that are \emph{large, independent, and unstructured}, because RSA's security rests on $n$ looking like a random product of two large primes, not merely on $n$ being large.
+\end{fixbox}
+
+\hrulefill
+
+%=====================================================================
 \medskip
-\textbf{Where each tool came from.} All five attacks reuse Lesson 1 material as \emph{attack} tools rather than construction tools: CRT (attack 1), the Extended Euclidean Algorithm (attack 2), Euler's theorem (attack 3), multiplicative malleability (attack 4), and the plain Euclidean gcd (attack 5). Attacks 1, 2 and 5 exploit a \emph{misuse}; attack 4 exploits an \emph{information leak}; attack 3 is a purely structural observation about RSA.
+\textbf{Where each tool came from.} All six attacks reuse Lesson 1 material as \emph{attack} tools rather than construction tools: CRT (attack 1), the Extended Euclidean Algorithm (attack 2), multiplicative malleability (attack 3), the plain Euclidean gcd (attack 4), the difference of two squares (attack 5), and Fermat's little theorem together with the gcd (attack 6). Attacks 1 and 2 exploit a \emph{misuse} of correctly generated keys; attack 3 exploits an \emph{information leak}; attacks 4, 5 and 6 exploit \emph{flawed key generation}. Attacks 5 and 6 are the only ones that actually factor $n$, and they succeed only when $p$ and $q$ are not independent, unstructured, random primes.
 
 \end{document}
