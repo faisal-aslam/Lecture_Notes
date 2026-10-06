@@ -22,6 +22,8 @@
 \author{}
 \date{}
 
+\newcommand{\setupcols}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+
 \begin{document}
 \maketitle
 \vspace{-2.5em}
@@ -43,6 +45,9 @@ Every attack below has the same shape: RSA is used with a small mistake in \emph
 \bottomrule
 \end{tabular}
 
+\medskip
+\textbf{How to read each Setup subsection.} Every attack lists its conditions with labels: \textbf{P0} = system setup, \textbf{P1} = what the attacker can see, \textbf{P2} = mathematical or key conditions, \textbf{P3} = the mistake (behavior of a sender, a server or a key generator), \textbf{P4} = the \emph{exact} success condition (shown in bold), \textbf{P5} = a convenient \emph{sufficient} condition that guarantees P4. The last column says whether the attacker can check the condition from public data before attacking.
+
 \bigskip
 \hrulefill
 
@@ -55,21 +60,45 @@ Think of $m^3 \bmod n$ as the reading on a clock with $n$ hours. If $m^3$ is big
 
 \textbf{When this arises.} One message must go to several people: a vendor sends the same license key or firmware secret to many customers, or a group announcement is sent encrypted to each member. Every recipient has their own independent key pair, but many use the same tiny exponent (historically $e=3$, chosen because it makes encryption fast on weak hardware). The sender encrypts the identical $m$ separately under each recipient's public key.
 
-\textbf{Setup.} Exponent $e=3$, the same message $m$ sent to three recipients with pairwise-coprime moduli $n_1,n_2,n_3$. The attacker sees
+\subsection*{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & $k\ge2$ distinct moduli & Setup & Yes \\
+P0b & Same exponent $e$ for all & Setup & Yes \\
+P1 & $e$ known & Public key & Yes \\
+P2 & $\gcd(n_i,n_j)=1$ for all $i\ne j$ & Math / key & Yes \\
+P3 & $c_i=m^e\bmod n_i$ for one common $m$ & Sender behavior & No (hypothesis) \\
+\textbf{P4} & \textbf{$m^e<N=\prod n_i$} & \textbf{Exact success condition} & \textbf{No ($m$ unknown)} \\
+P5 & $k\ge e$ and $m<\min(n_i)$ & Sufficient guarantee for P4 & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\emph{Exact:}
 \[
-c_i = m^3 \bmod n_i, \qquad i=1,2,3.
+\boxed{\;e\text{ known},\ \gcd(n_i,n_j)=1,\ c_i=m^e\bmod n_i,\ m^e<\prod_{i=1}^{k}n_i\;}
+\]
+\emph{Guaranteed (implies the above):}
+\[
+\boxed{\;k\ge e,\ \gcd(n_i,n_j)=1,\ c_i=m^e\bmod n_i,\ m<\min_i n_i\;}
 \]
 
+\textbf{One-line summary.} The real condition is $m^e<\prod n_i$. The condition $m<\min(n_i)$ with $k\ge e$ is just a convenient \emph{sufficient} version that guarantees the real one without knowing $m$. In the worked example below, $e=k=3$.
+
 \begin{theorem}
-If $m<\min(n_1,n_2,n_3)$, an eavesdropper who sees $c_1,c_2,c_3$ recovers $m$ with no private key.
+Under P0--P4, an eavesdropper who sees $c_1,\dots,c_k$ recovers $m$ with no private key. In particular this holds whenever $k\ge e$ and $m<\min_i n_i$ (P5).
 \end{theorem}
 
 \textbf{Why it works.}
 \begin{enumerate}[nosep]
-\item CRT combines the three congruences $x\equiv c_i \pmod{n_i}$ into one unique answer $C$ modulo $N=n_1n_2n_3$. This uses only public data.
-\item The true value $m^3$ satisfies all three congruences too, so by uniqueness $C\equiv m^3 \pmod N$.
-\item Because $m<n_i$ for each $i$, we have $m^3<n_1n_2n_3=N$. So $C$ and $m^3$ are both in $[0,N)$ and congruent mod $N$, hence \emph{equal as ordinary integers}.
-\item Take an ordinary integer cube root of $C$. Done.
+\item CRT combines the congruences $x\equiv c_i \pmod{n_i}$ into one unique answer $C$ modulo $N=n_1\cdots n_k$. This needs P2 and uses only public data.
+\item The true value $m^e$ satisfies all these congruences too, so by uniqueness $C\equiv m^e \pmod N$.
+\item By P4, $m^e<N$. So $C$ and $m^e$ are both in $[0,N)$ and congruent mod $N$, hence \emph{equal as ordinary integers}. (P5 implies P4: if $k\ge e$ and $m<\min_i n_i$, then $m^e<(\min_i n_i)^e\le n_1\cdots n_k=N$.)
+\item Take an ordinary integer $e$-th root of $C$. Done.
 \end{enumerate}
 
 \textbf{Worked example.} Take $n_1=143=11\cdot13$, $n_2=323=17\cdot19$, $n_3=667=23\cdot29$, and secret message $m=17$. The three ciphertexts are
@@ -108,10 +137,28 @@ This is the classic water-jug puzzle. With a 17-litre jug and a 7-litre jug you 
 
 \textbf{When this arises.} Generating a fresh modulus $n=pq$ for every user is slow, because finding large primes dominates the cost. A careless authority might generate $n$ once and hand each user a different exponent pair $(e_i,d_i)$ over that same $n$, thinking the different exponents keep users separate. This was a real anti-pattern in some early multi-user and embedded key-management designs.
 
-\textbf{Setup.} One shared modulus $n$; two users with $\gcd(e_1,e_2)=1$; the same message sent to both:
+\subsection*{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & One modulus $n=pq$ shared by two users (the factorization stays secret) & Setup & Yes (compare public keys) \\
+P0b & Two different exponents $e_1\ne e_2$, one per user & Setup & Yes \\
+P1 & $n,\ e_1,\ e_2,\ c_1,\ c_2$ known & Public key / traffic & Yes \\
+\textbf{P2} & \textbf{$\gcd(e_1,e_2)=1$} & \textbf{Exact success condition} & \textbf{Yes} \\
+P3 & $c_1=m^{e_1}\bmod n$ and $c_2=m^{e_2}\bmod n$ for one common $m$ & Sender behavior & No (hypothesis) \\
+P4 & $\gcd(c_1,n)=\gcd(c_2,n)=1$ (so the inverse needed in step 3 exists) & Technical & Yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
 \[
-c_1=m^{e_1}\bmod n,\qquad c_2=m^{e_2}\bmod n.
+\boxed{\;n\text{ shared},\ \gcd(e_1,e_2)=1,\ c_1=m^{e_1}\bmod n,\ c_2=m^{e_2}\bmod n\;}
 \]
+
+\textbf{One-line summary.} The real condition is $\gcd(e_1,e_2)=1$ on a shared modulus. Unlike Håstad, there is \emph{no} size condition on $m$ and no second ``sufficient'' version is needed. P4 is only a technicality: if it fails, $\gcd(c_i,n)$ is itself a prime factor of $n$, which is an even bigger break.
 
 \begin{theorem}
 If $\gcd(e_1,e_2)=1$, anyone who knows $(n,e_1,e_2,c_1,c_2)$ recovers $m$ with no private key.
@@ -121,7 +168,7 @@ If $\gcd(e_1,e_2)=1$, anyone who knows $(n,e_1,e_2,c_1,c_2)$ recovers $m$ with n
 \begin{enumerate}[nosep]
 \item Extended Euclid on $(e_1,e_2)$ gives integers $a,b$ with $ae_1+be_2=1$.
 \item Then $c_1^{\,a}c_2^{\,b}\equiv m^{ae_1}m^{be_2}=m^{ae_1+be_2}=m \pmod n$, by exponent laws alone.
-\item One of $a,b$ is negative. For a negative exponent, first compute the modular inverse of the corresponding ciphertext (again by Extended Euclid), then raise to the absolute value.
+\item One of $a,b$ is negative. For a negative exponent, first compute the modular inverse of the corresponding ciphertext (again by Extended Euclid), then raise to the absolute value. (This is exactly P4: the inverse exists when $\gcd(c_i,n)=1$.)
 \end{enumerate}
 Notice that the attacker never factors $n$ and never touches $d_1$ or $d_2$.
 
@@ -155,6 +202,35 @@ Picture the hidden number $m$ as a runner on a circular track of length $n$. A b
 \end{intuition}
 
 \textbf{When this arises.} A server decrypts RSA ciphertexts that were padded before encryption, and --- by an error message, a dropped connection, or even a timing difference --- lets the sender tell whether the padding was valid. Nobody intends to leak anything else, but it is very easy to do by accident: TLS servers using the PKCS\#1 v1.5 padding standard commonly sent a distinguishable ``bad padding'' alert. This is not history. Refinements (Bardou et al., 2012; the ROBOT attack, 2017) found major production web servers still exploitable nearly twenty years after the original 1998 paper, and it remains one of the most consequential vulnerabilities ever found in a widely deployed protocol.
+
+\subsection*{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & Messages are padded with PKCS\#1 v1.5 before encryption: $\text{EB}=\texttt{00}\,\|\,\texttt{02}\,\|\,\text{PS}\,\|\,\texttt{00}\,\|\,D$, a block of $k$ bytes & Setup & Yes (protocol standard) \\
+P0b & $n$ is a $k$-byte number, $256^{k-1}\le n<256^{k}$, so $3B<n$ where $B=256^{k-2}$ & Setup / key & Yes \\
+P1 & $(n,e)$ known, and an intercepted ciphertext $c=m^e\bmod n$ & Public key / traffic & Yes \\
+P2 & $c$ decrypts to a conforming block: $m\in[2B,3B)$ (if not, first ``blind'' $c$ with a small $s_0$, see move 1) & Target & Yes (one oracle query) \\
+P3 & For any $c'$ of the attacker's choosing, the server reveals whether $(c')^d\bmod n\in[2B,3B)$ & Server behavior & Yes (by trying) \\
+\textbf{P4} & \textbf{The attacker may send as many oracle queries as the attack needs (about $10^3$--$10^6$ for a 2048-bit $n$; $9$ in the toy example)} & \textbf{Exact success condition} & \textbf{Partly (rate limits)} \\
+P5 & The oracle is deterministic and unlimited: no lockout, no rate limit, same answer every time & Sufficient guarantee for P4 & Yes (by trying) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\emph{Exact:}
+\[
+\boxed{\;(n,e)\text{ known},\ c=m^e\bmod n,\ m\in[2B,3B),\ \mathcal O(c')=\mathbf 1\bigl[(c')^d\bmod n\in[2B,3B)\bigr],\ \text{enough queries}\;}
+\]
+\emph{Guaranteed (implies the above):}
+\[
+\boxed{\;(n,e)\text{ known},\ c=m^e\bmod n,\ m\in[2B,3B),\ \mathcal O\text{ deterministic and unlimited}\;}
+\]
+
+\textbf{One-line summary.} The real requirement is a yes/no oracle for ``starts with \texttt{00 02}'' plus enough queries. Nothing is assumed about $e$ or about the message beyond P0--P2. Note the contrast with Håstad: here the mistake is \emph{server} behavior, not sender behavior.
 
 \textbf{What the oracle checks.} PKCS\#1 v1.5 formats a $k$-byte block as
 \[
@@ -235,11 +311,29 @@ Factoring a single 2048-bit number is like trying to un-bake a cake: hopeless. B
 
 This is not hypothetical. In 2012 two independent teams (Lenstra et al., \emph{``Ron was wrong, Whit is right''}; Heninger et al., \emph{``Mining your Ps and Qs''}) collected millions of public RSA keys from the internet and factored thousands of them this way, with no ciphertext and no private key needed --- just public moduli. To avoid comparing every pair, they used ``batch GCD'', a product-tree algorithm that checks millions of moduli against each other in hours.
 
-\textbf{Setup.} The attacker has two public moduli
+\subsection*{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & At least two public moduli $n_1\ne n_2$ collected (for example from many devices) & Setup & Yes \\
+P0b & Each $n_i=p_iq_i$ is a valid RSA modulus with public exponent $e_i$ & Setup & Yes \\
+P1 & Only the public data $n_1,n_2$ (and $e_i$, ciphertexts) known; the factorizations are unknown & Public key & Yes \\
+P2 & $n_1\ne n_2$ (identical moduli give $\gcd=n_1$, which is useless) & Math / key & Yes \\
+P3 & $n_1=pq_1$ and $n_2=pq_2$ share exactly one prime $p$, with $q_1\ne q_2$ & Generator behavior (low entropy) & Yes (just compute the gcd) \\
+\textbf{P4} & \textbf{$1<\gcd(n_1,n_2)<n_1$} & \textbf{Exact success condition} & \textbf{Yes} \\
+P5 & A large collection of keys made by the same low-entropy generator (more keys, more pairs, more chance of a collision) & Makes P3 likely (heuristic) & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
 \[
-n_1=p\,q_1,\qquad n_2=p\,q_2,\qquad q_1\ne q_2,
+\boxed{\;n_1\ne n_2,\ \gcd(n_1,n_2)>1\;}
 \]
-and knows nothing else about the factorizations.
+
+\textbf{One-line summary.} The real condition is simply $\gcd(n_1,n_2)>1$. Unlike the other attacks, it can be \emph{checked in advance with public data}: given $n_1\ne n_2$, P3 and P4 are equivalent, so an attacker just computes gcds (all pairs, or batch GCD for millions of keys) and needs no hypothesis about the senders.
 
 \begin{theorem}
 Then $\gcd(n_1,n_2)=p$. Consequently $q_1=n_1/p$ and $q_2=n_2/p$, and the private keys of \emph{both} moduli can be computed.
@@ -287,7 +381,34 @@ If $p$ and $q$ are nearly equal, the rectangle is almost a square already, so $a
 
 \textbf{When this arises.} A key generator picks one random prime $p$ and then, to save time or because of a flawed random source, picks $q$ close to it --- for instance the next prime after $p$, or $p$ plus a small random offset. The idea itself dates to 1643, and for a long time it was regarded as a textbook curiosity. In 2022 Hanno Böck applied it to large collections of real public keys and found vulnerable ones: some Canon and Fujifilm (Fuji Xerox) printers generated keys with a cryptographic module that did not randomize its two primes enough (the Canon issue is tracked as CVE-2022-26351). It is a rare flaw, but it is real, and it needs nothing except the public modulus.
 
-\textbf{Setup.} The attacker knows only $n=pq$ with $p<q$ odd primes. Nothing else.
+\subsection*{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & $n=pq$ with $p<q$ distinct primes & Setup & Partly (form of $n$ assumed) \\
+P0b & $n$ is odd (so $p$ and $q$ are odd) & Setup & Yes \\
+P1 & Only $n$ (and $e$) is public & Public key & Yes \\
+P2 & $a=\tfrac{p+q}{2}$ and $b=\tfrac{q-p}{2}$ are integers with $a^2-n=b^2$ & Math / key & Yes (follows from P0b) \\
+P3 & $p$ and $q$ were generated close together by a flawed key generator & Generator behavior & No (hypothesis) \\
+\textbf{P4} & \textbf{Number of tries $\tfrac{p+q}{2}-\lceil\sqrt n\rceil+1\ \le\ T$, the attacker's budget} & \textbf{Exact success condition} & \textbf{No ($p,q$ unknown)} \\
+P5 & $|q-p|<\sqrt{8T}\;n^{1/4}$ & Sufficient guarantee for P4 & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\emph{Exact:}
+\[
+\boxed{\;n=pq\text{ odd},\ \tfrac{p+q}{2}-\lceil\sqrt n\rceil+1\le T\;}
+\]
+\emph{Guaranteed (implies the above):}
+\[
+\boxed{\;n=pq\text{ odd},\ |q-p|<\sqrt{8T}\,n^{1/4}\;}
+\]
+
+\textbf{One-line summary.} Fermat's method always terminates, so the only question is \emph{cost}: the real condition is that the number of tries stays within the budget $T$, and ``$q-p$ is small'' is the convenient sufficient version (it follows from the bound in the theorem below, since tries $\le\lfloor\tfrac{(q-p)^2}{8\sqrt n}\rfloor+1<T+1$). With $T=1$ it says $|q-p|<2\sqrt2\,n^{1/4}$, which is about $2^{513.5}$ for a 2048-bit $n$. In the worked example $n=5959$, $q-p=42<\sqrt{24}\,n^{1/4}\approx43.0$, so $T=3$ tries suffice.
 
 \begin{theorem}
 Let $a=\tfrac{p+q}{2}$ and $b=\tfrac{q-p}{2}$ (integers, since $p,q$ are odd). Then $a^2-n=b^2$, and $a$ is the smallest integer $\ge\sqrt n$ for which $a^2-n$ is a perfect square. Testing $a=\lceil\sqrt n\rceil,\lceil\sqrt n\rceil+1,\dots$ therefore finds $a$ after at most
@@ -375,7 +496,34 @@ Look at the powers of a number $a$ on a clock with $p$ hours. By Fermat's little
 
 \textbf{When this arises.} A key generator builds a prime from small pieces, say $p=2m+1$ where $m$ is a product of small primes, because such a form makes it easy to prove $p$ prime. The resulting $p-1$ is smooth. Standards from the 1990s therefore asked for ``strong primes'', and modern ones such as FIPS~186 still require $p-1$ to contain a large prime factor. John Pollard published the method in 1974, and it remains one of the first things factoring software tries on a number, because it costs almost nothing.
 
-\textbf{Setup.} The attacker knows only $n=pq$ and picks a bound $B$ (a guess about how smooth $p-1$ might be).
+\subsection*{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & $n=pq$ with $p,q$ distinct primes & Setup & Partly (form of $n$ assumed) \\
+P0b & The attacker chooses a base $a$ (say $a=2$) and a bound $B$, and works with $M=B!$ & Setup (attacker's choice) & Yes \\
+P1 & Only $n$ (and $e$) is public & Public key & Yes \\
+P2 & $\gcd(a,n)=1$ (if not, $\gcd(a,n)$ is already a factor) & Math / key & Yes \\
+P3 & $p-1$ is built from small primes, because a flawed generator constructs $p$ from small pieces & Generator behavior & No (hypothesis) \\
+\textbf{P4} & \textbf{$(p-1)\mid M$ and $a^M\not\equiv1\pmod q$} & \textbf{Exact success condition} & \textbf{No ($p,q$ unknown)} \\
+P5 & $(p-1)\mid B!$ and some prime $r>B$ divides $q-1$ & Sufficient guarantee for P4 (all but a fraction $\le1/r$ of bases $a$) & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\emph{Exact:}
+\[
+\boxed{\;n=pq,\ \gcd(a,n)=1,\ (p-1)\mid M,\ a^M\not\equiv1\!\!\pmod q\;}
+\]
+\emph{Guaranteed (implies the above):}
+\[
+\boxed{\;n=pq,\ \gcd(a,n)=1,\ (p-1)\mid B!,\ \exists\text{ prime }r>B\text{ with }r\mid q-1\;}
+\]
+
+\textbf{One-line summary.} The real condition is that the exponent $M$ is a multiple of $p-1$ but \emph{not} of the order of $a$ modulo $q$. ``$(p-1)\mid B!$ and $q-1$ has a prime factor above $B$'' is the convenient sufficient version: since $r>B$ is prime, $r\nmid B!$, so $a^{B!}\equiv1\pmod q$ would force $r\nmid\mathrm{ord}_q(a)$, which happens for at most a fraction $1/r$ of bases. Example 1 below has $B=4$, $12\mid4!$ and $11\mid22$ with $11>4$; Example 2 has $B=7$, $1008\mid7!$ and $509\mid1018$ with $509>7$.
 
 \begin{theorem}
 Let $M=B!$ and $a$ coprime to $n$. Suppose $p-1$ divides $M$ but $a^M\not\equiv1\pmod q$. Then
