@@ -58,6 +58,8 @@ Every attack below has the same shape: RSA is used with a small mistake in \emph
 Think of $m^3 \bmod n$ as the reading on a clock with $n$ hours. If $m^3$ is bigger than $n$, the hand goes around the dial and you only see where it ended up --- that wraparound is what hides $m$. Now suppose the same $m^3$ is shown to you on \emph{three different clocks}, of sizes $n_1,n_2,n_3$. CRT lets you merge them into one giant clock of size $n_1n_2n_3$. If $m^3$ is smaller than that giant clock, the hand never wrapped, so the reading \emph{is} $m^3$, and a plain cube root gives $m$. Small $e$ means too little wraparound to hide anything.
 \end{intuition}
 
+\textbf{Key idea.} CRT turns the $k$ separate readings $c_i=m^e \bmod n_i$ into one reading $C\equiv m^e \pmod N$, where $N=n_1n_2\cdots n_k$. If in addition $m^e<N$, then $m^e$ never wrapped around the big clock, so $C=m^e$ as ordinary integers, and an integer $e$-th root of $C$ gives $m$. In short: CRT merges the clocks, the size condition removes the wraparound, and a plain root finishes the job.
+
 \textbf{When this arises.} One message must go to several people: a vendor sends the same license key or firmware secret to many customers, or a group announcement is sent encrypted to each member. Every recipient has their own independent key pair, but many use the same tiny exponent (historically $e=3$, chosen because it makes encryption fast on weak hardware). The sender encrypts the identical $m$ separately under each recipient's public key.
 
 \subsection*{Setup}
@@ -135,6 +137,8 @@ Never send the same (or related) message to several recipients under a small $e$
 This is the classic water-jug puzzle. With a 17-litre jug and a 7-litre jug you can measure exactly 1 litre: fill the 7-litre jug five times and pour out the 17-litre jug twice ($5\cdot7-2\cdot17=1$). Here the ``jugs'' are the exponents. Ciphertext $c_1$ is $m$ raised to the power 17, and $c_2$ is $m$ raised to the power 7. Multiplying five copies of $c_2$ and ``removing'' two copies of $c_1$ leaves $m$ raised to the power $5\cdot 7-2\cdot 17=1$, that is $m$ itself.
 \end{intuition}
 
+\textbf{Key idea.} Two ciphertexts of the same $m$ under the same $n$ carry the exponents $e_1$ and $e_2$ ``in the exponent''. Extended Euclid gives integers $a,b$ with $ae_1+be_2=1$, and then $c_1^{\,a}c_2^{\,b}\equiv m^{ae_1+be_2}=m\pmod n$. The exponents combine like the jug measurements, and $n$ is never factored.
+
 \textbf{When this arises.} Generating a fresh modulus $n=pq$ for every user is slow, because finding large primes dominates the cost. A careless authority might generate $n$ once and hand each user a different exponent pair $(e_i,d_i)$ over that same $n$, thinking the different exponents keep users separate. This was a real anti-pattern in some early multi-user and embedded key-management designs.
 
 \subsection*{Setup}
@@ -200,6 +204,8 @@ Never share a modulus across users or purposes, even with different exponents. I
 \begin{intuition}
 Picture the hidden number $m$ as a runner on a circular track of length $n$. A bouncer stands at one narrow gate (the window $[2B,3B)$) and answers only ``yes, someone is in the gate'' or ``no''. You cannot see $m$. But you can make the runner go $s$ times faster than $m$ does --- that is just multiplying by $s$ --- and ask whether the sped-up runner is now in the gate. A ``yes'' means the true $m$ lies in one of a few thin, evenly spaced slices of the track. Choose the next $s$ so that only one slice remains consistent, repeat, and the slices shrink like a game of Twenty Questions until only $m$ is left.
 \end{intuition}
+
+\textbf{Key idea.} RSA is malleable: from $c=m^e\bmod n$ anyone can build a valid encryption of $m\cdot s\bmod n$ for any chosen $s$. The oracle then says whether $ms\bmod n$ lies in the window $[2B,3B)$. Each YES confines $m$ to a few thin intervals, and choosing the next $s$ to cut the surviving interval roughly in half turns the attack into a binary search that ends at $m$.
 
 \textbf{When this arises.} A server decrypts RSA ciphertexts that were padded before encryption, and --- by an error message, a dropped connection, or even a timing difference --- lets the sender tell whether the padding was valid. Nobody intends to leak anything else, but it is very easy to do by accident: TLS servers using the PKCS\#1 v1.5 padding standard commonly sent a distinguishable ``bad padding'' alert. This is not history. Refinements (Bardou et al., 2012; the ROBOT attack, 2017) found major production web servers still exploitable nearly twenty years after the original 1998 paper, and it remains one of the most consequential vulnerabilities ever found in a widely deployed protocol.
 
@@ -307,6 +313,8 @@ Never let the reason for a decryption failure be distinguishable --- by error co
 Factoring a single 2048-bit number is like trying to un-bake a cake: hopeless. But if two cakes were baked with a common ingredient, you can find it just by comparing them --- and Euclid's algorithm does that comparison in a fraction of a millisecond. If two RSA moduli happen to share a prime, computing $\gcd(n_1,n_2)$ hands you that prime, and dividing gives the other prime of each. Both keys are broken, and neither owner did anything obviously wrong.
 \end{intuition}
 
+\textbf{Key idea.} If two moduli share a prime $p$, then $\gcd(n_1,n_2)=p$, and Euclid's algorithm finds it in a handful of division steps without factoring anything. Once $p$ is known, $q_1=n_1/p$ and $q_2=n_2/p$ follow, and the private keys of both owners can be computed.
+
 \textbf{When this arises.} Devices such as routers, firewalls and other embedded systems often generate their RSA key the first time they boot. At that moment the operating system's random number generator has had almost no entropy (no disk, no keyboard, no network jitter yet), so many devices produce \emph{the same} first prime $p$. A little entropy trickles in (a clock tick, a packet) before the second prime is chosen, so their $q$'s differ. The result is many public keys of the form $n_i=p\,q_i$ with a common $p$.
 
 This is not hypothetical. In 2012 two independent teams (Lenstra et al., \emph{``Ron was wrong, Whit is right''}; Heninger et al., \emph{``Mining your Ps and Qs''}) collected millions of public RSA keys from the internet and factored thousands of them this way, with no ciphertext and no private key needed --- just public moduli. To avoid comparing every pair, they used ``batch GCD'', a product-tree algorithm that checks millions of moduli against each other in hours.
@@ -379,6 +387,8 @@ Think of $n=pq$ as the area of a $p\times q$ rectangle of unit tiles. Any rectan
 If $p$ and $q$ are nearly equal, the rectangle is almost a square already, so $a$ is only slightly above $\sqrt n$ and the cut-out square is tiny. The attacker simply tries $a=\lceil\sqrt n\rceil,\ \lceil\sqrt n\rceil+1,\dots$ until $a^2-n$ turns out to be a perfect square. That is a search from a known starting point, not a blind one.
 \end{intuition}
 
+\textbf{Key idea.} Write $n=pq=a^2-b^2=(a-b)(a+b)$ with $a=\tfrac{p+q}{2}$. If $p$ and $q$ are close, $a$ is only slightly above $\sqrt n$, so testing $a=\lceil\sqrt n\rceil,\lceil\sqrt n\rceil+1,\dots$ until $a^2-n$ is a perfect square finds the factors after at most $\tfrac{(q-p)^2}{8\sqrt n}+1$ tries.
+
 \textbf{When this arises.} A key generator picks one random prime $p$ and then, to save time or because of a flawed random source, picks $q$ close to it --- for instance the next prime after $p$, or $p$ plus a small random offset. The idea itself dates to 1643, and for a long time it was regarded as a textbook curiosity. In 2022 Hanno Böck applied it to large collections of real public keys and found vulnerable ones: some Canon and Fujifilm (Fuji Xerox) printers generated keys with a cryptographic module that did not randomize its two primes enough (the Canon issue is tracked as CVE-2022-26351). It is a rare flaw, but it is real, and it needs nothing except the public modulus.
 
 \subsection*{Setup}
@@ -409,6 +419,16 @@ P5 & $|q-p|<\sqrt{8T}\;n^{1/4}$ & Sufficient guarantee for P4 & Partly \\
 \]
 
 \textbf{One-line summary.} Fermat's method always terminates, so the only question is \emph{cost}: the real condition is that the number of tries stays within the budget $T$, and ``$q-p$ is small'' is the convenient sufficient version (it follows from the bound in the theorem below, since tries $\le\lfloor\tfrac{(q-p)^2}{8\sqrt n}\rfloor+1<T+1$). With $T=1$ it says $|q-p|<2\sqrt2\,n^{1/4}$, which is about $2^{513.5}$ for a 2048-bit $n$. In the worked example $n=5959$, $q-p=42<\sqrt{24}\,n^{1/4}\approx43.0$, so $T=3$ tries suffice.
+
+\textbf{The attack, step by step.}
+\begin{enumerate}[nosep]
+\item \textbf{Start} at $a=\lceil\sqrt n\rceil$.
+\item \textbf{Compute} $r=a^2-n$.
+\item \textbf{Test} whether $r$ is a perfect square, that is, whether $b=\lfloor\sqrt r\rfloor$ satisfies $b^2=r$.
+\item \textbf{If yes:} $p=a-b$ and $q=a+b$. Check $pq=n$. Done.
+\item \textbf{If no:} replace $a$ by $a+1$ and go back to step 2.
+\end{enumerate}
+\textbf{Why it works.} When $p$ and $q$ are close, the target $a=\tfrac{p+q}{2}$ is only slightly above $\sqrt n$, so the loop stops after very few rounds. When they are far apart, it runs for a very long time.
 
 \begin{theorem}
 Let $a=\tfrac{p+q}{2}$ and $b=\tfrac{q-p}{2}$ (integers, since $p,q$ are odd). Then $a^2-n=b^2$, and $a$ is the smallest integer $\ge\sqrt n$ for which $a^2-n$ is a perfect square. Testing $a=\lceil\sqrt n\rceil,\lceil\sqrt n\rceil+1,\dots$ therefore finds $a$ after at most
@@ -480,7 +500,7 @@ def fermat(n):
 \texttt{fermat(5959)} returns \texttt{(59, 101)}. A good classroom demo: generate two $512$-bit primes with \texttt{p = nextprime(r)} and \texttt{q = nextprime(p + 10**9)}. The $1024$-bit modulus falls on the very first try.
 
 \begin{fixbox}
-Choose $p$ and $q$ \emph{independently} from a good random source, and reject the pair if they are too close. Standards such as FIPS~186-4 require $|p-q|>2^{\,n_{\text{len}}/2-100}$. With independent random primes this is satisfied automatically, so the attack only ever hits a faulty generator, never a correct one.
+Choose $p$ and $q$ \emph{independently} from a good random source, and reject the pair if they are too close. Standards such as FIPS~186-4 require $|p-q|>2^{\,n_{\text{len}}/2-100}$. With independent random primes this is satisfied automatically, so the attack only ever hits a faulty generator, never a correct one. In particular, never build $q$ from $p$, for example as \texttt{nextprime(p)} or $p+\text{small offset}$.
 \end{fixbox}
 
 \hrulefill
@@ -493,6 +513,8 @@ Look at the powers of a number $a$ on a clock with $p$ hours. By Fermat's little
 \end{intuition}
 
 \textbf{Vocabulary.} A number is \emph{$B$-smooth} if all its prime factors are at most $B$. For example $1008=2^4\cdot3^2\cdot7$ is $7$-smooth, while $1018=2\cdot509$ is not even $100$-smooth.
+
+\textbf{Key idea.} If $(p-1)\mid M$, then $a^M\equiv1\pmod p$ by Fermat's little theorem, while modulo $q$ the value $a^M$ is almost never $1$. So $\gcd(a^M-1,\,n)=p$. The attacker can compute $a^M\bmod n$ without knowing $p$, taking $M=B!$ so that it is a multiple of every $p-1$ built from small primes.
 
 \textbf{When this arises.} A key generator builds a prime from small pieces, say $p=2m+1$ where $m$ is a product of small primes, because such a form makes it easy to prove $p$ prime. The resulting $p-1$ is smooth. Standards from the 1990s therefore asked for ``strong primes'', and modern ones such as FIPS~186 still require $p-1$ to contain a large prime factor. John Pollard published the method in 1974, and it remains one of the first things factoring software tries on a number, because it costs almost nothing.
 
