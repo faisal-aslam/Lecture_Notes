@@ -1,0 +1,1542 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage[most]{tcolorbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
+
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\setcounter{tocdepth}{2}
+
+% ---- theorem-like environments: one shared counter, numbered within each section
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{exercise}[theorem]{Exercise}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% ---- boxes
+\newtcolorbox{intuition}{colback=yellow!12,colframe=yellow!55!black,
+  title=\textbf{Picture it},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+\newtcolorbox{recipe}[1]{colback=blue!5,colframe=blue!50!black,
+  title=\textbf{#1},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+\newtcolorbox{warn}{colback=red!6,colframe=red!50!black,
+  title=\textbf{Common pitfall},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+\newtcolorbox{fixbox}{colback=green!8,colframe=green!45!black,
+  title=\textbf{Takeaway and fix},fonttitle=\small,boxrule=0.6pt,left=6pt,right=6pt,top=3pt,bottom=3pt}
+
+% ---- small helpers
+\newcommand{\hl}{\rowcolor{green!15}}   % highlight a table row
+\newcommand{\minorhead}[1]{\par\medskip\noindent{\large\bfseries\itshape #1}\par\nopagebreak\smallskip}
+\newcommand{\Z}{\mathbb{Z}}
+
+\setlength{\headheight}{14pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{RSA Lesson 1 --- Quiz Preparation Notes}
+\rhead{\thepage}
+
+\title{\textbf{RSA Lesson 1: Quiz Preparation Notes}\\[4pt]
+\large Extended Euclid (Table Method) $\cdot$ Euler's Theorem $\cdot$ Chinese Remainder Theorem (Methods A and C)\\
+Construction and Correctness of RSA $\cdot$ Four Attacks on RSA}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\vspace{-2em}
+
+\begin{center}
+\begin{tabular}{@{}>{\bfseries}l >{\raggedright\arraybackslash}p{14.5cm}@{}}
+\toprule
+
+
+Section & What it covers \\
+\midrule
+1 & Overview: the problem RSA solves, and why the sections come in this order \\
+2 & Modular arithmetic and the Extended Euclidean Algorithm: gcd, B\'ezout, the table method, modular inverses \\
+3 & Euler's totient function, Euler's theorem, Fermat's little theorem \\
+4 & Chinese Remainder Theorem: the theorem, then solving systems by hand (Method A: substitution, Method C: two-congruence formula) \\
+5 & RSA: why decryption undoes encryption, key generation, correctness for every message, fast exponentiation, CRT decryption \\
+6 & Four attacks: Håstad, Common Modulus, Shared Primes, Fermat's factorization \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\tableofcontents
+\newpage
+
+%=====================================================================
+\section{Overview: The Problem RSA Solves, and the Order of the Tools}\label{sec:overview}
+%=====================================================================
+
+Before we define RSA, let's get one thing completely straight: \emph{what problem is RSA actually trying to solve?} Everything in Sections~\ref{sec:eea}--\ref{sec:crt} is in service of answering that one question, so we start there instead of jumping straight into definitions.
+
+
+Ordinary encryption is easy to design if you only need to scramble a message once: shift every letter by 3, say. The hard part is \textbf{decryption} — undoing the scramble — and specifically, doing so \emph{without} the two parties ever having met to agree on a shared secret in advance. RSA's answer is beautifully simple to state and much less simple to justify:
+
+\begin{itemize}
+\item To \textbf{encrypt} a message $m$ (thought of as a number), raise it to some public power: $c = m^e$.
+\item To \textbf{decrypt}, raise the ciphertext to a different, secret power: $c^d$.
+\end{itemize}
+
+For this to work as a cryptosystem, we need one very specific mathematical guarantee:
+\[
+(m^e)^d = m^{ed} \quad \text{must always equal } m.
+\]
+
+That's it. That's the entire mathematical content RSA needs to be correct: \emph{how do we choose $e$ and $d$ so that $m^{ed}$ always comes back around to $m$?} Ordinary arithmetic gives no such guarantee --- $m^{ed}$ just grows, it doesn't loop back to $m$. The trick is to do all of this arithmetic \textbf{modulo} some number $n$ instead of over the ordinary integers, because modular arithmetic has a property ordinary arithmetic lacks: it \emph{wraps around}, like a clock. A clock has only finitely many positions, so the powers $a, a^2, a^3,\dots$ of a number must eventually repeat a value, and once a value repeats the sequence cycles forever. Euler's theorem (Section~\ref{sec:euler}) is the precise statement of \emph{how far you have to raise a number's power before it wraps all the way back to where it started} --- not just eventually, but at a specific, computable point. That is the punchline everything below builds toward; keep it in mind, because it is easy to get lost in definitions and forget what they are for.
+
+\textbf{The order of the sections.} The sections are ordered so that each one uses only what came before it. Modular inverses and B\'ezout's identity (Section~\ref{sec:eea}) come first because they are needed inside the proof of Euler's theorem (Section~\ref{sec:euler}), inside the proof and the solution methods of the Chinese Remainder Theorem (Section~\ref{sec:crt}), and to compute $d$ from $e$. RSA itself (Section~\ref{sec:rsa}) comes only once Euler and CRT are available, because its correctness proof and its fast decryption use them; the attacks (Section~\ref{sec:attacks}) come last because each one is a tool from Sections~\ref{sec:eea}--\ref{sec:crt} turned against a careless deployment.
+
+
+\newpage
+%=====================================================================
+\section{Modular Arithmetic and the Extended Euclidean Algorithm}\label{sec:eea}
+%=====================================================================
+
+\textbf{Why we need it.} Modular inverses are needed three times in this lesson: to find the RSA private exponent $d$ with $e\cdot d\equiv 1 \pmod{\varphi(n)}$ (Section~\ref{sec:rsa}), inside the proof of Euler's theorem (Section~\ref{sec:euler}), and to solve CRT systems (Section~\ref{sec:crt}). For real RSA keys $\varphi(n)$ has hundreds of digits, so we cannot guess the inverse or try all values. The Extended Euclidean Algorithm (EEA) computes it in a few thousand simple steps, each just an integer division. This section covers: (0) a quick reminder of modular arithmetic, (1) the ordinary Euclidean algorithm (the gcd), (2) B\'ezout's identity, (3) the table method, and (4) using it to get a modular inverse.
+
+\subsection{Modular Arithmetic in 60 Seconds}\label{sec:modarith}
+
+
+If you already know what ``$a \equiv b \pmod n$'' means, skip ahead. If not: think of a clock face with $n$ numbers on it, $0,1,\dots,n-1$. Counting forward past $n-1$ wraps back around to $0$. ``$a \bmod n$'' just means: the position on this $n$-hour clock that you land on after counting $a$ steps forward from $0$. Two numbers $a,b$ are \textbf{congruent mod $n$}, written $a\equiv b\pmod n$, if they land on the \emph{same} clock position — equivalently, if $n$ divides $a-b$ exactly. All of ordinary addition, subtraction, and multiplication still work perfectly well on the clock: you can add, subtract, or multiply two clock positions and it doesn't matter whether you reduce mod $n$ before or after doing the arithmetic, you land in the same place either way. This ``wraps around and still behaves like normal arithmetic'' property is the single fact that makes everything below possible.
+
+
+%---------------------------------------------------------------------
+\subsection{The ordinary Euclidean algorithm}\label{sec:euclid}
+%---------------------------------------------------------------------
+
+\begin{lemma}\label{lem:euclid}
+For integers $a\ge b>0$, write $a=q\,b+r$ with $0\le r<b$ (division with remainder). Then $\gcd(a,b)=\gcd(b,r)$.
+\end{lemma}
+
+\textbf{What it says.} Divide $a$ by $b$ and keep the remainder $r$. The new, smaller pair $(b,r)$ has the same gcd as the old pair $(a,b)$. So we may replace $(a,b)$ by $(b,r)$ and repeat. The remainders strictly decrease, so we reach remainder $0$; the last nonzero remainder is the gcd, because $\gcd(g,0)=g$.
+
+\begin{example}[$\gcd(240,46)$]\label{ex:gcd240}
+\begin{align*}
+240 &= 5\cdot 46 + 10\\
+46 &= 4\cdot 10 + 6\\
+10 &= 1\cdot 6 + 4\\
+6 &= 1\cdot 4 + 2\\
+4 &= 2\cdot 2 + 0
+\end{align*}
+The last nonzero remainder is $2$, so $\gcd(240,46)=2$.
+\end{example}
+
+The number of division steps grows only in proportion to the number of digits of the inputs, so for 2048-bit numbers it is at most a few thousand steps.
+
+%---------------------------------------------------------------------
+\subsection{B\'ezout's identity: the gcd is a combination}
+%---------------------------------------------------------------------
+
+\begin{theorem}[B\'ezout]\label{thm:bezout}
+For integers $a,b$ (not both zero) there exist integers $s,t$ with
+\[
+s\,a+t\,b=\gcd(a,b).
+\]
+\end{theorem}
+
+Look at Example~\ref{ex:gcd240}: the first line says $10=240-5\cdot46$, which is $10$ written as a combination of $240$ and $46$. The second line gives $6=46-4\cdot10$, and substituting the previous line turns this into another combination of $240$ and $46$. Every remainder we produce can be rewritten as a combination of the two original numbers, and the last nonzero remainder is the gcd. That is the whole proof, and it is also the algorithm: \emph{keep track of the combination for each remainder as you go}. The table below does exactly this.
+
+\begin{lemma}[Coprime divisors multiply]\label{lem:coprime-div}
+If $\gcd(m,n)=1$ and both $m\mid z$ and $n\mid z$, then $mn\mid z$.
+\end{lemma}
+
+\begin{proof}
+By Theorem~\ref{thm:bezout} there are integers $s,t$ with $s\,m+t\,n=1$. Multiplying by $z$ gives $z=s\,m\,z+t\,n\,z$. The first term is divisible by $mn$ because $n\mid z$, and the second is divisible by $mn$ because $m\mid z$. Hence $mn\mid z$.
+\end{proof}
+
+This small fact is used later in two places: to show that a CRT solution is unique (Theorem~\ref{thm:crt}), and to combine ``divisible by $p$'' and ``divisible by $q$'' into ``divisible by $pq$'' in the RSA correctness proof (Theorem~\ref{thm:rsa-correct}).
+
+
+%---------------------------------------------------------------------
+\subsection{The table method}\label{sec:eea-table}
+%---------------------------------------------------------------------
+
+\begin{recipe}{The recipe}
+Start with the two numbers $a\ge b$ you are given. Build a table with columns $i,\ q_i,\ r_i,\ s_i,\ t_i$.
+
+\textbf{Two starting rows (memorize these):}
+\[
+r_0=a,\ s_0=1,\ t_0=0\qquad\qquad r_1=b,\ s_1=0,\ t_1=1.
+\]
+\textbf{Every next row} uses the two rows just above it:
+\[
+q_i=\left\lfloor \frac{r_{i-2}}{r_{i-1}}\right\rfloor,\qquad
+r_i=r_{i-2}-q_i\,r_{i-1},\qquad
+s_i=s_{i-2}-q_i\,s_{i-1},\qquad
+t_i=t_{i-2}-q_i\,t_{i-1}.
+\]
+\textbf{Stop} when a remainder $r_i=0$. The row just before it holds $\gcd(a,b)=r_{i-1}=s_{i-1}\,a+t_{i-1}\,b$.
+\end{recipe}
+
+Notice that $r,s,t$ all follow the \emph{same} update rule with the same $q_i$; only the starting values differ. So each new row is: compute $q$ from the two $r$'s, then do the same ``previous-previous minus $q$ times previous'' in three columns.
+
+\textbf{The key invariant.} In every row,
+\[
+\boxed{\,r_i = s_i\,a + t_i\,b\,}
+\]
+It holds for the starting rows ($a=1\cdot a+0\cdot b$ and $b=0\cdot a+1\cdot b$). If it holds for two consecutive rows, subtracting $q_i$ times one equation from the other shows it holds for the next row. So it holds for every row, including the one with $r=\gcd$. \emph{This is your built-in error check:} at any row you can verify $s_i a+t_ib=r_i$.
+
+\begin{example}[Table for $a=240$, $b=46$]\label{ex:table240}
+Run the recipe with $a=240$ and $b=46$ (same numbers as Example~\ref{ex:gcd240}):
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 240 & 1 & 0 \\
+1 & --- & 46 & 0 & 1 \\
+2 & 5 & 10 & 1 & $-5$ \\
+3 & 4 & 6 & $-4$ & 21 \\
+4 & 1 & 4 & 5 & $-26$ \\
+\hl 5 & 1 & 2 & $-9$ & 47 \\
+6 & 2 & 0 & 23 & $-120$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Row 5 is the last one before the remainder hits $0$: $\gcd=2$ and $2=-9\cdot240+47\cdot46$. One row being computed: row 3 uses rows 1 and 2, so $q_3=\lfloor46/10\rfloor=4$, then $r_3=46-4\cdot10=6$, $s_3=0-4\cdot1=-4$, $t_3=1-4\cdot(-5)=21$. Check the invariant: $-4\cdot240+21\cdot46=-960+966=6$. \checkmark
+
+(The final row's $s,t$, here $23$ and $-120$, equal $\pm b/g$ and $\mp a/g$; they are not used.)
+\end{example}
+
+%---------------------------------------------------------------------
+\subsection{From B\'ezout to the modular inverse}\label{sec:eea-inverse}
+%---------------------------------------------------------------------
+
+
+\begin{definition}[Modular inverse]\label{def:inverse}
+The \emph{inverse} of $x$ modulo $m$ is a number $y$ such that $x\cdot y$ leaves remainder $1$ when divided by $m$, i.e.\ $x\,y\equiv1\pmod m$. We write $y\equiv x^{-1}\pmod m$. Theorem~\ref{thm:eea-inverse} below shows that it exists exactly when $x$ and $m$ share no common factor (this is why CRT needs coprime moduli).
+\end{definition}
+
+\begin{theorem}\label{thm:eea-inverse}
+Let $m>1$ and $\gcd(x,m)=1$. Run the EEA on $(a,b)=(m,\,x)$. If the row with $r=1$ is $1=s\,m+t\,x$, then
+\[
+x^{-1}\equiv t \pmod m.
+\]
+If $\gcd(x,m)\ne1$, no inverse exists.
+\end{theorem}
+
+\begin{proof}
+Reduce $1=s\,m+t\,x$ modulo $m$: the term $s\,m$ vanishes, leaving $1\equiv t\,x\pmod m$. That is exactly the definition of $t$ being the inverse of $x$. If $g=\gcd(x,m)>1$, then $g$ divides $tx+sm$ for every $s,t$, so $tx\equiv1$ is impossible.
+\end{proof}
+
+\textbf{Practical shortcuts for inverses.}
+\begin{itemize}[nosep]
+\item Put the \emph{modulus first}: $a=m$, $b=x$. Then $t$ is the inverse and the $s$ column is unnecessary --- you may leave it out to save work.
+\item If $t$ comes out negative, add $m$ (repeat until it lies in $0,\dots,m-1$).
+\end{itemize}
+
+\textbf{For small numbers you can skip the table.} Replace $x$ by its remainder modulo $m$, then compute $x,\,2x,\,3x,\dots$ (reducing modulo $m$) until you see $1$; the multiplier that gives $1$ is the inverse. This is fine by hand when $m$ is small and hopeless when $m$ has hundreds of digits.
+
+\begin{example}[Inverse of $7$ modulo $9$]\label{ex:inv7-9}
+$7\cdot1=7$, $\;7\cdot2=14\equiv5$, $\;7\cdot3=21\equiv3$, $\;7\cdot4=28\equiv1$. So $7^{-1}\equiv 4\pmod 9$.
+\end{example}
+
+\begin{example}[Inverse of $35$ modulo $4$]
+First reduce: $35=8\cdot4+3$, so $35\equiv3$. Then $3\cdot1=3$, $3\cdot2=6\equiv2$, $3\cdot3=9\equiv1$. So $35^{-1}\equiv3\pmod 4$.
+\end{example}
+
+
+\begin{example}[Small, by hand: the inverse of $7$ modulo $40$]\label{ex:inv7-40}
+Run the EEA with the modulus first: $a=40$, $b=7$.
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 40 & 1 & 0 \\
+1 & --- & 7 & 0 & 1 \\
+2 & 5 & 5 & 1 & $-5$ \\
+3 & 1 & 2 & $-1$ & 6 \\
+\hl 4 & 2 & 1 & 3 & $-17$ \\
+5 & 2 & 0 & $-7$ & 40 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The highlighted row says $1=3\cdot40+(-17)\cdot7$. Hence $7^{-1}\equiv-17\equiv 40-17=\mathbf{23}\pmod{40}$.
+
+\textbf{Check:} $7\cdot23=161=4\cdot40+1$. \checkmark
+\end{example}
+
+\begin{example}[RSA: find $d$ for $e=17$ and $\varphi(n)=3120$]\label{ex:rsa-d}
+Take the textbook key $p=61$, $q=53$: $n=3233$ and $\varphi(n)=60\cdot52=3120$. We need $d=17^{-1}\bmod 3120$. (RSA itself is defined in Section~\ref{sec:rsa}; for now this is simply an inverse computation.) First confirm $\gcd(17,3120)=1$; the table will do that for us. Run the EEA with $a=3120$ and $b=17$:
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 3120 & 1 & 0 \\
+1 & --- & 17 & 0 & 1 \\
+2 & 183 & 9 & 1 & $-183$ \\
+3 & 1 & 8 & $-1$ & 184 \\
+\hl 4 & 1 & 1 & 2 & $-367$ \\
+5 & 8 & 0 & $-17$ & 3120 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Reading the table, step by step.}
+\begin{itemize}[nosep]
+\item Row 2: $3120=183\cdot17+9$, so $q_2=183$, $r_2=9$; $s_2=1-183\cdot0=1$; $t_2=0-183\cdot1=-183$.
+\item Row 3: $17=1\cdot9+8$, so $q_3=1$, $r_3=8$; $s_3=0-1\cdot1=-1$; $t_3=1-1\cdot(-183)=184$.
+\item Row 4: $9=1\cdot8+1$, so $q_4=1$, $r_4=1$; $s_4=1-1\cdot(-1)=2$; $t_4=-183-1\cdot184=-367$.
+\item Row 5: $8=8\cdot1+0$. The remainder is $0$, so stop; the row above (row 4) has $r=1=\gcd$.
+\end{itemize}
+Row 4 gives $1=2\cdot3120+(-367)\cdot17$. Check: $6240-6239=1$. \checkmark
+
+So $17^{-1}\equiv-367\pmod{3120}$, and adding $3120$ gives
+\[
+d=3120-367=\mathbf{2753}.
+\]
+\textbf{Check:} $17\cdot2753=46801=15\cdot3120+1$. \checkmark
+\end{example}
+
+\begin{example}[When there is no inverse: $18$ modulo $60$]\label{ex:noinv}
+Run the EEA with $a=60$ and $b=18$:
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 60 & 1 & 0 \\
+1 & --- & 18 & 0 & 1 \\
+\hl 2 & 3 & 6 & 1 & $-3$ \\
+3 & 3 & 0 & $-3$ & 10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The last nonzero remainder is $6\ne1$, so $\gcd(18,60)=6$ and $18$ has no inverse mod $60$. This is why RSA requires $\gcd(e,\varphi(n))=1$: if the table ends with a gcd bigger than $1$, choose a different $e$.
+\end{example}
+
+\begin{warn}
+\begin{itemize}[nosep]
+\item \textbf{Order matters for reading $t$.} With $(a,b)=(m,x)$ the inverse of $x$ is the $t$ column. If you swap the order, the inverse of $x$ is in the $s$ column instead.
+\item \textbf{Stop at the right row.} The answer is in the row \emph{before} the remainder $0$, not in the row where $r=0$.
+\item \textbf{Negative answers are fine.} $t=-367$ means $-367\equiv2753 \pmod{3120}$; add the modulus.
+\item \textbf{Always verify.} Multiply your inverse by $x$ and reduce; you must get $1$.
+\end{itemize}
+\end{warn}
+
+\textbf{Where else this appears.} The same computation is used, with both $s$ and $t$, in the \emph{Common Modulus Attack} (Section~\ref{sec:commonmod}): with $\gcd(e_1,e_2)=1$ the EEA gives $a,b$ with $ae_1+be_2=1$, letting an attacker combine two ciphertexts into the plaintext. In the \emph{Shared-Prime Attack} (Section~\ref{sec:sharedprime}) the plain Euclidean algorithm (Section~\ref{sec:euclid}) finds the common prime factor of two moduli. In RSA key generation (Section~\ref{sec:rsa-construction}), the EEA is the step that turns the public exponent $e$ into the private exponent $d$.
+
+
+\newpage
+%=====================================================================
+\section{Euler's Totient Function, Euler's Theorem and Fermat's Little Theorem}\label{sec:euler}
+%=====================================================================
+
+This section proves the fact RSA is built on: if $a$ shares no factor with $n$, then raising $a$ to the power $\varphi(n)$ wraps all the way back to $1$ modulo $n$ (the ``how far must a power go?'' question from Section~\ref{sec:overview}). We first define $\varphi(n)$, then show that the residues it counts form a self-contained system in which every element can be undone, and then prove the theorem.
+
+\subsection{Euler's Totient Function: Counting the ``Well-Behaved'' Numbers}
+
+
+Here's the question that gets us there. Fix a modulus $n$. Some numbers, when you keep multiplying them together mod $n$, behave completely predictably and reversibly — you can always undo a multiplication by them. Other numbers behave badly and lose information once you multiply by them mod $n$ (think of multiplying by an even number mod an even $n$: you can never fully recover what you multiplied). \textbf{Euler's totient function}, written $\varphi(n)$, simply \emph{counts how many numbers in $\{1,\dots,n\}$ are the ``well-behaved,'' reversible kind.} The formal condition for being ``well-behaved'' turns out to be exactly ``sharing no common factor with $n$'' — we'll see why in a moment — so that becomes the definition:
+
+\begin{definition}[Euler's totient function]
+For $n \in \mathbb{Z}^{+}$, define
+\[
+\varphi(n) = |\{a \in \{1, \dots, n\} : \gcd(a,n) = 1\}|,
+\]
+i.e.\ $\varphi(n)$ counts how many integers in $\{1,\dots,n\}$ share \emph{no} common factor with $n$ other than $1$ (such integers are called \textbf{coprime to $n$}, or \textbf{relatively prime to $n$}).
+\end{definition}
+
+\begin{example}[Computing $\varphi$ by brute force, to build intuition]
+Take $n=10$. Check every integer from $1$ to $10$ against $\gcd(\cdot,10)$:
+\[
+\begin{array}{c|cccccccccc}
+a & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10\\
+\hline
+\gcd(a,10) & 1 & 2 & 1 & 2 & 5 & 2 & 1 & 2 & 1 & 10
+\end{array}
+\]
+The values with $\gcd(a,10)=1$ are $\{1,3,7,9\}$ — exactly $4$ of them, so $\varphi(10)=4$. Notice $\varphi(10)$ is not simply ``$10$ minus something obvious''; it depends on \emph{which} primes divide $10$ (here $2$ and $5$), not just how many divisors $10$ has.
+\end{example}
+
+
+
+\begin{proposition}[Formula for $\varphi$]\label{prop:totient}
+If $n = p_1^{e_1} p_2^{e_2} \cdots p_k^{e_k}$ is the prime factorization of $n$, then
+\[
+\varphi(n) = n \prod_{i=1}^{k}\left(1 - \frac{1}{p_i}\right).
+\]
+In particular, for two \emph{distinct} primes $p, q$:
+\[
+\varphi(pq) = (p-1)(q-1).
+\]
+This special case is the one RSA uses directly.
+\end{proposition}
+
+\begin{remark}[Where this formula comes from, intuitively]
+Think inclusion--exclusion. Among any $p_1$ consecutive integers, exactly one is divisible by $p_1$, so a $\left(1-\frac1{p_1}\right)$ fraction survives once multiples of $p_1$ are discarded. The same holds independently for $p_2,\dots,p_k$, and because the $p_i$ are distinct primes, being ``divisible by $p_i$'' and being ``divisible by $p_j$'' turn out not to interfere with each other across $\{1,\dots,n\}$, so the surviving fraction after excluding every prime factor is the \emph{product} of the individual surviving fractions. Multiplying by $n$ gives the formula. The RSA-relevant case $\varphi(pq)=(p-1)(q-1)$ says the same thing very concretely: from $\{1,\dots,pq\}$, throw away the $q$ multiples of $p$ and the $p$ multiples of $q$ (these two lists overlap only at $pq$ itself, discarded either way), leaving $pq-p-q+1=(p-1)(q-1)$ survivors.
+\end{remark}
+
+\begin{example}[Computing $\varphi$ with the formula]
+$36 = 2^2 \cdot 3^2$, so $\varphi(36) = 36\left(1 - \frac12\right)\left(1 - \frac13\right) = 36 \cdot \frac12 \cdot \frac23 = 12$. Direct check: $\{1,5,7,11,13,17,19,23,25,29,31,35\}$ are exactly the 12 residues coprime to 36 — none of them divisible by $2$ or by $3$.
+
+For the RSA-relevant case: $p=61, q=53$ gives $\varphi(61 \cdot 53) = 60 \cdot 52 = 3120$ — this is the pair we will reuse throughout this lecture.
+\end{example}
+
+\subsection{Why We Care: The Coprime Numbers Form a Self-Contained ``Club''}
+
+
+Here is the fact that makes $\varphi(n)$ worth naming at all, explained slowly, with no jargon first, and then with the standard vocabulary attached afterward.
+
+\textbf{Claim: if you take two numbers that are each coprime to $n$, and multiply them mod $n$, the result is \emph{again} coprime to $n$.} In words: multiplying two ``well-behaved'' numbers mod $n$ never produces a ``badly-behaved'' one. This is not obvious from nothing, but it is easy to see why it's true: if $a$ and $n$ share no prime factor, and $b$ and $n$ share no prime factor, then $ab$ cannot suddenly acquire a prime factor of $n$ out of nowhere either — multiplication doesn't create new prime factors that weren't already in $a$ or $b$. So the set of numbers coprime to $n$ is \textbf{closed} under multiplication mod $n$: start inside the set, multiply, you stay inside the set.
+
+That alone would already be interesting, but there is more: every number coprime to $n$ also has a genuine \emph{multiplicative inverse} mod $n$ — another number in the same set that, when multiplied by it, gives $1$. (By Theorem~\ref{thm:eea-inverse} such an inverse exists precisely because $\gcd(a,n)=1$, and the Extended Euclidean Algorithm computes it.) So this set of ``well-behaved'' numbers is not just closed under multiplication — every element can also be \emph{undone}.
+
+\medskip\noindent\textbf{A quick note on the word ``group.''} Mathematicians have a name for exactly this kind of structure: a set with an operation (here, multiplication mod $n$) that (i) is closed (combining two elements of the set stays in the set), (ii) has an identity element (here, $1$, which does nothing when multiplied), and (iii) gives every element an inverse within the set. Such a structure is called a \textbf{group}. You do not need to know any general group theory to follow this lecture — we will only ever use the three properties just described, applied to this one specific set. We just want a name for it, because we will refer to it constantly (for $n\ge2$):
+\[
+(\mathbb{Z}/n\mathbb{Z})^{*} = \{a \in \{1,\dots,n-1\} : \gcd(a,n)=1\},
+\]
+the set of ``well-behaved,'' invertible residues mod $n$. By definition, this set has exactly $\varphi(n)$ elements. \textbf{Euler's theorem, stated next, is a fact about exactly this set.}
+
+\subsection{Euler's Theorem}
+
+
+\begin{theorem}[Euler's Theorem]\label{thm:euler}
+If $\gcd(a, n) = 1$, then
+\[
+a^{\varphi(n)} \equiv 1 \pmod{n}.
+\]
+\end{theorem}
+
+\medskip\noindent\textbf{Plain-English statement, before the proof.} Take any $a$ sharing no factor with $n$ — i.e.\ any $a$ in our ``well-behaved'' club $(\mathbb{Z}/n\mathbb{Z})^{*}$ — and start computing $a^1, a^2, a^3,\dots$ modulo $n$. Euler's theorem guarantees that by the time you reach exponent $\varphi(n)$, you have landed back exactly on $1$ — regardless of which coprime $a$ you started with, and regardless of how large or small $n$ is. This ``guaranteed return to $1$ after exactly $\varphi(n)$ steps'' is the single fact RSA is built on: it is precisely what lets a carefully chosen \emph{second} exponentiation undo the effect of a first one, which is the problem posed in Section~\ref{sec:overview} and solved in Section~\ref{sec:why-works}.
+
+\begin{proof}[Proof --- the constructive version, worth doing by hand once]
+We prove it by directly multiplying every element of the group $(\mathbb{Z}/n\mathbb{Z})^{*} = \{g_1,\dots,g_{\varphi(n)}\}$ by $a$ and watching what happens, rather than citing an abstract theorem.
+
+\textbf{Step 1: multiplying by $a$ just reorders the group.} Consider $ag_1, ag_2, \dots, ag_{\varphi(n)} \pmod n$. Each $ag_i$ is still coprime to $n$ (a product of two things coprime to $n$, by the closure property discussed above), so every value in this new list is again some element of $(\mathbb{Z}/n\mathbb{Z})^{*}$. No two of them coincide either: if $ag_i \equiv ag_j \pmod n$, then since $\gcd(a,n)=1$ we may multiply both sides by $a^{-1}\bmod n$ (which exists by Theorem~\ref{thm:eea-inverse}, precisely because $\gcd(a,n)=1$) to get $g_i \equiv g_j \pmod n$, forcing $i=j$. So the list $ag_1,\dots,ag_{\varphi(n)}$ consists of $\varphi(n)$ \emph{distinct} elements, all drawn from a set that only has $\varphi(n)$ elements total — which means it must simply be $\{g_1,\dots,g_{\varphi(n)}\}$, written out in a different order.
+
+\textbf{Step 2: multiply everything together and cancel.} Both lists contain exactly the same elements (just reordered), so their products mod $n$ agree:
+\[
+(ag_1)(ag_2)\cdots(ag_{\varphi(n)}) \equiv g_1g_2\cdots g_{\varphi(n)} \pmod n.
+\]
+The left side equals $a^{\varphi(n)}\cdot P$, where $P=g_1g_2\cdots g_{\varphi(n)}$. Since $P$ is a product of things coprime to $n$, $\gcd(P,n)=1$, so $P$ has an inverse mod $n$. The equation $a^{\varphi(n)}\cdot P \equiv P \pmod n$ then gives, after multiplying both sides by $P^{-1}\bmod n$,
+\[
+a^{\varphi(n)} \equiv 1 \pmod n. \qedhere
+\]
+\end{proof}
+
+\begin{remark}[The one-line abstract version, for readers who already know group theory]
+The argument above \emph{is} a proof of Lagrange's theorem specialized to this one group: $(\mathbb{Z}/n\mathbb{Z})^{*}$ is a finite group of order $\varphi(n)$, and for any element $a$ of any finite group $G$, $a^{|G|}$ equals the identity. The longer proof above is the same idea, unpacked into elementary steps that use only ``multiplying reorders a finite set'' and ``cancel a common invertible factor.''
+\end{remark}
+
+\begin{example}[Euler's theorem, traced by hand]
+Let $n=10$, so $(\mathbb{Z}/10\mathbb{Z})^{*}=\{1,3,7,9\}$ and $\varphi(10)=4$. Take $a=3$ and multiply every group element by $3$, mod $10$:
+\[
+3\cdot1=3, \qquad 3\cdot3=9, \qquad 3\cdot7=21\equiv1, \qquad 3\cdot9=27\equiv7.
+\]
+The results $\{3,9,1,7\}$ are exactly $\{1,3,7,9\}$ again, just shuffled — precisely Step 1 of the proof. Multiplying the original four elements together: $P=1\cdot3\cdot7\cdot9=189$. The proof says $3^4\cdot P\equiv P\pmod{10}$, i.e.\ $3^4\equiv1\pmod{10}$ after cancelling $P$. Direct check: $3^4=81=8\cdot10+1\equiv1\pmod{10}$. \checkmark
+\end{example}
+
+\begin{corollary}[Fermat's Little Theorem]\label{cor:fermat}
+If $p$ is prime and $\gcd(a,p) = 1$, then $a^{p-1} \equiv 1 \pmod p$. This is Euler's theorem with $n = p$, since $\varphi(p) = p - 1$ (every integer from $1$ to $p-1$ is automatically coprime to a prime $p$).
+\end{corollary}
+
+
+
+\newpage
+%=====================================================================
+\section{The Chinese Remainder Theorem}\label{sec:crt}
+%=====================================================================
+
+The Chinese Remainder Theorem (CRT) says that knowing a number's remainders modulo two coprime numbers is exactly as good as knowing its remainder modulo their product. RSA uses it twice (Section~\ref{sec:correctness}: a correctness proof for \emph{every} message; Section~\ref{sec:crt-speedup}: faster decryption), and H{\aa}stad's attack (Section~\ref{sec:hastad}) is built on it. This section first explains what CRT says and proves it (Sections~\ref{sec:crt-idea} and~\ref{sec:crt-thm}), and then shows how to solve CRT problems by hand with two methods: \textbf{Method A} (substitution) and \textbf{Method C} (describe $x$ in two ways and compare).
+
+\subsection{What CRT Says: A Tiny Puzzle First}\label{sec:crt-idea}
+
+
+\minorhead{Step 1: the basic idea, with a tiny puzzle}
+
+Suppose you're told a number $x$ leaves remainder $2$ when divided by $3$, and remainder $3$ when divided by $5$. In symbols,
+\[
+x \equiv 2 \pmod 3, \qquad x \equiv 3 \pmod 5.
+\]
+Is there such a number? Is it the only one? CRT exists to answer exactly this kind of question.
+
+\minorhead{Step 2: solve it by brute force first}
+
+Before any formula, just think it through. Numbers leaving remainder $2$ when divided by $3$ are
+\[
+2, 5, 8, 11, 14, 17, 20, \ldots
+\]
+Now check each one against the second condition (remainder $3$ when divided by $5$):
+\[
+2\div5\to\text{rem }2\ (\times), \qquad 5\div5\to\text{rem }0\ (\times), \qquad 8\div5\to\text{rem }3\ (\checkmark).
+\]
+So $x=8$ works. And so does $23$, and $38$, and $53$ — every number $15$ apart from $8$, because $3\times5=15$. So the full answer isn't just ``$x=8$,'' it's
+\[
+x \equiv 8 \pmod{15}.
+\]
+That's the pattern CRT formalizes: two remainder conditions, on moduli sharing no common factor, pin down $x$ uniquely \emph{once you fix the modulus $15=3\times5$} — not a single number, but a single residue class mod $15$. (A practical tip: list the numbers for the \emph{bigger} modulus, here $3,8,13,\dots$; adding $5$ cycles through all remainders mod $3$, so you never need more than $3$ candidates.)
+
+\minorhead{Step 3: the general statement, in words}
+
+If you know $x$'s remainder mod $m$ and $x$'s remainder mod $n$, where $m$ and $n$ share no common factor, that is \emph{exactly as much information} as knowing $x$'s remainder mod $mn$ directly. Nothing is lost by splitting the modulus, and nothing is ambiguous: every pair of remainders corresponds to one and only one $x$ mod $mn$. This is the fact RSA is built on: with $m$ and $n$ the two primes $p,q$ of an RSA modulus, it lets us trade one hard computation mod $pq$ for two easier computations, mod $p$ and mod $q$ separately, with a guarantee that stitching the two answers back together recovers the truth mod $pq$.
+
+
+\begin{remark}[A mental picture: two interlocking gears]
+Picture two gears with $m$ and $n$ teeth, both starting at a marked tooth and turning together. If $m$ and $n$ share no common factor, the combined picture — ``which tooth of gear 1 is marked now, which tooth of gear 2 is marked now'' — does not repeat until $mn$ turns have passed, and every one of the $mn$ possible combinations occurs exactly once per cycle. ``Remainder mod $m$'' and ``remainder mod $n$'' are the two gears' positions; CRT says these two positions, taken together, pin down the combined state uniquely — the same information as one remainder mod $mn$.
+\end{remark}
+
+
+
+\subsection{The Theorem and Its Proof}\label{sec:crt-thm}
+
+\begin{theorem}[CRT]\label{thm:crt}
+Let $m,n\ge2$ be integers with $\gcd(m,n)=1$. The map
+\[
+\mathbb{Z}/mn\mathbb{Z} \;\longrightarrow\; \mathbb{Z}/m\mathbb{Z} \times \mathbb{Z}/n\mathbb{Z}, \qquad x \mapsto (x \bmod m,\ x \bmod n)
+\]
+is a ring isomorphism. Equivalently: for every pair $(a,b)$ the system
+\[
+x \equiv a \pmod m, \qquad x \equiv b \pmod n
+\]
+has exactly one solution $x \in \{0, \dots, mn-1\}$; all other integer solutions differ from it by multiples of $mn$.
+\end{theorem}
+
+\medskip\noindent\textbf{Unpacking ``ring isomorphism'' one word at a time.} ``Map'' just means: send $x$ to the pair of its two remainders --- exactly what we did by hand in Step 2. ``Isomorphism'' means this map is a perfect one-to-one correspondence between $\{0,\dots,mn-1\}$ and all pairs $(a,b)$ --- this is the ``unique solution'' half of the theorem, and it's the part the puzzle in Steps 1--2 already illustrated concretely. ``Ring'' (rather than just ``set'') adds one more guarantee: the correspondence also respects \emph{arithmetic}. Adding (or multiplying) two numbers mod $mn$ and then splitting into remainders gives the same answer as splitting first and adding (or multiplying) each coordinate separately:
+\[
+x+y \mapsto (a+c \bmod m,\ b+d \bmod n), \qquad xy \mapsto (ac \bmod m,\ bd \bmod n) \qquad \text{when } x\mapsto(a,b),\ y\mapsto(c,d).
+\]
+This extra guarantee is what makes CRT more than a counting trick: an entire arithmetic computation can be carried out \emph{coordinatewise}, mod $m$ and mod $n$ separately, and the two partial answers automatically recombine correctly mod $mn$ --- exactly the mechanism Section~\ref{sec:correctness} uses for a correctness proof covering every message (not just the coprime ones) and Section~\ref{sec:crt-speedup} uses for faster decryption.
+
+\begin{proof}[Proof, explained step by step]
+We check three things: the map preserves arithmetic, it never sends two different numbers to the same pair, and --- by a counting argument --- it must therefore hit every pair.
+
+\textbf{It preserves arithmetic.} If $x\equiv a\pmod m$ and $y\equiv c\pmod m$, then directly from the definition of congruence, $x+y\equiv a+c\pmod m$ and $xy\equiv ac\pmod m$ --- and likewise mod $n$. So reducing mod $m$ (or mod $n$) \emph{after} adding/multiplying gives the same result as adding/multiplying the already-reduced remainders. That's exactly the coordinatewise formula above.
+
+\textbf{It is injective (no two different numbers share a remainder pair).} Suppose $x$ and $y$, both in $\{0,\dots,mn-1\}$, map to the \emph{same} pair: $x\equiv y\pmod m$ and $x\equiv y\pmod n$. The first says $m\mid(x-y)$; the second says $n\mid(x-y)$. Since $\gcd(m,n)=1$, Lemma~\ref{lem:coprime-div} gives $mn\mid(x-y)$. But $|x-y|<mn$, and the only multiple of $mn$ smaller than $mn$ in absolute value is $0$ --- so $x=y$. Distinct inputs always land on distinct output pairs.
+
+\textbf{It is therefore also surjective (every pair is hit).} The domain $\{0,\dots,mn-1\}$ has exactly $mn$ elements. The codomain --- all pairs $(a,b)$ with $0\le a<m,\,0\le b<n$ --- also has exactly $m\cdot n$ elements. An injective map between two finite sets of the \emph{same size} must also be surjective: if some pair were missed, the $mn$ distinct images would have to squeeze into fewer than $mn$ remaining slots, which is impossible. So every pair $(a,b)$ is the image of exactly one $x$ --- the ``unique solution'' claim.
+\end{proof}
+
+The proof shows that a solution exists and is unique, but it does not hand us one. Methods A and C below construct it by hand; Theorem~\ref{thm:methodC} is the closed formula.
+
+\subsection{Solving CRT Problems by Hand: What a Problem Looks Like}\label{sec:crtmethods}
+
+Theorem~\ref{thm:crt} says a solution exists and is unique; here we learn \emph{how to compute it} with two methods: \textbf{Method A} (substitution) and \textbf{Method C} (describe $x$ in two ways and compare). Method C is also the method used in practice for RSA decryption (Section~\ref{sec:crt-speedup}), and it is the tool used in H{\aa}stad's attack (Section~\ref{sec:hastad}). You do not need any theory to use the recipes: every step is explained with actual numbers.
+
+
+You are told the \emph{remainders} of an unknown whole number $x$ when it is divided by several numbers, and you must find $x$:
+\[
+x\equiv a_1 \pmod{m_1},\qquad x\equiv a_2 \pmod{m_2},\qquad \dots,\qquad x\equiv a_k \pmod{m_k}.
+\]
+
+\textbf{Step 0: check the moduli.} Look at every \emph{pair} of moduli. If no two of them share a common factor larger than $1$, they are called \emph{pairwise coprime} and everything below works directly.
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Moduli & Verdict \\
+\midrule
+$3,\ 5,\ 7$ & pairwise coprime \\
+$4,\ 9,\ 25$ & pairwise coprime (no shared prime factor) \\
+$6,\ 9$ & \emph{not} coprime (both divisible by $3$): the recipes below do not apply directly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{What the answer looks like.} Let $M=m_1m_2\cdots m_k$ be the product of the moduli. Then there is \emph{exactly one} solution between $0$ and $M-1$, and every other solution is that one plus or minus a multiple of $M$. We write the complete answer as
+\[
+x\equiv x_0 \pmod M.
+\]
+For example, for the moduli $3,5,7$ we have $M=105$, and the solutions are $\dots,-82,\ 23,\ 128,\ 233,\dots$ --- all of them differ by multiples of $105$. (For two moduli this is Theorem~\ref{thm:crt}; for more, the recipes below merge two congruences at a time, and each merge produces one congruence modulo the product of the two moduli, which is still coprime to the remaining ones.)
+
+
+%---------------------------------------------------------------------
+\subsection{Method A: Substitution (easiest by hand, no big formulas)}\label{sec:methodA}
+%---------------------------------------------------------------------
+
+\begin{recipe}{Recipe for Method A}
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item Take one congruence, say $x\equiv a \pmod m$, and rewrite it as an \emph{equation}:
+\[ x = a + m\,t \qquad (t \text{ is an unknown whole number}). \]
+\item Put this into the next congruence $x\equiv b\pmod n$. You get $a+mt\equiv b \pmod n$, i.e.\
+\[ m\,t\equiv b-a \pmod n. \]
+\item Solve this small congruence for $t$: you get $t\equiv t_0\pmod n$. (Try values of $t=0,1,2,\dots,n-1$, or multiply by an inverse, see Section~\ref{sec:eea-inverse}.)
+\item Write $t=t_0+n\,s$ and put it back:
+\[ x = a+m(t_0+ns) = \underbrace{(a+mt_0)}_{\text{new } a}+\underbrace{mn}_{\text{new } m}\, s. \]
+So the two congruences have been merged into the single congruence $x\equiv a+mt_0\pmod{mn}$.
+\item Repeat with the next congruence until none are left.
+\end{enumerate}
+\emph{Tip:} it is least work to start with the \textbf{largest} modulus.
+\end{recipe}
+
+\begin{example}[Method A in symbols, same problem]\label{ex:qs-sub2}
+Solve $x\equiv 2\pmod 3$ and $x\equiv 3\pmod 5$ with the recipe.
+
+\emph{Step 1.} Start from the modulus $5$: $\;x=3+5t$.
+
+\emph{Step 2.} Put into the other congruence: $3+5t\equiv 2\pmod 3$. Subtract $3$: $\;5t\equiv -1\pmod 3$.
+
+\emph{Step 3.} Solve $5t\equiv -1\pmod 3$ for $t$. We do it in three small moves.
+
+\begin{enumerate}[label=(\alph*),leftmargin=2em,itemsep=2pt]
+\item \textbf{Make the left number small.} Dividing $5$ by $3$ leaves remainder $2$, so $5\equiv2\pmod 3$. Hence $5t$ behaves like $2t$, and the congruence becomes $2t\equiv-1\pmod 3$.
+\item \textbf{Make the right number positive.} Adding the modulus $3$ does not change a remainder, so $-1\equiv-1+3=2\pmod 3$. The congruence becomes $2t\equiv2\pmod 3$.
+\item \textbf{Find $t$.} Ask: which $t$ makes $2t$ leave remainder $2$ when divided by $3$? Just try the possible remainders $t=0,1,2$:
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$t$ & $0$ & $1$ & $2$ \\
+\midrule
+$2t$ & $0$ & $2$ & $4$ \\
+remainder of $2t$ divided by $3$ & $0$ & $\mathbf{2}$ & $1$ \\
+equals $2$? & no & \textbf{yes} & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+Only $t=1$ works, so $t\equiv1\pmod 3$, i.e.\ $t\in\{1,4,7,\dots\}$.
+\end{enumerate}
+
+(Shortcut: since $2$ and $3$ share no factor, you may divide both sides of $2t\equiv2$ by $2$ and get $t\equiv1$. The table above shows this is safe.)
+
+\emph{Step 4.} Write $t=1+3s$: $\;x=3+5(1+3s)=8+15s$.
+
+\emph{Answer:} $x\equiv 8\pmod{15}$.
+\end{example}
+
+\begin{example}[Sunzi's riddle by Method A: three congruences]\label{ex:qs-sunzi}
+Solve
+\[
+x\equiv 2\pmod 3,\qquad x\equiv 3\pmod 5,\qquad x\equiv 2\pmod 7.
+\]
+Here $M=3\cdot5\cdot7=105$. Start with the largest modulus, $7$.
+
+\textbf{Round 1: bring in the modulus $5$.}
+\begin{align*}
+x &= 2+7t &&\text{(from } x\equiv 2 \bmod 7)\\
+2+7t &\equiv 3 \pmod 5 &&\text{(the second condition)}\\
+7t &\equiv 1 \pmod 5 &&\text{(subtract 2)}\\
+2t &\equiv 1 \pmod 5 &&(7\equiv 2 \bmod 5)\\
+t &\equiv 3 \pmod 5 &&(\text{because } 2\cdot3=6\equiv1)
+\end{align*}
+So $t=3+5s$ and $x=2+7(3+5s)=23+35s$. We have merged two conditions:
+\[
+x\equiv 23\pmod{35}.
+\]
+
+\textbf{Round 2: bring in the modulus $3$.}
+\begin{align*}
+x &= 23+35s &&\\
+23+35s &\equiv 2 \pmod 3 &&\text{(the last condition)}\\
+2+2s &\equiv 2 \pmod 3 &&(23\equiv 2,\ 35\equiv 2 \bmod 3)\\
+2s &\equiv 0 \pmod 3 &&\\
+s &\equiv 0 \pmod 3 &&
+\end{align*}
+So $s=3r$ and $x=23+35\cdot3r=23+105r$.
+
+\textbf{Answer:} $x\equiv 23\pmod{105}$. The smallest positive solution is $x=23$.
+
+\emph{Check:} $23=7\cdot3+2$ \checkmark;\quad $23=4\cdot5+3$ \checkmark;\quad $23=3\cdot7+2$ \checkmark
+\end{example}
+
+\begin{example}[A harder one: moduli $4$, $9$, $25$]\label{ex:qs-hard}
+Solve $x\equiv 1\pmod 4$, $x\equiv 2\pmod 9$, $x\equiv 3\pmod{25}$. Here $M=4\cdot9\cdot25=900$.
+
+\textbf{Round 1.} Start with $25$: $x=3+25t$. Put into the condition mod $9$:
+\begin{align*}
+3+25t &\equiv 2 \pmod 9\\
+25t &\equiv -1 \pmod 9\\
+7t &\equiv 8 \pmod 9 &&(25\equiv 7,\ -1\equiv 8)
+\end{align*}
+We need the inverse of $7$ modulo $9$, which is $4$ (Example~\ref{ex:inv7-9}). So multiply both sides by $4$:
+\[
+t\equiv 8\cdot 4=32\equiv 5\pmod 9.
+\]
+Thus $t=5+9s$, and $x=3+25(5+9s)=128+225s$. So $x\equiv128\pmod{225}$.
+
+\textbf{Round 2.} Put $x=128+225s$ into the condition mod $4$:
+\begin{align*}
+128+225s &\equiv 1 \pmod 4\\
+0+1\cdot s &\equiv 1 \pmod 4 &&(128\equiv0,\ 225\equiv1 \bmod 4)\\
+s &\equiv 1 \pmod 4
+\end{align*}
+So $s=1+4r$ and $x=128+225(1+4r)=353+900r$.
+
+\textbf{Answer:} $x\equiv 353\pmod{900}$.
+
+\emph{Check:} $353=88\cdot4+1$ \checkmark;\quad $353=39\cdot9+2$ \checkmark;\quad $353=14\cdot25+3$ \checkmark
+\end{example}
+
+
+
+%---------------------------------------------------------------------
+\subsection{Method C: Describe \texorpdfstring{$x$}{x} in two ways and compare}\label{sec:methodC}
+%---------------------------------------------------------------------
+
+Method C solves \textbf{two} congruences
+\[
+x\equiv a\pmod m,\qquad x\equiv b\pmod n,\qquad \gcd(m,n)=1.
+\]
+There is no formula to memorize: the answer comes out of one simple idea. (This is also the method used in practice, for instance in RSA decryption, because all its numbers stay small.)
+
+\minorhead{The idea: ``start at the remainder, then take steps''}
+
+What does $x\equiv a\pmod m$ say? That $x$ is $a$ plus some number of whole steps of size $m$:
+\[
+x = a + m\cdot t\qquad(t=0,1,2,\dots\text{ counts the steps}).
+\]
+For example, ``remainder $2$ when divided by $3$'' means $x\in\{2,\ 2+3,\ 2+6,\ 2+9,\dots\}=\{2,5,8,11,\dots\}$.
+
+In exactly the same way, $x\equiv b\pmod n$ says that $x$ is $b$ plus some number of steps of size $n$:
+\[
+x = b + n\cdot s.
+\]
+But $x$ is \emph{one} number, so both descriptions must give the same value:
+\[
+a + m\,t \;=\; b + n\,s.
+\]
+Our only unknowns are the step counts $t$ and $s$. Now comes the one clever move: \textbf{look at both sides through the eyes of $n$}, i.e.\ look only at remainders when dividing by $n$. Then $n\,s$ is a multiple of $n$ and simply \emph{disappears}, leaving
+\[
+a + m\,t\;\equiv\; b \pmod n\qquad\Longleftrightarrow\qquad m\,t\;\equiv\; b-a \pmod n.
+\]
+In words: \emph{the steps of size $m$ must add up to exactly the gap $b-a$, as seen by $n$.} Find $t$ from this, and the answer is $x=a+m\,t$.
+
+
+\minorhead{Guided example: $x\equiv2\pmod3$ and $x\equiv3\pmod5$}
+
+Here $a=2,\ m=3,\ b=3,\ n=5$. Every number of the form $x=2+3t$ already has remainder $2$ when divided by $3$, so we only have to choose the number of steps $t$ that gives remainder $3$ when divided by $5$. That is exactly the listing of Step~2 in Section~\ref{sec:crt-idea}, now with the step count attached: $t=0,1,2$ give $x=2,5,8$, with remainders $2,0,3$ modulo $5$, so $t=2$ and $x=2+3\cdot2=8$. Going on, $t=3,4$ give remainders $1,4$, so the remainders $2,0,3,1,4$ contain every value from $0$ to $4$ exactly once: since $3$ and $5$ share no factor, the steps of size $3$ visit every remainder mod $5$, so exactly one $t$ between $0$ and $4$ works. Since the pattern repeats after $3\cdot5=15$, the full answer is $x\equiv8\pmod{15}$.
+
+
+\minorhead{When the numbers are big: let the inverse find $t$ for you}
+
+Trying $t=0,1,2,\dots$ is fine for tiny numbers but hopeless for large ones. Look again at what we had to solve:
+\[
+m\,t\equiv b-a\pmod n\qquad(\text{above: } 3t\equiv 1 \pmod 5).
+\]
+If we had a number that ``undoes'' multiplication by $m$, we could just apply it to both sides. That number is the \emph{inverse} $m^{-1}$ of $m$ modulo $n$: it satisfies $m\cdot m^{-1}\equiv1\pmod n$ (see Section~\ref{sec:eea-inverse} for how to find it). Multiplying both sides by it gives $t$ directly:
+\[
+t\equiv (b-a)\cdot m^{-1}\pmod n,\qquad\text{and then}\qquad x=a+m\,t\pmod{mn}.
+\]
+In the example, $3\cdot2=6\equiv1\pmod5$, so $3^{-1}=2$ and $t\equiv(3-2)\cdot2=2$. It is the same $t=2$ as in the table, obtained without trying anything.
+
+\textbf{Why the answer works, in two lines.} Modulo $m$: $x=a+m\,t$ differs from $a$ by a multiple of $m$, so the remainder is $a$, whatever $t$ is. Modulo $n$: $m\,t\equiv (b-a)\,m\,m^{-1}\equiv b-a$, so $x\equiv a+(b-a)=b$.
+
+\minorhead{The formula, stated formally}
+
+\begin{theorem}[Two-congruence formula (Method C)]\label{thm:methodC}
+Let $m,n\ge 2$ be integers with $\gcd(m,n)=1$, and let $a,b$ be any integers. Let $u$ be an inverse of $m$ modulo $n$, i.e.\ an integer with $m\,u\equiv1\pmod n$. Then the system
+\[
+x\equiv a\pmod m,\qquad x\equiv b\pmod n
+\]
+has exactly one solution modulo $mn$, namely
+\[
+\boxed{\;x\;\equiv\;a+m\,t \pmod{mn},\qquad\text{where}\quad t\equiv (b-a)\,u \pmod n.\;}
+\]
+\end{theorem}
+
+\begin{proof}
+\emph{It is a solution.} Modulo $m$: $x-a=m\,t$ is a multiple of $m$, so $x\equiv a$. Modulo $n$: $m\,t\equiv m\,u\,(b-a)\equiv b-a$, so $x\equiv a+(b-a)=b$.
+
+\emph{It is the only one.} By the uniqueness part of Theorem~\ref{thm:crt}, any other solution is congruent to this one modulo $mn$.
+\end{proof}
+
+\noindent\textbf{Symbols at a glance.}
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{cl}
+\toprule
+Symbol & Meaning \\
+\midrule
+$a,\ m$ & remainder and modulus of the first congruence \\
+$b,\ n$ & remainder and modulus of the second congruence \\
+$u=m^{-1}\bmod n$ & the number with $m\,u\equiv1\pmod n$ \\
+$b-a$ & the gap the steps of size $m$ must cover, as seen by $n$ \\
+$t$ & the number of steps of size $m$ taken from $a$ \\
+$mn$ & the modulus of the final answer \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{example}[Three congruences: Sunzi again, one merge at a time]\label{ex:sunzi-C}
+Solve $x\equiv2\pmod3$, $x\equiv3\pmod5$, $x\equiv2\pmod7$.
+
+\emph{First merge the first two.} We just found $x\equiv8\pmod{15}$. This single congruence replaces the first two.
+
+\emph{Now merge it with the third.} Take $a=8,\ m=15$ (so $x=8+15t$) and $b=2,\ n=7$. We need $8+15t\equiv2\pmod 7$, i.e.\ $15t\equiv-6\pmod7$. Since $15=2\cdot7+1$, we have $15\equiv1$, so this is simply $t\equiv-6\equiv1\pmod7$.
+
+Hence $x=8+15\cdot1=23$, and $x\equiv23\pmod{105}$. This agrees with Method A (Example~\ref{ex:qs-sunzi}).
+\end{example}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{ll}
+\toprule
+\textbf{Common slip} & \textbf{Correct version} \\
+\midrule
+Inverting $m$ modulo $m$ (impossible) & invert $m$ modulo the \emph{other} modulus $n$ \\
+Forgetting to reduce $t$ & reduce $t$ modulo $n$ before computing $a+mt$ \\
+Reporting the answer modulo $m$ or $n$ & the answer is modulo $mn$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}[Beyond two moduli: the general formula, if you've seen it elsewhere]
+Theorem~\ref{thm:crt} and Method C use exactly two moduli, since that is all RSA needs. But CRT works for any number of pairwise-coprime moduli $n_1,\dots,n_k$, and it's worth seeing the general pattern once so the two-modulus case above looks like a special case rather than a different theorem. Given
+\[
+x\equiv a_1\pmod{n_1}, \quad x\equiv a_2\pmod{n_2}, \quad \ldots, \quad x\equiv a_k\pmod{n_k},
+\]
+set $N=n_1n_2\cdots n_k$, and for each $i$ let $N_i=N/n_i$ (the product of all moduli \emph{except} $n_i$) and let $M_i$ be the inverse of $N_i$ mod $n_i$, i.e.\ $N_iM_i\equiv1\pmod{n_i}$. Then
+\[
+x\equiv\sum_{i=1}^k a_iN_iM_i \pmod N.
+\]
+Why this works: each term $a_jN_jM_j$ is built so that mod $n_i$ it vanishes for every $j\ne i$ (because $N_j$ is a multiple of $n_i$ whenever $j\ne i$) and reduces to exactly $a_i$ when $j=i$ (because $N_iM_i\equiv1\pmod{n_i}$ by construction) — so the whole sum matches $a_i$ mod $n_i$, for every $i$ simultaneously. Re-deriving the Step-1 puzzle this way: $N=15$, $N_1=5,\,N_2=3$; $M_1=5^{-1}\bmod3=2$ and $M_2=3^{-1}\bmod5=2$; so $x\equiv2\cdot5\cdot2+3\cdot3\cdot2=20+18=38\equiv8\pmod{15}$ — the same $x=8$ as before. (For $k=2$ this reduces to the two-modulus formula of Theorem~\ref{thm:methodC}, rearranged into a more convenient form.)
+\end{remark}
+
+
+
+\newpage
+%=====================================================================
+\section{RSA: Construction, Correctness and Fast Decryption}\label{sec:rsa}
+%=====================================================================
+
+We now have every tool. Section~\ref{sec:overview} reduced RSA to one requirement, $m^{ed}\equiv m\pmod n$. Euclid (Section~\ref{sec:eea}) lets us compute $d$ from $e$, Euler's theorem (Section~\ref{sec:euler}) makes the identity true for messages coprime to $n$, and CRT (Section~\ref{sec:crt}) extends it to every message. This section first shows \emph{why} decryption undoes encryption (Section~\ref{sec:why-works}), then turns that into the key-generation recipe (Section~\ref{sec:rsa-construction}), proves correctness for every message (Section~\ref{sec:correctness}), and finally covers how RSA is computed efficiently: fast exponentiation (Section~\ref{sec:modexp}) and CRT decryption (Section~\ref{sec:crt-speedup}).
+
+\subsection{Why Decryption Undoes Encryption (the Coprime Case)}\label{sec:why-works}
+
+Recall the goal from Section~\ref{sec:overview}: we need $m^{ed}\equiv m\pmod n$ to hold, for suitably chosen $e$ and $d$. Euler's theorem (Theorem~\ref{thm:euler}) is exactly the tool needed. Suppose $e$ and $d$ are chosen so that
+\[
+ed \equiv 1 \pmod{\varphi(n)}.
+\]
+
+Read this condition in words first: it says $ed$, divided by $\varphi(n)$, leaves remainder $1$ — equivalently, $ed$ is \emph{one more than some whole number of multiples of $\varphi(n)$}. Call that whole number of multiples $k$, so as an equation over the integers (not just modulo $\varphi(n)$):
+\[
+ed = 1 + k\varphi(n), \qquad \text{for some integer } k \ge 0.
+\]
+Substitute this into $m^{ed}$ and simplify one step at a time, assuming for now $\gcd(m,n)=1$:
+\[
+m^{ed} \;=\; m^{\,1+k\varphi(n)} \;=\; m^{1}\cdot m^{k\varphi(n)} \;=\; m\cdot\left(m^{\varphi(n)}\right)^{k}.
+\]
+The first equality just substitutes $ed=1+k\varphi(n)$; the second splits the exponent's sum into a product of powers (the exponent law $x^{s+t}=x^sx^t$); the third regroups $m^{k\varphi(n)}=(m^{\varphi(n)})^k$ (the exponent law $x^{st}=(x^s)^t$). Now Euler's theorem enters: since $\gcd(m,n)=1$, $m^{\varphi(n)}\equiv1\pmod n$. Substituting,
+\[
+m\cdot\left(m^{\varphi(n)}\right)^{k} \equiv m\cdot1^{k} \equiv m \pmod n.
+\]
+Chaining the two displayed calculations together gives exactly $m^{ed}\equiv m\pmod n$ --- decryption undoes encryption, which is exactly the problem we set out to solve.
+
+
+\begin{remark}[The ``clock'' intuition for the same argument, without the algebra]
+Picture the powers of $m$ modulo $n$ arranged around a dial with $\varphi(n)$ positions. Euler's theorem says raising $m$ to the power $\varphi(n)$ is ``one full lap'' of the dial: you end up exactly back where you started, at $1$. Raising $m$ to the power $k\varphi(n)$ is ``$k$ full laps'' — still exactly back at $1$, however many laps. Raising $m$ to the power $ed=1+k\varphi(n)$ is therefore ``$k$ full laps, plus one extra step'' — and one extra step past ``back where you started'' is just $m^1=m$. Choosing $e$ and $d$ with $ed\equiv1\pmod{\varphi(n)}$ is precisely choosing them so encrypting-then-decrypting is always some whole number of full laps plus exactly one step.
+\end{remark}
+
+
+
+\begin{example}[The exponent identity, verified with actual numbers]\label{ex:exponent-identity}
+Take $n=10$, so $\varphi(n)=4$, and pick $e=3$. We need $d$ with $3d\equiv1\pmod4$; $d=3$ works, since $3\cdot3=9=1+2\cdot4$ (so $k=2$ here). Take $m=7$ (coprime to $10$). Encrypt-then-decrypt: $m^e=7^3=343\equiv3\pmod{10}$, then $(m^e)^d=3^3=27\equiv7\pmod{10}$ — back to the original $m=7$, exactly as the identity above guarantees. Note $ed=9=1+2\cdot4$: two full laps around a $4$-position dial, plus one extra step.
+\end{example}
+
+
+This is \emph{exactly} the decryption-undoes-encryption identity RSA needs, and the next subsection turns it into a key-generation recipe: pick $e$ first, then solve $ed\equiv1\pmod{\varphi(n)}$ for $d$ using the Extended Euclidean Algorithm (Theorem~\ref{thm:eea-inverse}). There is one loose thread left, and it's worth being upfront about it rather than sweeping it under the rug: the derivation above assumed $\gcd(m,n)=1$. A real message $m$ might, in principle, share a factor with $n$, and then Euler's theorem as stated does not apply to it, since it is only a statement about the ``well-behaved club'' $(\mathbb{Z}/n\mathbb{Z})^*$. Section~\ref{sec:correctness} closes this gap using the Chinese Remainder Theorem (Theorem~\ref{thm:crt}) and proves the identity for \emph{every} message.
+
+\subsection{Key Generation, Encryption and Decryption}\label{sec:rsa-construction}
+
+Key generation sets up the numbers so that the identity of Section~\ref{sec:why-works} applies; encryption and decryption are nothing more than \emph{using} it.
+
+
+\begin{algorithm}[h]
+\caption{RSA Key Generation}\label{alg:keygen}
+\begin{algorithmic}[1]
+\State Choose two large distinct primes $p, q$ of similar bit-length (typically 1536 bits each for a 3072-bit modulus)
+\State Compute $n = pq$
+\State Compute $\varphi(n) = (p-1)(q-1)$
+\State Choose $e$ with $1 < e < \varphi(n)$ and $\gcd(e, \varphi(n)) = 1$
+\State Compute $d \equiv e^{-1} \pmod{\varphi(n)}$ via the Extended Euclidean Algorithm
+\State \textbf{Public key:} $(n, e)$ \qquad \textbf{Private key:} $(n, d)$ \quad (or $(p,q,d)$ for CRT speedup)
+\end{algorithmic}
+\end{algorithm}
+
+
+\begin{definition}[RSA Encryption / Decryption]
+For a message $m \in \{0, 1, \dots, n-1\}$:
+\[
+\text{Encryption:} \quad c = m^{e} \bmod n, \qquad \text{Decryption:} \quad m = c^{d} \bmod n.
+\]
+\end{definition}
+
+\begin{remark}[Why $\gcd(e,\varphi(n))=1$ is required — and why this is a completely different condition from $\gcd(a,n)=1$]\label{rem:exponent-range}
+It is easy to conflate two superficially similar-looking coprimality conditions in this lecture, so it is worth pulling them apart explicitly, side by side:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+& \textbf{messages / bases} $a$ & \textbf{exponents} $e,d$\\
+\midrule
+live in & $\{0,\dots,n-1\}$ & $\{0,\dots,\varphi(n)-1\}$\\
+``nice'' subset & $a$ with $\gcd(a,n)=1$ & $e$ with $\gcd(e,\varphi(n))=1$\\
+why & lets Euler's theorem apply to $a$ & lets $e$ be \emph{inverted} mod $\varphi(n)$\\
+\bottomrule
+\end{tabular}
+\end{center}
+These are the same \emph{shape} of condition (``coprime to the modulus you're working in''), but applied to two genuinely different moduli, one level apart: bases are filtered against $n$, exponents are filtered against $\varphi(n)$. Do not read ``$1<e<\varphi(n)$'' as merely naming a range to pick a number from — the \emph{range itself} is forced (exponents provably repeat with period $\varphi(n)$, exactly as bases repeat with period $n$; see the paragraph below), but landing inside that range is not sufficient on its own: only the $\varphi(\varphi(n))$ values in that range that are coprime to $\varphi(n)$ are actually usable as an encryption exponent.
+
+\medskip\noindent\textbf{Why the range is $\{0,\dots,\varphi(n)-1\}$ at all.} This is a separate fact from the coprimality filter, and it is worth seeing why exponents wrap around with period $\varphi(n)$, not $n$. For any $a$ coprime to $n$ and any integer $x$, Euler's theorem gives
+\[
+a^{x+\varphi(n)} = a^x \cdot a^{\varphi(n)} \equiv a^x \cdot 1 = a^x \pmod n,
+\]
+so raising $a$ to the power $e$ and to the power $e+\varphi(n)$ produces the \emph{identical} ciphertext, every time. Exponents, for the purposes of RSA, genuinely live in $\mathbb{Z}/\varphi(n)\mathbb{Z}$ — a clock with $\varphi(n)$ positions — exactly parallel to how bases live in $\mathbb{Z}/n\mathbb{Z}$, a clock with $n$ positions. Picking $e$ larger than $\varphi(n)$ is not wrong, merely wasteful: it computes the exact same encryption function as $e \bmod \varphi(n)$, using more squarings to get there.
+
+\medskip\noindent\textbf{Why coprimality to $\varphi(n)$, specifically, is needed on top of that.} We need $e$ to be \emph{invertible} modulo $\varphi(n)$, i.e.\ we need some $d$ with $ed \equiv 1 \pmod{\varphi(n)}$. An element of $\mathbb{Z}/\varphi(n)\mathbb{Z}$ is invertible if and only if it is coprime to $\varphi(n)$ (Theorem~\ref{thm:eea-inverse}, the same standard fact used throughout this lecture: $(\mathbb{Z}/k\mathbb{Z})^{*}$ consists exactly of residues coprime to $k$ — here applied with $k=\varphi(n)$ rather than $k=n$). Without this, no valid $d$ exists at all, and encryption under such an $e$ could never be undone.
+
+\begin{example}[The filter, made fully concrete on $n=10$]
+Take $n=10$, so $\varphi(10)=4$ and exponents reduce modulo $4$: the only candidates are $e\in\{0,1,2,3\}$. Check each one directly against $\gcd(e,4)$:
+\[
+\begin{array}{c|cccc}
+e & 0 & 1 & 2 & 3\\
+\hline
+\gcd(e,4) & 4 & 1 & 2 & 1
+\end{array}
+\]
+$e=0$ is useless regardless ($m^0=1$ always, and it isn't invertible: $\gcd(0,4)=4\ne1$). $e=1$ is invertible ($d=1$) but trivial (``encryption'' that does nothing). $e=2$ has $\gcd(2,4)=2\ne1$ — \textbf{no $d$ exists}: checking every value of $d\bmod4$ directly, $2\cdot0\equiv0,\ 2\cdot1\equiv2,\ 2\cdot2\equiv0,\ 2\cdot3\equiv2\pmod4$, and $1$ never appears, so $e=2$ can never be decrypted and must be excluded. $e=3$ has $\gcd(3,4)=1$, and indeed $3\cdot3=9\equiv1\pmod4$, giving $d=3$ — this is the only usable, nontrivial exponent for $n=10$, and it is exactly the pair $e=d=3$ of Example~\ref{ex:exponent-identity}.
+
+Notice the parallel exactly: just as the ``nice'' bases mod $10$ are the coprime-to-$10$ subset $\{1,3,7,9\}\subset\{0,\dots,9\}$, the ``nice'' exponents mod $\varphi(10)=4$ are the coprime-to-$4$ subset $\{1,3\}\subset\{0,\dots,3\}$ — the same filtering idea, one level up, applied to $\varphi(n)$ instead of $n$.
+\end{example}
+
+At realistic RSA sizes, $\varphi(n)$ has hundreds of digits, so this filter is never applied by listing candidates (as in the tiny example above) — it is applied by picking a candidate $e$ (in practice, almost always the fixed value $65537$) and directly testing $\gcd(e,\varphi(n))=1$ via the Euclidean algorithm, as in Section~\ref{sec:euclid} (the table method of Section~\ref{sec:eea-table} extends it).
+\end{remark}
+
+
+\begin{example}[Toy example --- never use these sizes in practice]\label{ex:toy-rsa}
+Let $p = 61$, $q = 53$. Then $n = 3233$ and $\varphi(n) = 60 \cdot 52 = 3120$.
+Choose $e = 17$; the table method confirms $\gcd(17,3120)=1$ and produces $d = 2753$, since $17 \times 2753 = 46801 = 15 \times 3120 + 1$ (full table in Example~\ref{ex:rsa-d}).
+Encrypt $m = 65$: $c = 65^{17} \bmod 3233 = 2790$ (square-and-multiply trace in Example~\ref{ex:ltr2}). Decrypt: $2790^{2753} \bmod 3233 = 65$. \checkmark
+
+The private exponent $d$ is computable only for someone who knows $\varphi(n)$, that is, someone who can factor $n$: this is where the security of RSA comes from.
+\end{example}
+
+
+\subsection{Correctness of RSA}\label{sec:correctness}
+
+Recall the loose thread flagged at the end of Section~\ref{sec:why-works}: our derivation of $m^{ed}\equiv m\pmod n$ assumed $\gcd(m,n)=1$. We now close that gap and prove $\mathrm{Dec}(\mathrm{Enc}(m)) = m$ for \emph{every} $m \in \{0, \dots, n-1\}$ — not just those coprime to $n$. Most textbooks quietly assume $\gcd(m,n)=1$ and invoke Euler's theorem directly; a rigorous treatment must handle the small-probability edge case, and this is exactly where CRT (Theorem~\ref{thm:crt}) earns its keep: the strategy is to prove the congruence \emph{separately} modulo $p$ and modulo $q$ (where a short case split handles the edge case cleanly) and then let CRT stitch the two into a single statement modulo $n=pq$.
+
+\begin{theorem}[RSA Correctness]\label{thm:rsa-correct}
+For all $m \in \{0, \dots, n-1\}$, $\quad m^{ed} \equiv m \pmod n$.
+\end{theorem}
+
+\begin{proof}
+Since $ed \equiv 1 \pmod{\varphi(n)}$, write $ed = 1 + k\varphi(n) = 1 + k(p-1)(q-1)$ for some integer $k \geq 0$ (using $\varphi(pq)=(p-1)(q-1)$, Proposition~\ref{prop:totient}).
+
+By CRT (Theorem~\ref{thm:crt}), it suffices to show
+\[
+m^{ed} \equiv m \pmod p \qquad \text{and} \qquad m^{ed} \equiv m \pmod q,
+\]
+since $p$ and $q$ are coprime, these together are equivalent to $m^{ed} \equiv m \pmod{pq}$ (Lemma~\ref{lem:coprime-div}; this is the uniqueness half of CRT).
+
+We show the first congruence; the second is symmetric. Consider two cases.
+
+\textbf{Case 1: $p \nmid m$.} Then $\gcd(m, p) = 1$, so by Fermat's Little Theorem (Corollary~\ref{cor:fermat}) $m^{p-1} \equiv 1 \pmod p$. Hence
+\[
+m^{ed} = m^{1 + k(p-1)(q-1)} = m \cdot \left(m^{p-1}\right)^{k(q-1)} \equiv m \cdot 1^{k(q-1)} \equiv m \pmod p.
+\]
+
+\textbf{Case 2: $p \mid m$.} Then $m \equiv 0 \pmod p$, and since $ed \geq 1$, $m^{ed} \equiv 0 \equiv m \pmod p$ trivially.
+
+Either way, $m^{ed} \equiv m \pmod p$. By the symmetric argument, $m^{ed} \equiv m \pmod q$. By CRT, $m^{ed} \equiv m \pmod{pq} = \pmod n$.
+\end{proof}
+
+\begin{remark}[Why this edge case matters pedagogically, not just practically]
+The event $p \mid m$ for a random $m \in \{0,\dots,n-1\}$ has probability $1/p$ — utterly negligible for cryptographic-size primes, so it is \emph{never} a practical concern. But it matters conceptually: it shows correctness of RSA is really a CRT argument dressed up, and it is the reason the correctness proof cannot be ``just Euler's theorem'' as often claimed. This distinction resurfaces when we discuss why RSA's algebraic structure (a ring homomorphism argument, not merely a group-order argument) enables attacks like Håstad's broadcast attack (Section~\ref{sec:hastad}).
+\end{remark}
+
+\begin{example}[The edge case, made concrete]
+With $n = 3233 = 61 \times 53$, the ``bad'' messages are the tiny fraction that are multiples of $61$ or $53$: e.g., $m = 61$. Here $p \mid m$, so Case 2 applies mod $61$ ($m^{ed} \equiv 0 \equiv m \pmod{61}$ trivially), while Case 1 applies mod $53$ (since $\gcd(61,53)=1$, Fermat's little theorem does the work mod $53$). CRT stitches the two together. You can verify numerically that $61^{17 \cdot 2753} \bmod 3233 = 61$ still holds — correctness survives even though Euler's theorem alone (which needs $\gcd(m,n)=1$) does not directly apply to $m=61$, since $\gcd(61,3233)=61 \ne 1$.
+\end{example}
+
+\begin{exercise}
+Prove the case $q \mid m$ directly (mirror the argument above), and explain why $p \mid m$ and $q \mid m$ cannot both hold when $m < n = pq$ and $m \ne 0$.
+\end{exercise}
+
+
+
+\subsection{Fast Modular Exponentiation}\label{sec:modexp}
+Both encryption and decryption require computing $a^{k} \bmod n$ efficiently. Naive repeated multiplication is $O(k)$ multiplications; \textbf{square-and-multiply} reduces this to $O(\log k)$.
+
+\begin{algorithm}[h]
+\caption{Square-and-Multiply (Right-to-Left, two variables)}\label{alg:modexp}
+\begin{algorithmic}[1]
+\Function{ModExp}{$a, k, n$}
+    \State $result \gets 1$
+    \State $base \gets a \bmod n$
+    \While{$k > 0$}
+        \If{$k \bmod 2 = 1$}
+            \State $result \gets (result \times base) \bmod n$
+        \EndIf
+        \State $base \gets (base \times base) \bmod n$
+        \State $k \gets \lfloor k / 2 \rfloor$
+    \EndWhile
+    \State \Return $result$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{example}[Right-to-left trace]
+Compute $5^{117} \bmod 19$. Write $117 = 1110101_2$ (bits, LSB first: $1,0,1,0,1,1,1$). Trace of \textsc{ModExp}, showing $(\text{bit consumed}, result, base \text{ after squaring})$:
+\[
+\begin{array}{c|ccc}
+\text{step} & \text{bit} & result & base \\
+\hline
+1 & 1 & 5 & 6 \\
+2 & 0 & 5 & 17 \\
+3 & 1 & 9 & 4 \\
+4 & 0 & 9 & 16 \\
+5 & 1 & 11 & 9 \\
+6 & 1 & 4 & 5 \\
+7 & 1 & 1 & 6 \\
+\end{array}
+\]
+Final result: $1$. Direct check: $5^{117} \bmod 19 = 1$ (consistent: by Fermat's little theorem (Corollary~\ref{cor:fermat}) $5^{18}\equiv1\pmod{19}$, so only $117 \bmod 18 = 9$ matters, and $5^9 \equiv 1 \pmod{19}$ --- try verifying this independently). Only \textbf{7 squarings and 5 multiplications} were needed instead of 116 successive multiplications.
+\end{example}
+
+\minorhead{Left-to-right square-and-multiply (one variable)}
+
+The right-to-left version above tracks two variables ($result$ and $base$). The \textbf{left-to-right} version reads the bits of $k$ starting from the \emph{most significant} bit and needs only \emph{one} variable, $result$. The idea: after reading some leading bits of $k$, $result$ equals $a$ raised to the number formed by those bits. Reading one more bit turns that number $j$ into $2j$ (append a $0$) or $2j+1$ (append a $1$), so we \emph{square}, and if the new bit is $1$ we also \emph{multiply by $a$}.
+
+\begin{algorithm}[h]
+\caption{Square-and-Multiply (Left-to-Right)}\label{alg:modexp-ltr}
+\begin{algorithmic}[1]
+\Function{ModExpLTR}{$a, k, n$}
+    \State $result \gets 1$
+    \For{each bit $b$ of $k$, from the most significant to the least significant}
+        \State $result \gets (result \times result) \bmod n$ \Comment{square}
+        \If{$b = 1$}
+            \State $result \gets (result \times a) \bmod n$ \Comment{multiply}
+        \EndIf
+    \EndFor
+    \State \Return $result$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{recipe}{Recipe (by hand)}
+Write $k$ in binary. Start with $result=1$. For each bit, left to right: \textbf{(1)} square $result$ and reduce mod $n$; \textbf{(2)} if the bit is $1$, multiply $result$ by $a$ and reduce mod $n$. After the last bit, $result=a^k\bmod n$.
+\end{recipe}
+
+\begin{example}[Left-to-right trace: $5^{117}\bmod 19$]\label{ex:ltr1}
+Here $117=1110101_2$, read from the left: $1$, $1$, $1$, $0$, $1$, $0$, $1$. Start with $result=1$.
+\[
+\begin{array}{c|c|c|c}
+\text{step} & \text{bit} & \text{after squaring} & \text{after multiplying by } 5\\
+\hline
+1 & 1 & 1^2=1 & 1\cdot5=5\\
+2 & 1 & 5^2=25\equiv6 & 6\cdot5=30\equiv11\\
+3 & 1 & 11^2=121\equiv7 & 7\cdot5=35\equiv16\\
+4 & 0 & 16^2=256\equiv9 & 9\ (\text{skip})\\
+5 & 1 & 9^2=81\equiv5 & 5\cdot5=25\equiv6\\
+6 & 0 & 6^2=36\equiv17 & 17\ (\text{skip})\\
+7 & 1 & 17^2=289\equiv4 & 4\cdot5=20\equiv1
+\end{array}
+\]
+Final result: $5^{117}\equiv1\pmod{19}$, the same answer as the right-to-left trace. (The multiply step is skipped when the bit is $0$. Step 1 is trivial because $1^2=1$; many people start with $result=a$ and skip the first bit.)
+\end{example}
+
+\begin{example}[Left-to-right trace: the RSA encryption $65^{17}\bmod 3233$]\label{ex:ltr2}
+Here $17=10001_2$, so the bits are $1$, $0$, $0$, $0$, $1$. Start with $result=1$.
+\[
+\begin{array}{c|c|c|c}
+\text{step} & \text{bit} & \text{after squaring} & \text{after multiplying by } 65\\
+\hline
+1 & 1 & 1 & 65\\
+2 & 0 & 65^2=4225\equiv992 & 992\\
+3 & 0 & 992^2\equiv1232 & 1232\\
+4 & 0 & 1232^2\equiv1547 & 1547\\
+5 & 1 & 1547^2\equiv789 & 789\cdot65\equiv2790
+\end{array}
+\]
+So $c=65^{17}\bmod3233=2790$, matching the toy RSA example (Example~\ref{ex:toy-rsa}). Only $4$ squarings and $2$ multiplications were needed, instead of $16$ successive multiplications.
+\end{example}
+
+\begin{remark}[Comparing the two versions]
+Both versions use about $\log_2 k$ squarings and one multiplication per $1$-bit of $k$, and both give the same answer. Right-to-left keeps two variables ($result$, $base$) and reads bits from the least significant end. Left-to-right keeps one variable ($result$), reads bits from the most significant end, and always multiplies by the \emph{same} fixed number $a$ (useful when $a$ is small, such as a message or a fixed base).
+\end{remark}
+
+\begin{remark}[Security-relevant note — preview of a later lesson]
+The naive implementations above have data-dependent branching (the \texttt{if} depends on the secret exponent's bits), which leaks timing information. This is the root cause of timing attacks on RSA, covered when we do implementation attacks.
+\end{remark}
+
+
+
+\subsection{CRT-Based Decryption Speedup}\label{sec:crt-speedup}
+
+
+Since the private-key holder knows $p$ and $q$, decryption can be done mod $p$ and mod $q$ separately (smaller exponents, smaller moduli) and recombined via CRT.
+
+\begin{algorithm}[h]
+\caption{CRT-RSA Decryption}\label{alg:crt-rsa}
+\begin{algorithmic}[1]
+\State Precompute: $d_p = d \bmod (p-1)$, \quad $d_q = d \bmod (q-1)$, \quad $q_{inv} = q^{-1} \bmod p$
+\State $m_p = c^{d_p} \bmod p$
+\State $m_q = c^{d_q} \bmod q$
+\State $h = q_{inv} \cdot (m_p - m_q) \bmod p$
+\State $m = m_q + h \cdot q$
+\State \Return $m$
+\end{algorithmic}
+\end{algorithm}
+
+
+\textbf{Why it works.} By Theorem~\ref{thm:rsa-correct}, $c^{d}\equiv m\pmod n$, hence also modulo $p$ and modulo $q$. Fermat's little theorem (Corollary~\ref{cor:fermat}) lets us shrink the exponent: modulo $p$, powers of $c$ repeat with period $p-1$ when $p\nmid c$ (if $p\mid c$ both sides are $0$, since $d_p\ge1$ for odd $p$), so $c^{d}\equiv c^{d_p}\pmod p$ and therefore $m_p=m\bmod p$; likewise $m_q=m\bmod q$. The last two lines of the algorithm are the two-congruence formula of Theorem~\ref{thm:methodC} with $a=m_q$ (first modulus $q$), $b=m_p$ (second modulus $p$), $u=q_{inv}$ and $t=h$: they rebuild the unique $m\in\{0,\dots,pq-1\}$ with these two remainders (Theorem~\ref{thm:crt}).
+
+
+\begin{example}[CRT-RSA decryption, continuing the toy example]
+Recall $p=61, q=53, n=3233, e=17, d=2753$, and $c = 2790$ (encryption of $m=65$ in Example~\ref{ex:toy-rsa}). Precompute:
+\begin{gather*}
+d_p = d \bmod (p-1) = 2753 \bmod 60 = 53, \qquad d_q = d \bmod (q-1) = 2753 \bmod 52 = 49,\\
+q_{inv} = q^{-1} \bmod p = 38 \quad (\text{check: } 53\cdot38=2014=33\cdot61+1).
+\end{gather*}
+Then:
+\[
+m_p = c^{d_p} \bmod p = 2790^{53} \bmod 61 = 4, \qquad m_q = c^{d_q} \bmod q = 2790^{49} \bmod 53 = 12.
+\]
+Recombine: $h = q_{inv}(m_p - m_q) \bmod p = 38 \cdot (4-12) \bmod 61 = 1$, and $m = m_q + h \cdot q = 12 + 1 \cdot 53 = 65$. \checkmark Matches the direct decryption, but every intermediate exponentiation used a $\sim$6-bit exponent and a $\sim$6-bit modulus instead of the full-size $d$ and $n$.
+\end{example}
+
+
+
+This gives roughly a $4\times$ speedup (two exponentiations with half-size exponents and half-size moduli, each individually $\sim 8\times$ cheaper, combined with cheap recombination). \textbf{Flag this in your memory}: this optimization is exactly what the Bellcore fault attack (covered in a later lesson) exploits — a single computational fault in either the $m_p$ or $m_q$ branch lets an attacker factor $n$ from one faulty signature.
+
+
+
+\begin{example}[CRT-RSA decryption with tiny primes]\label{ex:crt-rsa-tiny}
+
+We run Algorithm~\ref{alg:crt-rsa} with $p=11,\ q=7,\ n=pq=77,\ e=13,\ d=37$ (indeed $ed=481=8\cdot60+1$ and $\varphi(77)=10\cdot6=60$) on the ciphertext $c=52$, which is the encryption of $m=24$ (check: $24^{13}\equiv52\pmod{77}$).
+
+\emph{Line 1 (precompute).}
+\[
+d_p=37\bmod10=7,\qquad d_q=37\bmod6=1,\qquad q_{inv}=7^{-1}\bmod11=8,
+\]
+since $7\cdot8=56=5\cdot11+1$.
+
+\emph{Lines 2--3 (decrypt modulo each prime).}
+\[
+m_p=52^{7}\bmod11=8^7\bmod11=2,\qquad m_q=52^{1}\bmod7=3.
+\]
+
+
+\emph{Lines 4--5 (recombine).} Here the gap $m_p-m_q=2-3=-1$ is negative, and the inverse $q_{inv}$ is taken modulo the \emph{other} modulus $p$ (see the table of common slips at the end of Section~\ref{sec:methodC}):
+\[
+h=8\cdot(2-3)=-8\equiv3\pmod{11},\qquad m=m_q+h\cdot q=3+3\cdot7=24.\ \checkmark
+\]
+This matches the direct decryption $52^{37}\equiv24\pmod{77}$, but each exponentiation used a tiny exponent ($7$ or $1$) and a tiny modulus ($11$ or $7$) instead of the full $d$ and $n$.
+\end{example}
+
+
+
+\begin{remark}[Two uses of CRT in this lecture --- and why they are genuinely different jobs]
+CRT plays two completely different roles in RSA that students often conflate, precisely because both roles use the exact same theorem:
+\begin{enumerate}
+\item \textbf{Correctness} (Section~\ref{sec:correctness}): Euler's theorem alone only talks about $m$ with $\gcd(m,n)=1$. CRT lets us handle \emph{every} message $m\in\{0,\dots,n-1\}$, including the astronomically rare ones sharing a factor with $n$, by checking correctness separately mod $p$ and mod $q$ (where a simpler, case-by-case argument works) and using CRT to stitch the two into one statement mod $n$.
+\item \textbf{Efficiency} (Section~\ref{sec:crt-speedup}): the private-key holder, who knows $p$ and $q$, decrypts modulo $p$ and modulo $q$ separately and recombines the two partial results with the reconstruction formula of Theorem~\ref{thm:methodC}. This is a speed optimization and plays no part in correctness.
+
+
+\end{enumerate}
+\end{remark}
+
+
+
+\newpage
+%=====================================================================
+\section{Four Attacks on RSA: Håstad, Common Modulus, Shared Primes, Fermat}\label{sec:attacks}
+%=====================================================================
+
+Every attack below has the same shape: RSA is used with a small mistake in \emph{how it is deployed or how its keys are generated}, and a tool from this lesson --- the Chinese Remainder Theorem, the Extended Euclidean Algorithm, the plain gcd, or the difference of two squares --- turns that mistake into a full break. The first two attacks never factor $n$ at all. The last two do factor $n$, but only because a flawed key generator made $n$ much easier to factor than a product of two independent random primes. None of them breaks correctly generated and correctly used RSA.
+
+\medskip
+\renewcommand{\arraystretch}{1.25}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{4.9cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}@{}}
+\toprule
+\textbf{Attack} & \textbf{The mistake} & \textbf{Tool used} & \textbf{Fix} \\
+\midrule
+1. Håstad & Same message, small $e$, many recipients & CRT & Randomized padding (OAEP) \\
+2. Common modulus & One $n$ shared by several users & Extended Euclid & Never share $n$ \\
+3. Shared prime & Bad randomness reuses one prime $p$ & gcd (Euclid) & Good entropy at key generation \\
+4. Fermat & Primes $p,q$ chosen too close together & Difference of squares & Pick $p,q$ independently at random \\
+\bottomrule
+\end{tabular}
+\end{center}
+\renewcommand{\arraystretch}{1}
+
+\textbf{How to read each Setup subsection.} Every attack lists its conditions with labels: \textbf{P0} = system setup, \textbf{P1} = what the attacker can see, \textbf{P2} = mathematical or key conditions, \textbf{P3} = the mistake (behavior of a sender or a key generator), \textbf{P4} = the \emph{exact} success condition (shown in bold), \textbf{P5} = a convenient \emph{sufficient} condition that guarantees P4. The last column says whether the attacker can check the condition from public data before attacking.
+
+%---------------------------------------------------------------------
+\subsection{Håstad's Broadcast Attack}\label{sec:hastad}
+%---------------------------------------------------------------------
+
+\begin{intuition}
+Think of $m^3 \bmod n$ as the reading on a clock with $n$ hours. If $m^3$ is bigger than $n$, the hand goes around the dial and you only see where it ended up --- that wraparound is what hides $m$. Now suppose the same $m^3$ is shown to you on \emph{three different clocks}, of sizes $n_1,n_2,n_3$. CRT lets you merge them into one giant clock of size $n_1n_2n_3$. If $m^3$ is smaller than that giant clock, the hand never wrapped, so the reading \emph{is} $m^3$, and a plain cube root gives $m$. Small $e$ means too little wraparound to hide anything.
+\end{intuition}
+
+\textbf{Key idea.} CRT turns the $k$ separate readings $c_i=m^e \bmod n_i$ into one reading $C\equiv m^e \pmod N$, where $N=n_1n_2\cdots n_k$. If in addition $m^e<N$, then $m^e$ never wrapped around the big clock, so $C=m^e$ as ordinary integers, and an integer $e$-th root of $C$ gives $m$. In short: CRT merges the clocks, the size condition removes the wraparound, and a plain root finishes the job.
+
+\textbf{When this arises.} One message must go to several people: a vendor sends the same license key or firmware secret to many customers, or a group announcement is sent encrypted to each member. Every recipient has their own independent key pair, but many use the same tiny exponent (historically $e=3$, chosen because it makes encryption fast on weak hardware). The sender encrypts the identical $m$ separately under each recipient's public key.
+
+\minorhead{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & $k\ge2$ distinct moduli & Setup & Yes \\
+P0b & Same exponent $e$ for all & Setup & Yes \\
+P1 & $e$ known & Public key & Yes \\
+P2 & $\gcd(n_i,n_j)=1$ for all $i\ne j$ & Math / key & Yes \\
+P3 & $c_i=m^e\bmod n_i$ for one common $m$ & Sender behavior & No (hypothesis) \\
+\textbf{P4} & \textbf{$m^e<N=\prod n_i$} & \textbf{Exact success condition} & \textbf{No ($m$ unknown)} \\
+P5 & $k\ge e$ and $m<\min(n_i)$ & Sufficient guarantee for P4 & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\emph{Exact:}
+\[
+\boxed{\;e\text{ known},\ \gcd(n_i,n_j)=1,\ c_i=m^e\bmod n_i,\ m^e<\prod_{i=1}^{k}n_i\;}
+\]
+\emph{Guaranteed (implies the above):}
+\[
+\boxed{\;k\ge e,\ \gcd(n_i,n_j)=1,\ c_i=m^e\bmod n_i,\ m<\min_i n_i\;}
+\]
+
+\textbf{One-line summary.} The real condition is $m^e<\prod n_i$. The condition $m<\min(n_i)$ with $k\ge e$ is just a convenient \emph{sufficient} version that guarantees the real one without knowing $m$. In the worked example below, $e=k=3$.
+
+\begin{theorem}\label{thm:hastad}
+Under P0--P4, an eavesdropper who sees $c_1,\dots,c_k$ recovers $m$ with no private key. In particular this holds whenever $k\ge e$ and $m<\min_i n_i$ (P5).
+\end{theorem}
+
+\textbf{Why it works.}
+\begin{enumerate}[nosep]
+\item CRT combines the congruences $x\equiv c_i \pmod{n_i}$ into one unique answer $C$ modulo $N=n_1\cdots n_k$. This needs P2 and uses only public data.
+\item The true value $m^e$ satisfies all these congruences too, so by uniqueness $C\equiv m^e \pmod N$.
+\item By P4, $m^e<N$. So $C$ and $m^e$ are both in $[0,N)$ and congruent mod $N$, hence \emph{equal as ordinary integers}. (P5 implies P4: if $k\ge e$ and $m<\min_i n_i$, then $m^e<(\min_i n_i)^e\le n_1\cdots n_k=N$.)
+\item Take an ordinary integer $e$-th root of $C$. Done.
+\end{enumerate}
+
+\begin{example}[Håstad, $e=k=3$]\label{ex:hastad}
+Take $n_1=143=11\cdot13$, $n_2=323=17\cdot19$, $n_3=667=23\cdot29$, and secret message $m=17$. The three ciphertexts are
+\[
+c_1=17^3\bmod143=51,\qquad c_2=17^3\bmod323=68,\qquad c_3=17^3\bmod667=244.
+\]
+Each number alone looks unrelated to 17. The attacker now solves
+\[
+x\equiv51\pmod{143},\qquad x\equiv68\pmod{323},\qquad x\equiv244\pmod{667}
+\]
+with CRT (Method C of Section~\ref{sec:methodC}, merging one pair at a time). Here $N=143\cdot323\cdot667=30{,}808{,}063$.
+
+\emph{Merge the first two.} Take $a=51$, $m=143$, $b=68$, $n=323$. The inverse of $143$ modulo $323$ is $u=192$ (Extended Euclid, or check: $143\cdot192=27456=85\cdot323+1$). Then
+\[
+t\equiv(b-a)\,u=17\cdot192=3264\equiv34\pmod{323},\qquad x=51+143\cdot34=4913,
+\]
+so $x\equiv4913\pmod{143\cdot323}$, that is, modulo $46{,}189$.
+
+\emph{Merge with the third.} Take $a=4913$, $m=46189$, $b=244$, $n=667$. Notice $4913=7\cdot667+244$, so $4913\equiv244\pmod{667}$ already: the gap $b-a$ is $\equiv0$, hence $t\equiv0$ and nothing changes. So
+\[
+C=4913\pmod{30{,}808{,}063}.
+\]
+Since $17^3=4913$ is far less than $N\approx 3\times10^7$, there was no wraparound at all, and $\sqrt[3]{4913}=17=m$.
+\end{example}
+
+\begin{fixbox}
+Never send the same (or related) message to several recipients under a small $e$ without randomized padding. With OAEP each ciphertext encrypts a \emph{different} random-looking padded value, so the three equations no longer share one $m^3$. (In general, with exponent $e$ the attacker needs $e$ recipients.)
+\end{fixbox}
+
+%---------------------------------------------------------------------
+\subsection{Common Modulus Attack}\label{sec:commonmod}
+%---------------------------------------------------------------------
+
+\begin{intuition}
+This is the classic water-jug puzzle. With a 17-litre jug and a 7-litre jug you can measure exactly 1 litre: fill the 7-litre jug five times and pour out the 17-litre jug twice ($5\cdot7-2\cdot17=1$). Here the ``jugs'' are the exponents. Ciphertext $c_1$ is $m$ raised to the power 17, and $c_2$ is $m$ raised to the power 7. Multiplying five copies of $c_2$ and ``removing'' two copies of $c_1$ leaves $m$ raised to the power $5\cdot 7-2\cdot 17=1$, that is $m$ itself.
+\end{intuition}
+
+\textbf{Key idea.} Two ciphertexts of the same $m$ under the same $n$ carry the exponents $e_1$ and $e_2$ ``in the exponent''. Extended Euclid gives integers $a,b$ with $ae_1+be_2=1$, and then $c_1^{\,a}c_2^{\,b}\equiv m^{ae_1+be_2}=m\pmod n$. The exponents combine like the jug measurements, and $n$ is never factored.
+
+\textbf{When this arises.} Generating a fresh modulus $n=pq$ for every user is slow, because finding large primes dominates the cost. A careless authority might generate $n$ once and hand each user a different exponent pair $(e_i,d_i)$ over that same $n$, thinking the different exponents keep users separate. This was a real anti-pattern in some early multi-user and embedded key-management designs.
+
+\minorhead{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & One modulus $n=pq$ shared by two users (the factorization stays secret) & Setup & Yes (compare public keys) \\
+P0b & Two different exponents $e_1\ne e_2$, one per user & Setup & Yes \\
+P1 & $n,\ e_1,\ e_2,\ c_1,\ c_2$ known & Public key / traffic & Yes \\
+\textbf{P2} & \textbf{$\gcd(e_1,e_2)=1$} & \textbf{Exact success condition} & \textbf{Yes} \\
+P3 & $c_1=m^{e_1}\bmod n$ and $c_2=m^{e_2}\bmod n$ for one common $m$ & Sender behavior & No (hypothesis) \\
+P4 & $\gcd(c_1,n)=\gcd(c_2,n)=1$ (so the inverse needed in step 3 exists) & Technical & Yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\[
+\boxed{\;n\text{ shared},\ \gcd(e_1,e_2)=1,\ c_1=m^{e_1}\bmod n,\ c_2=m^{e_2}\bmod n\;}
+\]
+
+\textbf{One-line summary.} The real condition is $\gcd(e_1,e_2)=1$ on a shared modulus. Unlike Håstad, there is \emph{no} size condition on $m$ and no second ``sufficient'' version is needed. P4 is only a technicality: if it fails, $\gcd(c_i,n)$ is itself a prime factor of $n$, which is an even bigger break.
+
+\begin{theorem}\label{thm:commonmod}
+If $\gcd(e_1,e_2)=1$, anyone who knows $(n,e_1,e_2,c_1,c_2)$ recovers $m$ with no private key.
+\end{theorem}
+
+\textbf{Why it works.}
+\begin{enumerate}[nosep]
+\item Extended Euclid on $(e_1,e_2)$ gives integers $a,b$ with $ae_1+be_2=1$.
+\item Then $c_1^{\,a}c_2^{\,b}\equiv m^{ae_1}m^{be_2}=m^{ae_1+be_2}=m \pmod n$, by exponent laws alone.
+\item One of $a,b$ is negative. For a negative exponent, first compute the modular inverse of the corresponding ciphertext (again by Extended Euclid), then raise to the absolute value. (This is exactly P4: the inverse exists when $\gcd(c_i,n)=1$.)
+\end{enumerate}
+Notice that the attacker never factors $n$ and never touches $d_1$ or $d_2$.
+
+\begin{example}[Common modulus, $n=3233$]\label{ex:commonmod}
+The classic toy key $n=3233=61\cdot53$, with $e_1=17$, $e_2=7$ and secret $m=42$:
+\[
+c_1=42^{17}\bmod3233=2557,\qquad c_2=42^{7}\bmod3233=240.
+\]
+\emph{Step 1 --- Extended Euclid on $(17,7)$} (table method of Section~\ref{sec:eea-table}):
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+$i$ & $q_i$ & $r_i$ & $s_i$ & $t_i$ \\
+\midrule
+0 & --- & 17 & 1 & 0 \\
+1 & --- & 7 & 0 & 1 \\
+2 & 2 & 3 & 1 & $-2$ \\
+\hl 3 & 2 & 1 & $-2$ & 5 \\
+4 & 3 & 0 & 7 & $-17$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+So $1=(-2)\cdot17+5\cdot7$, i.e.\ $a=-2$, $b=5$. (Back-substitution gives the same: $17=2\cdot7+3$, $7=2\cdot3+1$, so $1=7-2\cdot3=7-2(17-2\cdot7)=5\cdot7-2\cdot17$.)
+
+\emph{Step 2 --- handle the negative exponent.} $c_1^{-1}\bmod3233=3123$ (check: $2557\cdot3123\equiv1$).
+
+\emph{Step 3 --- combine.}
+\[
+m\equiv (c_1^{-1})^{2}\cdot c_2^{5} \equiv 2401\cdot1904 \equiv 42 \pmod{3233}.
+\]
+\end{example}
+
+\textbf{An even worse consequence.} Any \emph{insider} who legitimately owns one pair $(e_1,d_1)$ on the shared $n$ can use the fact that $e_1d_1-1$ is a multiple of $\varphi(n)$ to factor $n$ (a standard randomized algorithm, not covered in this lesson). After that, every other user's private key is compromised too, not just one message.
+
+\begin{fixbox}
+Never share a modulus across users or purposes, even with different exponents. It is broken as soon as two exponents on it are coprime, which is the typical case.
+\end{fixbox}
+
+%---------------------------------------------------------------------
+\subsection{Shared-Prime (Batch GCD) Attack}\label{sec:sharedprime}
+%---------------------------------------------------------------------
+
+\begin{intuition}
+Factoring a single 2048-bit number is like trying to un-bake a cake: hopeless. But if two cakes were baked with a common ingredient, you can find it just by comparing them --- and Euclid's algorithm does that comparison in a fraction of a millisecond. If two RSA moduli happen to share a prime, computing $\gcd(n_1,n_2)$ hands you that prime, and dividing gives the other prime of each. Both keys are broken, and neither owner did anything obviously wrong.
+\end{intuition}
+
+\textbf{Key idea.} If two moduli share a prime $p$, then $\gcd(n_1,n_2)=p$, and Euclid's algorithm finds it in a handful of division steps without factoring anything. Once $p$ is known, $q_1=n_1/p$ and $q_2=n_2/p$ follow, and the private keys of both owners can be computed.
+
+\textbf{When this arises.} Devices such as routers, firewalls and other embedded systems often generate their RSA key the first time they boot. At that moment the operating system's random number generator has had almost no entropy (no disk, no keyboard, no network jitter yet), so many devices produce \emph{the same} first prime $p$. A little entropy trickles in (a clock tick, a packet) before the second prime is chosen, so their $q$'s differ. The result is many public keys of the form $n_i=p\,q_i$ with a common $p$.
+
+This is not hypothetical. In 2012 two independent teams (Lenstra et al., \emph{``Ron was wrong, Whit is right''}; Heninger et al., \emph{``Mining your Ps and Qs''}) collected millions of public RSA keys from the internet and factored thousands of them this way, with no ciphertext and no private key needed --- just public moduli. To avoid comparing every pair, they used ``batch GCD'', a product-tree algorithm that checks millions of moduli against each other in hours.
+
+\minorhead{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & At least two public moduli $n_1\ne n_2$ collected (for example from many devices) & Setup & Yes \\
+P0b & Each $n_i=p_iq_i$ is a valid RSA modulus with public exponent $e_i$ & Setup & Yes \\
+P1 & Only the public data $n_1,n_2$ (and $e_i$, ciphertexts) known; the factorizations are unknown & Public key & Yes \\
+P2 & $n_1\ne n_2$ (identical moduli give $\gcd=n_1$, which is useless) & Math / key & Yes \\
+P3 & $n_1=pq_1$ and $n_2=pq_2$ share exactly one prime $p$, with $q_1\ne q_2$ & Generator behavior (low entropy) & Yes (just compute the gcd) \\
+\textbf{P4} & \textbf{$1<\gcd(n_1,n_2)<n_1$} & \textbf{Exact success condition} & \textbf{Yes} \\
+P5 & A large collection of keys made by the same low-entropy generator (more keys, more pairs, more chance of a collision) & Makes P3 likely (heuristic) & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\[
+\boxed{\;n_1\ne n_2,\ \gcd(n_1,n_2)>1\;}
+\]
+
+\textbf{One-line summary.} The real condition is simply $\gcd(n_1,n_2)>1$. Unlike the other attacks, it can be \emph{checked in advance with public data}: given $n_1\ne n_2$, P3 and P4 are equivalent, so an attacker just computes gcds (all pairs, or batch GCD for millions of keys) and needs no hypothesis about the senders.
+
+\begin{theorem}\label{thm:sharedprime}
+If $n_1=pq_1$ and $n_2=pq_2$ share exactly one prime $p$, then $\gcd(n_1,n_2)=p$. Consequently $q_1=n_1/p$ and $q_2=n_2/p$, and the private keys of \emph{both} moduli can be computed.
+\end{theorem}
+
+\textbf{Why it works.}
+\begin{enumerate}[nosep]
+\item $p$ divides both $n_1$ and $n_2$, so $p\mid\gcd(n_1,n_2)$.
+\item Since $q_1$ and $q_2$ are distinct primes (and differ from $p$), $\gcd(n_1,n_2)=p\cdot\gcd(q_1,q_2)=p$.
+\item With all primes known, compute $\varphi(n_1)=(p-1)(q_1-1)$ and $d_1=e_1^{-1}\bmod\varphi(n_1)$ --- exactly the recipe the legitimate key owner used. The same works for $n_2$.
+\end{enumerate}
+The gcd takes $O(\log^2 n)$ bit operations, whereas factoring a 2048-bit modulus directly is infeasible. That gap is the entire attack.
+
+\begin{example}[Shared prime, Alice and Bob]\label{ex:sharedprime}
+Alice's key is $n_1=3233=61\cdot53$ and Bob's key is $n_2=3599=61\cdot59$; both use $e=17$. Eve sees only the two public moduli, so all she starts with is $3233$ and $3599$.
+
+\emph{Step 1 --- Euclid.}
+\begin{align*}
+3599 &= 1\cdot3233+366,\\
+3233 &= 8\cdot366+305,\\
+366 &= 1\cdot305+61,\\
+305 &= 5\cdot61+0,
+\end{align*}
+so $\gcd(3233,3599)=61$. Eve has found the shared prime $p=61$ in four division steps.
+
+\emph{Step 2 --- factor both keys.} $q_1=3233/61=53$ and $q_2=3599/61=59$.
+
+\emph{Step 3 --- rebuild Alice's private key.} $\varphi(n_1)=60\cdot52=3120$ and $d_1=17^{-1}\bmod3120=2753$ (check: $17\cdot2753=46801=15\cdot3120+1$; this is Example~\ref{ex:rsa-d}). Bob's key falls the same way: $\varphi(n_2)=60\cdot58=3480$, $d_2=1433$.
+
+\emph{Step 4 --- read a message.} Suppose someone sent Alice the ciphertext $c=2183$. Eve computes $2183^{2753}\bmod3233=1234$, the plaintext, without ever being given a key.
+\end{example}
+
+\begin{fixbox}
+Generate keys only after the system has gathered enough entropy, use the operating system's cryptographic random number generator, and draw $p$ and $q$ from fresh randomness. Avoid generating keys on the first boot of a device with no entropy source. Operators can also check their own newly generated keys against large public key collections for shared factors. Notice the lesson: RSA's security depends not only on the math but on the quality of the random numbers used to pick the primes.
+\end{fixbox}
+
+%---------------------------------------------------------------------
+\subsection{Fermat's Factorization (Close Primes)}\label{sec:fermat}
+%---------------------------------------------------------------------
+
+\begin{intuition}
+Think of $n=pq$ as the area of a $p\times q$ rectangle of unit tiles. Any rectangle can be rearranged into a big square with a smaller square cut out of one corner. Let $a$ be the \emph{midpoint} of $p$ and $q$ and $b$ the \emph{distance from the midpoint to each}, so $p=a-b$ and $q=a+b$. Then the rectangle has the same area as a square of side $a$ minus a square of side $b$:
+\[ pq=(a-b)(a+b)=a^2-b^2. \]
+If $p$ and $q$ are nearly equal, the rectangle is almost a square already, so $a$ is only slightly above $\sqrt n$ and the cut-out square is tiny. The attacker simply tries $a=\lceil\sqrt n\rceil,\ \lceil\sqrt n\rceil+1,\dots$ until $a^2-n$ turns out to be a perfect square. That is a search from a known starting point, not a blind one.
+\end{intuition}
+
+\textbf{Key idea.} Write $n=pq=a^2-b^2=(a-b)(a+b)$ with $a=\tfrac{p+q}{2}$. If $p$ and $q$ are close, $a$ is only slightly above $\sqrt n$, so testing $a=\lceil\sqrt n\rceil,\lceil\sqrt n\rceil+1,\dots$ until $a^2-n$ is a perfect square finds the factors after at most $\tfrac{(q-p)^2}{8\sqrt n}+1$ tries.
+
+\textbf{When this arises.} A key generator picks one random prime $p$ and then, to save time or because of a flawed random source, picks $q$ close to it --- for instance the next prime after $p$, or $p$ plus a small random offset. The idea itself dates to 1643, and for a long time it was regarded as a textbook curiosity. In 2022 Hanno Böck applied it to large collections of real public keys and found vulnerable ones: some Canon and Fujifilm (Fuji Xerox) printers generated keys with a cryptographic module that did not randomize its two primes enough (the Canon issue is tracked as CVE-2022-26351). It is a rare flaw, but it is real, and it needs nothing except the public modulus.
+
+\minorhead{Setup}
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Label} & \textbf{Condition} & \textbf{Type} & \textbf{Verifiable?} \\
+\midrule
+P0a & $n=pq$ with $p<q$ distinct primes & Setup & Partly (form of $n$ assumed) \\
+P0b & $n$ is odd (so $p$ and $q$ are odd) & Setup & Yes \\
+P1 & Only $n$ (and $e$) is public & Public key & Yes \\
+P2 & $a=\tfrac{p+q}{2}$ and $b=\tfrac{q-p}{2}$ are integers with $a^2-n=b^2$ & Math / key & Yes (follows from P0b) \\
+P3 & $p$ and $q$ were generated close together by a flawed key generator & Generator behavior & No (hypothesis) \\
+\textbf{P4} & \textbf{Number of tries $\tfrac{p+q}{2}-\lceil\sqrt n\rceil+1\ \le\ T$, the attacker's budget} & \textbf{Exact success condition} & \textbf{No ($p,q$ unknown)} \\
+P5 & $|q-p|<\sqrt{8T}\;n^{1/4}$ & Sufficient guarantee for P4 & Partly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Compact form.}
+\emph{Exact:}
+\[
+\boxed{\;n=pq\text{ odd},\ \tfrac{p+q}{2}-\lceil\sqrt n\rceil+1\le T\;}
+\]
+\emph{Guaranteed (implies the above):}
+\[
+\boxed{\;n=pq\text{ odd},\ |q-p|<\sqrt{8T}\,n^{1/4}\;}
+\]
+
+\textbf{One-line summary.} Fermat's method always terminates, so the only question is \emph{cost}: the real condition is that the number of tries stays within the budget $T$, and ``$q-p$ is small'' is the convenient sufficient version (it follows from the bound in the theorem below, since tries $\le\lfloor\tfrac{(q-p)^2}{8\sqrt n}\rfloor+1<T+1$). With $T=1$ it says $|q-p|<2\sqrt2\,n^{1/4}$, which is about $2^{513.5}$ for a 2048-bit $n$. In the worked example $n=5959$, $q-p=42<\sqrt{24}\,n^{1/4}\approx43.0$, so $T=3$ tries suffice.
+
+\textbf{The attack, step by step.}
+\begin{enumerate}[nosep]
+\item \textbf{Start} at $a=\lceil\sqrt n\rceil$. This skips nothing: every valid $a$ satisfies $a^2=n+b^2\ge n$, so $a\ge\sqrt n$, and since $a$ is an integer, $a\ge\lceil\sqrt n\rceil$. (As $p\ne q$ we have $b>0$, so $a$ is in fact strictly above $\sqrt n$.)
+\item \textbf{Compute} $r=a^2-n$.
+\item \textbf{Test} whether $r$ is a perfect square, that is, whether $b=\lfloor\sqrt r\rfloor$ satisfies $b^2=r$.
+\item \textbf{If yes:} $p=a-b$ and $q=a+b$. Check $pq=n$. Done.
+\item \textbf{If no:} replace $a$ by $a+1$ and go back to step 2.
+\end{enumerate}
+
+\begin{theorem}\label{thm:fermat}
+Let $a=\tfrac{p+q}{2}$ and $b=\tfrac{q-p}{2}$ (integers, since $p,q$ are odd). Then $a^2-n=b^2$, and $a$ is the smallest integer $\ge\sqrt n$ for which $a^2-n$ is a perfect square. Testing $a=\lceil\sqrt n\rceil,\lceil\sqrt n\rceil+1,\dots$ therefore finds $a$ after at most
+\[
+\frac{(q-p)^2}{8\sqrt n}+1
+\]
+tries, and then $p=a-b$, $q=a+b$.
+\end{theorem}
+
+\textbf{Why it works.}
+\begin{enumerate}[nosep]
+\item Algebra: $a^2-b^2=(a-b)(a+b)=p\cdot q=n$, so $a^2-n=b^2$ is a perfect square.
+\item Conversely, if $a^2-n=b^2$ for any integers $a>b\ge0$, then $n=(a-b)(a+b)$ is a factorization. Since $n=pq$ has only one pair of nontrivial factors, the first hit gives exactly $p$ and $q$.
+\item How many tries? The search starts at $\lceil\sqrt n\rceil\ge\sqrt n$ and stops at $a=\tfrac{p+q}{2}$, so it takes at most $\tfrac{p+q}{2}-\sqrt{pq}+1$ steps. Now
+\[
+\frac{p+q}{2}-\sqrt{pq}=\frac{(\sqrt q-\sqrt p)^2}{2}=\frac{(q-p)^2}{2(\sqrt q+\sqrt p)^2}\le\frac{(q-p)^2}{8\sqrt n},
+\]
+because $(\sqrt p+\sqrt q)^2=p+q+2\sqrt n\ge4\sqrt n$ (as $p+q\ge2\sqrt{pq}$).
+\end{enumerate}
+So the work depends on the \emph{gap} $q-p$, and grows with its square.
+
+\begin{example}[Fermat, $n=5959$]\label{ex:fermat}
+Eve sees the public key $n=5959$, $e=17$. Here $\sqrt{5959}\approx77.2$, so she starts at $a=78$:
+\begin{center}
+\begin{tabular}{@{}rrrl@{}}
+\toprule
+$a$ & $a^2$ & $a^2-5959$ & perfect square? \\
+\midrule
+78 & 6084 & 125 & no ($11^2=121,\ 12^2=144$) \\
+79 & 6241 & 282 & no ($16^2=256,\ 17^2=289$) \\
+80 & 6400 & 441 & \textbf{yes}, $441=21^2$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+So $a=80$, $b=21$, and $p=80-21=59$, $q=80+21=101$. Check: $59\cdot101=5959$. Three tries, and no factoring in the usual sense.
+
+\emph{Finishing the break.} $\varphi(n)=58\cdot100=5800$ and $d=17^{-1}\bmod5800=3753$ (check: $17\cdot3753=63801=11\cdot5800+1$). If Alice's ciphertext is $c=2029$, Eve computes $2029^{3753}\bmod5959=1234$, the plaintext.
+
+\emph{Contrast: primes that are far apart.} Take $p=101$, $q=1009$, so $n=101909$ and $\sqrt n\approx319.2$. Now $a$ must climb all the way to $\tfrac{101+1009}{2}=555$ (with $b=454$), which is $236$ tries, against a bound of $\tfrac{908^2}{8\sqrt n}+1\approx323$. The bigger the gap, the longer the climb.
+\end{example}
+
+\textbf{How big a gap is safe?} For a 2048-bit modulus, $8\sqrt n\approx2^{1027}$. The bound above then says:
+\begin{center}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{6.8cm}>{\raggedright\arraybackslash}p{7.6cm}@{}}
+\toprule
+\textbf{Gap $q-p$} & \textbf{Tries needed (at most)} \\
+\midrule
+below about $2^{512}$ & 1 \\
+$2^{512+t}$ & about $2^{2t}/8$ (each extra bit of gap quadruples the work) \\
+about $2^{1023}$ (two independent random 1024-bit primes) & about $2^{1019}$, hopeless \\
+\bottomrule
+\end{tabular}
+\end{center}
+So Fermat only works when the two primes agree in roughly their top half of bits. Independent random primes never do.
+
+\textbf{Try it (about 10 lines of Python).}
+\begin{verbatim}
+from math import isqrt
+
+def fermat(n):
+    a = isqrt(n)
+    if a * a < n:            # a = ceil(sqrt(n))
+        a += 1
+    while True:
+        b2 = a * a - n
+        b = isqrt(b2)
+        if b * b == b2:      # a^2 - n is a perfect square
+            return a - b, a + b
+        a += 1
+\end{verbatim}
+\texttt{fermat(5959)} returns \texttt{(59, 101)}. A good classroom demo: generate two $512$-bit primes with \texttt{p = nextprime(r)} and \texttt{q = nextprime(p + 10**9)}. The $1024$-bit modulus falls on the very first try.
+
+\begin{fixbox}
+Choose $p$ and $q$ \emph{independently} from a good random source, and reject the pair if they are too close. Standards such as FIPS~186-4 require $|p-q|>2^{\,n_{\text{len}}/2-100}$. With independent random primes this is satisfied automatically, so the attack only ever hits a faulty generator, never a correct one. In particular, never build $q$ from $p$, for example as \texttt{nextprime(p)} or $p+\text{small offset}$.
+\end{fixbox}
+
+\end{document}
