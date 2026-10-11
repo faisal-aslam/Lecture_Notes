@@ -862,23 +862,24 @@ Normally we first think in terms of an SDD (what should be computed?) and then t
 \subsection{Attributes}
 An \textbf{attribute} is any value that we attach to a grammar symbol. It helps to picture the parse tree as a tree of \emph{records}: every node has the grammar symbol as its name plus a few fields (the attributes). If $X$ is a symbol and $a$ is an attribute, we write $X.a$ for the value of $a$ at a particular node labelled $X$. Attributes can be of any kind: numbers, strings, types, pointers to symbol-table entries, or even whole code sequences.
 
-The table below is \textbf{not a rule or a theorem}; it is only a \emph{catalogue of common examples}. The last column says which grammar symbols would naturally carry that attribute. The compiler designer decides this: an attribute exists only on the symbols for which it is declared, and one gives an attribute to a symbol only if the attribute makes sense there. For instance, \textit{val} is given to $E, T, F$ because they stand for numeric values; \textit{lexval} is given to \textbf{digit} because tokens come from the lexer; the labels \textit{true}/\textit{false} are given to $B$ because only boolean expressions need jump targets.
+\paragraph{A note on the symbol names.} The letters $E, T, F, S, B$ used in this chapter have \emph{no special meaning in CFGs in general}. They are just names that the author of a particular grammar chose, by convention: $E$ for \emph{expression}, $T$ for \emph{term}, $F$ for \emph{factor}, $S$ for \emph{statement} and $B$ for \emph{boolean expression}. The expression grammar we use for examples is
+\[
+E \to E + T \mid T, \qquad T \to T * F \mid F, \qquad F \to (\,E\,) \mid \mathbf{digit},
+\]
+and a different grammar could use completely different names. Which attributes a symbol carries is likewise decided by the grammar designer, and an attribute exists only on the symbols for which it is declared (\at{E}{val} exists, but \at{B}{val} does not unless we define it).
 
-\begin{center}
-\small
-\begin{tabular}{@{}l L{6.4cm} l@{}}
-\toprule
-\textbf{Attribute} & \textbf{Meaning} & \textbf{Usually attached to} \\ \midrule
-\at{E}{val} & numeric value of the expression & $E,\,T,\,F$ \\
-\at{E}{type} & type of the expression (\texttt{int}, \texttt{float}, \dots) & $E$ \\
-\at{\mathbf{id}}{lexeme} & the actual characters of the identifier (supplied by the lexer) & \textbf{id} \\
-\at{\mathbf{digit}}{lexval} & numeric value of a digit token (supplied by the lexer) & \textbf{digit}, \textbf{num} \\
-\at{E}{addr} & name/temporary holding the result of $E$ & $E$ \\
-\at{S}{code} & three-address code for statement $S$ & $S$, $E$, $B$ \\
-\at{B}{true}, \at{B}{false} & labels to jump to if $B$ is true or false & $B$ \\
-\at{E}{node} & pointer to the syntax-tree node for $E$ & $E$, $T$ \\ \bottomrule
-\end{tabular}
-\end{center}
+\paragraph{Examples of attributes.} Typical attributes, with the symbols they are usually given in the grammars of this chapter, are:
+\begin{itemize}[nosep]
+\item \at{E}{val}: the numeric value of an expression ($E,T,F$ in the grammar above).
+\item \at{E}{type}: the type of an expression (\texttt{int}, \texttt{float}, \dots).
+\item \at{E}{addr}: the name or temporary that holds the result of the expression.
+\item \at{E}{node}: a pointer to the syntax-tree node built for the expression.
+\item \at{S}{code}: the three-address code generated for a statement (or expression).
+\item \at{B}{true}, \at{B}{false}: the labels to jump to when a boolean expression is true or false.
+\item \at{\mathbf{id}}{lexeme}: the actual characters of an identifier, supplied by the lexer.
+\item \at{\mathbf{digit}}{lexval}: the numeric value of a number token, supplied by the lexer.
+\end{itemize}
+
 Different \emph{occurrences} of the same nonterminal in a production are distinguished by subscripts, e.g., in $E \to E_1 + T$ the $E$ on the left is the \emph{head} and $E_1$ is the $E$ in the body; both have a \textit{val}.
 
 \subsection{Semantic rules: a first tiny example}
