@@ -6,6 +6,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{float}
+\usepackage{needspace}
 \usepackage{array}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \usepackage{enumitem}
@@ -68,7 +69,7 @@
 
 \begin{tcolorbox}[colback=gray!5,colframe=gray!50,title=\textbf{Suggested Lecture Plan (3--4 lectures)}]
 \begin{description}[leftmargin=2.2cm,style=nextline]
-\item[Lecture 1] Role of intermediate code; forms of IR: syntax trees, DAGs, three-address code, quadruples, triples, indirect triples.
+\item[Lecture 1] Role of intermediate code; forms of IR: syntax trees, DAGs, three-address code, quadruples and triples (indirect triples as a refinement), SSA form and the $\varphi$-function.
 \item[Lecture 2] \emph{Syntax-directed definitions and translation, from scratch:} why syntax alone is not enough, attributes, semantic rules, synthesized and inherited attributes, dependency graphs, S- and L-attributed definitions; then SDTs: actions inside productions, postfix translation, marker nonterminals.
 \item[Lecture 3] Translation of expressions and assignments, array references, type checking and conversion.
 \item[Lecture 4] Boolean expressions and short-circuit code, flow-of-control statements, backpatching, switch statements and procedure calls; revision and exercises.
@@ -488,6 +489,9 @@ An \textbf{address} can be: (i) a \emph{name} (source variable; a pointer to its
 \end{table}
 
 \subsubsection{Representations of three-address code}
+\label{sec:repr}
+Three-address code is an \emph{abstract} language: it says \emph{what} the instructions are. A compiler also has to decide \emph{how to store} them in memory, as records in an array. There are two basic record layouts: \textbf{quadruples} and \textbf{triples}. Each of them represents the complete code on its own. (A third name, \emph{indirect triples}, is introduced at the end of this subsection; it is not a different representation of the code but an \emph{add-on to triples} that makes reordering cheap.)
+
 Take the source statement $a = b * -c + b * -c$.
 
 \begin{center}
@@ -521,8 +525,8 @@ a  = t5
 \end{center}
 
 \begin{center}
-\begin{minipage}[t]{0.47\textwidth}
-\textbf{(c) Triples} -- (op, arg1, arg2); a result is referred to by the \emph{position} of its triple.
+\begin{minipage}[t]{0.55\textwidth}
+\textbf{(c) Triples} -- (op, arg1, arg2). There is no result field: another instruction refers to this result by the \emph{position} of the triple, written $(i)$.
 
 \smallskip
 \small
@@ -537,19 +541,8 @@ a  = t5
 5 & \texttt{=}     & a  & (4) \\ \bottomrule
 \end{tabular}
 \end{minipage}\hfill
-\begin{minipage}[t]{0.47\textwidth}
-\textbf{(d) Indirect triples} -- a list of pointers to triples.
-
-\smallskip
-\small
-\begin{tabular}{@{}c c@{}}
-\toprule
- instruction & pointer \\ \midrule
-35 & (0) \\ 36 & (1) \\ 37 & (2) \\ 38 & (3) \\ 39 & (4) \\ 40 & (5) \\ \bottomrule
-\end{tabular}
-
-\smallskip
-\emph{(triples as in (c))}
+\begin{minipage}[t]{0.40\textwidth}
+\textbf{How to read it.} Triple 1 means ``multiply $b$ by \emph{the result of triple 0}''. Triple 4 adds the results of triples 1 and 3. The temporaries $t_1,\dots,t_5$ have disappeared: the \emph{position} plays their role.
 \end{minipage}
 \end{center}
 
@@ -559,15 +552,83 @@ a  = t5
 \begin{tabular}{@{}L{2.6cm} L{5.6cm} L{5.6cm}@{}}
 \toprule
  & \textbf{Advantage} & \textbf{Disadvantage} \\ \midrule
-Quadruples & Results are named explicitly (temporaries); instructions can be moved freely during optimisation. & Needs extra space for temporaries and symbol-table entries. \\
-Triples & No temporaries; more compact. & Moving a triple changes positions, so all references to it must be updated. \\
-Indirect triples & Reordering only rearranges the pointer list, so triples keep their positions. & Extra level of indirection; an additional list is needed. \\ \bottomrule
+Quadruples & Every result has an explicit name (a temporary), so an instruction can be moved anywhere without editing any other instruction. & Needs an extra field, and temporaries must be entered in the symbol table. \\
+Triples & No temporaries and no result field: more compact. & A result is identified by its position, so \emph{moving} a triple changes its number and every instruction that refers to it must be edited. \\ \bottomrule
 \end{tabular}
-\caption{Comparison of the three representations.}
+\caption{Quadruples versus triples.}
 \end{table}
 
-\subsubsection{Static single-assignment (SSA) form -- a brief note}
-In \textbf{SSA form} every variable is assigned exactly once; different assignments to the same source variable get different subscripts, and a $\phi$-function merges values at control-flow joins:
+\paragraph{Indirect triples: triples plus an ordering list.} The disadvantage of triples shows up in optimisation, where the compiler often wants to \emph{reorder} instructions. Indirect triples fix it by separating two things that plain triples tie together: \emph{the triples themselves} (kept in a fixed array, numbered once and never renumbered) and \emph{the order of execution} (a separate list of pointers to triples). So indirect triples are not a new way of writing the code; they are triples with one extra list.
+
+\Needspace{22\baselineskip}
+\begin{examplebox}{Example: evaluate $c*d$ before $a+b$ in $x = (a+b)-(c*d)$}
+The code is $t_1=a+b$, $t_2=c*d$, $t_3=t_1-t_2$, $x=t_3$. Reordering the two independent sub-expressions is legal. Compare the three situations (edited fields in \textcolor{red!70!black}{red}):
+
+\medskip
+\begin{center}
+\small
+\begin{minipage}[t]{0.30\textwidth}
+\textbf{Triples (original)}
+
+\smallskip
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+ & op & a$_1$ & a$_2$ \\ \midrule
+0 & \texttt{+} & a & b \\
+1 & \texttt{*} & c & d \\
+2 & \texttt{-} & (0) & (1) \\
+3 & \texttt{=} & x & (2) \\ \bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.33\textwidth}
+\textbf{Triples after reordering}
+
+\smallskip
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+ & op & a$_1$ & a$_2$ \\ \midrule
+0 & \textcolor{red!70!black}{\texttt{*}} & \textcolor{red!70!black}{c} & \textcolor{red!70!black}{d} \\
+1 & \textcolor{red!70!black}{\texttt{+}} & \textcolor{red!70!black}{a} & \textcolor{red!70!black}{b} \\
+2 & \texttt{-} & \textcolor{red!70!black}{(1)} & \textcolor{red!70!black}{(0)} \\
+3 & \texttt{=} & x & (2) \\ \bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.33\textwidth}
+\textbf{Indirect triples (reordered)}
+
+\smallskip
+\emph{order list}\\[2pt]
+\begin{tabular}{@{}c c@{}}
+\toprule
+slot & points to \\ \midrule
+35 & \textcolor{red!70!black}{(1)} \\
+36 & \textcolor{red!70!black}{(0)} \\
+37 & (2) \\
+38 & (3) \\ \bottomrule
+\end{tabular}
+
+\smallskip
+\emph{triples (unchanged)}\\[2pt]
+\begin{tabular}{@{}c l l l@{}}
+0 & \texttt{+} & a & b \\
+1 & \texttt{*} & c & d \\
+2 & \texttt{-} & (0) & (1) \\
+3 & \texttt{=} & x & (2) \\
+\end{tabular}
+\end{minipage}
+\end{center}
+
+With plain triples the two triples swap places, so \emph{every} reference to them (here in triple 2) must be rewritten. With indirect triples the triples keep their numbers; only the order list changes, and no triple is edited. In a large program the number of references to repair can be huge, which is why optimising compilers prefer the extra list.
+\end{examplebox}
+
+\begin{notebox}{Which one should I use?}
+Quadruples are the simplest to reason about and to optimise, and are the usual textbook choice. Triples save space but are fragile under reordering. Indirect triples keep the compactness of triples and recover the flexibility of quadruples at the price of one extra list. All three encode exactly the same three-address code.
+\end{notebox}
+
+\subsubsection{Static single-assignment (SSA) form and the \texorpdfstring{$\varphi$}{phi}-function}
+\label{sec:ssa}
+
+\paragraph{The idea.} In \textbf{SSA form} every variable name is assigned in exactly one place in the program text. If the source assigns to the same variable several times, the compiler gives each assignment its own subscripted name. For straight-line code this is nothing more than renaming:
 \begin{center}
 \begin{minipage}[t]{0.40\textwidth}
 \begin{lstlisting}
@@ -588,44 +649,206 @@ q2 = p3 + q1
 \end{lstlisting}
 \end{minipage}
 \end{center}
+On the right $p_1$, $p_2$, $p_3$ are three different values that happened to share the name $p$ on the left. Every \emph{use} now names exactly one \emph{definition}: the $p_3$ in the last line can only come from \texttt{p3 = e - p2}.
+
+\begin{examplebox}{Why bother? One definition per name makes optimisation easy}
 \begin{lstlisting}
-if (flag) x = -1; else x = 1;  y = x * a;
-  ==>   if (flag) x1 = -1; else x2 = 1;   x3 = phi(x1, x2);   y = x3 * a;
+a  = 1                a1 = 1
+b  = a + 2            b1 = a1 + 2
+a  = 10               a2 = 10
+c  = a * b            c1 = a2 * b1
 \end{lstlisting}
-The function $\varphi(x_1,x_2)$ means ``take $x_1$ if control came from the first branch, $x_2$ if it came from the second''. It is not a real instruction; it marks a join point in the control-flow graph.
+On the left, to fold \texttt{c = a * b} an optimiser must first find out \emph{which} of the two assignments to $a$ reaches that line (a data-flow analysis). On the right the question does not exist: $a_2$ has a single definition, \texttt{a2 = 10}; $b_1=a_1+2=3$; hence $c_1=10*3=30$. Once $a_1$ has no uses left, a quick count shows that \texttt{a1 = 1} is dead code and can be deleted. SSA turns ``which definition reaches here?'' into a lookup by name.
+\end{examplebox}
+
+\paragraph{The problem: two paths meet.} Straight-line code is easy. The difficulty starts where control flow \emph{joins}:
+\begin{lstlisting}
+if (flag) x = -1; else x = 1;
+y = x * a;
+\end{lstlisting}
+Renaming the two assignments gives $x_1$ (in the \textbf{then}-branch) and $x_2$ (in the \textbf{else}-branch). But which name should \texttt{y = x * a} use? It depends on \texttt{flag}, which is known only at run time, so the compiler cannot choose at compile time. What we need is a \emph{new name} that means ``$x_1$ if we came through the \textbf{then}-branch, otherwise $x_2$''. That is exactly what the $\varphi$-function provides:
+\[
+x_3 = \varphi(x_1,\,x_2)
+\]
+\begin{lstlisting}
+if (flag) x1 = -1; else x2 = 1;
+x3 = phi(x1, x2);
+y  = x3 * a;
+\end{lstlisting}
+
 \begin{center}
 \begin{tikzpicture}[
   every node/.style={font=\small\ttfamily},
   b/.style={draw,rounded corners=2pt,minimum width=3.2cm,minimum height=0.8cm,fill=blue!6},
-  e/.style={-{Stealth[length=2.3mm]},thick}]
+  e/.style={-{Stealth[length=2.3mm]},thick},
+  lab/.style={font=\scriptsize\sffamily,fill=white,inner sep=1pt}]
  \node[b] (t) at (0,0) {if (flag)};
- \node[b,fill=green!12] (l) at (-2.4,-1.5) {x1 = -1};
- \node[b,fill=green!12] (r) at (2.4,-1.5) {x2 = 1};
- \node[b,fill=orange!18,minimum width=5.4cm,minimum height=1.1cm,align=center] (j) at (0,-3.2) {x3 = $\varphi$(x1, x2)\\ y = x3 * a};
- \draw[e] (t) -- (l); \draw[e] (t) -- (r); \draw[e] (l) -- (j.north west); \draw[e] (r) -- (j.north east);
+ \node[b,fill=green!12] (l) at (-2.6,-1.6) {x1 = -1};
+ \node[b,fill=green!12] (r) at (2.6,-1.6) {x2 = 1};
+ \node[b,fill=orange!18,minimum width=5.4cm,minimum height=1.1cm,align=center] (j) at (0,-3.4) {x3 = $\varphi$(x1, x2)\\ y = x3 * a};
+ \draw[e] (t) -- node[lab,pos=0.5]{true} (l);
+ \draw[e] (t) -- node[lab,pos=0.5]{false} (r);
+ \draw[e] (l) -- node[lab,pos=0.55]{pred.\ 1} (j.north west);
+ \draw[e] (r) -- node[lab,pos=0.55]{pred.\ 2} (j.north east);
+ \node[font=\small\sffamily,anchor=west,align=left] at (4.3,-3.4) {$\varphi$ takes its\\ \emph{first} operand if\\ control came from\\ pred.\ 1, its \emph{second}\\ if it came from pred.\ 2};
 \end{tikzpicture}
 \end{center}
+
+\begin{defbox}{What a $\varphi$-function is (and is not)}
+\begin{itemize}[nosep]
+\item It sits at the \emph{start} of a block that has two or more predecessors (a join point).
+\item $v=\varphi(v_1,\dots,v_k)$ has one operand per predecessor, \emph{in the same order as the predecessors}. The value of $v$ is the operand that belongs to the edge along which control actually arrived.
+\item If a block starts with several $\varphi$'s, they are evaluated \emph{simultaneously} on entry.
+\item It is \textbf{not} an instruction that the machine executes and it does not test anything. It is notation that the compiler uses to keep ``one definition per name'' true at a join. It is removed again before machine code is generated (see below).
+\end{itemize}
+\end{defbox}
+
+\paragraph{A loop: $\varphi$ at the loop header.} A loop is also a join: the header can be reached from before the loop (the first time) or from the end of the body (every later time). Take
+\begin{lstlisting}
+i = 0;  s = 0;
+while (i < n) { s = s + i;  i = i + 1; }
+return s;
+\end{lstlisting}
+The variables $i$ and $s$ both have different definitions arriving at the header, so both need a $\varphi$ there:
+
+\begin{center}
+\begin{tikzpicture}[
+  every node/.style={font=\small\ttfamily},
+  b/.style={draw,rounded corners=2pt,inner sep=4pt,align=left,fill=blue!6},
+  e/.style={-{Stealth[length=2.3mm]},thick},
+  lab/.style={font=\scriptsize\sffamily,fill=white,inner sep=1pt}]
+ \node[b] (b0) at (0,0)    {\textbf{B0}\ \ i1 = 0\\ \phantom{\textbf{B0}}\ \ s1 = 0};
+ \node[b,fill=orange!18] (b1) at (0,-2.4) {\textbf{B1}\ \ i2 = $\varphi$(i1, i3)\\ \phantom{\textbf{B1}}\ \ s2 = $\varphi$(s1, s3)\\ \phantom{\textbf{B1}}\ \ if i2 < n goto B2 else B3};
+ \node[b,fill=green!12] (b2) at (6.6,-2.4) {\textbf{B2}\ \ s3 = s2 + i2\\ \phantom{\textbf{B2}}\ \ i3 = i2 + 1};
+ \node[b] (b3) at (0,-4.8) {\textbf{B3}\ \ return s2};
+ \draw[e] ([xshift=-0.9cm]b0.south) -- node[lab,pos=0.5]{pred.\ 1} ([xshift=-0.9cm]b1.north);
+ \draw[e] (b1.east) -- node[lab]{true} (b2.west);
+ \draw[e] (b2.north) .. controls +(0,1.6) and +(1.6,1.0) .. node[lab,pos=0.5]{pred.\ 2 (back edge)} ([xshift=1.2cm]b1.north);
+ \draw[e] (b1.south) -- node[lab]{false} (b3.north);
+\end{tikzpicture}
+\end{center}
+Both $\varphi$'s list the operand from B0 first (``pred.\ 1'') and the operand from B2 second (``pred.\ 2''). Note that $i_3$ and $s_3$ are used by the $\varphi$'s \emph{before} they are defined in program order; that is fine, because that operand is only chosen when control arrives from B2, i.e.\ after B2 has run. Trace for $n=2$:
+\begin{center}
+\small
+\begin{tabular}{@{}c l c c c l@{}}
+\toprule
+\textbf{visit of B1} & \textbf{arrived from} & $i_2$ & $s_2$ & $i_2<2$? & \textbf{then B2 computes} \\ \midrule
+1 & B0 (pred.\ 1) & $i_1=0$ & $s_1=0$ & yes & $s_3=0+0=0,\ \ i_3=1$ \\
+2 & B2 (pred.\ 2) & $i_3=1$ & $s_3=0$ & yes & $s_3=0+1=1,\ \ i_3=2$ \\
+3 & B2 (pred.\ 2) & $i_3=2$ & $s_3=1$ & no & leave loop: \texttt{return s2} $=1$ \\ \bottomrule
+\end{tabular}
+\end{center}
+The result $1=0+1$ is the sum of $i$ over $i=0,1$, as the source program computes.
+
+\paragraph{Where is a $\varphi$ needed?} Only at a join point, and only for a variable for which \emph{different definitions} arrive along different paths. A variable that has a single reaching definition needs no $\varphi$:
+\begin{lstlisting}
+y = 7;                          y1 = 7;
+if (c) x = 1; else x = 2;       if (c) x1 = 1; else x2 = 2;
+z = x + y;                      x3 = phi(x1, x2);   z1 = x3 + y1;
+\end{lstlisting}
+Here $x$ gets a $\varphi$ (two definitions meet) but $y$ does not (only $y_1$ reaches the join, along both paths). Compilers find the exact places with an algorithm based on \emph{dominance frontiers}, which is beyond these notes; the rule of thumb above is enough for exercises.
+
+\paragraph{Leaving SSA.} Real processors have no $\varphi$ instruction. Before code generation each $\varphi$ is replaced by \emph{copies at the end of the predecessors}: for $x_3=\varphi(x_1,x_2)$ the first predecessor gets \texttt{x3 = x1} and the second gets \texttt{x3 = x2}. Often the register allocator gives $x_1$, $x_2$, $x_3$ the same register and the copies disappear.
+
+\begin{pitfallbox}{Common confusions about SSA}
+\begin{itemize}[nosep]
+\item ``Single'' counts assignments in the \emph{program text}, not executions. In the loop above \texttt{i3 = i2 + 1} runs once per iteration, yet it is the only assignment to $i_3$ in the text.
+\item $\varphi$ chooses by \emph{which edge control arrived on}, not by testing a condition or a value.
+\item The order of the $\varphi$ operands must match the order of the predecessors. Swapping them silently gives a different program.
+\item No $\varphi$ is needed for a variable that is not reassigned before the join.
+\end{itemize}
+\end{pitfallbox}
 
 %====================================================================
 \section{Syntax-Directed Definitions (SDD)}
 %====================================================================
 
-\subsection{Why do we need them? Syntax is not enough}
-So far, parsing has answered only one question: \emph{``Is this string a legal program, and what is its structure?''} A grammar and its parse tree describe \textbf{syntax}. They say nothing about \textbf{meaning} (\emph{semantics}).
+\subsection{What is an SDD, and what is it for?}
+\label{sec:sddwhat}
 
-For example, the parse tree of \texttt{3 * 5 + 4} shows that $3*5$ is grouped first, but nowhere does it contain the number 19. The parse tree of \texttt{a = b * c + d} does not contain any machine or three-address instructions either. To translate a program we must \emph{attach extra information to the nodes of the parse tree and compute it}. Typical questions are:
+\paragraph{Division of labour.} Up to now the course has used a \textbf{context-free grammar (CFG)}. A CFG together with a parser answers exactly two questions:
+\begin{enumerate}[nosep]
+\item \emph{Is this string a legal program?} (\textbf{syntax})
+\item \emph{What is its structure?} The answer is the \textbf{parse tree}.
+\end{enumerate}
+That is all the CFG is needed for. Producing the parse tree is the job of \textbf{syntax analysis}, and the grammar alone is enough for it.
+
+But a compiler must also know what the program \emph{means}, and a CFG cannot express this. For example, the parse tree of \texttt{3 * 5 + 4} shows that $3*5$ is grouped first, but nowhere does it contain the number 19. It also contains no machine or three-address instructions. Typical questions that the parse tree cannot answer are:
 \begin{itemize}[nosep]
 \item What is the \textbf{value} of this expression? \hfill (calculators, constant folding)
-\item What is the \textbf{type} of this expression? \hfill (type checking)
-\item In which temporary or variable is its result \textbf{stored}? \hfill (code generation)
-\item Which \textbf{instructions} implement this statement? \hfill (code generation)
+\item What is the \textbf{type} of this expression, and do the types fit together? \hfill (type checking)
+\item Was this variable \textbf{declared} before it is used? \hfill (static checks, symbol table)
+\item In which temporary or variable is its result \textbf{stored}, and which \textbf{instructions} implement this statement? \hfill (code generation)
 \item To which \textbf{label} should control jump if this condition is true? \hfill (control flow)
 \end{itemize}
-A \textbf{syntax-directed definition} is the formal tool that answers such questions. The idea is simple:
+
+\begin{examplebox}{Example: a program that is syntactically perfect but wrong}
+\begin{lstlisting}
+int x;
+y = x + 1;
+\end{lstlisting}
+With a grammar such as $S\to\mathbf{id}=E\,;$ the second line is a legal statement, and the parser happily builds a parse tree for it. Yet the program is wrong, because $y$ was never declared. The grammar cannot say so: to detect the error, the compiler must look $y$ up in a \emph{symbol table}, and that table is information \emph{outside} the tree structure. (Formally, ``declared before use'' is not a context-free property.) The same applies to \texttt{int a; a = "hi";}: the grammar sees only \textbf{id} $=$ \textbf{string}, not that the types disagree.
+\end{examplebox}
+
+\paragraph{The solution: attach information to the tree.} A \textbf{syntax-directed definition (SDD)} is a CFG \emph{extended} with two things:
 \begin{center}
-\fbox{\parbox{0.85\textwidth}{\centering \textbf{Grammar} \;+\; \textbf{extra information (attributes) on every grammar symbol} \;+\; \textbf{small rules (semantic rules) that say how to compute that information from the production being used.}}}
+\fbox{\parbox{0.88\textwidth}{\centering \textbf{SDD} \;=\; \textbf{CFG} \;+\; \textbf{attributes} (values stored on grammar symbols) \;+\; \textbf{semantic rules} (how to compute those values from the production used).}}
 \end{center}
-``Syntax-directed'' means that the computation is \emph{driven by the syntactic structure} (the productions) of the input.
+The CFG part is unchanged and still defines the syntax. The new parts add meaning. Applying the rules to a parse tree gives an \textbf{annotated parse tree}: the same tree with every node carrying its attribute values. ``Syntax-directed'' means that the computation is \emph{driven by the syntactic structure}: which rule fires at a node depends on which production was used there.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  bx/.style={draw,rounded corners=2pt,minimum height=0.9cm,align=center,fill=white},
+  ar/.style={-{Stealth[length=2.3mm]},thick}]
+ \fill[blue!7]  (-0.3,-1.15) rectangle (7.15,1.0);
+ \fill[green!9] (7.4,-3.9) rectangle (15.0,1.0);
+ \node[bx] (tok) at (1.0,0) {tokens};
+ \node[bx] (par) at (3.8,0) {parser\\[-1pt]{\scriptsize(uses the CFG)}};
+ \node[bx] (pt)  at (6.1,0) {parse\\[-1pt]tree};
+ \node[bx] (sdd) at (9.6,0) {evaluate\\[-1pt]{\scriptsize semantic rules (SDD)}};
+ \node[bx] (apt) at (13.2,0) {annotated\\[-1pt]parse tree};
+ \draw[ar] (tok) -- (par); \draw[ar] (par) -- (pt); \draw[ar] (pt) -- (sdd); \draw[ar] (sdd) -- (apt);
+ \node[bx,fill=gray!10] (o1) at (8.8,-2.5) {types and\\[-1pt]static errors};
+ \node[bx,fill=gray!10] (o2) at (11.6,-2.5) {syntax tree\\[-1pt]or DAG};
+ \node[bx,fill=gray!10] (o3) at (14.0,-2.5) {three-address\\[-1pt]code};
+ \draw[ar] (apt.south) -- (o1.north); \draw[ar] (apt.south) -- (o2.north); \draw[ar] (apt.south) -- (o3.north);
+ \node[font=\scriptsize\bfseries,text=blue!50!black,align=center] at (3.4,-0.85) {\textsc{syntax analysis}: CFG is enough};
+ \node[font=\scriptsize\bfseries,text=green!40!black,align=center] at (11.2,-3.55) {\textsc{semantic analysis, intermediate code}: SDD};
+\end{tikzpicture}
+\caption{Where the CFG ends and the SDD begins. The parser needs only the grammar; everything that computes \emph{meaning} from the tree is specified by semantic rules.}
+\end{figure}
+
+\paragraph{What is it used for?} To answer the common question directly: yes. A CFG with its parse tree is enough for \emph{syntax}; an SDD is the tool used to specify \emph{semantic analysis} and \emph{intermediate-code generation}, and related jobs:
+\begin{center}
+\small
+\begin{tabular}{@{}L{4.0cm} L{4.8cm} L{5.4cm}@{}}
+\toprule
+\textbf{Task} & \textbf{Attribute computed} & \textbf{Compiler phase} \\ \midrule
+Evaluate an expression & \textit{val} & calculators, constant folding \\
+Check types, declarations & \textit{type}, symbol-table entry & semantic analysis \\
+Build a syntax tree or DAG & \textit{node} (pointer) & front end, intermediate representation \\
+Generate three-address code & \textit{addr}, \textit{code} & intermediate-code generation \\
+Generate jumps for conditions & \textit{true}, \textit{false}, \textit{next} (labels) & intermediate-code generation \\ \bottomrule
+\end{tabular}
+\end{center}
+Two remarks. First, the boundary between ``semantic analysis'' and ``code generation'' is blurred in practice, because one set of semantic rules often does both at once, for instance a rule that checks the types and emits a conversion in the same step. Second, an SDD is a general method, also used outside compilers (for example to evaluate expressions or to convert one data format to another).
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}L{2.1cm} L{4.35cm} L{4.35cm} L{4.35cm}@{}}
+\toprule
+ & \textbf{CFG} & \textbf{SDD} & \textbf{SDT} \\ \midrule
+\textbf{What it is} & productions only & CFG + attributes + semantic rules & CFG + program fragments (\emph{actions}) in the bodies \\
+\textbf{Question answered} & ``Is it legal? What is the structure?'' & ``What does it mean? What should be computed?'' & ``\emph{When} exactly is each computation done?'' \\
+\textbf{Output} & parse tree & annotated parse tree & the translation itself (values, tree, code) \\
+\textbf{Order of work} & -- & not specified (only dependencies) & specified (left to right, at a fixed point) \\
+\textbf{Used in} & syntax analysis & semantic analysis, intermediate-code generation (the \emph{specification}) & the \emph{implementation} inside the parser \\ \bottomrule
+\end{tabular}
+\caption{CFG, SDD and SDT. An SDD says \emph{what} to compute; an SDT (Section~\ref{sec:sdt}) says \emph{when}.}
+\end{table}
 
 \subsection{Attributes}
 An \textbf{attribute} is any value that we attach to a grammar symbol. It helps to picture the parse tree as a tree of \emph{records}: every node has the grammar symbol as its name plus a few fields (the attributes). If $X$ is a symbol and $a$ is an attribute, we write $X.a$ for the value of $a$ at a particular node labelled $X$. Attributes can be of any kind: numbers, strings, types, pointers to symbol-table entries, or even whole code sequences.
@@ -900,6 +1123,7 @@ This is S-attributed. If the grammar is made LL by eliminating left recursion, t
 
 %====================================================================
 \section{Syntax-Directed Translation Schemes (SDT)}
+\label{sec:sdt}
 %====================================================================
 
 \subsection{From specification to implementation}
@@ -2110,7 +2334,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 
 \begin{itemize}
 \item Intermediate code (syntax trees, DAGs, three-address code in quadruple/triple form) decouples front and back ends and enables machine-independent optimisation.
-\item Syntax alone does not give meaning. An \textbf{SDD} attaches \emph{attributes} to grammar symbols and \emph{semantic rules} to productions; \textbf{synthesized} attributes flow upward, \textbf{inherited} attributes flow downward or sideways. \textbf{S-attributed} $\subset$ \textbf{L-attributed}.
+\item A CFG gives syntax (is it a legal program, what is its structure) but not meaning. An \textbf{SDD} attaches \emph{attributes} to grammar symbols and \emph{semantic rules} to productions; \textbf{synthesized} attributes flow upward, \textbf{inherited} attributes flow downward or sideways. \textbf{S-attributed} $\subset$ \textbf{L-attributed}.
 \item An \textbf{SDT} embeds the actions in the grammar and fixes the order of evaluation. S-attributed SDDs $\to$ \emph{postfix SDTs} (bottom-up). L-attributed SDDs can be implemented during top-down parsing, or, for LR grammars and with marker nonterminals, during bottom-up parsing.
 \item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
 \item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
@@ -2134,7 +2358,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 %====================================================================
 
 \begin{enumerate}[label=\textbf{Q\arabic*.}]
-\item Translate $x = a * (b + c) - d / (b + c)$ into (a) a syntax tree and DAG, (b) three-address code, (c) quadruples, triples, and indirect triples.
+\item Translate $x = a * (b + c) - d / (b + c)$ into (a) a syntax tree and DAG, (b) three-address code, (c) quadruples and triples (and the order list that turns the triples into indirect triples).
 \item Using the SDD of Table~\ref{tab:expr-sdd}, annotate the parse tree and generate TAC for $a = -(b + c) * (b + c)$.
 \item For \texttt{int a[5][4]} (int width $=4$), write the TAC for $x = a[i][j] + a[j][i]$. Give the width used at each dimension.
 \item Generate jumping code (with inherited labels) for \texttt{if (a < b \&\& !(c < d)) x = 1; else x = 2;}
@@ -2146,6 +2370,10 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Translate \texttt{switch (n) \{ case 1: s = 1; break; case 5: s = 2; break; default: s = 0; \}} using the scheme of Section~\ref{sec:switch}.
 \item Let \texttt{x} be \texttt{float} and \texttt{i, j} be \texttt{int}. Using the widening rules, write the code for $x = i + j * x$.
 \item Generate the fall-through jumping code for \texttt{if (a < b || c < d) x = 1;} starting with $B.true=\textit{fall}$.
+\item Convert to SSA form: \texttt{x = 1; if (c) x = x + 1; y = x * 2;}
+\item Convert to SSA form and draw the blocks: \texttt{k = 1; while (k < 10) k = k * 2; return k;}
+\item For $x=(a+b)-(c*d)$, write the triples, then reorder the two sub-expressions. State what must be edited (a) with triples, (b) with indirect triples.
+\item For each task say whether a CFG with its parse tree suffices or an SDD is needed: (a) accept \texttt{a = b + c;}, (b) reject the use of an undeclared variable, (c) compute the value of \texttt{3 * 5 + 4}, (d) check that both operands of $+$ are numbers, (e) produce the parse tree of \texttt{a = b + c;}.
 \end{enumerate}
 
 \subsection*{Answers to selected problems}
@@ -2254,6 +2482,30 @@ x  = t4
 L2:     x = 1
 L1:
 \end{lstlisting}
+
+\textbf{Q13.} The test block branches to the then-block (which defines $x_2$) or directly to the join. At the join the two predecessors are the then-block and the test block, so
+\begin{lstlisting}
+B0:  x1 = 1
+     if c goto B1 else B2
+B1:  x2 = x1 + 1               (then-block)
+B2:  x3 = phi(x2, x1)          (join: pred. 1 = B1, pred. 2 = B0)
+     y1 = x3 * 2
+\end{lstlisting}
+Note that a $\varphi$ is needed even though there is no \textbf{else}: the ``missing'' branch is itself an edge into the join, carrying $x_1$.
+
+\textbf{Q14.}
+\begin{lstlisting}
+B0:  k1 = 1
+B1:  k2 = phi(k1, k3)          (pred. 1 = B0, pred. 2 = B2)
+     if k2 < 10 goto B2 else B3
+B2:  k3 = k2 * 2               (back to B1)
+B3:  return k2
+\end{lstlisting}
+Trace: $k_2=1,2,4,8,16$; the test fails for $k_2=16$ and the function returns 16.
+
+\textbf{Q15.} Triples: $0:(+,a,b)$, $1:(*,c,d)$, $2:(-,(0),(1))$, $3:(=,x,(2))$. After evaluating $c*d$ first: (a) with triples the triples swap places, so triple 2 must become $(-,(1),(0))$ and every other reference to either of them must be rewritten; (b) with indirect triples the four triples stay exactly as they are and only the order list changes, from $(0),(1),(2),(3)$ to $(1),(0),(2),(3)$.
+
+\textbf{Q16.} (a) CFG suffices (it is a syntax question). (b) SDD needed: it needs a symbol table and a rule that consults it. (c) SDD needed (an attribute \textit{val}). (d) SDD needed (an attribute \textit{type} and a rule comparing it). (e) CFG suffices: the parse tree is the output of syntax analysis.
 
 %====================================================================
 \section*{References}
