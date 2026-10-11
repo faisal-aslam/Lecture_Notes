@@ -850,14 +850,25 @@ Two remarks. First, the boundary between ``semantic analysis'' and ``code genera
 \caption{CFG, SDD and SDT. An SDD says \emph{what} to compute; an SDT (Section~\ref{sec:sdt}) says \emph{when}.}
 \end{table}
 
+\begin{notebox}{Do we need both SDD and SDT?}
+No: they are \emph{two levels of description of the same translation}, not two separate tools used side by side.
+\begin{itemize}[nosep]
+\item The \textbf{SDD} is the \emph{specification}. It states what every attribute equals, e.g.\ $\at{E}{val}=\at{E_1}{val}+\at{T}{val}$, and fixes only the \emph{dependencies}, not the order of evaluation.
+\item The \textbf{SDT} is the \emph{implementation}. The same computation is written as an action inside the production, e.g.\ $E \to E_1 + T\ \{\ \at{E}{val}=\at{E_1}{val}+\at{T}{val}\ \}$, and therefore runs at a fixed point during parsing.
+\end{itemize}
+Normally we first think in terms of an SDD (what should be computed?) and then turn it into an SDT (where do the actions go?). The SDD alone defines the meaning but is not yet a procedure; one can also write an SDT directly, but then the correct ordering is our own responsibility.
+\end{notebox}
+
 \subsection{Attributes}
 An \textbf{attribute} is any value that we attach to a grammar symbol. It helps to picture the parse tree as a tree of \emph{records}: every node has the grammar symbol as its name plus a few fields (the attributes). If $X$ is a symbol and $a$ is an attribute, we write $X.a$ for the value of $a$ at a particular node labelled $X$. Attributes can be of any kind: numbers, strings, types, pointers to symbol-table entries, or even whole code sequences.
+
+The table below is \textbf{not a rule or a theorem}; it is only a \emph{catalogue of common examples}. The last column says which grammar symbols would naturally carry that attribute. The compiler designer decides this: an attribute exists only on the symbols for which it is declared, and one gives an attribute to a symbol only if the attribute makes sense there. For instance, \textit{val} is given to $E, T, F$ because they stand for numeric values; \textit{lexval} is given to \textbf{digit} because tokens come from the lexer; the labels \textit{true}/\textit{false} are given to $B$ because only boolean expressions need jump targets.
 
 \begin{center}
 \small
 \begin{tabular}{@{}l L{6.4cm} l@{}}
 \toprule
-\textbf{Attribute} & \textbf{Meaning} & \textbf{Typical symbols} \\ \midrule
+\textbf{Attribute} & \textbf{Meaning} & \textbf{Usually attached to} \\ \midrule
 \at{E}{val} & numeric value of the expression & $E,\,T,\,F$ \\
 \at{E}{type} & type of the expression (\texttt{int}, \texttt{float}, \dots) & $E$ \\
 \at{\mathbf{id}}{lexeme} & the actual characters of the identifier (supplied by the lexer) & \textbf{id} \\
@@ -903,7 +914,7 @@ b = f(c_1, c_2, \dots, c_k)
 \]
 where $f$ is a function and either
 \begin{enumerate}[label=(\arabic*),nosep]
-\item $b$ is a \textbf{synthesized} attribute of $A$ and $c_1,\dots,c_k$ are attributes of the symbols in $\alpha$ (the children) or of $A$ itself; or
+\item $b$ is a \textbf{synthesized} attribute of $A$ and $c_1,\dots,c_k$ are attributes of the symbols in $\alpha$ (the children), or other attributes of $A$ itself (allowed only if this creates no cycle); or
 \item $b$ is an \textbf{inherited} attribute of a symbol $B$ in $\alpha$ and $c_1,\dots,c_k$ are attributes of $A$ (the parent) or of symbols in $\alpha$ (the siblings), or of $B$ itself.
 \end{enumerate}
 \end{defbox}
@@ -914,7 +925,7 @@ Think of the parse tree as a company. A \textbf{synthesized} attribute is a \emp
 \end{notebox}
 
 \begin{itemize}
-\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children} (and $N$ itself). Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
+\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children}. (Occasionally it also uses another attribute of $N$ itself, e.g.\ $\at{A}{t}=\at{A}{s}+1$; the brackets of older presentations refer to this rarer case, which is allowed as long as there is no cycle.) Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
 \item An \textbf{inherited attribute} at $N$ is computed from attributes of $N$'s \emph{parent and siblings}. Information flows \emph{top-down / sideways}. Useful when the structure of the parse tree does not match the abstract syntax, e.g., passing a type to a list of identifiers, or passing the label to jump to.
 \end{itemize}
 
@@ -969,6 +980,20 @@ $F \to \mathbf{digit}$ & $\at{F}{val} = \at{\mathbf{digit}}{lexval}$ \\ \bottomr
 \end{enumerate}
 Every node is computed \emph{after} its children, i.e., in \textbf{post-order}. This is natural for synthesized attributes, and it is exactly the order in which an LR parser performs reductions.
 \end{examplebox}
+
+\begin{notebox}{Which evaluation order is needed?}
+\begin{center}
+\small
+\begin{tabular}{@{}L{3.3cm} L{4.2cm} L{6cm}@{}}
+\toprule
+\textbf{Kind of SDD} & \textbf{Evaluation order} & \textbf{Dependency graph needed?} \\ \midrule
+S-attributed (synthesized only) & post-order (children before parent), i.e.\ LR reductions & No: every edge points from child to parent, so post-order is already a topological order. \\
+L-attributed & one depth-first, left-to-right traversal & No: inherited attributes depend only on the parent and left siblings. \\
+General (arbitrary mix) & any topological order of the dependency graph & Yes: build the graph, topologically sort it, and reject it if it has a cycle. \\ \bottomrule
+\end{tabular}
+\end{center}
+So the dependency graph with topological sort is the \emph{general} method; the two special classes are exactly those for which a fixed traversal makes it unnecessary.
+\end{notebox}
 
 \subsection{Annotated parse trees and dependency graphs}
 An \textbf{annotated parse tree} shows the attribute values at every node. To evaluate attributes we build a \textbf{dependency graph}: one node per attribute instance, and an edge $x \to y$ whenever $y$ is computed from $x$. A valid evaluation order is any \emph{topological order} of this graph; if the graph has a cycle, no order exists.
