@@ -394,7 +394,7 @@ int buildDAG(TreeNode t) {            // returns a value number
 The ``search'' is only a \emph{lookup of an identical record} in the array (or hash table); it is not a second traversal of the tree.
 
 \begin{notebox}{Looking ahead}
-Building the tree first and then converting it is easy to understand. Later, after we study syntax-directed definitions (Section~\ref{sec:sddtree}), we will see that the same DAG can be built \emph{directly while parsing}, without constructing the tree at all: the parser simply calls the find-or-create routine each time it recognises an operator.
+Building the tree first and then converting it is easy to understand. Later, after we study syntax-directed definitions (Section~\ref{sec:sdddag}), we will see that the same DAG can be built \emph{directly while parsing}, without constructing the tree at all: the parser simply calls the find-or-create routine each time it recognises an operator.
 \end{notebox}
 
 \subsection{Three-address code (TAC)}
@@ -410,7 +410,7 @@ t5 = t3 + t4
 \end{lstlisting}
 Without the DAG (from the tree) $b-c$ would be computed twice.
 
-\subsubsection{Generating three-address code from a DAG}
+\subsubsection{Generating three-address code from a DAG}\label{sec:tacdag}
 \label{sec:dag2tac}
 Three-address code can be generated from the DAG alone; no SDD or SDT is needed.
 
@@ -447,14 +447,14 @@ Here $\mathit{name}[i]$ is the address that holds the value of node $i$. For an 
 \caption{Generating three-address code from the array of Figure~\ref{fig:dagarray} (the DAG of $a + a*(b-c) + (b-c)*d$). Node 4 has two parents (nodes 5 and 8) but produces only one instruction; both parents use $t_1$.}
 \end{table}
 
-\paragraph{Three ways to obtain three-address code.}
+\paragraph{Three ways to obtain three-address code.}\label{par:threeways}
 \begin{center}
 \small
 \begin{tabular}{@{}L{3.6cm} L{4.7cm} L{5.4cm}@{}}
 \toprule
 \textbf{Method} & \textbf{How} & \textbf{Common sub-expressions} \\ \midrule
 1.\ From a finished DAG & Scan the array in index order (above); no SDD/SDT needed. & Computed once (shared nodes). \\
-2.\ During DAG construction & Whenever find-or-create \emph{creates} a node, emit its instruction; when it finds an existing node, emit nothing. Needs SDT (Section~\ref{sec:sddtree}). & Computed once. \\
+2.\ During DAG construction & Whenever find-or-create \emph{creates} a node, emit its instruction; when it finds an existing node, emit nothing. Needs SDD/SDT (Section~\ref{sec:sdddag}). & Computed once. \\
 3.\ SDD/SDT directly from the parse (Section~\ref{sec:exprtac}) & Each reduction emits an instruction using \textit{newTemp} and \textit{gen}; no DAG is built. & Computed again each time they occur (e.g., $b-c$ twice). \\ \bottomrule
 \end{tabular}
 \end{center}
@@ -926,7 +926,7 @@ Think of the parse tree as a company. A \textbf{synthesized} attribute is a \emp
 \end{notebox}
 
 \begin{itemize}
-\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children}. (Occasionally it also uses another attribute of $N$ itself, e.g.\ $\at{A}{t}=\at{A}{s}+1$; the brackets of older presentations refer to this rarer case, which is allowed as long as there is no cycle.) Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
+\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children}. (Occasionally it also uses another attribute of $N$ itself, e.g.\ $\at{A}{t}=\at{A}{s}+1$; this is allowed as long as there is no cycle.) Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
 \item An \textbf{inherited attribute} at $N$ is computed from attributes of $N$'s \emph{parent and siblings}. Information flows \emph{top-down / sideways}. Useful when the structure of the parse tree does not match the abstract syntax, e.g., passing a type to a list of identifiers, or passing the label to jump to.
 \end{itemize}
 
@@ -1143,9 +1143,104 @@ $T \to \mathbf{id}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ 
 $T \to \mathbf{num}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ \\ \bottomrule
 \end{tabular}
 \end{center}
-\textbf{Building a DAG directly.} If each $\mathbf{new}\ \mathit{Node}(\dots)$ / $\mathbf{new}\ \mathit{Leaf}(\dots)$ is replaced by the find-or-create routine of Section~\ref{sec:vn} (which returns an existing node when an identical one exists), the same SDD builds a DAG during parsing, and $\at{E}{node}$ holds a value number.
-
 This is S-attributed. If the grammar is made LL by eliminating left recursion, the same tree is built with an inherited attribute (see the L-attributed SDT in Section~\ref{sec:lattr}).
+
+\subsection{SDD for constructing DAGs directly}
+\label{sec:sdddag}
+
+\paragraph{The problem with the two-step method.} In Section~\ref{sec:vn} we first built the complete syntax tree and then walked over it in post-order to obtain the DAG. That works, but it builds a structure (the tree) that is thrown away immediately. An SDD lets us skip the tree: the parser creates DAG nodes \emph{while it parses}, and the tree never exists in memory.
+
+\paragraph{The key observation.} The SDD of the previous subsection already has the right shape. Its rules for $E \to E_1 + T$ and $T \to T_1 * F$ create a node \emph{after} the nodes of the children are known, and a bottom-up parser performs reductions in exactly that (post-)order, which is also the order used by the value-number method. All we change is \emph{what the constructor functions do}:
+\begin{itemize}[nosep]
+\item In the tree SDD, $\mathbf{new}\ \mathit{Node}(op, l, r)$ \emph{always} allocates a fresh node.
+\item In the DAG SDD, $\mathit{Node}(op, l, r)$ first \emph{searches} for an existing record with the same $(op, l, r)$ and allocates a new one only if there is none. $\mathit{Leaf}$ behaves in the same way.
+\end{itemize}
+Both functions return a \textbf{value number}, so the attribute $\at{E}{node}$ is now simply \emph{an integer: the index of the DAG node} (instead of a pointer to a tree node). The attribute rules themselves are unchanged.
+
+\paragraph{The SDD.} To have a multiplication operator we use the usual three-level expression grammar ($E$ expression, $T$ term, $F$ factor), and a single synthesized attribute \textit{node}:
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} \\ \midrule
+$E \to E_1 + T$ & $\at{E}{node} = \mathit{Node}(\tok{'+'},\ \at{E_1}{node},\ \at{T}{node})$ \\
+$E \to E_1 - T$ & $\at{E}{node} = \mathit{Node}(\tok{'-'},\ \at{E_1}{node},\ \at{T}{node})$ \\
+$E \to T$ & $\at{E}{node} = \at{T}{node}$ \\
+$T \to T_1 * F$ & $\at{T}{node} = \mathit{Node}(\tok{'*'},\ \at{T_1}{node},\ \at{F}{node})$ \\
+$T \to F$ & $\at{T}{node} = \at{F}{node}$ \\
+$F \to (\,E\,)$ & $\at{F}{node} = \at{E}{node}$ \\
+$F \to \mathbf{id}$ & $\at{F}{node} = \mathit{Leaf}(\mathbf{id},\ \at{\mathbf{id}}{entry})$ \\
+$F \to \mathbf{num}$ & $\at{F}{node} = \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ \\ \bottomrule
+\end{tabular}
+\end{center}
+The rules that only \emph{copy} a value ($E\to T$, $T\to F$, $F\to(E)$) create nothing: parentheses affect only the \emph{shape} of the DAG, they do not produce a node of their own. Only the rules containing $\mathit{Node}$ or $\mathit{Leaf}$ touch the array.
+
+\paragraph{The two constructor functions.} The array of records and a hash table keyed on the \emph{signature} of a record are \emph{global data}, shared by all semantic rules for the whole input:
+\begin{lstlisting}
+record table[];                 // table[v] = record of the node with value number v
+hash   index;                   // signature -> value number
+
+int Leaf(kind, x) {             // kind is id or num; x is the entry or the value
+    sig = (kind, x);
+    if (index has sig) return index[sig];     // already exists: share it
+    v = append(table, sig);                   // new record at the end
+    index[sig] = v;
+    return v;
+}
+
+int Node(op, l, r) {            // l and r are value numbers of the children
+    sig = (op, l, r);
+    if (index has sig) return index[sig];     // common sub-expression found
+    v = append(table, sig);
+    index[sig] = v;
+    return v;
+}
+\end{lstlisting}
+Compare with the \texttt{findOrCreate} routines of Section~\ref{sec:vn}: they are the same functions. The only new idea is \emph{who calls them}: the semantic rules of the grammar, not a tree-walking procedure.
+
+\begin{notebox}{Why this is a legitimate SDD}
+$\mathit{Node}$ and $\mathit{Leaf}$ have a \emph{side effect} (they change the global table), which Section~\ref{sec:sddwhat} allowed under one condition: the order of the calls must not change the result. Here it is fixed by the dependencies: a parent's $\mathit{Node}$ call needs the value numbers of its children, so those calls are made first. The SDD is S-attributed, so it can be evaluated during LR parsing, with each rule executed at the reduction by which its production is recognised.
+\end{notebox}
+
+\begin{examplebox}{Example: input $(a+b)*(a+b)$}
+The table lists the reductions in the order the parser performs them, but only those that call $\mathit{Leaf}$ or $\mathit{Node}$. The omitted reductions ($T\to F$, $E\to T$, $F\to(E)$) just copy the value number upward.
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l c@{}}
+\toprule
+\textbf{Step} & \textbf{Reduction} & \textbf{Call} & \textbf{Result} & \textbf{Value no.} \\ \midrule
+1 & $F \to \mathbf{id}$ \ (first $a$) & $\mathit{Leaf}(\mathbf{id},a)$ & new record & 1 \\
+2 & $F \to \mathbf{id}$ \ (first $b$) & $\mathit{Leaf}(\mathbf{id},b)$ & new record & 2 \\
+3 & $E \to E_1 + T$ & $\mathit{Node}(+,1,2)$ & new record & 3 \\
+4 & $F \to \mathbf{id}$ \ (second $a$) & $\mathit{Leaf}(\mathbf{id},a)$ & \textbf{found} & 1 \\
+5 & $F \to \mathbf{id}$ \ (second $b$) & $\mathit{Leaf}(\mathbf{id},b)$ & \textbf{found} & 2 \\
+6 & $E \to E_1 + T$ & $\mathit{Node}(+,1,2)$ & \textbf{found: shared} & 3 \\
+7 & $T \to T_1 * F$ & $\mathit{Node}(*,3,3)$ & new record & 4 \\ \bottomrule
+\end{tabular}
+\end{center}
+The attribute of the root $E$ is $\at{E}{node}=4$: the root of a DAG with four records, $1\!:\!a$, $2\!:\!b$, $3\!:\!(+,1,2)$, $4\!:\!(*,3,3)$. At step 6 the second copy of $a+b$ is recognised as the first and no new node is made; this is the sharing we wanted. The tree version would have created seven nodes.
+\end{examplebox}
+
+For the larger expression $a + a*(b-c) + (b-c)*d$ the sequence of $\mathit{Leaf}$ and $\mathit{Node}$ calls is exactly the sequence of requests in Table~\ref{tab:vntrace}. This is no accident: the value-number method visits the tree in post-order, and an LR parser reduces in post-order too. Both methods therefore build the \emph{same DAG with the same value numbers}, and the final $\at{E}{node}=9$ identifies its root.
+
+\paragraph{Tree-first versus direct construction.}
+\begin{center}
+\small
+\begin{tabular}{@{}L{3.0cm} L{5.6cm} L{5.6cm}@{}}
+\toprule
+ & \textbf{Tree first, then DAG} (Section~\ref{sec:vn}) & \textbf{Directly with an SDD} \\ \midrule
+Needs a syntax tree in memory & yes & no \\
+Who calls find-or-create & a tree-walking procedure & the semantic rules, at reductions \\
+Order of calls & post-order of the tree & order of the parser's reductions (the same) \\
+Resulting DAG & identical & identical \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Two details.}
+\begin{itemize}[nosep]
+\item \textbf{Commutative operators.} If $\mathit{Node}$ stores the children of $+$ and $*$ in a canonical order (smaller value number first), then $a+b$ and $b+a$ are shared as well; without this, they are treated as different expressions (Section~\ref{sec:vn}).
+\item \textbf{Generating code at the same time.} Whenever $\mathit{Node}$ \emph{creates} a record, it can also emit one three-address instruction for it, with a fresh temporary; when it \emph{finds} an existing record, it emits nothing. This is method~2 in the comparison of Section~\ref{sec:tacdag} (the paragraph ``Three ways to obtain three-address code''), and it produces code in which $b-c$ is computed only once.
+\end{itemize}
 
 %====================================================================
 \section{Syntax-Directed Translation Schemes (SDT)}
