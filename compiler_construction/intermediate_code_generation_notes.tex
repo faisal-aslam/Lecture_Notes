@@ -820,6 +820,17 @@ The CFG part is unchanged and still defines the syntax. The new parts add meanin
 \caption{Where the CFG ends and the SDD begins. The parser needs only the grammar; everything that computes \emph{meaning} from the tree is specified by semantic rules.}
 \end{figure}
 
+\begin{notebox}{Do real compilers build the parse tree?}
+Usually not. The parse tree is a \emph{conceptual} object: it is the structure that the grammar assigns to the input, and it is what an SDD is defined on (annotated parse tree, dependency graph). A real parser seldom stores it:
+\begin{itemize}[nosep]
+\item A recursive-descent parser follows the derivation through its procedure calls, and an LR parser follows it through its stack and reductions. The tree is traversed implicitly, not built.
+\item At each reduction (or procedure return) the parser executes the semantic actions, which is exactly the SDT idea. Typically these actions build a \textbf{syntax tree (AST)} node directly, e.g.\ $\at{E}{node}=\mathbf{new}\ \mathit{Node}(\tok{'+'},\at{E_1}{node},\at{T}{node})$ (Section~\ref{sec:sddtree}).
+\end{itemize}
+A parse tree has a node for every grammar symbol, including chain steps such as $E\to T\to F\to\mathbf{digit}$ and punctuation such as parentheses. A syntax tree keeps only the operators and operands that matter, so it is much smaller and is the usual input of the later phases (type checking, intermediate-code generation).
+
+So the two statements fit together. \emph{Logically}, the CFG gives the structure and the SDD gives the meaning. \emph{In practice}, the parser's actions (an SDT) build the syntax tree directly and the full parse tree is never created. Later phases then evaluate attributes (for example types) over the syntax tree, which is attribute evaluation again, only on a different tree.
+\end{notebox}
+
 \paragraph{What is it used for?} To answer the common question directly: yes. A CFG with its parse tree is enough for \emph{syntax}; an SDD is the tool used to specify \emph{semantic analysis} and \emph{intermediate-code generation}, and related jobs:
 \begin{center}
 \small
@@ -842,21 +853,23 @@ Two remarks. First, the boundary between ``semantic analysis'' and ``code genera
 \toprule
  & \textbf{CFG} & \textbf{SDD} & \textbf{SDT} \\ \midrule
 \textbf{What it is} & productions only & CFG + attributes + semantic rules & CFG + program fragments (\emph{actions}) in the bodies \\
-\textbf{Question answered} & ``Is it legal? What is the structure?'' & ``What does it mean? What should be computed?'' & ``\emph{When} exactly is each computation done?'' \\
+\textbf{Question answered} & ``Is it legal? What is the structure?'' & ``What does it mean? What should be computed?'' & ``\emph{At what moment of the parse} is each computation done?'' \\
 \textbf{Output} & parse tree & annotated parse tree & the translation itself (values, tree, code) \\
-\textbf{Order of work} & -- & not specified (only dependencies) & specified (left to right, at a fixed point) \\
+\textbf{Order of work} & -- & only constrained by the dependencies (a partial order; many orders are legal) & one fixed order: left to right, each action at its position in the body \\
 \textbf{Used in} & syntax analysis & semantic analysis, intermediate-code generation (the \emph{specification}) & the \emph{implementation} inside the parser \\ \bottomrule
 \end{tabular}
-\caption{CFG, SDD and SDT. An SDD says \emph{what} to compute; an SDT (Section~\ref{sec:sdt}) says \emph{when}.}
+\caption{CFG, SDD and SDT. An SDD says \emph{what} to compute and which orders are legal; an SDT (Section~\ref{sec:sdt}) fixes \emph{one} order and the moment in the parse at which each computation runs.}
 \end{table}
 
 \begin{notebox}{Do we need both SDD and SDT?}
 No: they are \emph{two levels of description of the same translation}, not two separate tools used side by side.
 \begin{itemize}[nosep]
-\item The \textbf{SDD} is the \emph{specification}. It states what every attribute equals, e.g.\ $\at{E}{val}=\at{E_1}{val}+\at{T}{val}$, and fixes only the \emph{dependencies}, not the order of evaluation.
-\item The \textbf{SDT} is the \emph{implementation}. The same computation is written as an action inside the production, e.g.\ $E \to E_1 + T\ \{\ \at{E}{val}=\at{E_1}{val}+\at{T}{val}\ \}$, and therefore runs at a fixed point during parsing.
+\item The \textbf{SDD} is the \emph{specification}. It states what every attribute equals, e.g.\ $\at{E}{val}=\at{E_1}{val}+\at{T}{val}$, and fixes the \emph{dependencies}: an attribute can be computed only after the attributes it uses. This allows many evaluation orders, and the SDD does not choose among them.
+\item The \textbf{SDT} is the \emph{implementation}. The same computation is written as an action inside the production, e.g.\ $E \to E_1 + T\ \{\ \at{E}{val}=\at{E_1}{val}+\at{T}{val}\ \}$, and therefore runs at one fixed point during parsing: the SDT \emph{chooses one} of the orders that the SDD allows.
 \end{itemize}
 Normally we first think in terms of an SDD (what should be computed?) and then turn it into an SDT (where do the actions go?). The SDD alone defines the meaning but is not yet a procedure; one can also write an SDT directly, but then the correct ordering is our own responsibility.
+
+\textbf{So does an SDD say nothing about when?} It does say something, but only partially. The class of an SDD tells us which evaluation strategy is guaranteed to work: post-order for S-attributed, one left-to-right depth-first traversal for L-attributed, and a topological order of the dependency graph for any other non-circular SDD. These are the \emph{legal} orders. What the SDD cannot express is (i) the order of computations that do not depend on each other, which matters for side effects such as \textit{print}, \textit{gen} and \textit{addType}, and (ii) \emph{when during compilation} the work is done, for instance during parsing, without storing the tree. An SDT fixes both.
 \end{notebox}
 
 \subsection{Attributes}
@@ -1126,6 +1139,128 @@ For $A \to B\,C$, the rule $\at{C}{i} = \at{B}{s}$ is fine (the inherited attrib
 \caption{How the classes of SDDs nest, with an example of each.}
 \end{figure}
 
+
+\subsection{More examples: L-attributed and general (non-circular) SDDs}
+\label{sec:moresdd}
+Most examples so far are S-attributed. Here are two examples with inherited attributes: one that is L-attributed, and one that is neither S- nor L-attributed, so that a dependency graph and a topological order are really needed.
+
+\begin{notebox}{How to classify an SDD}
+\begin{enumerate}[nosep]
+\item Is every attribute synthesized? $\Rightarrow$ \textbf{S-attributed}: evaluate in post-order (LR reductions).
+\item Otherwise, look at \emph{every inherited attribute} $X_i.a$ in a production $A\to X_1\cdots X_n$. Does its rule use only inherited attributes of $A$, attributes of $X_1,\dots,X_{i-1}$ (left siblings), or other attributes of $X_i$ itself? If this holds for all of them $\Rightarrow$ \textbf{L-attributed}: one depth-first left-to-right traversal suffices.
+\item If some inherited attribute uses a \emph{right} sibling (or a synthesized attribute that would have to come from the right), the SDD is \textbf{not L-attributed}. Draw the dependency graph. If it has no cycle, the SDD is \textbf{non-circular} and any topological order evaluates it; if it has a cycle, the SDD is erroneous.
+\end{enumerate}
+\end{notebox}
+
+\begin{examplebox}{Example 1 (L-attributed, not S-attributed): value of a binary fraction}
+We evaluate a binary fraction such as \texttt{.101} $=\tfrac12+\tfrac18=0.625$. The weight of a bit depends on its \emph{position counted from the point}, which is passed \emph{down and to the right} as an inherited attribute \textit{pos}.
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$S \to \tok{'.'}\ L$ & $\at{L}{pos}=1;\quad \at{S}{val}=\at{L}{val}$ \\
+$L \to B\ L_1$ & $\at{B}{pos}=\at{L}{pos};\quad \at{L_1}{pos}=\at{L}{pos}+1;\quad \at{L}{val}=\at{B}{val}+\at{L_1}{val}$ \\
+$L \to \varepsilon$ & $\at{L}{val}=0$ \\
+$B \to 0$ & $\at{B}{val}=0$ \\
+$B \to 1$ & $\at{B}{val}=2^{-\at{B}{pos}}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Why L-attributed.} The inherited attributes are $\at{L}{pos}$, $\at{B}{pos}$ and $\at{L_1}{pos}$. In $L\to B\,L_1$, $\at{B}{pos}$ and $\at{L_1}{pos}$ use only $\at{L}{pos}$, the inherited attribute of the head, and in $S$ the rule for $\at{L}{pos}$ uses nothing. No inherited attribute depends on a symbol to its right. It is not S-attributed because \textit{pos} is inherited.
+
+\textbf{Evaluation for \texttt{.101}.} A single depth-first left-to-right traversal works. Writing $L_a, L_b, L_c, L_d$ for the four occurrences of $L$ from left to right (so $L_a\to B_1L_b$, $L_b\to B_2L_c$, $L_c\to B_3L_d$, $L_d\to\varepsilon$):
+\begin{center}
+\small
+\begin{tabular}{@{}c l l@{}}
+\toprule
+\textbf{Step} & \textbf{Rule used} & \textbf{Value} \\ \midrule
+1 & $\at{L_a}{pos}=1$ \quad ($S\to\tok{'.'}L$) & $1$ \\
+2 & $\at{B_1}{pos}=\at{L_a}{pos}$, \ $\at{L_b}{pos}=\at{L_a}{pos}+1$ & $1,\ 2$ \\
+3 & $B_1\to1$: $\at{B_1}{val}=2^{-1}$ & $0.5$ \\
+4 & $\at{B_2}{pos}=2$, \ $\at{L_c}{pos}=3$; \ $B_2\to0$: $\at{B_2}{val}=0$ & $0$ \\
+5 & $\at{B_3}{pos}=3$, \ $\at{L_d}{pos}=4$; \ $B_3\to1$: $\at{B_3}{val}=2^{-3}$ & $0.125$ \\
+6 & $L_d\to\varepsilon$: $\at{L_d}{val}=0$ & $0$ \\
+7 & going back up: $\at{L_c}{val}=0.125+0$, \ $\at{L_b}{val}=0+0.125$, \ $\at{L_a}{val}=0.5+0.125$ & $0.625$ \\
+8 & $\at{S}{val}=\at{L_a}{val}$ & $0.625$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{As an SDT.} Following the conversion rules of Section~\ref{sec:lattr}, each inherited attribute is computed by an action placed immediately before the symbol that uses it; this gives actions at the left end of a body and in the middle:
+\begin{align*}
+S &\to \tok{'.'}\ \{\ \at{L}{pos}=1\ \}\ L\ \{\ \at{S}{val}=\at{L}{val}\ \}\\
+L &\to \{\ \at{B}{pos}=\at{L}{pos}\ \}\ B\ \{\ \at{L_1}{pos}=\at{L}{pos}+1\ \}\ L_1\ \{\ \at{L}{val}=\at{B}{val}+\at{L_1}{val}\ \}\\
+  &\mid\ \varepsilon\ \{\ \at{L}{val}=0\ \}\\
+B &\to 0\ \{\ \at{B}{val}=0\ \}\ \mid\ 1\ \{\ \at{B}{val}=2^{-\at{B}{pos}}\ \}
+\end{align*}
+\end{examplebox}
+
+\begin{examplebox}{Example 2 (neither S- nor L-attributed, but non-circular): value of a binary integer}
+Now evaluate an ordinary binary integer such as \texttt{101} $=5$. The weight of a bit is $2^{\textit{pos}}$ where \textit{pos} is the number of bits \emph{to its right}. This depends on the \emph{length of the rest of the string}, which is known only after the right part has been examined.
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$L \to B\ L_1$ & $\at{B}{pos}=\at{L_1}{len};\quad \at{L}{len}=\at{L_1}{len}+1;\quad \at{L}{val}=\at{B}{val}+\at{L_1}{val}$ \\
+$L \to B$ & $\at{B}{pos}=0;\quad \at{L}{len}=1;\quad \at{L}{val}=\at{B}{val}$ \\
+$B \to 0$ & $\at{B}{val}=0$ \\
+$B \to 1$ & $\at{B}{val}=2^{\at{B}{pos}}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Classification.} \textit{pos} is inherited, so the SDD is not S-attributed. In $L\to B\,L_1$ the inherited attribute $\at{B}{pos}$ is computed from $\at{L_1}{len}$, an attribute of the \emph{right} sibling, so it is not L-attributed either: a left-to-right traversal reaches $B$ before it knows $\at{L_1}{len}$. It is nevertheless \emph{non-circular}: \textit{len} depends only on \textit{len} of the part below it, \textit{pos} depends only on \textit{len}, and \textit{val} depends on \textit{pos} and on \textit{val} further down. So we use a dependency graph.
+
+\textbf{Dependency graph for \texttt{101}.} The parse tree is $L_a\to B_1L_b$, $L_b\to B_2L_c$, $L_c\to B_3$, with $B_1\to1$, $B_2\to0$, $B_3\to1$. Each box in Figure~\ref{fig:depgraph2} is one attribute instance with its final value; an arrow $x\to y$ means that $y$ is computed from $x$. The small red numbers give one valid topological order.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+  att/.style={draw,rounded corners=2pt,minimum width=2.5cm,minimum height=0.7cm,font=\footnotesize,fill=white},
+  tag/.style={font=\scriptsize\bfseries,text=red!70!black},
+  ar/.style={-{Stealth[length=2mm]},thick,blue!60!black}]
+ % column headings
+ \node[font=\small\bfseries] at (0,0.9) {\textit{len}};
+ \node[font=\small\bfseries] at (3.4,0.9) {\textit{pos} (inherited)};
+ \node[font=\small\bfseries] at (6.8,0.9) {$B.\textit{val}$};
+ \node[font=\small\bfseries] at (10.2,0.9) {$L.\textit{val}$};
+ % row a (top)
+ \node[att,label={[tag]above left:9}]  (lenA) at (0,0)   {$L_a.len=3$};
+ \node[att,label={[tag]above left:10}] (posA) at (3.4,0) {$B_1.pos=2$};
+ \node[att,label={[tag]above left:11}] (valA) at (6.8,0) {$B_1.val=4$};
+ \node[att,label={[tag]above left:12}] (lvA)  at (10.2,0) {$L_a.val=5$};
+ % row b
+ \node[att,label={[tag]above left:5}]  (lenB) at (0,-2)   {$L_b.len=2$};
+ \node[att,label={[tag]above left:6}]  (posB) at (3.4,-2) {$B_2.pos=1$};
+ \node[att,label={[tag]above left:7}]  (valB) at (6.8,-2) {$B_2.val=0$};
+ \node[att,label={[tag]above left:8}]  (lvB)  at (10.2,-2) {$L_b.val=1$};
+ % row c (bottom)
+ \node[att,label={[tag]above left:1}]  (lenC) at (0,-4)   {$L_c.len=1$};
+ \node[att,label={[tag]above left:2}]  (posC) at (3.4,-4) {$B_3.pos=0$};
+ \node[att,label={[tag]above left:3}]  (valC) at (6.8,-4) {$B_3.val=1$};
+ \node[att,label={[tag]above left:4}]  (lvC)  at (10.2,-4) {$L_c.val=1$};
+ % edges
+ \draw[ar] (lenC)--(lenB); \draw[ar] (lenB)--(lenA);
+ \draw[ar] (lenC)--(posB); \draw[ar] (lenB)--(posA);
+ \foreach \x in {A,B,C} { \draw[ar] (pos\x)--(val\x); \draw[ar] (val\x)--(lv\x); }
+ \draw[ar] (lvC)--(lvB); \draw[ar] (lvB)--(lvA);
+\end{tikzpicture}}
+\caption{Dependency graph for \texttt{101} (value $5$). \textit{len} flows upward, then crosses over into the inherited \textit{pos} of the left sibling $B$, then \textit{val} flows upward. The red numbers are one valid topological order.}
+\label{fig:depgraph2}
+\end{figure}
+
+\textbf{Topological order (solution).}
+\begin{enumerate}[nosep,label=(\arabic*)]
+\item $\at{L_c}{len}=1$ and $\at{B_3}{pos}=0$ (rule $L\to B$; no dependence on anything).
+\item $\at{B_3}{val}=2^{0}=1$ \ ($B_3\to1$), then $\at{L_c}{val}=1$.
+\item $\at{L_b}{len}=\at{L_c}{len}+1=2$ and $\at{B_2}{pos}=\at{L_c}{len}=1$.
+\item $\at{B_2}{val}=0$ \ ($B_2\to0$), then $\at{L_b}{val}=0+1=1$.
+\item $\at{L_a}{len}=\at{L_b}{len}+1=3$ and $\at{B_1}{pos}=\at{L_b}{len}=2$.
+\item $\at{B_1}{val}=2^{2}=4$ \ ($B_1\to1$), then $\at{L_a}{val}=4+1=5$.
+\end{enumerate}
+Other orders are also valid, e.g.\ all three \textit{len} values first. In practice a compiler evaluates such an SDD in \emph{several passes over the parse tree}: a bottom-up pass for \textit{len}, a top-down pass for \textit{pos}, and a bottom-up pass for \textit{val}.
+
+\textbf{Remark.} The difficulty comes from the right-recursive grammar. With the left-recursive grammar $L\to L_1B\mid B$ and $\at{L}{val}=2\times\at{L_1}{val}+\at{B}{val}$ the same value is computed by an S-attributed SDD, with no \textit{pos} and no \textit{len}. Choosing the grammar well can remove the need for a dependency graph.
+\end{examplebox}
+
 \subsection{SDD for constructing syntax trees}
 \label{sec:sddtree}
 Syntax trees can be built using synthesized attribute \textit{node}, which points to the root of a (sub)tree, and constructor functions $\mathit{Node}(op, c_1,\dots)$ and $\mathit{Leaf}(\mathbf{id}, entry)$ / $\mathit{Leaf}(\mathbf{num}, val)$.
@@ -1198,6 +1333,16 @@ int Node(op, l, r) {            // l and r are value numbers of the children
 \end{lstlisting}
 Compare with the \texttt{findOrCreate} routines of Section~\ref{sec:vn}: they are the same functions. The only new idea is \emph{who calls them}: the semantic rules of the grammar, not a tree-walking procedure.
 
+
+\begin{notebox}{How does the SDD say ``tree'' or ``DAG''?}
+The \emph{rules} cannot tell the difference: the DAG SDD above and the syntax-tree SDD of the previous subsection have the same productions, the same attribute \textit{node}, and the same dependency graph. Both are S-attributed. What differs is the \textbf{meaning of the constructor functions} that the rules call, and that is part of the definition of the SDD, in the same way that the meaning of \textit{gen} or \textit{addType} is:
+\begin{itemize}[nosep]
+\item $\mathbf{new}\ \mathit{Node}(op,l,r)$ \emph{always allocates} a fresh node. Equal sub-expressions get different nodes, so the result is a \textbf{syntax tree}.
+\item $\mathit{Node}(op,l,r)$ \emph{looks for a record with the same $(op,l,r)$ first} and allocates only if none exists. Equal sub-expressions get the same node, so the result is a \textbf{DAG}.
+\end{itemize}
+So whoever writes the SDD must state which of the two is meant. In these notes we use the keyword $\mathbf{new}$ for ``always create'' and plain $\mathit{Node}$, $\mathit{Leaf}$ for ``find or create''. Nothing else changes: every later phase simply receives the attribute \textit{node} and does not care whether some nodes are shared (except that shared nodes need to be translated only once).
+\end{notebox}
+
 \begin{notebox}{Why this is a legitimate SDD}
 $\mathit{Node}$ and $\mathit{Leaf}$ have a \emph{side effect} (they change the global table), which Section~\ref{sec:sddwhat} allowed under one condition: the order of the calls must not change the result. Here it is fixed by the dependencies: a parent's $\mathit{Node}$ call needs the value numbers of its children, so those calls are made first. The SDD is S-attributed, so it can be evaluated during LR parsing, with each rule executed at the reduction by which its production is recognised.
 \end{notebox}
@@ -1268,7 +1413,7 @@ $E \to E_1 + T\ \ \{\ \at{E}{val} = \at{E_1}{val} + \at{T}{val}\ \}$ \\ \bottomr
 \toprule
  & \textbf{SDD} & \textbf{SDT} \\ \midrule
 Nature & High-level specification: rules attached to productions & Concrete implementation: actions embedded in productions \\
-Order of evaluation & Not specified (any order consistent with dependencies) & Explicit: actions run in the left-to-right order of the production body \\
+Order of evaluation & Only constrained by the dependencies: any topological order is legal (post-order, left-to-right DFS, \dots{} depending on the class) & One explicit order: actions run in the left-to-right order of the production body, at the moment the parser reaches them \\
 Rules/actions & Written next to the production & Written in braces $\{\dots\}$ inside the body \\
 Used for & Designing and reasoning about the translation & Building the actual translator \\ \bottomrule
 \end{tabular}
@@ -1373,6 +1518,63 @@ R &\to +\ T\ \{\ \mathit{print}(\tok{'+'})\ \}\ R_1 \mid -\ T\ \{\ \mathit{print
 T &\to \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{num}}{val})\ \}
 \end{align*}
 For \texttt{9-5+2} the output is \texttt{95-2+}.
+\end{examplebox}
+
+
+\begin{examplebox}{Worked example: actions in the middle of productions (declarations)}
+We want to give every identifier in a declaration such as \texttt{float x, y} its type. The type is known only after $T$ has been parsed, and the identifiers must receive it \emph{as they are read}. This is why the actions cannot all stand at the end of a production.
+\begin{align*}
+D &\to T\ \mathbf{id}\ \{\ \at{L}{inh}=\at{T}{type};\ \mathit{addType}(\at{\mathbf{id}}{entry},\ \at{T}{type})\ \}\ L\\
+T &\to \mathbf{int}\ \{\ \at{T}{type}=integer\ \}\ \mid\ \mathbf{float}\ \{\ \at{T}{type}=float\ \}\\
+L &\to \tok{','}\ \mathbf{id}\ \{\ \mathit{addType}(\at{\mathbf{id}}{entry},\ \at{L}{inh});\ \at{L_1}{inh}=\at{L}{inh}\ \}\ L_1\ \mid\ \varepsilon
+\end{align*}
+The actions of $T$ are at the right end of their bodies, but the actions in $D$ and in $L$ are in the \emph{middle}: each is followed by the nonterminal ($L$ or $L_1$) that needs the inherited attribute it computes.
+
+\textbf{Solution for \texttt{float x, y}.} Figure~\ref{fig:midaction} shows the parse tree with each action as an extra child. A depth-first traversal from left to right executes the actions in the order of the bold numbers.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  act/.style={inner sep=2.5pt,draw,dashed,rounded corners=2pt,fill=orange!15,font=\footnotesize,align=left}]
+ \node[nd] (D) at (0,0) {$D$};
+ \node[nd] (T) at (-5.4,-1.7) {$T$\\[-1pt]{\scriptsize $type=float$}};
+ \node[nd] (ix) at (-2.7,-1.7) {\textbf{id}\\[-1pt]{\scriptsize (x)}};
+ \node[act] (a2) at (0.4,-1.7) {\textbf{2:} $L.inh=T.type$;\\ \phantom{\textbf{2:}} $addType(x,float)$};
+ \node[nd] (L) at (5.2,-1.7) {$L$\\[-1pt]{\scriptsize $inh=float$}};
+ \node[nd] (fl) at (-6.5,-3.4) {\textbf{float}};
+ \node[act] (a1) at (-4.2,-3.4) {\textbf{1:} $T.type=float$};
+ \node[nd] (cm) at (2.9,-3.4) {$,$};
+ \node[nd] (iy) at (4.1,-3.4) {\textbf{id}\\[-1pt]{\scriptsize (y)}};
+ \node[act] (a3) at (7.2,-3.4) {\textbf{3:} $addType(y,float)$;\\ \phantom{\textbf{3:}} $L_1.inh=L.inh$};
+ \node[nd] (L1) at (10.6,-3.4) {$L_1$\\[-1pt]{\scriptsize $inh=float$}};
+ \node[nd] (ep) at (10.6,-4.9) {$\varepsilon$};
+ \foreach \a/\b in {D/T,D/ix,D/a2,D/L,T/fl,T/a1,L/cm,L/iy,L/a3,L/L1,L1/ep}
+   \draw[gray] (\a.south)--(\b.north);
+\end{tikzpicture}}
+\caption{Parse tree of \texttt{float x, y} with the actions as extra children (dashed boxes). The bold numbers give the execution order in a left-to-right depth-first traversal.}
+\label{fig:midaction}
+\end{figure}
+
+\begin{enumerate}[nosep,label=(\arabic*)]
+\item Reaching the end of $T\to\mathbf{float}$: $\at{T}{type}=float$.
+\item Back in $D$, after $T$ and \textbf{id} (x) have been visited: $\at{L}{inh}=float$ and \textit{addType}$(x, float)$.
+\item In $L$, after \texttt{,} and \textbf{id} (y): \textit{addType}$(y, float)$ and $\at{L_1}{inh}=float$. The remaining $L_1\to\varepsilon$ has no action.
+\end{enumerate}
+Result: the symbol table says $x:float$ and $y:float$.
+
+\textbf{Why the position matters.} If the action of $D$ were written at the \emph{end}, after $L$, then $L$ would be processed before $\at{L}{inh}$ has a value, and \textit{addType}$(y,\dots)$ would use an undefined type. A mid-production action is therefore the way an SDT guarantees that an inherited attribute is computed \emph{before} the symbol that uses it. A top-down parser executes these actions as statements of its recursive-descent procedures; an LR parser needs marker nonterminals (Section~\ref{sec:marker}).
+\end{examplebox}
+
+\begin{examplebox}{Example: actions at the left end of a production body}
+An action may be the very first item of a body. (An action cannot be attached to the head of a production; ``left'' here means the left end of the body.) Such an action runs \emph{before any symbol of the body is matched}, so it can use only the \emph{inherited} attributes of the head. The scheme below prints the nesting depth of every opening parenthesis of a balanced string; $P.d$ is an inherited attribute holding the depth of the current position.
+\begin{align*}
+S &\to \{\ \at{P}{d}=0\ \}\ P\\
+P &\to \{\ \mathit{print}(\at{P}{d})\ \}\ \tok{'('}\ \{\ \at{P_1}{d}=\at{P}{d}+1\ \}\ P_1\ \tok{')'}\ \{\ \at{P_2}{d}=\at{P}{d}\ \}\ P_2\ \ \mid\ \ \varepsilon
+\end{align*}
+Here the first action of $S$ \emph{initialises} the inherited attribute of $P$, and the first action of $P$ \emph{reads} $\at{P}{d}$, which was set by an action before $P$ was entered. For the input \texttt{(()())} the output is \texttt{0 1 1}.
 \end{examplebox}
 
 \subsection{Marker nonterminals (actions in the middle, for bottom-up parsing)}
