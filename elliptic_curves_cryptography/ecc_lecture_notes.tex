@@ -25,8 +25,15 @@
 \usepackage[most]{tcolorbox}
 \usepackage{fancyhdr}
 \usepackage{float}
-\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[plainpages=false,pdfpagelabels,colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[nameinlink,noabbrev]{cleveref}
+% --- silence harmless warnings / make anchors unique ---
+\makeatletter
+\gdef\theHALG@line{\thealgorithm.\arabic{ALG@line}}
+\makeatother
+\hbadness=10000
+\hfuzz=2pt
+\vbadness=10000
 
 \setlength{\parskip}{4pt}\emergencystretch=3em
 \setlength{\parindent}{0pt}
@@ -75,8 +82,6 @@
 
 % ---------- coloured boxes ----------
 \newtcolorbox{keyidea}[1][Key idea]{colback=blue!4!white,colframe=blue!55!black,
-  fonttitle=\bfseries\small,title={#1},breakable,left=4pt,right=4pt,top=3pt,bottom=3pt}
-\newtcolorbox{lecturernote}[1][Note for the lecturer]{colback=orange!6!white,colframe=orange!70!black,
   fonttitle=\bfseries\small,title={#1},breakable,left=4pt,right=4pt,top=3pt,bottom=3pt}
 \newtcolorbox{warningbox}[1][Warning]{colback=red!4!white,colframe=red!60!black,
   fonttitle=\bfseries\small,title={#1},breakable,left=4pt,right=4pt,top=3pt,bottom=3pt}
@@ -136,16 +141,16 @@
 \date{\today}
 
 \begin{document}
-\frontmatter
+\pagenumbering{alph}
 \maketitle
+\frontmatter
 
 \chapter*{Preface and Course Plan}
 \addcontentsline{toc}{chapter}{Preface and Course Plan}
 
-These notes accompany a graduate course on elliptic curve cryptography (ECC). They are written to be
-\emph{delivered}: each lecture is designed for roughly three hours (including short breaks), and every
-chapter ends with exercises (with hints) that can be used as problem sheets. The notes aim at a balance
-between three viewpoints, which are the three viewpoints that every modern researcher in the area must master:
+These notes accompany a graduate course on elliptic curve cryptography (ECC). The course consists of five lectures of about three hours each, and every
+chapter ends with exercises that serve as problem sheets. Throughout, we try to \emph{build intuition first}: most definitions are followed by a picture or a small
+numerical example that you can check by hand. The notes balance three viewpoints, all of which a researcher in the area must master:
 \begin{enumerate}[label=(\roman*),nosep]
 \item \textbf{Mathematics:} the arithmetic geometry of elliptic curves (group law, torsion, Frobenius, divisors, pairings, isogenies).
 \item \textbf{Algorithms:} finite field and curve arithmetic, scalar multiplication, point counting, discrete logarithm algorithms.
@@ -156,26 +161,42 @@ between three viewpoints, which are the three viewpoints that every modern resea
 and basic cryptography (what a public-key scheme and a digital signature are). Algebraic geometry is \emph{not} assumed:
 the necessary facts (projective plane, divisors, Riemann--Roch) are introduced where needed and collected in the appendices.
 
-\paragraph{Suggested schedule.}
+\paragraph{Course plan.}
 \begin{center}
 \small
-\begin{tabular}{@{}p{1.6cm}p{7.2cm}p{4.5cm}@{}}
+\begin{tabular}{@{}p{1.6cm}p{11cm}@{}}
 \toprule
-\textbf{Lecture} & \textbf{Content} & \textbf{Approx.\ timing (3h)}\\
+\textbf{Lecture} & \textbf{Content}\\
 \midrule
-1 & Motivation, finite fields, Weierstrass curves, the group law, curves over $\R$, $\C$, $\Q$ & 45 + 50 + 55 + 30 min\\
-2 & Curves over finite fields: Hasse, structure, Frobenius, point counting, models, coordinates, scalar multiplication & 40 + 45 + 45 + 50 min\\
-3 & The elliptic curve discrete logarithm problem: generic and special attacks, parameter selection & 45 + 50 + 55 + 30 min\\
-4 & Protocols, standards, and implementation security (ECDH, ECDSA, EdDSA, side channels, invalid curves) & 45 + 50 + 55 + 30 min\\
-5 & Divisors, pairings, pairing-based cryptography, isogenies, post-quantum perspectives & 50 + 50 + 45 + 35 min\\
+1 & Motivation, finite fields, Weierstrass curves, the group law, curves over $\R$, $\C$, $\Q$\\
+2 & Curves over finite fields: Hasse, structure, Frobenius, point counting, curve models, coordinates, scalar multiplication\\
+3 & The elliptic curve discrete logarithm problem: generic and special attacks, parameter selection\\
+4 & Protocols, standards, and implementation security (ECDH, ECDSA, EdDSA, side channels, invalid curves)\\
+5 & Divisors, pairings, pairing-based cryptography, isogenies, post-quantum perspectives\\
 \bottomrule
 \end{tabular}
 \end{center}
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,fill=blue!8,minimum width=3.4cm,minimum height=1.2cm,align=center,font=\small}]
+\node[box] (L1) at (0,0) {\textbf{Lecture 1}\\ curves and the\\ group law};
+\node[box] (L2) at (4.2,0) {\textbf{Lecture 2}\\ finite fields,\\ counting, speed};
+\node[box,fill=red!8] (L3) at (8.4,1.1) {\textbf{Lecture 3}\\ attacks on\\ the DLP};
+\node[box,fill=green!10] (L4) at (12.6,1.1) {\textbf{Lecture 4}\\ protocols and\\ implementation};
+\node[box,fill=orange!12] (L5) at (8.4,-1.4) {\textbf{Lecture 5}\\ pairings, isogenies,\\ quantum};
+\draw[->,thick] (L1)--(L2);
+\draw[->,thick] (L2)--(L3);
+\draw[->,thick] (L3)--(L4);
+\draw[->,thick] (L2)--(L5);
+\draw[->,thick,dashed] (L3)--(L5) node[midway,right,font=\scriptsize]{MOV};
+\end{tikzpicture}
+\caption{Roadmap. Lectures 1--2 build the mathematical and algorithmic toolbox, Lecture 3 explains why the problem is hard (and when it is not), Lecture 4 turns it into protocols, and Lecture 5 introduces the richer structure (pairings, isogenies) that gives new cryptography and new attacks.}
+\end{figure}
+
 \paragraph{Conventions.} Throughout, $K$ is a field, $\Kbar$ an algebraic closure, $q=p^n$ a prime power and $\F_q$ the finite field with $q$ elements.
 The point at infinity of an elliptic curve is written $\Oinf$. Sections marked with a star ($\star$) are optional or more advanced and can be skipped
-in a first pass or given as reading. \emph{Boxes} labelled ``Note for the lecturer'' contain pedagogical suggestions
-(what to draw on the board, where students typically get confused, how to allocate time).
+in a first pass. Boxes labelled \emph{Key idea} summarise the central point of a section, and boxes labelled \emph{Warning} flag common mistakes.
 All numerical examples in the text were verified by computer; a self-contained Python implementation is given in \cref{app:code}.
 
 \paragraph{Notation for complexity.} $\Mul,\Sqr,\Inv$ denote the cost of a field multiplication, squaring, and inversion respectively.
@@ -217,6 +238,18 @@ The Diffie--Hellman protocol is: Alice picks $a$, sends $A=g^a$; Bob picks $b$, 
 An eavesdropper sees $(g,g^a,g^b)$ and must compute $g^{ab}$ (the \emph{computational Diffie--Hellman} problem, $\CDH$).
 Clearly $\CDH\le$ DLP (if one can compute logarithms then one can solve $\CDH$); the converse is open in general
 (see \cref{sec:cdh-ddh}).
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,minimum width=2.2cm,minimum height=1cm,fill=blue!8}]
+\node[box] (k) at (0,0) {$k$};
+\node[box,fill=green!10] (kG) at (8,0) {$kG$};
+\draw[->,very thick,green!50!black] (k.north east) to[bend left=22] node[above,font=\small,align=center]{\textbf{easy:} double-and-add,\\ about $256$ steps for a $256$-bit $k$} (kG.north west);
+\draw[->,very thick,red!70!black] (kG.south west) to[bend left=22] node[below,font=\small,align=center]{\textbf{hard:} about $2^{128}$ steps\\ (best known attacks)} (k.south east);
+\end{tikzpicture}
+\caption{The one-way behaviour that discrete-logarithm cryptography relies on. Computing $kG$ from $k$ is fast; recovering $k$ from $kG$ is believed to be infeasible in a well-chosen group.}
+\label{fig:oneway}
+\end{figure}
 
 \subsection{Which group?}
 
@@ -265,12 +298,6 @@ Security (bits) & Symmetric (e.g.\ AES) & RSA / DH modulus (bits) & ECC (bits) \
 \label{fig:keysizes}
 \end{figure}
 
-\begin{lecturernote}
-Spend ten minutes on the \emph{why}. A good board sketch is the three-column picture: $(\Z/n,+)$ \,--\, trivial; $\F_p^\times$ \,--\, subexponential;
-$E(\F_p)$ \,--\, exponential. Emphasise that ``hardness'' is a statement about the \emph{representation} of the group, not only its abstract isomorphism type
-(all cyclic groups of order $n$ are isomorphic!). This is the key conceptual point students often miss.
-\end{lecturernote}
-
 %------------------------------------------------------------------------------
 \section{Algebraic preliminaries}
 %------------------------------------------------------------------------------
@@ -301,6 +328,10 @@ If $p\equiv3\pmod 4$ and $a$ is a square, then $\sqrt{a}=\pm a^{(p+1)/4}$. If $p
 \begin{proof}
 $(a^{(p+1)/4})^2=a^{(p+1)/2}=a\cdot a^{(p-1)/2}=a$ by Euler's criterion.
 \end{proof}
+
+\begin{example}[Square roots modulo $23$]
+$23\equiv3\pmod4$. Is $2$ a square? $2^{(23-1)/2}=2^{11}=2048\equiv1\pmod{23}$, so yes. Then $\sqrt2=\pm2^{(23+1)/4}=\pm2^6=\pm64\equiv\pm18$. Check: $18^2=324=14\cdot23+2$. \checkmark\ (Note $18\equiv-5$, and indeed $5^2=25\equiv2$.) By contrast $5^{11}\equiv-1$, so $5$ is a non-square, and the equation $y^2=5$ has no solution.
+\end{example}
 
 \begin{remark}
 Curve25519 uses $p=2^{255}-19\equiv 1\pmod 4$ ($\equiv 5\pmod 8$), so square roots are computed via Atkin's variant with one exponentiation and possibly one multiplication by $\sqrt{-1}$. The curve secp256k1 has $p\equiv 3\pmod 4$.
@@ -382,6 +413,14 @@ Let $\operatorname{char}K\neq2,3$ and $f(x)=x^3+ax+b$. The following are equival
 (b)$\Leftrightarrow$(c): the discriminant of $x^3+ax+b$ equals $-4a^3-27b^2$ (\cref{ex:L1-disc}) and vanishes iff $f$ has a repeated root.
 \end{proof}
 
+\begin{example}[Testing curves for singularity, and computing $j$]\label{ex:singtest}
+\begin{itemize}[nosep]
+\item $y^2=x^3-3x+2$: $4a^3+27b^2=4(-27)+27\cdot4=0$. Indeed $x^3-3x+2=(x-1)^2(x+2)$ has a double root, so the point $(1,0)$ is singular (a node). This is the last curve of \cref{fig:realcurves}: \emph{not} an elliptic curve.
+\item $y^2=x^3+2x+2$ over $\F_{17}$: $4a^3+27b^2=32+108=140\equiv4\ne0$: nonsingular. Its $j$-invariant is $j=1728\cdot\frac{4a^3}{4a^3+27b^2}=1728\cdot\frac{32}{140}\equiv11\cdot\frac{15}{4}=11\cdot15\cdot13\equiv3\pmod{17}$.
+\item $y^2=x^3+7$ (secp256k1): $a=0$ so $j=0$. $y^2=x^3-x$: $b=0$ so $j=1728$.
+\end{itemize}
+\end{example}
+
 \begin{example}[Isomorphism classes]
 Over $\Kbar$, $E_{a,b}\cong E_{a',b'}$ iff $j(E_{a,b})=j(E_{a',b'})$. Over $K$, the curves are isomorphic iff there is $u\in K^\times$ with $a'=u^4a$ and $b'=u^6b$. Thus
 $y^2=x^3+b$ ($j=0$) gives $|K^\times/(K^\times)^6|$ isomorphism classes over $K$ (twists), and $y^2=x^3+ax$ ($j=1728$) gives $|K^\times/(K^\times)^4|$ classes.
@@ -420,10 +459,6 @@ $y^2+xy=x^3+a_2x^2+a_6$ with $\Delta=a_6\ne0$. In characteristic $3$ one uses $y
 \caption{Cubic curves over $\R$. Left two: elliptic curves ($\Delta\neq0$), with two connected components ($f$ has three real roots) or one component ($f$ has one real root). Right two: singular cubics ($\Delta=0$), which are \emph{not} elliptic curves.}
 \label{fig:realcurves}
 \end{figure}
-
-\begin{lecturernote}
-Draw \cref{fig:realcurves} on the board and ask: ``why is the third picture not an elliptic curve?'' Most students say ``it has a corner''. Push to the algebraic reason: the gradient vanishes at $(0,0)$, equivalently $f$ has a double root. Mention that singular cubics still have a group structure on their \emph{nonsingular} points ($\cong\Fq^+$ for a cusp, $\Fq^\times$ or its twist for a node); this is the reason that an invalid or singular curve (\cref{sec:invalid-curve}) is dangerous: the DLP there is trivial or reduces to $\F_q^\times$.
-\end{lecturernote}
 
 %------------------------------------------------------------------------------
 \section{The chord-and-tangent group law}
@@ -479,6 +514,51 @@ Equivalently: $P+Q$ is the reflection of $R$ in the $x$-axis. If $P=\Oinf$ defin
 \label{fig:addition}
 \end{figure}
 
+\begin{figure}[ht]
+\centering
+\begin{minipage}{0.49\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=\textwidth,height=6cm,axis lines=middle,ticks=none,xmin=-1.8,xmax=2.6,ymin=-3,ymax=3.2,
+ every axis plot/.append style={thick}]
+\addplot[domain=-1.32471795724:2.3,samples=100,blue!70!black,smooth] {sqrt(max(0,x^3-x+1))};
+\addplot[domain=-1.32471795724:2.3,samples=100,blue!70!black,smooth] {-sqrt(max(0,x^3-x+1))};
+\addplot[red!70!black,-{Stealth}] coordinates {(0,-3)(0,3.1)};
+\addplot[only marks,mark=*,mark size=2pt] coordinates {(0,1)(0,-1)};
+\node[anchor=south west] at (axis cs:0,1) {$P$};
+\node[anchor=north west] at (axis cs:0,-1) {$-P$};
+\node[anchor=west,red!70!black,font=\small] at (axis cs:0.1,2.7) {to $\Oinf$};
+\end{axis}
+\end{tikzpicture}
+
+\small (a) vertical line: $P+(-P)=\Oinf$
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=\textwidth,height=6cm,axis lines=middle,ticks=none,xmin=-1.7,xmax=2.4,ymin=-2.4,ymax=2.4,
+ every axis plot/.append style={thick}]
+\addplot[domain=-1:0,samples=80,blue!70!black,smooth] {sqrt(max(0,x^3-x))};
+\addplot[domain=-1:0,samples=80,blue!70!black,smooth] {-sqrt(max(0,x^3-x))};
+\addplot[domain=1:2.2,samples=80,blue!70!black,smooth] {sqrt(max(0,x^3-x))};
+\addplot[domain=1:2.2,samples=80,blue!70!black,smooth] {-sqrt(max(0,x^3-x))};
+\addplot[dashed,red!70!black] coordinates {(-1,-2.3)(-1,2.3)};
+\addplot[dashed,red!70!black] coordinates {(0,-2.3)(0,2.3)};
+\addplot[dashed,red!70!black] coordinates {(1,-2.3)(1,2.3)};
+\addplot[only marks,mark=*,mark size=2pt] coordinates {(-1,0)(0,0)(1,0)};
+\node[anchor=south east] at (axis cs:-1,0) {$T_1$};
+\node[anchor=south west] at (axis cs:0,0.1) {$T_2$};
+\node[anchor=south west] at (axis cs:1,0) {$T_3$};
+\end{axis}
+\end{tikzpicture}
+
+\small (b) vertical tangents: $2T_i=\Oinf$
+\end{minipage}
+\caption{Special cases of the chord-and-tangent rule. (a) The line through $P=(x,y)$ and $-P=(x,-y)$ is vertical; it meets the curve only a third time ``at infinity'', so $P+(-P)=\Oinf$. (b) On $y^2=x^3-x$ the three points $T_i$ with $y=0$ have vertical tangent lines, hence $2T_i=\Oinf$: they are the points of order $2$, and $E[2]=\{\Oinf,T_1,T_2,T_3\}\cong(\Z/2)^2$.}
+\label{fig:special}
+\end{figure}
+
 \subsection{Explicit formulas}
 
 \begin{theorem}[Addition formulas]\label{thm:addition-formulas}
@@ -527,7 +607,7 @@ Doubling $Q$: $\lambda=\frac{3\cdot9-1}{2\cdot5}=\frac{13}5$, $x_3=\frac{169}{25
 Note the growth of the heights of the coordinates: the denominators of $nP$ grow like $n^2$ in bit-size. This is why rational points are not used in cryptography, and why we pass to finite fields.
 \end{example}
 
-\subsection{Elliptic curves over $\Q$: a glimpse}
+\subsection{Elliptic curves over \texorpdfstring{$\Q$}{Q}: a glimpse}
 
 \begin{theorem}[Mordell--Weil]
 For $E/\Q$ the group $E(\Q)$ is finitely generated: $E(\Q)\cong\Z^r\oplus E(\Q)_{\mathrm{tors}}$.
@@ -537,7 +617,7 @@ $E(\Q)_{\mathrm{tors}}$ is isomorphic to one of $\Z/N$ ($1\le N\le10$ or $N=12$)
 \end{theorem}
 The rank $r$ is the subject of the Birch and Swinnerton-Dyer conjecture; no algorithm to compute it is known to terminate. These results are mentioned for culture; they explain why cryptography works over \emph{finite} fields, where everything is finite and explicitly computable.
 
-\subsection{Example: a complete group over $\F_{17}$}
+\subsection{Example: a complete group over \texorpdfstring{$\F_{17}$}{F17}}
 
 \begin{example}[The curve $y^2=x^3+2x+2$ over $\F_{17}$]\label{ex:F17}
 Here $\Delta=-16(4\cdot8+27\cdot4)=-16\cdot140$, and $140\equiv 4\pmod{17}$ is nonzero, so $E$ is nonsingular. The curve has exactly $19$ points ($18$ affine ones and $\Oinf$);
@@ -586,12 +666,25 @@ and $19G=\Oinf$. Observe $kG=-(19-k)G$: for instance $18G=(5,16)=-G$.
 \label{fig:F17}
 \end{figure}
 
-\begin{lecturernote}
-Ask the students (30 seconds each) to verify one more entry of \cref{tab:F17multiples} by hand, e.g.\ $4G=2(2G)=(3,1)$. Then pose: ``Given $Q=(16,13)$, what is $\log_GQ$?'' (Answer: $6$.) They will find it by scanning the table; stress that scanning is exactly what is infeasible when $n\approx2^{256}$.
-\end{lecturernote}
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\foreach \k/\lab in {0/{$\Oinf$},1/{$(5,1)$},2/{$(6,3)$},3/{$(10,6)$},4/{$(3,1)$},5/{$(9,16)$},6/{$(16,13)$},7/{$(0,6)$},8/{$(13,7)$},9/{$(7,6)$},10/{$(7,11)$},11/{$(13,10)$},12/{$(0,11)$},13/{$(16,4)$},14/{$(9,1)$},15/{$(3,16)$},16/{$(10,11)$},17/{$(6,14)$},18/{$(5,16)$}}{
+  \pgfmathsetmacro{\ang}{90-\k*360/19}
+  \node[circle,draw,fill=blue!8,inner sep=1pt,font=\scriptsize,minimum size=5mm] (n\k) at (\ang:3.0cm) {\k};
+  \node[font=\tiny] at (\ang:3.65cm) {\lab};
+}
+\draw[->,thick,red!70!black] (n0) to[bend left=15] (n1);
+\draw[->,thick,red!70!black] (n1) to[bend left=15] (n2);
+\draw[->,thick,red!70!black] (n2) to[bend left=15] (n3);
+\node[align=center,font=\small] at (0,0) {Group $E(\F_{17})\cong\Z/19$\\ node $k$ = point $kG$\\[2pt] ``$+G$'' moves one step\\ clockwise};
+\end{tikzpicture}
+\caption{The group of \cref{ex:F17} as a ``clock'' with $19$ positions. Position $k$ holds the point $kG$ (coordinates outside). Adding $G$ rotates by one position, adding $kG$ rotates by $k$ positions; the point $-kG$ sits at the mirror position $19-k$. Finding $\log_GQ$ means reading the position of $Q$ on this clock \,--\, trivial here, impossible when the clock has $2^{256}$ positions.}
+\label{fig:clock}
+\end{figure}
 
 %------------------------------------------------------------------------------
-\section{Elliptic curves over $\C$: the torus picture}
+\section{Elliptic curves over \texorpdfstring{$\C$}{C}: the torus picture}
 %------------------------------------------------------------------------------
 
 \begin{theorem}[Uniformisation]\label{thm:uniformisation}
@@ -619,11 +712,14 @@ $E[n]\cong(\Z/n)^2$ whenever $p\nmid n$ (a fact proved algebraically via the deg
 
 \begin{figure}[ht]
 \centering
-\begin{tikzpicture}[scale=0.85,transform shape]
+\begin{tikzpicture}[scale=0.9]
 \def\wa{(3.6,0)}\def\wb{(1.2,2.6)}
 % lattice
+\begin{scope}\clip (-1.4,-0.8) rectangle (10.0,3.4);
 \foreach \i in {-1,0,1,2,3}{\foreach \j in {-1,0,1}{
+  \draw[gray!35] ($\i*(3.6,0)+\j*(1.2,2.6)$) -- ++(3.6,0) -- ++(1.2,2.6) -- ++(-3.6,0) -- cycle;
   \fill[black!45] ($\i*(3.6,0)+\j*(1.2,2.6)$) circle (1.6pt);}}
+\end{scope}
 % fundamental domain
 \fill[blue!10] (0,0)--(3.6,0)--(4.8,2.6)--(1.2,2.6)--cycle;
 \draw[thick,blue!60!black,-{Stealth[length=2.5mm]}] (0,0)--(3.6,0) node[midway,below]{$\omega_1$};
@@ -634,7 +730,7 @@ $E[n]\cong(\Z/n)^2$ whenever $p\nmid n$ (a fact proved algebraically via the deg
 \foreach \i in {0,1,2}{\foreach \j in {0,1,2}{
   \fill[red!70!black] ($\i/3*(3.6,0)+\j/3*(1.2,2.6)$) circle (2pt);}}
 \node[red!70!black,anchor=north west,font=\small] at (1.2,0.9) {$E[3]$};
-\node[font=\small,anchor=west,align=left] at (5.2,1.3) {$\C/\Lambda$ is a torus:\\opposite sides identified;\\red points $=\tfrac13\Lambda/\Lambda\cong(\Z/3)^2$};
+\node[font=\small,anchor=west,align=left,fill=white,inner sep=3pt] at (5.9,1.3) {$\C/\Lambda$ is a torus:\\opposite sides identified;\\red points $=\tfrac13\Lambda/\Lambda\cong(\Z/3)^2$};
 \end{tikzpicture}
 \caption{A lattice $\Lambda\subset\C$ with fundamental parallelogram. Gluing opposite sides yields the complex torus $E(\C)$; the nine red points are the $3$-torsion points $E[3]\cong(\Z/3\Z)^2$.}
 \label{fig:torus}
@@ -771,6 +867,22 @@ Set $t=\Tr(\pi)=1+q-\deg(1-\pi)=1+q-\#E(\Fq)$. For integers $m,n$ with $n\ne0$, 
 Dividing by $n^2$: $r^2-tr+q\ge0$ for every rational $r=m/n$, hence for all real $r$ by density. A real quadratic that is nonnegative everywhere has nonpositive discriminant, so $t^2-4q\le0$.
 \end{proof}
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.92\textwidth,height=6.4cm,xlabel={prime $p$},ylabel={trace $t=p+1-\#E(\F_p)$},xmin=0,xmax=410,ymin=-42,ymax=42,
+ grid=both,major grid style={gray!25},minor grid style={gray!10},legend pos=south west,legend style={font=\small}]
+\addplot[domain=0:400,samples=120,red!70!black,thick] {2*sqrt(x)};
+\addplot[domain=0:400,samples=120,red!70!black,thick,forget plot] {-2*sqrt(x)};
+\addlegendentry{Hasse bound $\pm2\sqrt p$}
+\addplot[only marks,mark=*,mark size=1.4pt,blue!70!black] coordinates {(5,-3) (7,3) (11,-2) (13,-4) (17,0) (19,-1) (23,-4) (29,-6) (37,-10) (41,7) (43,10) (47,-12) (53,-4) (59,-3) (61,12) (67,12) (71,13) (73,2) (79,-6) (83,-6) (89,-10) (97,1) (101,-3) (103,17) (107,3) (109,-13) (113,-11) (127,2) (131,4) (137,12) (139,14) (149,14) (151,-2) (157,-13) (163,-25) (167,24) (173,2) (179,0) (181,-8) (191,-25) (193,-7) (197,-24) (199,-18) (211,-11) (223,-20) (227,0) (229,-2) (233,-3) (239,-22) (241,22) (251,-30) (257,9) (263,4) (269,-24) (271,-2) (277,22) (281,-7) (283,20) (293,26) (307,7) (311,-3) (313,-32) (317,-15) (331,-10) (337,-14) (347,16) (349,14) (353,-4) (359,9) (367,22) (373,11) (379,20) (383,14) (389,16) (397,25)};
+\addlegendentry{$E:y^2=x^3+x+1$ over $\F_p$}
+\end{axis}
+\end{tikzpicture}
+\caption{Hasse's theorem in action: the trace of Frobenius of the fixed curve $y^2=x^3+x+1$ for all primes $p<400$ (except $p=31$, where the curve is singular). Every point lies in the strip $|t|\le2\sqrt p$, and the values fluctuate ``randomly'' inside it, as the random-walk heuristic predicts.}
+\label{fig:hasse}
+\end{figure}
+
 \begin{theorem}[Characteristic polynomial of Frobenius]\label{thm:charpoly}
 In $\End(E)$ we have $\pi^2-t\pi+q=0$. Equivalently $\pi$ and $\hat\pi=t-\pi$ satisfy $\pi\hat\pi=q$. If $\ell\ne p$ is prime, $\pi$ acts on $E[\ell]\cong(\Z/\ell)^2$ as a matrix with characteristic polynomial $T^2-tT+q\pmod\ell$.
 \end{theorem}
@@ -796,6 +908,19 @@ Moreover $P=(0,1)$ has $2P=(4,2)$, $3P=(2,1)$, $4P=(3,4)$, $5P=(3,1)=-4P$, so $9
 By \cref{thm:extension-count}: $\#E(\F_{25})=9\cdot(5+1-3)=27$.
 \end{example}
 
+\begin{example}[Counting by Legendre symbols: $y^2=x^3+2x+2$ over $\F_{17}$]\label{ex:F17count}
+Compute $f(x)=x^3+2x+2\bmod17$ and its quadratic character $\chi(f(x))$ (squares mod $17$: $1,2,4,8,9,13,15,16$):
+\begin{center}
+\scriptsize\setlength{\tabcolsep}{2.4pt}
+\begin{tabular}{r|*{17}{c}}
+$x$ & 0&1&2&3&4&5&6&7&8&9&10&11&12&13&14&15&16\\\hline
+$f(x)$ & 2&5&14&1&6&1&9&2&3&1&2&12&3&15&3&7&16\\
+$\chi$ & $+$&$-$&$-$&$+$&$-$&$+$&$+$&$+$&$-$&$+$&$+$&$-$&$-$&$+$&$-$&$-$&$+$
+\end{tabular}
+\end{center}
+There are $9$ values with $\chi=+1$ (two points each), $8$ with $\chi=-1$ (no points) and none with $\chi=0$. So $\sum\chi=+1$ and $\#E=17+1+1=19$, matching \cref{tab:F17multiples}; the trace is $t=-1$.
+\end{example}
+
 \begin{definition}[Ordinary, supersingular, anomalous]
 $E/\Fq$ ($q=p^n$) is \emph{supersingular} if $p\mid t$, \emph{ordinary} otherwise. If $q=p$ is prime, $E$ is \emph{anomalous} if $\#E(\Fp)=p$ (i.e.\ $t=1$).
 For $p>3$ prime, $E/\Fp$ is supersingular iff $t=0$ iff $\#E(\Fp)=p+1$.
@@ -815,6 +940,11 @@ There exist integers $n_1\mid n_2$ with $E(\Fq)\cong\Z/n_1\Z\times\Z/n_2\Z$ and 
 \begin{proof}[Idea]
 $E(\Fq)$ is a finite subgroup of $E(\Fqbar)$, and $E[\ell]\cong(\Z/\ell)^2$ for $\ell\ne p$ while $E[p]$ is cyclic or trivial; hence $E(\Fq)$ needs at most two generators, i.e.\ has at most two invariant factors. If $E[n_1]\subset E(\Fq)$ then the Weil pairing $e_{n_1}:E[n_1]\times E[n_1]\to\mu_{n_1}$ (\cref{ch:L5}) is Galois-equivariant and nondegenerate so $\mu_{n_1}\subset\Fq$, i.e.\ $n_1\mid q-1$.
 \end{proof}
+
+\begin{example}[A non-cyclic group]
+Let $E:y^2=x^3-x$ over $\F_5$. The three points with $y=0$ are $(0,0),(1,0),(4,0)$, and $x=2,3$ give $f(2)=6\equiv1$, $f(3)=24\equiv4$, hence four more points $(2,\pm1),(3,\pm2)$. Together with $\Oinf$ we get $8$ points. All three $2$-torsion points are rational, so $E[2]\subset E(\F_5)$ and the group is not cyclic. A direct computation gives that $(2,1)$ and $(2,4)$, $(3,2)$, $(3,3)$ have order $4$, so
+$E(\F_5)\cong\Z/2\times\Z/4$ ($n_1=2$, $n_2=4$, and $n_1=2\mid q-1=4$, as the theorem requires).
+\end{example}
 
 \begin{definition}[Cryptographic setting]\label{def:cryptosetting}
 A \emph{curve-based DLP setting} consists of $(q,E,G,r,h)$: a finite field $\Fq$, a curve $E/\Fq$, a point $G\in E(\Fq)$ of \emph{prime} order $r$, and the \emph{cofactor} $h=\#E(\Fq)/r$. Typical standards require $h\in\{1,2,4,8\}$ and $r\approx q$.
@@ -886,6 +1016,10 @@ and the $x$-coordinates of the nonzero $n$-torsion points are exactly the roots 
 
 Using \cref{thm:divpoly}, equation \eqref{eq:schoof} can be tested for $\bar t=0,\dots,\ell-1$ in the ring $\Fq[x,y]/(y^2-f(x),\psi_\ell(x))$, which has dimension $\bigO(\ell^2)$ over $\Fq$ and where $\pi(x,y)=(x^q,y^q)$ is computed by fast exponentiation. The cost is polynomial in $\log q$ since $\ell=\bigO(\log q)$.
 
+\begin{example}[Assembling $t$ by the Chinese remainder theorem]
+For $E:y^2=x^3+2x+2$ over $\F_{17}$ we know $|t|\le2\sqrt{17}<8.25$, so $t\in\{-8,\dots,8\}$ (an interval of length $17$). Suppose Schoof's algorithm has produced $t\equiv1\pmod2$, $t\equiv2\pmod3$ and $t\equiv4\pmod5$. Since $2\cdot3\cdot5=30>17$ these residues determine $t$ inside the Hasse interval: the unique solution mod $30$ is $t\equiv29\equiv-1$, and $-1\in[-8,8]$. So $t=-1$ and $\#E=17+1+1=19$. In real implementations the primes $\ell$ are chosen until $\prod\ell>4\sqrt q$, about $\log q$ primes in total.
+\end{example}
+
 \begin{example}[Schoof for $\ell=2$]
 $2$-torsion points are $(r,0)$ with $f(r)=0$. Thus $t$ is even $\iff q+1-t$ is even $\iff E$ has a point of order $2$ over $\Fq$ $\iff\gcd(x^q-x,f(x))\ne1$.
 For $E:y^2=x^3+2x+2$ over $\F_{17}$ one finds no root (see \cref{tab:F17multiples}: no point has $y=0$), so $t$ is odd, in accordance with $\#E=19$, $t=-1$.
@@ -952,16 +1086,26 @@ Every Montgomery curve $By^2=x^3+Ax^2+x$ is birationally equivalent to the twist
 \]
 \end{theorem}
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,minimum width=4.1cm,minimum height=1.3cm,align=center,font=\small}]
+\node[box,fill=blue!8] (W) at (0,0) {\textbf{Weierstrass}\\ $y^2=x^3+ax+b$\\ (NIST P-256, secp256k1)};
+\node[box,fill=green!10] (M) at (8,0) {\textbf{Montgomery}\\ $By^2=x^3+Ax^2+x$\\ (Curve25519, X25519)};
+\node[box,fill=orange!12] (E) at (4,-3.6) {\textbf{Twisted Edwards}\\ $ax^2+y^2=1+dx^2y^2$\\ (Ed25519)};
+\draw[<->,thick] (W)--(M) node[midway,above=2pt,font=\scriptsize,align=center]{needs a root $\alpha$ with\\ $3\alpha^2+a$ a square};
+\draw[<->,thick] (M)--(E) node[midway,right,xshift=12pt,font=\scriptsize,align=left]{always:\\ $a=\frac{A+2}{B}$,\\ $d=\frac{A-2}{B}$};
+\draw[<->,thick] (W)--(E) node[midway,left,xshift=-4pt,font=\scriptsize,align=right]{via\\ Montgomery};
+\end{tikzpicture}
+\caption{The three curve models and how they are related by birational maps. All three describe the \emph{same} group; they differ in which formulas are fast and which implementation pitfalls they avoid.}
+\label{fig:models}
+\end{figure}
+
 \begin{example}[Curve25519 and Ed25519]
 $p=2^{255}-19$. The Montgomery curve $v^2=u^3+486662u^2+u$ ($A=486662,B=1$) has $\#E=8r$ with
 \[r=2^{252}+27742317777372353535851937790883648493\quad\text{prime};\]
 the base point is $u=9$.
 \cref{thm:mont-edwards} gives $a=486664$, $d=486660$; after rescaling one obtains Edwards25519: $-x^2+y^2=1+dx^2y^2$ with $d=-121665/121666$ (a non-square mod $p$, so the law is complete since $-1$ is a square as $p\equiv1\pmod4$). The twist of Curve25519 has order $4r'$ with $r'$ prime (``twist-secure'').
 \end{example}
-
-\begin{lecturernote}
-A very good in-class exercise: have students verify, using the addition formulas, that $(0,-1)$ is a point of order $2$ on any Edwards curve, and that $(1,0)$ on $x^2+y^2=1+dx^2y^2$ has order $4$ (use $2(1,0)=(0,-1)$). This shows concretely why the group order is divisible by $4$ and why Curve25519 has cofactor $8$.
-\end{lecturernote}
 
 %------------------------------------------------------------------------------
 \section{Coordinate systems and the cost of a group operation}
@@ -1027,6 +1171,24 @@ The fundamental operation of ECC is $k\mapsto kP$. In additive notation $kP=P+\d
 It uses $n-1$ doublings and, on average, $(n-1)/2$ additions. For $n=256$: about $255\,\mathrm{D}+128\,\mathrm{A}$.
 Its running time depends on the Hamming weight of $k$, which makes it vulnerable to \emph{simple power analysis} (\cref{sec:sidechannel}).
 
+\begin{example}[Computing $13G$ on $E(\F_{17})$]\label{ex:dbl-add}
+Here $13=1101_2$. Start with $R=G$ (the leading bit) and process the remaining bits $1,0,1$ from left to right, using the points of \cref{tab:F17multiples}:
+\begin{center}
+\small
+\begin{tabular}{@{}cccl@{}}
+\toprule
+bit & after doubling & after adding $G$ (if bit $=1$) & $R$\\
+\midrule
+(start) & & & $G=(5,1)$\\
+$1$ & $2G=(6,3)$ & $3G=(10,6)$ & $3G$\\
+$0$ & $6G=(16,13)$ & --- & $6G$\\
+$1$ & $12G=(0,11)$ & $13G=(16,4)$ & $13G=(16,4)$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Three doublings and two additions instead of twelve additions. The binary digits of $k$ are read off by the pattern of operations: ``D A'' for a bit $1$ and ``D'' for a bit $0$.
+\end{example}
+
 \subsection{Signed digits and windows}
 
 Point negation is free, so one can use digits in $\{-1,0,1\}$.
@@ -1080,6 +1242,25 @@ At the start of each iteration, $R_1-R_0=P$, and after processing bits $k_{n-1},
 Initially $R_1-R_0=P$ and $R_0=0$. If $k_i=0$ the new pair is $(2R_0,R_0+R_1)$ with difference $R_1-R_0=P$, and $2\lfloor k/2^{i+1}\rfloor=\lfloor k/2^i\rfloor$ since the bit is $0$. If $k_i=1$ the new pair is $(R_0+R_1,2R_1)$ with difference $R_1-R_0=P$ and $R_0+R_1=(2\lfloor k/2^{i+1}\rfloor+1)P$ \,--\, indeed $R_0+R_1=2R_0+P$.
 \end{proof}
 
+\begin{example}[Ladder trace for $11G$]
+For $k=11=1011_2$ on $E(\F_{17})$ with $G=(5,1)$ (points from \cref{tab:F17multiples}); in the notation of \cref{alg:ladder}:
+\begin{center}
+\small
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+bit $k_i$ & operation & $R_0$ & $R_1$ & $R_1-R_0$\\
+\midrule
+(start) & & $\Oinf$ & $G$ & $G$\\
+$1$ & $R_0\gets R_0+R_1$, $R_1\gets2R_1$ & $G$ & $2G$ & $G$\\
+$0$ & $R_1\gets R_0+R_1$, $R_0\gets2R_0$ & $2G$ & $3G$ & $G$\\
+$1$ & $R_0\gets R_0+R_1$, $R_1\gets2R_1$ & $5G$ & $6G$ & $G$\\
+$1$ & $R_0\gets R_0+R_1$, $R_1\gets2R_1$ & $11G=(13,10)$ & $12G$ & $G$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Notice that the difference $R_1-R_0$ is always $G$, and that every bit costs one addition and one doubling \,--\, whatever the bit is.
+\end{example}
+
 Each iteration performs exactly one doubling and one addition, regardless of the bit.
 Moreover, since $R_1-R_0=P$ is invariant, only \emph{differential addition} is needed: on a Montgomery curve with $(A-2)/4=a_{24}$ one can work with $x$-coordinates in projective form $x=X/Z$ only (this is the X25519 ladder of RFC 7748). With $x_1=x(P)$:
 \begin{align*}
@@ -1089,7 +1270,7 @@ Moreover, since $R_1-R_0=P$ is invariant, only \emph{differential addition} is n
 \end{align*}
 Cost per bit: $5\Mul+4\Sqr+1\Mul_{a_{24}}$; in implementations the swap at the beginning of the iteration is done by a branch-free \emph{conditional swap}. The final answer is $X_2/Z_2$.
 
-\subsection{Endomorphism-accelerated multiplication (GLV/GLS)$\;\star$}\label{sec:glv}
+\subsection{Endomorphism-accelerated multiplication (GLV/GLS) \texorpdfstring{$\star$}{*}}\label{sec:glv}
 
 \begin{theorem}[Gallant--Lambert--Vanstone, 2001]
 Suppose $E$ has an efficiently computable endomorphism $\psi$ with $\psi(P)=\lambda P$ for $P$ of prime order $r$ ($\lambda^2+\lambda+1\equiv0\bmod r$ for $j=0$). Then every $k\in\Z/r$ can be written $k\equiv k_1+k_2\lambda\pmod r$ with $|k_1|,|k_2|=\bigO(\sqrt r)$, and $kP=k_1P+k_2\psi(P)$ can be computed with one simultaneous multiplication (Shamir's trick) at half the number of doublings.
@@ -1140,7 +1321,7 @@ Compute the NAF of $k=255$ and $k=1000$. How many additions does double-and-add 
 \end{exercise}
 
 \begin{exercise}[Ladder]
-Execute the Montgomery ladder (\cref{alg:ladder}) on $E:y^2=x^3+2x+2$ over $\F_{17}$ for $k=11$, $P=(5,1)$ and compare with \cref{tab:F17multiples} ($11G=(13,10)$). Check that $R_1-R_0=P$ at each step.
+Execute the Montgomery ladder (\cref{alg:ladder}) on $E:y^2=x^3+2x+2$ over $\F_{17}$ for $k=13$, $P=(5,1)$ and compare with \cref{tab:F17multiples} ($13G=(16,4)$). Check that $R_1-R_0=P$ at each step.
 \end{exercise}
 
 \begin{exercise}[Programming]
@@ -1161,7 +1342,7 @@ After this lecture students should be able to
 \end{goalsbox}
 
 %------------------------------------------------------------------------------
-\section{Problems: $\ECDLP$, $\CDH$, $\DDH$}\label{sec:cdh-ddh}
+\section{Problems: \texorpdfstring{$\ECDLP$, $\CDH$, $\DDH$}{ECDLP, CDH, DDH}}\label{sec:cdh-ddh}
 %------------------------------------------------------------------------------
 
 Let $E/\Fq$ be an elliptic curve and $G\in E(\Fq)$ a point of prime order $r$ (\cref{def:cryptosetting}). We now write the group additively, so the discrete logarithm of $Q\in\langle G\rangle$ is the integer $k\in\Z/r$ with $Q=kG$.
@@ -1221,6 +1402,30 @@ Generic lower bound $\sqrt r$ $\Longrightarrow$ a curve with $r\approx2^{2s}$ of
 \textbf{Correctness.} Write $k=im+j$ with $0\le j<m$, $0\le i<m$. Then $Q-i\,(mG)=jG\in T$.
 \textbf{Cost.} $\bigO(\sqrt r)$ group operations and $\bigO(\sqrt r)$ memory. Because memory is the bottleneck (a table of $2^{64}$ points is impossible), rho methods are preferred in practice.
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,x=0.46cm]
+\fill[red!15] (0,-0.3) rectangle (5,0.3);
+\draw[thick] (0,0)--(25.5,0);
+\foreach \x in {0,5,10,15,20,25}{\draw (\x,0.12)--(\x,-0.12) node[below=2pt,font=\scriptsize]{\x};}
+\node[above=4pt,font=\small,align=center] at (2.5,0.3) {baby steps\\ $jG$, $0\le j<5$};
+\fill[blue!70!black] (17,0) circle (2.2pt) node[above=3pt,font=\small]{$k$};
+\draw[->,red!70!black,thick] (17,0) to[bend right=55] node[below,font=\scriptsize]{$-5G$} (12,0);
+\draw[->,red!70!black,thick] (12,0) to[bend right=55] node[below,font=\scriptsize]{$-5G$} (7,0);
+\draw[->,red!70!black,thick] (7,0) to[bend right=55] node[below,font=\scriptsize]{$-5G$} (2,0);
+\fill[red!70!black] (2,0) circle (2.2pt);
+\node[font=\small,align=left,anchor=west] at (12.5,1.6) {giant steps from $Q=kG$: subtract $mG$\\ until the result lies in the baby-step table};
+\end{tikzpicture}
+\caption{Baby-step giant-step on the exponent line $0,\dots,m^2-1$ ($m=5$). The table covers the first $m$ exponents; the giant steps (jumps of length $m$) are guaranteed to land in it after at most $m$ jumps. Here $k=17$ lands at $j=2$ after $i=3$ jumps, so $k=3\cdot5+2$.}
+\label{fig:bsgs}
+\end{figure}
+
+\begin{example}[BSGS in $E(\F_{17})$]
+Let $G=(5,1)$ (order $19$) and $Q=(16,13)$. Take $m=\lceil\sqrt{19}\rceil=5$.
+Baby steps: $\{\Oinf\mapsto0,\ (5,1)\mapsto1,\ (6,3)\mapsto2,\ (10,6)\mapsto3,\ (3,1)\mapsto4\}$. Giant step: $5G=(9,16)$.
+$i=0$: $Q=(16,13)$ is not in the table. $i=1$: $Q-5G=(16,13)-(9,16)=(5,1)$, which is in the table with $j=1$. Hence $k=i\cdot m+j=1\cdot5+1=6$, and indeed $6G=(16,13)$.
+\end{example}
+
 \subsection{Pohlig--Hellman}
 
 \begin{theorem}[Pohlig--Hellman, 1978]\label{thm:PH}
@@ -1242,6 +1447,21 @@ yields $k_s$. Combine all residues using CRT.
 Take $E:y^2=x^3+x+1$ over $\F_5$ (\cref{ex:F5}) with $P=(0,1)$ of order $9=3^2$ and $Q=(4,3)$. Find $k$ with $Q=kP$.
 Here $p=3$, $e=2$. First $3Q=(2,1)$ and $3P=(2,1)$, so $k_0=1$. Next $Q-k_0P=(4,3)-(0,1)=(2,4)=6P$ and we need $6P=k_1\cdot(3P)$, so $k_1=2$. Thus $k=k_0+3k_1=1+6=7$ and indeed $Q=7P=(4,3)$.
 \end{example}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,align=center,font=\small,minimum height=1.1cm,fill=blue!8}]
+\node[box,fill=red!8,minimum width=7cm] (top) at (0,0) {hard DLP in a group of order $N=p_1^{e_1}\cdots p_t^{e_t}$};
+\node[box] (a) at (-4.6,-2.4) {$k\bmod p_1^{e_1}$\\ $e_1$ small DLPs\\ of size $p_1$};
+\node[box] (b) at (0,-2.4) {$k\bmod p_2^{e_2}$\\ $e_2$ small DLPs\\ of size $p_2$};
+\node at (3,-2.4) {$\cdots$};
+\node[box] (c) at (5.2,-2.4) {$k\bmod p_t^{e_t}$\\ $e_t$ small DLPs\\ of size $p_t$};
+\node[box,fill=green!10,minimum width=5cm] (crt) at (0,-4.7) {Chinese remainder theorem $\Rightarrow k\bmod N$};
+\foreach \n in {a,b,c}{\draw[->,thick] (top)--(\n);\draw[->,thick] (\n)--(crt);}
+\end{tikzpicture}
+\caption{Pohlig--Hellman: the DLP is only as hard as the \emph{largest prime factor} of the group order. If $N$ is smooth, every sub-problem is tiny; if $N=r$ is prime, there is nothing to decompose.}
+\label{fig:PH}
+\end{figure}
 
 \begin{warningbox}[Consequence for parameter choice]
 The DLP in $E(\Fq)$ is only as hard as the \emph{largest prime factor} $r$ of the order of the subgroup in use. Hence all standards use groups of prime order $r$ (or $h\cdot r$ with tiny cofactor $h$).
@@ -1292,6 +1512,26 @@ Pollard (1978) devised a memoryless method with the same $\sqrt r$ running time.
 \end{algorithm}
 
 \textbf{Invariant.} $R=aG+bQ$ throughout. At a collision $aG+bQ=a'G+b'Q$, so $(a-a')G=(b'-b)Q=(b'-b)kG$, i.e.\ $k(b'-b)\equiv a-a'\pmod r$. If $b\not\equiv b'$ this gives $k$ (the sign in Algorithm~\ref{alg:rho} is consistent with this).
+
+\begin{example}[A complete rho run in $E(\F_{17})$]\label{ex:rho}
+Again $G=(5,1)$, $r=19$, $Q=(16,13)$ (secretly $Q=6G$). Partition by $x\bmod3$: $S_1=\{x\equiv0\}$ (add $G$), $S_2=\{x\equiv1\}$ (double), $S_3=\{x\equiv2\}$ (add $Q$). Start at $R_0=G$, i.e.\ $(a,b)=(1,0)$. The walk, with $R_i=a_iG+b_iQ$:
+\begin{center}
+\small
+\begin{tabular}{@{}cccccl@{}}
+\toprule
+$i$ & $R_i$ & $x\bmod3$ & rule & $(a_i,b_i)$ & check ($a_i+6b_i\bmod19$)\\
+\midrule
+0 & $(5,1)$ & 2 & $+Q$ & $(1,0)$ & $1\Rightarrow G$\\
+1 & $(0,6)$ & 0 & $+G$ & $(1,1)$ & $7\Rightarrow7G=(0,6)$\\
+2 & $(13,7)$ & 1 & double & $(2,1)$ & $8\Rightarrow8G$\\
+3 & $(10,11)$ & 1 & double & $(4,2)$ & $16\Rightarrow16G$\\
+4 & $(16,4)$ & 1 & double & $(8,4)$ & $32\equiv13\Rightarrow13G$\\
+5 & $(0,6)$ & & & $(16,8)$ & $64\equiv7\Rightarrow7G$\\
+\bottomrule
+\end{tabular}
+\end{center}
+We have a collision $R_5=R_1=(0,6)$ (a tail of length $1$ and a cycle of length $4$, the shape of \cref{fig:rho}). So $1\cdot G+1\cdot Q=16G+8Q$, i.e.\ $-15G=7Q$, so $4\equiv7k\pmod{19}$ and $k=4\cdot7^{-1}=4\cdot11=44\equiv6$. The logarithm is recovered without ever storing more than a few points (in a real run one uses Floyd's or Brent's cycle detection, or distinguished points, to avoid storing the trail).
+\end{example}
 
 \begin{theorem}[Birthday paradox / expected rho length]\label{thm:rho}
 If $\mathcal W$ behaves like a random function on a set of size $r$, the expected length of the tail plus cycle, i.e.\ the number of steps before the first repetition, is $\sqrt{\pi r/2}+\bigO(1)$ (tail $\approx\sqrt{\pi r/8}$, cycle $\approx\sqrt{\pi r/8}$). Floyd's detection costs an additional constant factor ($\approx3$).
@@ -1377,6 +1617,10 @@ For \emph{random} curves the embedding degree is huge: $k\approx r$ with overwhe
 \item \textbf{Rigidity / NUMS.} The choice of constants should be verifiable (``nothing up my sleeve''): e.g.\ Curve25519 is the smallest $A$ satisfying security criteria; secp256k1 has $a=0,b=7$. In contrast, the NIST P-curves' seeds $\texttt{c49d3608\dots}$ remain unexplained and Brainpool curves use derivation from digits of $\pi$ and $e$.
 \end{itemize}
 
+\begin{example}[Twist of $E:y^2=x^3+2x+2$ over $\F_{17}$]
+Every $x\in\F_{17}$ is the $x$-coordinate of a point on $E$ \emph{or} on its quadratic twist $E'$ (or $f(x)=0$). From the table of \cref{ex:F17count}, $9$ values of $x$ have $\chi(f(x))=+1$ (they give the $18$ affine points of $E$) and $8$ values have $\chi(f(x))=-1$ (they give $16$ affine points of $E'$). So $\#E'=16+1=17=2\cdot17+2-19$, as the formula $\#E'=2q+2-\#E$ predicts. Here $17$ is prime, so this toy curve is twist-secure.
+\end{example}
+
 \begin{table}[ht]
 \centering\small
 \caption{Summary of attacks on $\ECDLP$ and the corresponding mitigation in curve selection.}
@@ -1407,16 +1651,27 @@ A modern ``safe'' prime-field curve is chosen as follows (cf.\ Bernstein--Lange,
 \item Make the choice reproducible: smallest coefficient meeting the criteria.
 \end{enumerate}
 
-\begin{lecturernote}
-Allow 10 minutes for a live demonstration (SageMath or the Python code of \cref{app:code}): count points on a random-looking $64$-bit curve using \texttt{E.cardinality()}, show it factors with small primes, then solve the DLP in minutes by Pohlig--Hellman. This is very convincing for the ``prime order'' rule.
-\end{lecturernote}
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,align=center,font=\small,minimum width=9.4cm,minimum height=0.9cm,fill=blue!8}]
+\node[box] (b1) at (0,0) {choose prime $p$ and a model (Weierstrass / Montgomery / Edwards)};
+\node[box] (b2) at (0,-1.5) {compute $\#E$ and $\#E^{\text{twist}}$ (SEA algorithm)};
+\node[box,fill=orange!12] (b3) at (0,-3) {$\#E=h\cdot r$ with $r$ prime, $h$ tiny? \quad twist has a large prime factor?};
+\node[box,fill=orange!12] (b4) at (0,-4.5) {$t\ne1$?\quad embedding degree large?\quad CM discriminant large?};
+\node[box,fill=green!12] (b5) at (0,-6) {\textbf{accept}: publish the curve with a reproducible derivation};
+\draw[->,thick] (b1)--(b2); \draw[->,thick] (b2)--(b3); \draw[->,thick] (b3)--(b4) node[midway,right,font=\scriptsize]{yes}; \draw[->,thick] (b4)--(b5) node[midway,right,font=\scriptsize]{yes};
+\draw[->,thick,red!70!black,dashed] (b3.west) -- ++(-0.6,0) |- node[near start,left,font=\scriptsize]{no} (b1.west);
+\draw[->,thick,red!70!black,dashed] (b4.east) -- ++(0.6,0) |- node[near start,right,font=\scriptsize]{no} (b1.east);
+\end{tikzpicture}
+\caption{A schematic curve-selection procedure. If any security check fails, a parameter (for instance the coefficient $A$ or $b$) is changed and the search restarts.}
+\end{figure}
 
 %------------------------------------------------------------------------------
 \section*{Exercises for Lecture 3}\addcontentsline{toc}{section}{Exercises for Lecture 3}
 %------------------------------------------------------------------------------
 
 \begin{exercise}[BSGS by hand]
-In $E:y^2=x^3+2x+2$ over $\F_{17}$ with $G=(5,1)$ of order $19$, solve $Q=kG$ for $Q=(16,13)$ using BSGS with $m=5$. Build the baby-step table $\{jG:0\le j<5\}$ using \cref{tab:F17multiples} and the giant steps $Q-i(5G)$.
+In $E:y^2=x^3+2x+2$ over $\F_{17}$ with $G=(5,1)$ of order $19$, solve $Q=kG$ for $Q=(13,10)$ using BSGS with $m=5$ (answer: $k=11$). Build the baby-step table $\{jG:0\le j<5\}$ using \cref{tab:F17multiples} and the giant steps $Q-i(5G)$.
 \end{exercise}
 
 \begin{exercise}[Pohlig--Hellman]
@@ -1498,6 +1753,10 @@ Throughout this lecture the \emph{domain parameters} are $\mathcal D=(q,E,G,r,h)
 Both parties obtain $S=abG$. Passive security (indistinguishability of $\mathrm{KDF}(x(S))$ from random) follows from $\DDH$ (or from $\CDH$ in the random-oracle model, if the KDF is modelled as a random oracle).
 \end{theorem}
 
+\begin{example}[Toy ECDH on $E(\F_{17})$]
+Public parameters: $y^2=x^3+2x+2$ over $\F_{17}$, $G=(5,1)$, order $19$. Alice picks $a=3$ and sends $A=3G=(10,6)$. Bob picks $b=11$ and sends $B=11G=(13,10)$ (both from \cref{tab:F17multiples}). Alice computes $aB=3\cdot(13,10)$ and Bob computes $bA=11\cdot(10,6)$; both equal $33G=14G=(9,1)$. The shared key is derived from the $x$-coordinate $9$. An eavesdropper sees $G,A,B$ and must find $(9,1)$; here she can simply read $a=3$ off the table, which is exactly what is impossible for a $256$-bit curve.
+\end{example}
+
 \begin{warningbox}
 Unauthenticated ECDH is secure only against \emph{passive} adversaries: a man in the middle sends $A'=a'G$ to Bob and $B'=b'G$ to Alice. Practical protocols (TLS~1.3, Noise, Signal) authenticate the exchange by signatures, MACs under pre-shared keys, or by combining static and ephemeral keys (e.g.\ 3DH/X3DH). Reusing a static ECDH key against an adversary able to submit invalid points is dangerous (\cref{sec:invalid-curve}).
 \end{warningbox}
@@ -1569,12 +1828,34 @@ If $(\rho,s)$ is produced by the signing algorithm for key $d$ and message $m$, 
 $u_1G+u_2Q=(e+\rho d)s^{-1}G=(e+\rho d)\cdot k(e+\rho d)^{-1}G=kG$, hence $x(X)\bmod r=\rho$.
 \end{proof}
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,align=center,font=\footnotesize,minimum height=0.9cm,fill=blue!8},node distance=0.5cm]
+\node[font=\small\bfseries] at (-1.2,1.1) {Sign};
+\node[box] (m) at (0,0) {message $m$};
+\node[box,right=0.7cm of m] (e) {$e=H(m)$};
+\node[box,right=0.7cm of e] (s) {$s=k^{-1}(e+\rho d)$};
+\node[box,right=0.7cm of s,fill=green!10] (sig) {signature\\ $(\rho,s)$};
+\node[box,below=0.9cm of e,fill=orange!12] (k) {fresh secret $k$};
+\node[box,right=0.7cm of k,fill=orange!12] (R) {$R=kG$, $\rho=x(R)\bmod r$};
+\draw[->] (m)--(e); \draw[->] (e)--(s); \draw[->] (s)--(sig);
+\draw[->] (k)--(R); \draw[->] (R.north)--(s.south);
+\node[font=\small\bfseries] at (-1.2,-2.4) {Verify};
+\node[box] (w) at (0,-3.5) {$w=s^{-1}$};
+\node[box,right=0.7cm of w] (u) {$u_1=ew,\ u_2=\rho w$};
+\node[box,right=0.7cm of u] (X) {$X=u_1G+u_2Q$};
+\node[box,right=0.7cm of X,fill=green!10] (acc) {accept iff\\ $x(X)\equiv\rho$};
+\draw[->] (w)--(u); \draw[->] (u)--(X); \draw[->] (X)--(acc);
+\end{tikzpicture}
+\caption{ECDSA signing and verification. The nonce $k$ must be fresh and secret for every signature (see \cref{thm:nonce-reuse}); verification recomputes $kG$ from public data only.}
+\end{figure}
+
 \begin{example}[Toy ECDSA on $y^2=x^3+2x+2$ over $\F_{17}$, $r=19$]
 Let $G=(5,1)$, $d=7$, $Q=7G=(0,6)$, hash value $e=10$, nonce $k=5$. Then $kG=5G=(9,16)$, so $\rho=9$ and $s=5^{-1}(10+9\cdot7)=4\cdot73\bmod19$; as $5^{-1}=4\ (\bmod19)$, $73\equiv16$ and $s=64\equiv7$. Signature $(\rho,s)=(9,7)$.
 Verification: $w=7^{-1}=11$, $u_1=10\cdot11\equiv15$, $u_2=9\cdot11\equiv4\pmod{19}$, and $15G+4Q=15G+28G=43G=5G=(9,16)$. Since $x=9=\rho$, accept.
 \end{example}
 
-\subsection{Nonce misuse: why $k$ is the crown jewel}
+\subsection{Nonce misuse: why \texorpdfstring{$k$}{k} is the crown jewel}
 
 \begin{theorem}[Nonce reuse]\label{thm:nonce-reuse}
 If two signatures $(\rho,s_1)$, $(\rho,s_2)$ on distinct messages with hash values $e_1\ne e_2$ share the same nonce $k$ (visible as the same $\rho$), then
@@ -1608,6 +1889,26 @@ Continuing the toy example, sign a second hash $e_2=3$ with the same $k=5$: $s_2
 Prover has $(d,Q=dG)$. (1) Prover sends $R=kG$, $k\sample\Z_r$. (2) Verifier sends challenge $c\sample\Z_r$. (3) Prover answers $s=k+cd\bmod r$. Verifier checks $sG=R+cQ$.
 \end{definition}
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth]
+\node[draw,rounded corners,fill=blue!8,minimum width=3cm] (P) at (0,0) {Prover (knows $d$)};
+\node[draw,rounded corners,fill=blue!8,minimum width=3cm] (V) at (8,0) {Verifier (knows $Q=dG$)};
+\draw[dashed,gray] (0,-0.4)--(0,-3.6); \draw[dashed,gray] (8,-0.4)--(8,-3.6);
+\node[font=\small,anchor=west] at (-1.4,-0.9) {$k\sample\Z_r$, $R=kG$};
+\draw[->,thick] (0.1,-1.5)--(7.9,-1.5) node[midway,above,font=\small]{commitment $R$};
+\draw[->,thick] (7.9,-2.2)--(0.1,-2.2) node[midway,above,font=\small]{challenge $c\sample\Z_r$};
+\node[font=\small,anchor=west] at (-1.4,-2.8) {$s=k+cd\bmod r$};
+\draw[->,thick] (0.1,-3.3)--(7.9,-3.3) node[midway,above,font=\small]{response $s$};
+\node[font=\small,anchor=east] at (9.6,-3.9) {check $sG\overset?=R+cQ$};
+\end{tikzpicture}
+\caption{The Schnorr identification protocol. The Fiat--Shamir transform replaces the verifier's random challenge by $c=H(R\,\|\,Q\,\|\,m)$, which turns the protocol into a signature scheme.}
+\end{figure}
+
+\begin{example}[Toy Schnorr signature on $E(\F_{17})$]
+Secret key $d=7$, public key $Q=7G=(0,6)$. Choose nonce $k=5$, so $R=5G=(9,16)$. Suppose the hash gives $c=H(R\,\|\,Q\,\|\,m)=4$ (toy value). Then $s=k+cd=5+28=33\equiv14\pmod{19}$ and the signature is $(R,s)$. Verification: $sG=14G=(9,1)$ and $R+cQ=5G+4\cdot7G=33G=14G=(9,1)$. Equal, so accept.
+\end{example}
+
 \begin{proposition}[Special soundness and honest-verifier ZK]
 Two accepting transcripts $(R,c,s)$ and $(R,c',s')$ with the same $R$ and $c\neq c'$ yield $d=(s-s')/(c-c')$. A simulator that picks $c,s$ uniformly and sets $R=sG-cQ$ produces transcripts distributed identically to real ones.
 \end{proposition}
@@ -1634,6 +1935,10 @@ Prefer Schnorr-type signatures with deterministic or hedged nonces and complete 
 
 \paragraph{Point compression (SEC1).} A point $(x,y)$ is encoded as $\texttt{02}/\texttt{03}\,\|\,x$ depending on the parity of $y$; decompression needs a square root of $x^3+ax+b$ (\cref{prop:euler}). Edwards25519 encodes $y$ and the sign of $x$; X25519 uses only $u$.
 
+\begin{example}[Point compression on $E(\F_{17})$]
+Take $P=(5,1)$. Its compressed form is $\texttt{03}\,\|\,5$ because $y=1$ is odd (for $-P=(5,16)$ it would be $\texttt{02}\,\|\,5$). To decompress $\texttt{03}\,\|\,5$: compute $x^3+2x+2=125+10+2=137\equiv1\pmod{17}$, so $y=\pm1$ (here $17\equiv1\pmod4$; for $p\equiv3\pmod4$ one uses $y=a^{(p+1)/4}$). The prefix \texttt{03} demands odd $y$, so $y=1$ and we recover $(5,1)$. This halves the size of public keys, at the cost of one square root.
+\end{example}
+
 \paragraph{Hash-to-curve.} Many protocols (BLS, OPRFs, PAKE) need a hash $H:\{0,1\}^*\to E(\Fp)$ with unknown discrete logs. The naive \emph{try-and-increment} method hashes $m\|i$ until $x^3+ax+b$ is a square: it leaks timing information about $m$. Constant-time constructions (Shallue--van de Woestijne, simplified SWU, Elligator~2, standardised in RFC~9380) map field elements to curve points; to obtain a random-oracle-like map one evaluates twice and adds.
 
 \paragraph{Elligator.} Uniform encodings of about half of the points of Curve25519 as random-looking strings (useful against censorship: Tor obfs4, etc.).
@@ -1648,17 +1953,34 @@ Observe that the Weierstrass addition formulas \eqref{eq:addition} do \emph{not}
 Suppose Bob holds a static key $d$, receives points $P$ without verifying $P\in E$, and returns (or uses in an observable way) $dP$. Let $b'\ne b$ and let $P'=(x',y')$ be a point on $E':y^2=x^3+ax+b'$ of small prime order $\ell$. Then Bob computes on $E'$ and returns $dP'=(d\bmod\ell)P'$ so the attacker learns $d\bmod\ell$. Repeating for several $E'$ with distinct small primes $\ell_1,\dots,\ell_t$ and $\prod\ell_i>r$, the CRT recovers $d$.
 \end{theorem}
 
-\begin{example}[Toy instance]
-Bob's curve $E_b:y^2=x^3+2x+2$ over $\F_{17}$ has order $19$. The curve $E_{b'}:y^2=x^3+2x+8$ has order $21=3\cdot7$. Sending a point of order $3$ reveals $d\bmod3$; a point of order $7$ reveals $d\bmod 7$; since $d<19<21$ these determine $d$ (Exercise).
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,align=center,font=\small,minimum height=1.2cm}]
+\node[box,fill=red!8] (A) at (0,0) {Attacker\\ chooses $P'\in E'$ of\\ small order $\ell$};
+\node[box,fill=blue!8] (B) at (7,0) {Bob (secret $d$, curve $E$)\\ computes $dP'$ with formulas\\ that never use $b$};
+\draw[->,thick] (A)--(B) node[midway,above,font=\small]{$P'$ (not on $E$!)};
+\draw[->,thick] (B.south) -- ++(0,-1) -| node[near start,above,font=\small]{$dP'=(d\bmod\ell)P'$ leaks $d\bmod\ell$} (A.south);
+\end{tikzpicture}
+\caption{The invalid-curve attack. Bob's group-law formulas work on \emph{any} curve $y^2=x^3+ax+b'$, so a point from a weak curve $E'$ makes him compute in a tiny group.}
+\label{fig:invalid}
+\end{figure}
+
+\begin{example}[Invalid-curve attack in $E(\F_{17})$]
+Bob's curve is $E:y^2=x^3+2x+2$ (order $19$) with secret key $d=13$; he returns $dP$ for any received $P$ without checking $P\in E$. The attacker uses $E':y^2=x^3+2x+8$ over $\F_{17}$, which has $21=3\cdot7$ points (the formulas of \cref{thm:addition-formulas} only involve $a$, so Bob computes happily on $E'$).
+\begin{itemize}[nosep]
+\item $P_3=(11,1)$ has order $3$. Bob returns $13P_3=P_3$ (since $13\equiv1\bmod3$): the attacker learns $d\equiv1\pmod3$.
+\item $P_7=(6,7)$ has order $7$. Bob returns $13P_7=(6,10)=-P_7=6P_7$ (since $13\equiv6\bmod7$): the attacker learns $d\equiv6\pmod7$.
+\end{itemize}
+By the Chinese remainder theorem $d\equiv13\pmod{21}$, and since $0<d<19$ we get $d=13$. With a real $256$-bit curve the attacker uses several curves $E'$ whose orders have small prime factors $\ell_1,\ell_2,\dots$ with $\prod\ell_i>r$, and needs only $\sum\ell_i$ queries.
 \end{example}
 
 \paragraph{Countermeasures.} (1) \emph{Validate} every received public key: $P\ne\Oinf$, coordinates in $[0,p-1]$, $P\in E$, and $rP=\Oinf$ (or use cofactor multiplication). (2) Use ephemeral keys. (3) For $x$-only ladders (X25519) choose curves with \emph{twist security}, since every $u$ is the $x$-coordinate of a point on $E$ or on its twist: if the twist has small factors, $d\bmod\ell$ leaks. (4) Use prime-order encodings (Ristretto, Decaf) to eliminate the cofactor.
 
 \paragraph{Small-subgroup attacks.} If $h>1$, an attacker may send a point of small order $\ell\mid h$ (a ``low-order point'' such as $u=0$ or $u=1$ on Curve25519); Bob's result $dP$ then depends only on $d\bmod\ell$. Clamping ($8\mid d$) neutralises this, and so does explicitly checking for $\Oinf$ in the output.
 
-\begin{lecturernote}
-This is the section that makes students ``feel'' ECC. Run the toy example on the board: pick $b'$, list the order, find a point of order $3$, simulate Bob. The key conceptual message: \emph{the group law is blind to $b$}. Mention the real incidents: invalid-curve vulnerabilities were found in several TLS libraries (2015) and in Bouncy Castle / Java.
-\end{lecturernote}
+\begin{example}[Validating a public key]
+On $E':y^2=x^3+2x+8$ over $\F_{17}$ (order $21=3\cdot7$) suppose the protocol uses the subgroup of prime order $r=7$ generated by $(6,7)$, so the cofactor is $h=3$. A received point is accepted only if it is on the curve \emph{and} $rP=\Oinf$. The point $(6,7)$ passes ($7P=\Oinf$). The point $(11,1)$ is on the curve, but $7\cdot(11,1)=(11,1)\ne\Oinf$ (it has order $3$): rejected. The point $(0,5)$ has order $21$ and $7\cdot(0,5)=(11,16)\ne\Oinf$: rejected. Multiplying by the cofactor ($3P$) would instead \emph{project} any point into the order-$7$ subgroup.
+\end{example}
 
 %------------------------------------------------------------------------------
 \section{Side-channel and fault attacks}\label{sec:sidechannel}
@@ -1686,6 +2008,21 @@ Lattice + leakage (e.g.\ LadderLeak, Minerva) & partial nonce information & cons
 \begin{example}[SPA on double-and-add]
 In \cref{alg:dbl-add} the sequence of operations ``D'' (double) and ``A'' (add) directly reads the key: a ``DA'' block means bit $1$, a lone ``D'' means bit $0$. Observing a single power trace thus reveals $k$. The Montgomery ladder (\cref{alg:ladder}) executes the same operations for each bit, removing this leakage if the swap is implemented without branches.
 \end{example}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[x=0.55cm]
+\node[font=\small,anchor=east] at (-0.2,0.5) {double-and-add:};
+\foreach \x/\t/\h/\c in {0/D/0.5/blue!25,1/A/1.0/red!35,2/D/0.5/blue!25,3/D/0.5/blue!25,4/A/1.0/red!35,5/D/0.5/blue!25,6/A/1.0/red!35}{
+ \fill[\c] (\x,0) rectangle (\x+0.9,\h);
+ \node[font=\scriptsize] at (\x+0.45,-0.25) {\t};}
+\node[font=\small,anchor=east] at (-0.2,-1.6) {Montgomery ladder:};
+\foreach \x/\t/\h/\c in {0/D/-1.6/blue!25,1/A/-1.1/red!35,2/D/-1.6/blue!25,3/A/-1.1/red!35,4/D/-1.6/blue!25,5/A/-1.1/red!35,6/D/-1.6/blue!25}{
+ \fill[\c] (\x,-2.1) rectangle (\x+0.9,\h);
+ \node[font=\scriptsize] at (\x+0.45,-2.35) {\t};}
+\end{tikzpicture}
+\caption{Idealised power traces (D = doubling, A = addition). In double-and-add the pattern ``D A'' vs.\ ``D'' spells out the key bits: here D A, D, D A, D A, i.e.\ bits $1,0,1,1$. The ladder repeats ``D, A'' for every bit and reveals nothing by its shape.}
+\end{figure}
 
 \paragraph{Randomisation (Coron's countermeasures).} (1) \emph{Scalar blinding:} $k'=k+m r$ for a random $m$ ($kG$ unchanged since $rG=\Oinf$). (2) \emph{Point blinding:} compute $k(P+R)-kR$ with a secret $R$. (3) \emph{Projective randomisation:} replace $(X:Y:Z)$ by $(\lambda^2X:\lambda^3Y:\lambda Z)$ for random $\lambda$.
 
@@ -1716,7 +2053,7 @@ NIST SP 800-90A (2006) standardised a random bit generator based on two points $
 %------------------------------------------------------------------------------
 
 \begin{exercise}[ECDH by hand]
-On $E:y^2=x^3+2x+2$ over $\F_{17}$ with $G=(5,1)$: Alice chooses $a=3$, Bob $b=11$. Compute $A,B$ and the shared secret using \cref{tab:F17multiples}.
+On $E:y^2=x^3+2x+2$ over $\F_{17}$ with $G=(5,1)$: Alice chooses $a=4$, Bob $b=9$. Compute $A,B$ and the shared secret using \cref{tab:F17multiples}. (Answer: $A=(3,1)$, $B=(7,6)$, shared point $36G=17G=(6,14)$.)
 \end{exercise}
 
 \begin{exercise}[ECDSA verification]
@@ -1736,7 +2073,7 @@ Prove the special-soundness property and the simulator statement of the Schnorr 
 \end{exercise}
 
 \begin{exercise}[Invalid curve]
-(a) For $E_{b'}:y^2=x^3+2x+8$ over $\F_{17}$ (order $21$) find a point $P_3$ of order $3$ and $P_7$ of order $7$ (e.g.\ $(11,1)$ has order $3$ and $(6,7)$ has order $7$). (b) Suppose Bob's key is $d=13$ on $y^2=x^3+2x+2$, which returns the $x$-coordinate of $dP$. Show how querying $P_3,P_7$ reveals $d$. (c) What check in Bob's code would stop the attack?
+(a) For $E_{b'}:y^2=x^3+2x+8$ over $\F_{17}$ (order $21$) find a point $P_3$ of order $3$ and $P_7$ of order $7$ (e.g.\ $(11,1)$ has order $3$ and $(6,7)$ has order $7$). (b) Suppose Bob's key is $d=16$ on $y^2=x^3+2x+2$, which returns the $x$-coordinate of $dP$. Show how querying $P_3,P_7$ reveals $d$. (c) What check in Bob's code would stop the attack?
 \end{exercise}
 
 \begin{exercise}[Clamping]
@@ -1876,6 +2213,18 @@ where $\ell_{A,B}$ is the line through $A,B$ and $v_C$ the vertical line through
 
 Miller's loop has the same shape as double-and-add: $\bigO(\log r)$ iterations, each costing a few multiplications in $\F_{q^k}$; pairings are therefore considerably more expensive than scalar multiplications (milliseconds vs.\ tens of microseconds). Optimised variants (\emph{ate}, \emph{optimal ate}, \emph{twisted} Miller loops, denominator elimination, final-exponentiation addition chains) reduce the loop length to $\approx\log r/\varphi(k)$.
 
+\begin{example}[A pairing small enough to compute by machine]\label{ex:toypairing}
+Let $p=131$ (so $p\equiv3\bmod4$) and $E:y^2=x^3+x$ over $\F_{131}$. It is supersingular with $\#E(\F_{131})=p+1=132=12\cdot11$. Take $r=11$ and $P=(121,118)$ of order $11$; then $11\mid p+1$, so the embedding degree is $k=2$ and the pairing takes values in $\F_{131^2}=\F_{131}[i]/(i^2+1)$. Since $E(\F_p)[r]$ is cyclic, $e_r(P,P)=1$, so we use the \emph{distortion map} $\varphi(x,y)=(-x,iy)$ and define
+\[
+e(P,Q)=\tau_{11}\big(P,\varphi(Q)\big)=f_{11,P}\big(\varphi(Q)\big)^{(p^2-1)/11}.
+\]
+Evaluating Miller's algorithm with $r=11$ gives
+\[
+\zeta:=e(P,P)=39+24i,\qquad\zeta^{11}=1,\qquad\zeta^2=28+38i,\ \zeta^4=126+32i,\ \zeta^{10}=39+107i.
+\]
+So $e(P,P)$ is an element of order $11$ in $\F_{131^2}^\times$. Bilinearity checks: $e(3P,5P)=126+32i=\zeta^{4}=\zeta^{15}$, since $15\equiv4\pmod{11}$, and $e(2P,P)=28+38i=\zeta^2$. (The Python code of \cref{app:code} computes these values.)
+\end{example}
+
 \begin{figure}[ht]
 \centering
 \begin{tikzpicture}[>=Stealth,node distance=2.4cm]
@@ -1929,6 +2278,22 @@ Let $H:\{0,1\}^*\to\mathbb G_1$ be a hash function (hash-to-curve, \cref{ch:L4})
 \emph{Correctness:} $e(xH(m),P_2)=e(H(m),P_2)^x=e(H(m),xP_2)$. Security: existentially unforgeable under chosen-message attacks in the random-oracle model, under the \emph{co-CDH} assumption in $(\mathbb G_1,\mathbb G_2)$.
 \emph{Aggregation:} signatures $\sigma_i$ on different messages $m_i$ under keys $X_i$ combine as $\sigma=\sum\sigma_i$, verified by $e(\sigma,P_2)=\prod_ie(H(m_i),X_i)$; for a single message the check is $e(\sigma,P_2)=e(H(m),\sum X_i)$ (with proofs of possession against rogue-key attacks). On BLS12-381 a signature is $48$ bytes compressed; the scheme is used for Ethereum's proof-of-stake consensus, Filecoin, Dfinity, etc.
 
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,box/.style={draw,rounded corners,align=center,font=\small,minimum height=1cm}]
+\node[box,fill=blue!8] (S) at (0,0) {Signer\\ secret $x$, public $X=xP_2$};
+\node[box,fill=blue!8] (V) at (8,0) {Verifier\\ knows $X$ and $m$};
+\draw[->,thick] (S)--(V) node[midway,above,font=\small]{$\sigma=x\,H(m)\in\mathbb G_1$};
+\node[draw,dotted,fill=green!8,font=\small,align=center] at (8,-2.0) {check $e(\sigma,P_2)=e(H(m),X)$\\ both sides equal $e(H(m),P_2)^x$};
+\draw[->] (V)--(8,-1.35);
+\end{tikzpicture}
+\caption{BLS signatures. The verification equation is bilinearity in action: the secret exponent $x$ can be moved from one argument of the pairing to the other.}
+\end{figure}
+
+\begin{example}[Toy BLS on the pairing of \cref{ex:toypairing}]
+Let $x=7$ be the secret key and $X=7P=(60,98)$ the public key. Suppose $H(m)=3P=(49,45)$ (a stand-in for a hash into the group). The signature is $\sigma=7\cdot3P=21P=10P=(121,13)$. Verification: $e(\sigma,P)=e(10P,P)=\zeta^{10}=39+107i$ and $e(H(m),X)=e(3P,7P)=\zeta^{21}=\zeta^{10}=39+107i$. Equal, so accept. With $r=11$ this is of course not secure; real systems use $r\approx2^{255}$.
+\end{example}
+
 \subsection{Identity-based encryption (Boneh--Franklin, 2001)}
 
 \emph{Setup:} master secret $s\in\Z_r$, public $P_{\mathrm{pub}}=sP$ (symmetric pairing view). \emph{Extract:} for identity $\mathrm{ID}$, $Q_{\mathrm{ID}}=H_1(\mathrm{ID})\in\mathbb G_1$, private key $d_{\mathrm{ID}}=sQ_{\mathrm{ID}}$. \emph{Encrypt} $m$: $g=e(Q_{\mathrm{ID}},P_{\mathrm{pub}})$, choose $\rho$, output $(U,V)=(\rho P,\ m\oplus H_2(g^\rho))$. \emph{Decrypt:} $m=V\oplus H_2(e(d_{\mathrm{ID}},U))$.
@@ -1973,6 +2338,24 @@ The \emph{extended tower number field sieve} (Kim--Barbulescu, 2016) lowered the
 \begin{definition}[Isogeny]
 An \emph{isogeny} $\phi:E_1\to E_2$ is a non-constant morphism of curves with $\phi(\Oinf)=\Oinf$. It is automatically a group homomorphism. Its \emph{degree} is the degree of the field extension $\Kbar(E_1)/\phi^*\Kbar(E_2)$; if $\phi$ is separable, $\deg\phi=\#\ker\phi$. Every isogeny has a \emph{dual} $\hat\phi:E_2\to E_1$ with $\hat\phi\phi=[\deg\phi]$, so being isogenous is an equivalence relation. Examples: $[m]$ ($\deg m^2$), the Frobenius $\pi_q$ ($\deg q$).
 \end{definition}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth]
+\node[font=\small] at (0,2.4) {$E_1$};
+\node[font=\small] at (6,2.4) {$E_2=E_1/\ker\phi$};
+\foreach \i/\y in {1/1.4,2/0.0,3/-1.4}{
+ \draw[fill=blue!6] (0,\y) ellipse (0.9cm and 0.45cm);
+ \fill (-0.35,\y) circle (2pt); \fill (0.35,\y) circle (2pt);
+ \fill (6,\y) circle (2pt);
+ \draw[->,thick] (1.1,\y)--(5.7,\y);
+}
+\node[font=\scriptsize,align=center] at (3.4,2.05) {$\phi$ (degree $2$):\\ two points $\mapsto$ one};
+\node[font=\scriptsize,anchor=east,align=right] at (-1.1,0) {each oval is a coset\\ $P+\ker\phi$,\\ $\ker\phi=\{\Oinf,T\}$};
+\draw[->,thick,red!70!black,bend left=35] (5.9,-2.1) to node[below,font=\scriptsize]{dual isogeny $\hat\phi$, with $\hat\phi\circ\phi=[2]$} (0.1,-2.1);
+\end{tikzpicture}
+\caption{An isogeny of degree $2$. It is a group homomorphism; every point of $E_2$ has exactly $\deg\phi$ preimages, forming a coset of the kernel. The dual isogeny goes back, and going there and back is multiplication by the degree.}
+\end{figure}
 
 \begin{theorem}[V\'elu, 1971]\label{thm:velu}
 For every finite subgroup $F\subset E(\Kbar)$ there is a curve $E'=E/F$ and a separable isogeny $\phi:E\to E'$ with $\ker\phi=F$, unique up to isomorphism. If $E:y^2=x^3+ax+b$ and $F$ has odd order, let $S\subset F\setminus\{\Oinf\}$ contain one point from each pair $\{\pm Q\}$, and for $Q=(x_Q,y_Q)\in S$ put
@@ -2024,9 +2407,20 @@ For $E/\Fq$, $\End(E)$ (over $\Fqbar$) is either an order in an imaginary quadra
 \item \textbf{SQIsign (De~Feo, Kohel, Leroux, Petit, Wesolowski, 2020).} Signatures based on the Deuring correspondence between supersingular curves and maximal orders in quaternion algebras; the shortest post-quantum signatures plus public keys known (about $200$ bytes), at the cost of slow signing. Under active development and evaluation in NIST's additional-signature process.
 \end{itemize}
 
-\begin{lecturernote}
-The SIDH collapse is an excellent case study for a graduate audience: a scheme with years of cryptanalysis and a NIST round-4 position fell to a mathematically elegant attack (reducing to genus 2) in a weekend's worth of computation. Ask: ``What does that tell us about how much confidence the \emph{absence of attacks} should give?''
-\end{lecturernote}
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth,node distance=3.4cm,v/.style={draw,rounded corners,fill=blue!8,minimum width=1.9cm,minimum height=0.9cm}]
+\node[v] (E) at (0,0) {$E$};
+\node[v] (EA) at (5,1.5) {$E/\langle A\rangle$};
+\node[v] (EB) at (5,-1.5) {$E/\langle B\rangle$};
+\node[v,fill=green!12] (EAB) at (10,0) {$E/\langle A,B\rangle$};
+\draw[->,thick,red!70!black] (E)--(EA) node[midway,above left,font=\small]{Alice's secret};
+\draw[->,thick,blue!70!black] (E)--(EB) node[midway,below left,font=\small]{Bob's secret};
+\draw[->,thick,blue!70!black,dashed] (EA)--(EAB) node[midway,above right,font=\small]{Bob's isogeny};
+\draw[->,thick,red!70!black,dashed] (EB)--(EAB) node[midway,below right,font=\small]{Alice's isogeny};
+\end{tikzpicture}
+\caption{The commutative square behind isogeny key exchange (SIDH and CSIDH). Alice and Bob each apply a secret isogeny, exchange their curves (plus auxiliary information) and apply their secret again to the other's curve; both reach the same curve, the ``shared secret'' (its $j$-invariant). It is the analogue of $(g^a)^b=(g^b)^a$.}
+\end{figure}
 
 %------------------------------------------------------------------------------
 \section{Quantum computers and post-quantum perspectives}
@@ -2274,11 +2668,80 @@ k1 = next(i for i in range(3) if Q1 == E.mul(i, E.mul(3, P)))
 print(k0 + 3*k1)                                 # 7
 \end{lstlisting}
 
+
+\section*{A toy Tate pairing (used in Example~\ref{ex:toypairing})}
+\begin{lstlisting}[style=py]
+p=131; r=11
+class F2:
+    def __init__(s,a,b=0): s.a=a%p; s.b=b%p
+    def __add__(s,o): o=o if isinstance(o,F2) else F2(o); return F2(s.a+o.a,s.b+o.b)
+    def __sub__(s,o): o=o if isinstance(o,F2) else F2(o); return F2(s.a-o.a,s.b-o.b)
+    def __mul__(s,o): o=o if isinstance(o,F2) else F2(o); return F2(s.a*o.a-s.b*o.b,s.a*o.b+s.b*o.a)
+    def inv(s):
+        n=pow(s.a*s.a+s.b*s.b,-1,p); return F2(s.a*n,-s.b*n)
+    def __pow__(s,e):
+        R=F2(1);B=s
+        while e:
+            if e&1:R=R*B
+            B=B*B;e>>=1
+        return R
+    def __eq__(s,o): o=o if isinstance(o,F2) else F2(o); return s.a==o.a and s.b==o.b
+    def __repr__(s): return f"{s.a}+{s.b}i"
+    def __hash__(s): return hash((s.a,s.b))
+# curve y^2=x^3+x over F_p
+def add(P,Q):
+    if P is None:return Q
+    if Q is None:return P
+    x1,y1=P;x2,y2=Q
+    if x1==x2 and (y1+y2)%p==0:return None
+    l=(3*x1*x1+1)*pow(2*y1,-1,p)%p if P==Q else (y2-y1)*pow(x2-x1,-1,p)%p
+    x3=(l*l-x1-x2)%p;return (x3,(l*(x1-x3)-y1)%p)
+def mul(k,P):
+    R=None
+    for _ in range(k):R=add(R,P)
+    return R
+pts=[(x,y) for x in range(p) for y in range(p) if (y*y-x**3-x)%p==0]
+print("order",len(pts)+1)
+# point of order 11: multiply by cofactor 12
+for P in pts:
+    P11=mul(12,P)
+    if P11 is not None: break
+print("P",P11, mul(11,P11))
+P=P11
+def dist(Q): return (F2(-Q[0]),F2(0,Q[1]))   # (x,y)->(-x, i y)
+def miller(P,S):
+    # f_{r,P}(S), denominators dropped (eliminated by final exp)
+    T=P;f=F2(1)
+    bits=bin(r)[3:]
+    for b in bits:
+        # doubling: line tangent at T evaluated at S
+        x,y=T;l=(3*x*x+1)*pow(2*y,-1,p)%p
+        line=lambda S,x=x,y=y,l=l:(S[1]-F2(y)-F2(l)*(S[0]-F2(x)))
+        f=f*f*line(S); T=add(T,T)
+        if b=='1':
+            x1,y1=T;x2,y2=P
+            if x1==x2: # vertical, T=-P : skip line (value in F_p)
+                T=add(T,P);continue
+            l=(y2-y1)*pow(x2-x1,-1,p)%p
+            f=f*(S[1]-F2(y1)-F2(l)*(S[0]-F2(x1))); T=add(T,P)
+    return f
+def e(P,Q):
+    S=dist(Q)
+    return miller(P,S)**((p*p-1)//r)
+z=e(P,P);print("e(P,P)=",z,"z^11",z**11)
+for a,b in [(3,5),(2,1),(7,4)]:
+    print(a,b,e(mul(a,P),mul(b,P)),z**(a*b%r), e(mul(a,P),mul(b,P))==z**(a*b%r))
+# toy BLS: x=7, M=3P, sigma=7M
+x=7;M=mul(3,P);sig=mul(x,M);X=mul(x,P)
+print("BLS",M,sig,X,e(sig,P),e(M,X),e(sig,P)==e(M,X))
+print("powers of z",[ (k,z**k) for k in range(1,12)])
+\end{lstlisting}
+
 %==============================================================================
 \chapter{SageMath Cheat Sheet}\label{app:sage}
 %==============================================================================
 
-The following commands (SageMath) are useful for live demonstrations.
+The following commands (SageMath) are useful for experiments.
 \begin{lstlisting}[style=plain]
 E = EllipticCurve(GF(17), [2, 2])        # y^2 = x^3 + 2x + 2
 E.cardinality(), E.abelian_group()       # 19, cyclic
