@@ -1012,6 +1012,45 @@ So the dependency graph with topological sort is the \emph{general} method; the 
 \subsection{Annotated parse trees and dependency graphs}
 An \textbf{annotated parse tree} shows the attribute values at every node. To evaluate attributes we build a \textbf{dependency graph}: one node per attribute instance, and an edge $x \to y$ whenever $y$ is computed from $x$. A valid evaluation order is any \emph{topological order} of this graph; if the graph has a cycle, no order exists.
 
+\begin{notebox}{Which way do the arrows point?}
+\textbf{Rule: the arrow goes from the attribute that is used to the attribute that is defined.} For a semantic rule $b = f(c_1,\dots,c_k)$ we draw an edge $c_i \to b$ for every $c_i$: the tail is on the \emph{right-hand side} of the rule (the input), the head is on the \emph{left-hand side} (the result). Reading an arrow $x\to y$ as ``$y$ needs $x$'' (so $x$ must be computed first) is what makes a topological order a valid evaluation order.
+
+\textbf{Example.} Take the production $E \to L\ D$ with the rule $\at{D}{val} = \at{L}{val}$. The attribute defined is $\at{D}{val}$ and the attribute used is $\at{L}{val}$, so the edge is
+\[
+\at{L}{val}\ \longrightarrow\ \at{D}{val}.
+\]
+The arrow goes from the left sibling $L$ to the right sibling $D$, \emph{sideways} in the tree. Since $\at{D}{val}$ is defined by a rule of the production of its \emph{parent} $E$, it is an inherited attribute of $D$.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small},
+  att/.style={draw,rounded corners=2pt,fill=white,font=\footnotesize,inner sep=3pt},
+  ar/.style={-{Stealth[length=2mm]},thick,blue!60!black}]
+ \node (E) at (0,0) {$E$};
+ \node (L) at (-1.6,-1.3) {$L$};
+ \node (D) at (1.6,-1.3) {$D$};
+ \draw[gray] (E)--(L); \draw[gray] (E)--(D);
+ \node[att] (lv) at (-1.6,-2.6) {$L.val$};
+ \node[att] (dv) at (1.6,-2.6) {$D.val$};
+ \draw[gray,dotted] (L)--(lv); \draw[gray,dotted] (D)--(dv);
+ \draw[ar] (lv)--node[below,font=\scriptsize]{$D.val = L.val$}(dv);
+\end{tikzpicture}
+\end{center}
+
+\textbf{The three cases.} The direction of an arrow in the \emph{graph} is always ``used $\to$ defined''. What this means in the \emph{tree} depends on where the two attributes are:
+\begin{center}
+\small
+\begin{tabular}{@{}L{4.2cm} L{4.6cm} L{4.2cm}@{}}
+\toprule
+\textbf{Rule (in production $A\to X\,Y$)} & \textbf{Edge} & \textbf{Direction in the tree} \\ \midrule
+$\at{A}{s}=\at{X}{s}$ (synthesized) & $\at{X}{s}\to\at{A}{s}$ & child $\to$ parent (\emph{up}) \\
+$\at{X}{i}=\at{A}{i}$ (inherited from parent) & $\at{A}{i}\to\at{X}{i}$ & parent $\to$ child (\emph{down}) \\
+$\at{Y}{i}=\at{X}{s}$ (inherited from sibling) & $\at{X}{s}\to\at{Y}{i}$ & left sibling $\to$ right sibling (\emph{sideways}) \\ \bottomrule
+\end{tabular}
+\end{center}
+A common mistake is to draw the arrow in the direction of the tree edge or to follow the ``flow of the parse''; always look at the rule instead: the arrow points \emph{into} the attribute on the left of the ``$=$''.
+\end{notebox}
+
+
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
