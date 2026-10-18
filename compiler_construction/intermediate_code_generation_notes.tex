@@ -1328,14 +1328,16 @@ $T \to \mathbf{num}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},
 This is an S-attributed SDD: every rule computes the attribute of the head from the attributes of its body symbols. (If the grammar is made LL by eliminating left recursion, the same tree is built with an inherited attribute; see Section~\ref{sec:lattr}.)
 
 \begin{defbox}{Recipe: building the tree by hand from an SDD}
+Because this SDD is S-attributed (every attribute is synthesized), its rules can be evaluated by a \textbf{post-order traversal} of the parse tree, as in Section~\ref{sec:sddwhat}: visit the children from left to right, and only then the node itself.
 \begin{enumerate}[nosep]
 \item Draw the \textbf{parse tree} of the input.
-\item Start at the \textbf{bottom}. Every leaf rule ($T\to\mathbf{id}$, $T\to\mathbf{num}$) creates a leaf node. Give each newly created node the next name $p_1, p_2, p_3,\dots$ in the order of creation.
-\item Go \textbf{up}. A \emph{copy rule} ($E\to T$, $T\to(E)$) creates nothing: the pointer of the child is simply written on the parent.
+\item Traverse it in \textbf{post-order}. When a node is visited, execute the semantic rule of its production.
+\item A \textbf{leaf rule} ($T\to\mathbf{id}$, $T\to\mathbf{num}$) creates a leaf node. Give each newly created node the next name $p_1, p_2, p_3,\dots$ in the order of creation.
+\item A \textbf{copy rule} ($E\to T$, $T\to(E)$) creates nothing: the pointer of the child is simply written on the parent.
 \item An \textbf{operator rule} ($E\to E_1\pm T$) creates \emph{one} interior node. Its left child is the pointer of $E_1$, its right child is the pointer of $T$.
 \item The \textit{node} of the root of the parse tree points to the finished syntax tree.
 \end{enumerate}
-A children-before-parent order is forced by the rules themselves: an operator node needs the pointers of its operands, so the operands must be built first. A bottom-up parser performs its reductions in exactly this order.
+Post-order guarantees that the children are visited before their parent, which is exactly what an operator rule needs: it uses the pointers of its operands. An LR parser reduces in the same post-order, so the same rules can also be run during parsing.
 \end{defbox}
 
 \begin{examplebox}{Worked example 1: the syntax tree of \texttt{a - 4 + c}}
@@ -1368,13 +1370,13 @@ A children-before-parent order is forced by the rules themselves: an operator no
 \label{fig:sddtree-parse}
 \end{figure}
 
-\textbf{Step 2: the order in which the rules run.} A bottom-up parser reduces the input in the order below; the rule of each reduction is executed at that moment. Read the table from top to bottom and watch the pointers $p_1,\dots,p_5$ appear.
+\textbf{Step 2: the order in which the rules run.} A post-order traversal of the parse tree visits the nodes in the order below and executes the rule of each visited node (an LR parser reduces in the same order, so each rule runs at its reduction). Read the table from top to bottom and watch the pointers $p_1,\dots,p_5$ appear.
 
 \begin{center}
 \small
 \begin{tabular}{@{}c l l c@{}}
 \toprule
-\textbf{Step} & \textbf{Reduction} & \textbf{Semantic rule executed} & \textbf{Result} \\ \midrule
+\textbf{Step} & \textbf{Node visited (production)} & \textbf{Semantic rule executed} & \textbf{Result} \\ \midrule
 1 & $T\to\mathbf{id}$ \ (a)   & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry}_a)$ & $p_1$ \\
 2 & $E\to T$                  & $\at{E}{node}=\at{T}{node}$ \ (copy) & $p_1$ \\
 3 & $T\to\mathbf{num}$ \ (4)  & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ 4)$ & $p_2$ \\
@@ -1384,7 +1386,7 @@ A children-before-parent order is forced by the rules themselves: an operator no
 \end{tabular}
 \end{center}
 
-\textbf{Step 3: the tree grows from the bottom.} Figure~\ref{fig:sddtree-grow} shows what exists in memory after steps 3, 4, 5 and 6. Notice that for a while there are \emph{several separate pieces} (a forest); the last rule joins them into one tree.
+\textbf{Step 3: the tree grows during the traversal.} Figure~\ref{fig:sddtree-grow} shows what exists in memory after steps 3, 4, 5 and 6. Notice that for a while there are \emph{several separate pieces} (a forest); the last rule joins them into one tree.
 
 \begin{figure}[H]
 \centering
@@ -1426,7 +1428,7 @@ A children-before-parent order is forced by the rules themselves: an operator no
  \end{scope}
  \foreach \x in {2.3,6.5,11.7} \draw[-{Stealth[length=2mm]},gray] (\x,0.5)--++(1.0,0);
 \end{tikzpicture}}
-\caption{The syntax tree of \texttt{a - 4 + c} is built bottom-up. Red labels are the pointer names of Step~2.}
+\caption{The syntax tree of \texttt{a - 4 + c} is built during the post-order traversal. Red labels are the pointer names of Step~2.}
 \label{fig:sddtree-grow}
 \end{figure}
 
@@ -1476,7 +1478,7 @@ The same SDD is applied to $\mathbf{id}\ \tok{-}\ \tok{(}\ \mathbf{num}\ \tok{+}
 \small
 \begin{tabular}{@{}c l l c@{}}
 \toprule
-\textbf{Step} & \textbf{Reduction} & \textbf{Semantic rule executed} & \textbf{Result} \\ \midrule
+\textbf{Step} & \textbf{Node visited (production)} & \textbf{Semantic rule executed} & \textbf{Result} \\ \midrule
 1 & $T\to\mathbf{id}$ \ (a)   & $\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry}_a)$ & $p_1$ \\
 2 & $E\to T$                  & copy & $p_1$ \\
 3 & $T\to\mathbf{num}$ \ (4)  & $\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ 4)$ & $p_2$ \\
@@ -1522,7 +1524,7 @@ Compare the two trees in Figure~\ref{fig:sddtree-paren}. The input symbols are t
 \begin{itemize}[nosep]
 \item \textbf{Creating a node for a copy rule.} $E\to T$ and $T\to(E)$ only pass a pointer upward. If your tree contains a node labelled $E$ or $T$, you have drawn the parse tree, not the syntax tree.
 \item \textbf{Mixing up the children.} In $E\to E_1-T$ the left child is $\at{E_1}{node}$ and the right child is $\at{T}{node}$; for $a-4$ the order matters.
-\item \textbf{Forgetting that the leaves are created first.} The first node created is the leftmost leaf, not the root. The root is created last.
+\item \textbf{Forgetting what post-order implies.} The first node created is the leftmost leaf, not the root; the root is visited, and its node created, last.
 \end{itemize}
 \end{pitfallbox}
 
@@ -1766,7 +1768,7 @@ $F \to \mathbf{id}$  & $\at{F}{t} = \at{\mathbf{id}}{lexeme}$ \\
 $F \to \mathbf{num}$ & $\at{F}{t} = \at{\mathbf{num}}{lexval}$ \\ \bottomrule
 \end{tabular}
 \end{center}
-Every rule is S-attributed, so the SDD can be evaluated bottom-up. Notice the special form of the rules: the string of the head is made of the strings of the body nonterminals \emph{in the same order}, with extra characters (the operators) inserted in between or appended. For such ``simple'' SDDs we do not have to build the long strings at all: we may print each piece \emph{at the moment it would have been appended}. That gives the SDT.
+Every rule is S-attributed, so the SDD can be evaluated by a post-order traversal of the parse tree (or during LR parsing). Notice the special form of the rules: the string of the head is made of the strings of the body nonterminals \emph{in the same order}, with extra characters (the operators) inserted in between or appended. For such ``simple'' SDDs we do not have to build the long strings at all: we may print each piece \emph{at the moment it would have been appended}. That gives the SDT.
 
 \paragraph{Step 2: the SDT.} Each rule is replaced by a $\mathit{print}$ action at the right end of the body. Since all actions are at the right end, this is a \textbf{postfix SDT} and an LR parser can run it. All productions are listed, including those that have no action.
 \begin{align*}
