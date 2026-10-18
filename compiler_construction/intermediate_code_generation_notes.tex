@@ -1302,22 +1302,229 @@ Other orders are also valid, e.g.\ all three \textit{len} values first. In pract
 
 \subsection{SDD for constructing syntax trees}
 \label{sec:sddtree}
-Syntax trees can be built using synthesized attribute \textit{node}, which points to the root of a (sub)tree, and constructor functions $\mathit{Node}(op, c_1,\dots)$ and $\mathit{Leaf}(\mathbf{id}, entry)$ / $\mathit{Leaf}(\mathbf{num}, val)$.
+
+\paragraph{The goal.} The parser recognises an expression such as \texttt{a - 4 + c}. We want the compiler to end up with the \emph{syntax tree} of Section~\ref{sec:syntaxtree} in memory, with operators as interior nodes and operands as leaves. An SDD does this by attaching one synthesized attribute, \textit{node}, to every grammar symbol that stands for an expression.
+
+\paragraph{The tools.} The attribute \at{E}{node} is a \emph{pointer} to the root of the (sub)tree that $E$ stands for. Two constructor functions create nodes and return a pointer to the new node:
+\begin{itemize}[nosep]
+\item $\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry})$ \ or \ $\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \mathit{val})$: creates a \emph{leaf} for an identifier (with a pointer to its symbol-table entry) or for a number (with its value);
+\item $\mathbf{new}\ \mathit{Node}(op,\ \mathit{left},\ \mathit{right})$: creates an \emph{interior node} labelled $op$ whose two children are the nodes that the pointers \textit{left} and \textit{right} point to.
+\end{itemize}
+
+\paragraph{The SDD.} The grammar is $E\to E+T\mid E-T\mid T$, $T\to(E)\mid\mathbf{id}\mid\mathbf{num}$. The last column says whether the rule \emph{creates} a node or only \emph{passes a pointer upward}.
+\begin{center}
+\small
+\begin{tabular}{@{}l l c@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} & \textbf{New node?} \\ \midrule
+$E \to E_1 + T$ & $\at{E}{node} = \mathbf{new}\ \mathit{Node}(\tok{'+'},\ \at{E_1}{node},\ \at{T}{node})$ & yes (interior) \\
+$E \to E_1 - T$ & $\at{E}{node} = \mathbf{new}\ \mathit{Node}(\tok{'-'},\ \at{E_1}{node},\ \at{T}{node})$ & yes (interior) \\
+$E \to T$ & $\at{E}{node} = \at{T}{node}$ & no (copy) \\
+$T \to (\,E\,)$ & $\at{T}{node} = \at{E}{node}$ & no (copy) \\
+$T \to \mathbf{id}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \at{\mathbf{id}}{entry})$ & yes (leaf) \\
+$T \to \mathbf{num}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ & yes (leaf) \\ \bottomrule
+\end{tabular}
+\end{center}
+This is an S-attributed SDD: every rule computes the attribute of the head from the attributes of its body symbols. (If the grammar is made LL by eliminating left recursion, the same tree is built with an inherited attribute; see Section~\ref{sec:lattr}.)
+
+\begin{defbox}{Recipe: building the tree by hand from an SDD}
+\begin{enumerate}[nosep]
+\item Draw the \textbf{parse tree} of the input.
+\item Start at the \textbf{bottom}. Every leaf rule ($T\to\mathbf{id}$, $T\to\mathbf{num}$) creates a leaf node. Give each newly created node the next name $p_1, p_2, p_3,\dots$ in the order of creation.
+\item Go \textbf{up}. A \emph{copy rule} ($E\to T$, $T\to(E)$) creates nothing: the pointer of the child is simply written on the parent.
+\item An \textbf{operator rule} ($E\to E_1\pm T$) creates \emph{one} interior node. Its left child is the pointer of $E_1$, its right child is the pointer of $T$.
+\item The \textit{node} of the root of the parse tree points to the finished syntax tree.
+\end{enumerate}
+A children-before-parent order is forced by the rules themselves: an operator node needs the pointers of its operands, so the operands must be built first. A bottom-up parser performs its reductions in exactly this order.
+\end{defbox}
+
+\begin{examplebox}{Worked example 1: the syntax tree of \texttt{a - 4 + c}}
+\textbf{Step 1: the annotated parse tree.} The input is the token string $\mathbf{id}\ \tok{-}\ \mathbf{num}\ \tok{+}\ \mathbf{id}$. Figure~\ref{fig:sddtree-parse} shows its parse tree. Every grammar symbol carries the value of its \textit{node} attribute. Green nodes are those whose rule \emph{creates} a new node; the others only copy a pointer.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.86\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  mk/.style={inner sep=2pt,align=center,draw=green!50!black,fill=green!12,rounded corners=2pt}]
+ \node[mk] (E0) at (0,0.00)      {$E$\\[-1pt]{\scriptsize $\mathit{node}=p_5$}};
+ \node[mk] (E1) at (-3.6,-1.40) {$E$\\[-1pt]{\scriptsize $\mathit{node}=p_3$}};
+ \node[nd] (pl) at (0,-1.40)    {$+$};
+ \node[mk] (T3) at (3.2,-1.40)  {$T$\\[-1pt]{\scriptsize $\mathit{node}=p_4$}};
+ \node[nd] (E2) at (-6.0,-2.81) {$E$\\[-1pt]{\scriptsize $\mathit{node}=p_1$}};
+ \node[nd] (mi) at (-3.6,-2.81) {$-$};
+ \node[mk] (T2) at (-1.2,-2.81) {$T$\\[-1pt]{\scriptsize $\mathit{node}=p_2$}};
+ \node[nd] (ic) at (3.2,-2.81)  {\textbf{id}\\[-1pt]{\scriptsize (c)}};
+ \node[mk] (T1) at (-6.0,-4.21) {$T$\\[-1pt]{\scriptsize $\mathit{node}=p_1$}};
+ \node[nd] (n4) at (-1.2,-4.21) {\textbf{num}\\[-1pt]{\scriptsize (4)}};
+ \node[nd] (ia) at (-6.0,-5.62) {\textbf{id}\\[-1pt]{\scriptsize (a)}};
+ \foreach \a/\b in {E0/E1,E0/pl,E0/T3,E1/E2,E1/mi,E1/T2,E2/T1,T1/ia,T2/n4,T3/ic}
+   \draw[gray] (\a.south)--(\b.north);
+ \node[mk,anchor=west] at (1.2,-4.99) {\scriptsize creates a node};
+ \node[nd,anchor=west] at (1.2,-5.62) {\scriptsize copies a pointer (no new node)};
+\end{tikzpicture}}
+\caption{Annotated parse tree of \texttt{a - 4 + c} for the SDD above. Five nodes are created ($p_1,\dots,p_5$); the node $E\to T$ at the lower left just copies $p_1$.}
+\label{fig:sddtree-parse}
+\end{figure}
+
+\textbf{Step 2: the order in which the rules run.} A bottom-up parser reduces the input in the order below; the rule of each reduction is executed at that moment. Read the table from top to bottom and watch the pointers $p_1,\dots,p_5$ appear.
 
 \begin{center}
 \small
-\begin{tabular}{@{}l l@{}}
+\begin{tabular}{@{}c l l c@{}}
 \toprule
-\textbf{Production} & \textbf{Semantic rules} \\ \midrule
-$E \to E_1 + T$ & $\at{E}{node} = \mathbf{new}\ \mathit{Node}(\tok{'+'},\ \at{E_1}{node},\ \at{T}{node})$ \\
-$E \to E_1 - T$ & $\at{E}{node} = \mathbf{new}\ \mathit{Node}(\tok{'-'},\ \at{E_1}{node},\ \at{T}{node})$ \\
-$E \to T$ & $\at{E}{node} = \at{T}{node}$ \\
-$T \to (\,E\,)$ & $\at{T}{node} = \at{E}{node}$ \\
-$T \to \mathbf{id}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \at{\mathbf{id}}{entry})$ \\
-$T \to \mathbf{num}$ & $\at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ \\ \bottomrule
+\textbf{Step} & \textbf{Reduction} & \textbf{Semantic rule executed} & \textbf{Result} \\ \midrule
+1 & $T\to\mathbf{id}$ \ (a)   & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry}_a)$ & $p_1$ \\
+2 & $E\to T$                  & $\at{E}{node}=\at{T}{node}$ \ (copy) & $p_1$ \\
+3 & $T\to\mathbf{num}$ \ (4)  & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ 4)$ & $p_2$ \\
+4 & $E\to E_1-T$              & $\at{E}{node}=\mathbf{new}\ \mathit{Node}(\tok{'-'},\ p_1,\ p_2)$ & $p_3$ \\
+5 & $T\to\mathbf{id}$ \ (c)   & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry}_c)$ & $p_4$ \\
+6 & $E\to E_1+T$              & $\at{E}{node}=\mathbf{new}\ \mathit{Node}(\tok{'+'},\ p_3,\ p_4)$ & $p_5$ \\ \bottomrule
 \end{tabular}
 \end{center}
-This is S-attributed. If the grammar is made LL by eliminating left recursion, the same tree is built with an inherited attribute (see the L-attributed SDT in Section~\ref{sec:lattr}).
+
+\textbf{Step 3: the tree grows from the bottom.} Figure~\ref{fig:sddtree-grow} shows what exists in memory after steps 3, 4, 5 and 6. Notice that for a while there are \emph{several separate pieces} (a forest); the last rule joins them into one tree.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  n/.style={circle,draw,minimum size=7mm,inner sep=0pt,font=\small},
+  tag/.style={font=\scriptsize\bfseries,text=red!70!black},
+  capt/.style={font=\small,align=center}]
+ % panel 1
+ \node[n,label={[tag]above right:$p_1$}] (a1) at (0,0) {$a$};
+ \node[n,label={[tag]above right:$p_2$}] (f1) at (1.4,0) {$4$};
+ \node[capt] at (0.7,-1.3) {after step 3:\\two separate leaves};
+ % panel 2
+ \begin{scope}[xshift=4.2cm]
+  \node[n,label={[tag]above right:$p_3$}] (m2) at (0.7,1.0) {$-$};
+  \node[n,label={[tag]left:$p_1$}]  (a2) at (0,0)   {$a$};
+  \node[n,label={[tag]right:$p_2$}] (f2) at (1.4,0) {$4$};
+  \draw (m2)--(a2); \draw (m2)--(f2);
+  \node[capt] at (0.7,-1.3) {after step 4:\\$a-4$ is built};
+ \end{scope}
+ % panel 3
+ \begin{scope}[xshift=8.4cm]
+  \node[n,label={[tag]above right:$p_3$}] (m3) at (0.7,1.0) {$-$};
+  \node[n,label={[tag]left:$p_1$}]  (a3) at (0,0)   {$a$};
+  \node[n,label={[tag]right:$p_2$}] (f3) at (1.4,0) {$4$};
+  \node[n,label={[tag]above right:$p_4$}] (c3) at (2.9,1.0) {$c$};
+  \draw (m3)--(a3); \draw (m3)--(f3);
+  \node[capt] at (1.45,-1.3) {after step 5:\\tree $p_3$ and a new leaf $p_4$};
+ \end{scope}
+ % panel 4
+ \begin{scope}[xshift=13.2cm]
+  \node[n,label={[tag]above right:$p_5$}] (P5) at (1.3,2.0) {$+$};
+  \node[n,label={[tag]left:$p_3$}]  (P3) at (0.5,1.0) {$-$};
+  \node[n,label={[tag]right:$p_4$}] (P4) at (2.1,1.0) {$c$};
+  \node[n,label={[tag]left:$p_1$}]  (A) at (-0.2,0) {$a$};
+  \node[n,label={[tag]right:$p_2$}] (F) at (1.2,0) {$4$};
+  \draw (P5)--(P3); \draw (P5)--(P4); \draw (P3)--(A); \draw (P3)--(F);
+  \node[capt] at (1.0,-1.3) {after step 6:\\one tree, root $p_5$};
+ \end{scope}
+ \foreach \x in {2.3,6.5,11.7} \draw[-{Stealth[length=2mm]},gray] (\x,0.5)--++(1.0,0);
+\end{tikzpicture}}
+\caption{The syntax tree of \texttt{a - 4 + c} is built bottom-up. Red labels are the pointer names of Step~2.}
+\label{fig:sddtree-grow}
+\end{figure}
+
+\textbf{Step 4: the result.} The attribute $\at{E}{node}$ of the root is $p_5$, the root of the syntax tree. In memory the tree is just five small records that point to each other.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.40\textwidth}
+\centering
+\begin{tikzpicture}[
+  n/.style={circle,draw,minimum size=7mm,inner sep=0pt,font=\small},
+  tag/.style={font=\scriptsize\bfseries,text=red!70!black}]
+ \node[n,label={[tag]above right:$p_5$}] (P5) at (0,0) {$+$};
+ \node[n,label={[tag]above left:$p_3$}]  (P3) at (-1.2,-1.2) {$-$};
+ \node[n,label={[tag]above right:$p_4$}] (P4) at (1.2,-1.2) {$c$};
+ \node[n,label={[tag]left:$p_1$}]  (A) at (-2.0,-2.4) {$a$};
+ \node[n,label={[tag]right:$p_2$}] (F) at (-0.4,-2.4) {$4$};
+ \draw (P5)--(P3); \draw (P5)--(P4); \draw (P3)--(A); \draw (P3)--(F);
+\end{tikzpicture}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.50\textwidth}
+\centering\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+ & \textbf{label} & \textbf{left} & \textbf{right} \\ \midrule
+$p_1$ & \textbf{id}  & $\to$ entry of $a$ & \\
+$p_2$ & \textbf{num} & 4 & \\
+$p_3$ & $-$          & $p_1$ & $p_2$ \\
+$p_4$ & \textbf{id}  & $\to$ entry of $c$ & \\
+$p_5$ & $+$          & $p_3$ & $p_4$ \\ \bottomrule
+\end{tabular}
+\end{minipage}
+\caption{The finished syntax tree (left) and the records that represent it (right). An interior record stores the \emph{pointers} of its two children.}
+\end{figure}
+
+\textbf{Three things to check.}
+\begin{enumerate}[nosep]
+\item The parse tree has 11 grammar nodes, but only 5 nodes are created: $3$ operands $+\ 2$ operators. In general an expression with $n$ operands and $n-1$ binary operators gives $2n-1$ nodes, which is a quick self-check.
+\item $\mathit{Node}(\tok{'-'},p_1,p_2)$ was called \emph{before} $\mathit{Node}(\tok{'+'},p_3,p_4)$, because the pointer $p_3$ is an input of the second call. This is why $a-4$ is grouped first: the SDD together with the left-recursive grammar gives left associativity.
+\item The first argument of $\mathit{Node}$ is always the pointer of the \emph{left} operand $E_1$, the second is that of $T$. Swapping them would build the mirror image of the tree.
+\end{enumerate}
+\end{examplebox}
+
+\begin{examplebox}{Worked example 2: parentheses leave no trace in the tree, \texttt{a - (4 + c)}}
+The same SDD is applied to $\mathbf{id}\ \tok{-}\ \tok{(}\ \mathbf{num}\ \tok{+}\ \mathbf{id}\ \tok{)}$. The new step is the rule $T\to(E)$: it is a copy rule, so the parentheses do not create any node.
+\begin{center}
+\small
+\begin{tabular}{@{}c l l c@{}}
+\toprule
+\textbf{Step} & \textbf{Reduction} & \textbf{Semantic rule executed} & \textbf{Result} \\ \midrule
+1 & $T\to\mathbf{id}$ \ (a)   & $\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry}_a)$ & $p_1$ \\
+2 & $E\to T$                  & copy & $p_1$ \\
+3 & $T\to\mathbf{num}$ \ (4)  & $\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ 4)$ & $p_2$ \\
+4 & $E\to T$ \ (inner $E$)    & copy & $p_2$ \\
+5 & $T\to\mathbf{id}$ \ (c)   & $\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry}_c)$ & $p_3$ \\
+6 & $E\to E_1+T$              & $\mathbf{new}\ \mathit{Node}(\tok{'+'},\ p_2,\ p_3)$ & $p_4$ \\
+7 & $T\to(E)$                 & copy: $\at{T}{node}=\at{E}{node}$ & $p_4$ \\
+8 & $E\to E_1-T$              & $\mathbf{new}\ \mathit{Node}(\tok{'-'},\ p_1,\ p_4)$ & $p_5$ \\ \bottomrule
+\end{tabular}
+\end{center}
+Compare the two trees in Figure~\ref{fig:sddtree-paren}. The input symbols are the same; only the \emph{grouping} differs, and the grouping is visible in the shape of the tree. This is why later phases never need to look at parentheses.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  n/.style={circle,draw,minimum size=7mm,inner sep=0pt,font=\small},
+  tag/.style={font=\scriptsize\bfseries,text=red!70!black}]
+ % (a)
+ \node[n,label={[tag]above right:$p_5$}] (P5) at (0,0) {$+$};
+ \node[n,label={[tag]left:$p_3$}]  (P3) at (-1.0,-1.2) {$-$};
+ \node[n,label={[tag]right:$p_4$}] (P4) at (1.0,-1.2) {$c$};
+ \node[n,label={[tag]left:$p_1$}]  (A) at (-1.7,-2.4) {$a$};
+ \node[n,label={[tag]right:$p_2$}] (F) at (-0.3,-2.4) {$4$};
+ \draw (P5)--(P3); \draw (P5)--(P4); \draw (P3)--(A); \draw (P3)--(F);
+ \node[font=\small] at (0,-3.4) {(a) \texttt{a - 4 + c}: \ $(a-4)+c$};
+ % (b)
+ \begin{scope}[xshift=7cm]
+  \node[n,label={[tag]above right:$p_5$}] (Q5) at (0,0) {$-$};
+  \node[n,label={[tag]left:$p_1$}]  (Qa) at (-1.0,-1.2) {$a$};
+  \node[n,label={[tag]right:$p_4$}] (Q4) at (1.0,-1.2) {$+$};
+  \node[n,label={[tag]left:$p_2$}]  (Qf) at (0.3,-2.4) {$4$};
+  \node[n,label={[tag]right:$p_3$}] (Qc) at (1.7,-2.4) {$c$};
+  \draw (Q5)--(Qa); \draw (Q5)--(Q4); \draw (Q4)--(Qf); \draw (Q4)--(Qc);
+  \node[font=\small] at (0,-3.4) {(b) \texttt{a - (4 + c)}: \ $a-(4+c)$};
+ \end{scope}
+\end{tikzpicture}
+\caption{Parentheses change the shape of the syntax tree but never appear in it.}
+\label{fig:sddtree-paren}
+\end{figure}
+\end{examplebox}
+
+\begin{pitfallbox}{Common mistakes when building the tree}
+\begin{itemize}[nosep]
+\item \textbf{Creating a node for a copy rule.} $E\to T$ and $T\to(E)$ only pass a pointer upward. If your tree contains a node labelled $E$ or $T$, you have drawn the parse tree, not the syntax tree.
+\item \textbf{Mixing up the children.} In $E\to E_1-T$ the left child is $\at{E_1}{node}$ and the right child is $\at{T}{node}$; for $a-4$ the order matters.
+\item \textbf{Forgetting that the leaves are created first.} The first node created is the leftmost leaf, not the root. The root is created last.
+\end{itemize}
+\end{pitfallbox}
 
 \subsection{SDD for constructing DAGs directly}
 \label{sec:sdddag}
@@ -1537,6 +1744,113 @@ $\$\ E{:}19$ & \texttt{n} & shift \textbf{n}, reduce $L\to E\,\mathbf{n}$, print
 \end{tabular}
 \end{center}
 
+\subsection{Worked example: infix to postfix, written out completely}
+\label{sec:infix2postfix}
+
+\paragraph{The task.} In \textbf{infix} notation the operator stands between its operands (\texttt{a + b}); in \textbf{postfix} notation it stands \emph{after} them (\texttt{a b +}). Postfix needs no parentheses and no precedence rules: \texttt{a*(b+c)-d} becomes \texttt{a b c + * d -}, and a stack machine can execute it by pushing operands and letting each operator pop its two arguments. We translate with the usual three-level expression grammar, which already encodes precedence ($*,/$ bind tighter than $+,-$) and left associativity.
+
+\paragraph{Step 1: the SDD.} Let every nonterminal have a string attribute $t$, the postfix form of the part of the input it derives. The operator is appended \emph{after} the strings of its two operands ($\cc$ means concatenation):
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} \\ \midrule
+$E \to E_1 + T$ & $\at{E}{t} = \at{E_1}{t}\cc\at{T}{t}\cc\tok{'+'}$ \\
+$E \to E_1 - T$ & $\at{E}{t} = \at{E_1}{t}\cc\at{T}{t}\cc\tok{'-'}$ \\
+$E \to T$       & $\at{E}{t} = \at{T}{t}$ \\
+$T \to T_1 * F$ & $\at{T}{t} = \at{T_1}{t}\cc\at{F}{t}\cc\tok{'*'}$ \\
+$T \to T_1 / F$ & $\at{T}{t} = \at{T_1}{t}\cc\at{F}{t}\cc\tok{'/'}$ \\
+$T \to F$       & $\at{T}{t} = \at{F}{t}$ \\
+$F \to (\,E\,)$ & $\at{F}{t} = \at{E}{t}$ \\
+$F \to \mathbf{id}$  & $\at{F}{t} = \at{\mathbf{id}}{lexeme}$ \\
+$F \to \mathbf{num}$ & $\at{F}{t} = \at{\mathbf{num}}{lexval}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+Every rule is S-attributed, so the SDD can be evaluated bottom-up. Notice the special form of the rules: the string of the head is made of the strings of the body nonterminals \emph{in the same order}, with extra characters (the operators) inserted in between or appended. For such ``simple'' SDDs we do not have to build the long strings at all: we may print each piece \emph{at the moment it would have been appended}. That gives the SDT.
+
+\paragraph{Step 2: the SDT.} Each rule is replaced by a $\mathit{print}$ action at the right end of the body. Since all actions are at the right end, this is a \textbf{postfix SDT} and an LR parser can run it. All productions are listed, including those that have no action.
+\begin{align*}
+E &\to E_1 + T &&\{\ \mathit{print}(\tok{'+'})\ \}\\
+E &\to E_1 - T &&\{\ \mathit{print}(\tok{'-'})\ \}\\
+E &\to T\\
+T &\to T_1 * F &&\{\ \mathit{print}(\tok{'*'})\ \}\\
+T &\to T_1 / F &&\{\ \mathit{print}(\tok{'/'})\ \}\\
+T &\to F\\
+F &\to (\,E\,)\\
+F &\to \mathbf{id}  &&\{\ \mathit{print}(\at{\mathbf{id}}{lexeme})\ \}\\
+F &\to \mathbf{num} &&\{\ \mathit{print}(\at{\mathbf{num}}{lexval})\ \}
+\end{align*}
+The rules $E\to T$, $T\to F$ and $F\to(E)$ print nothing: they only pass the work on. Operands are printed by the leaf rules, operators by the operator rules, and the position of the action explains the order: when $E\to E_1+T$ is reduced, $E_1$ and $T$ have already been reduced, so their output has already appeared and the $+$ comes after both.
+
+\begin{examplebox}{Trace 1: \texttt{9-5+2} on the LR parse stack}
+Nothing needs to be stored on the stack; the actions simply print. Read the last column to see the output grow.
+\begin{center}
+\small
+\begin{tabular}{@{}r l l l l@{}}
+\toprule
+\textbf{\#} & \textbf{Stack} & \textbf{Remaining input} & \textbf{Parser step} & \textbf{Output} \\ \midrule
+1  & $\$$ & \texttt{9-5+2} & shift & \\
+2  & $\$\ \mathbf{num}$ & \texttt{-5+2} & reduce $F\to\mathbf{num}$, \textbf{print 9} & \texttt{9} \\
+3  & $\$\ F$ & \texttt{-5+2} & reduce $T\to F$ & \texttt{9} \\
+4  & $\$\ T$ & \texttt{-5+2} & reduce $E\to T$ & \texttt{9} \\
+5  & $\$\ E$ & \texttt{-5+2} & shift \texttt{-} & \texttt{9} \\
+6  & $\$\ E\ -$ & \texttt{5+2} & shift \textbf{num} & \texttt{9} \\
+7  & $\$\ E\ -\ \mathbf{num}$ & \texttt{+2} & reduce $F\to\mathbf{num}$, \textbf{print 5} & \texttt{95} \\
+8  & $\$\ E\ -\ F$ & \texttt{+2} & reduce $T\to F$ & \texttt{95} \\
+9  & $\$\ E\ -\ T$ & \texttt{+2} & reduce $E\to E-T$, \textbf{print -} & \texttt{95-} \\
+10 & $\$\ E$ & \texttt{+2} & shift \texttt{+} & \texttt{95-} \\
+11 & $\$\ E\ +$ & \texttt{2} & shift \textbf{num} & \texttt{95-} \\
+12 & $\$\ E\ +\ \mathbf{num}$ & & reduce $F\to\mathbf{num}$, \textbf{print 2} & \texttt{95-2} \\
+13 & $\$\ E\ +\ F$ & & reduce $T\to F$ & \texttt{95-2} \\
+14 & $\$\ E\ +\ T$ & & reduce $E\to E+T$, \textbf{print +} & \texttt{95-2+} \\
+15 & $\$\ E$ & & accept & \texttt{95-2+} \\ \bottomrule
+\end{tabular}
+\end{center}
+Step 9 is the important one: the parser reduces $E\to E-T$ \emph{before} shifting the next \texttt{+}, so the minus is printed first. That is left associativity: $(9-5)+2$, not $9-(5+2)$.
+\end{examplebox}
+
+\begin{examplebox}{Trace 2: \texttt{a*(b+c)-d}, with parentheses and precedence}
+Only the reductions that print something are listed; the copy reductions ($T\to F$, $E\to T$, $F\to(E)$) print nothing.
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+\textbf{\#} & \textbf{Reduction that prints} & \textbf{Prints} & \textbf{Output so far} \\ \midrule
+1 & $F\to\mathbf{id}$ \ (a)            & \texttt{a} & \texttt{a} \\
+2 & $F\to\mathbf{id}$ \ (b)            & \texttt{b} & \texttt{ab} \\
+3 & $F\to\mathbf{id}$ \ (c)            & \texttt{c} & \texttt{abc} \\
+4 & $E\to E_1+T$ \ ($b+c$)             & \texttt{+} & \texttt{abc+} \\
+5 & $T\to T_1*F$ \ ($a*(b+c)$)         & \texttt{*} & \texttt{abc+*} \\
+6 & $F\to\mathbf{id}$ \ (d)            & \texttt{d} & \texttt{abc+*d} \\
+7 & $E\to E_1-T$ \ (whole expression)  & \texttt{-} & \texttt{abc+*d-} \\ \bottomrule
+\end{tabular}
+\end{center}
+The reduction $F\to(E)$ happens between rows 4 and 5, but it prints nothing: the parentheses have done their job once $b+c$ was reduced as a unit, before the multiplication. The output is the \textbf{post-order traversal of the syntax tree}: Figure~\ref{fig:postfixtree} numbers the nodes in the order in which they are finished, and these are exactly the rows of the table.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  n/.style={circle,draw,minimum size=7mm,inner sep=0pt,font=\small},
+  tag/.style={font=\scriptsize\bfseries,text=red!70!black}]
+ \node[n,label={[tag]above right:7}] (r) at (0,0) {$-$};
+ \node[n,label={[tag]above left:5}]  (m) at (-1.5,-1.2) {$*$};
+ \node[n,label={[tag]above right:6}] (d) at (1.5,-1.2) {$d$};
+ \node[n,label={[tag]left:1}]        (a) at (-2.5,-2.4) {$a$};
+ \node[n,label={[tag]above right:4}] (p) at (-0.5,-2.4) {$+$};
+ \node[n,label={[tag]left:2}]        (b) at (-1.3,-3.6) {$b$};
+ \node[n,label={[tag]right:3}]       (c) at (0.3,-3.6) {$c$};
+ \draw (r)--(m); \draw (r)--(d); \draw (m)--(a); \draw (m)--(p); \draw (p)--(b); \draw (p)--(c);
+ \node[anchor=west,align=left,font=\small] at (2.6,-1.8) {Visit order (red): $a,\ b,\ c,\ +,\ *,\ d,\ -$\\[3pt] Output: \ \texttt{a\ b\ c\ +\ *\ d\ -}};
+\end{tikzpicture}
+\caption{Syntax tree of $a*(b+c)-d$. A node prints itself when its subtree is finished; this is the post-order traversal of Section~\ref{sec:vn}, so the SDT output is the postfix form.}
+\label{fig:postfixtree}
+\end{figure}
+\end{examplebox}
+
+\begin{notebox}{The position of the action decides the output}
+Take $E\to E_1 + T$. With the action at the \emph{end}, after $T$, the operator is printed after both operands: \textbf{postfix}. If the action is moved into the \emph{middle}, between $E_1$ and $T$ (written $E\to E_1\ \{\mathit{print}(\tok{'+'})\}\ +\ T$), the operator is printed between its operands, and the same traversal gives back the \textbf{infix} order (without the parentheses). The grammar did not change; only the place of the action did. This is the whole point of an SDT: \emph{where} the action stands defines \emph{when} it runs. (An LR parser could run a middle action only through a marker nonterminal, Section~\ref{sec:marker}.)
+\end{notebox}
+
 \subsection{SDTs with actions inside productions}
 When an action is in the middle of a production, it is performed \emph{immediately after all grammar symbols to its left have been matched}. A top-down parser does exactly that: the action is just a statement placed at that point of the recursive-descent procedure. An LR parser cannot: it only takes decisions at reductions, so a mid-production action must first be turned into a reduction using a marker nonterminal (Section~\ref{sec:marker}).
 
@@ -1550,13 +1864,78 @@ In the middle & run at that point of the procedure & not possible directly: intr
 \end{tabular}
 \end{center}
 
-\begin{examplebox}{Example: infix to postfix (action placed after the operand)}
+\begin{examplebox}{Complete example: infix to postfix for a \emph{top-down} parser}
+The postfix SDT of Section~\ref{sec:infix2postfix} uses left-recursive productions ($E\to E_1+T$), which a top-down parser cannot handle. To run the same translation in a recursive-descent parser, we remove the left recursion from the grammar \emph{and keep the actions where they belong}: each print action stays right after the operand it follows. (Why this rewriting works is explained step by step in Section~\ref{sec:leftrec}.)
+
+\textbf{The simplest version: digits with $+$ and $-$.}
 \begin{align*}
 E &\to T\ R\\
-R &\to +\ T\ \{\ \mathit{print}(\tok{'+'})\ \}\ R_1 \mid -\ T\ \{\ \mathit{print}(\tok{'-'})\ \}\ R_1 \mid \varepsilon\\
-T &\to \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{num}}{val})\ \}
+R &\to +\ T\ \{\ \mathit{print}(\tok{'+'})\ \}\ R_1 \ \mid\ -\ T\ \{\ \mathit{print}(\tok{'-'})\ \}\ R_1 \ \mid\ \varepsilon\\
+T &\to \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{num}}{lexval})\ \}
 \end{align*}
-For \texttt{9-5+2} the output is \texttt{95-2+}.
+Here $R$ stands for ``the rest of the expression'': zero or more groups of an operator followed by an operand. The action of $R\to+\,T\,\{\dots\}\,R_1$ comes \emph{after $T$ and before $R_1$}: the operand is printed first, then the operator, and only then the rest of the expression is handled. The production $R\to\varepsilon$ has no action: there is nothing left to print.
+
+\textbf{Execution on \texttt{9-5+2}.} Figure~\ref{fig:topdownpost} shows the parse tree with each action as an extra child (dashed box). A depth-first, left-to-right visit executes the actions in the order of the bold numbers.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  act/.style={inner sep=2.5pt,draw,dashed,rounded corners=2pt,fill=orange!15,font=\footnotesize,align=left}]
+ \node[nd] (E)  at (0,0) {$E$};
+ \node[nd] (T9) at (-3.4,-1.5) {$T$};
+ \node[nd] (R1) at (2.0,-1.5) {$R$};
+ \node[nd] (n9) at (-4.2,-3.0) {\textbf{9}};
+ \node[act] (a9) at (-2.3,-3.0) {\textbf{1:} $\mathit{print}(9)$};
+ \node[nd] (m1) at (-0.4,-3.0) {$-$};
+ \node[nd] (T5) at (1.3,-3.0) {$T$};
+ \node[act] (am) at (3.7,-3.0) {\textbf{3:} $\mathit{print}(\tok{'-'})$};
+ \node[nd] (R2) at (6.1,-3.0) {$R$};
+ \node[nd] (n5) at (0.5,-4.5) {\textbf{5}};
+ \node[act] (a5) at (2.1,-4.5) {\textbf{2:} $\mathit{print}(5)$};
+ \node[nd] (p1) at (4.6,-4.5) {$+$};
+ \node[nd] (T2) at (6.0,-4.5) {$T$};
+ \node[act] (ap) at (8.4,-4.5) {\textbf{5:} $\mathit{print}(\tok{'+'})$};
+ \node[nd] (R3) at (10.6,-4.5) {$R$};
+ \node[nd] (n2) at (5.2,-6.0) {\textbf{2}};
+ \node[act] (a2) at (6.9,-6.0) {\textbf{4:} $\mathit{print}(2)$};
+ \node[nd] (ep) at (10.6,-6.0) {$\varepsilon$};
+ \foreach \a/\b in {E/T9,E/R1,T9/n9,T9/a9,R1/m1,R1/T5,R1/am,R1/R2,T5/n5,T5/a5,R2/p1,R2/T2,R2/ap,R2/R3,T2/n2,T2/a2,R3/ep}
+   \draw[gray] (\a.south)--(\b.north);
+ \node[anchor=west,align=left] at (-5.2,-6.0) {Output, in the order of the bold numbers:\\[2pt] \texttt{9}\ \ \texttt{5}\ \ \texttt{-}\ \ \texttt{2}\ \ \texttt{+} \ $\Rightarrow$ \ \texttt{95-2+}};
+\end{tikzpicture}}
+\caption{Parse tree of \texttt{9-5+2} for the right-recursive scheme, with the actions as extra children. The tree leans to the right, but the actions print the operands and operators in the correct postfix order.}
+\label{fig:topdownpost}
+\end{figure}
+
+\textbf{As a recursive-descent parser.} A top-down parser has one procedure per nonterminal, and every action is simply a statement written at its position in the production. Here \texttt{look} is the current input symbol and \texttt{match(c)} consumes it.
+\begin{lstlisting}
+void E() { T(); R(); }
+
+void R() {
+    if (look == '+') { match('+'); T(); print('+'); R(); }
+    else if (look == '-') { match('-'); T(); print('-'); R(); }
+    else { /* R -> epsilon: do nothing */ }
+}
+
+void T() {
+    if (isdigit(look)) { c = look; match(look); print(c); }
+    else error();
+}
+\end{lstlisting}
+Compare \texttt{R()} with the production: \texttt{match('+'); T(); print('+'); R();} is the body $+\ T\ \{\mathit{print}(\tok{'+'})\}\ R_1$ read from left to right.
+
+\textbf{The complete scheme with $*$, $/$, parentheses and identifiers.} The same trick is repeated for the second precedence level. $R$ is the rest of an expression ($+,-$) and $Q$ is the rest of a term ($*,/$).
+\begin{align*}
+E &\to T\ R\\
+R &\to +\ T\ \{\ \mathit{print}(\tok{'+'})\ \}\ R_1 \ \mid\ -\ T\ \{\ \mathit{print}(\tok{'-'})\ \}\ R_1 \ \mid\ \varepsilon\\
+T &\to F\ Q\\
+Q &\to *\ F\ \{\ \mathit{print}(\tok{'*'})\ \}\ Q_1 \ \mid\ /\ F\ \{\ \mathit{print}(\tok{'/'})\ \}\ Q_1 \ \mid\ \varepsilon\\
+F &\to (\,E\,) \ \mid\ \mathbf{id}\ \{\ \mathit{print}(\at{\mathbf{id}}{lexeme})\ \}\ \mid\ \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{num}}{lexval})\ \}
+\end{align*}
+For \texttt{a*(b+c)-d} this scheme prints \texttt{abc+*d-}, the same output as the bottom-up scheme of Section~\ref{sec:infix2postfix}: $F$ prints \texttt{a}; $Q$ matches $*$, calls $F$, which parses $(b+c)$ and prints \texttt{bc+} inside; only then does $Q$ print \texttt{*}; finally $R$ matches $-$, $T$ prints \texttt{d}, and $R$ prints \texttt{-}.
 \end{examplebox}
 
 
@@ -1629,7 +2008,7 @@ The top-down scheme $R \to +\ T\ \{\mathit{print}(\tok{'+'})\}\ R_1$ has its act
 \[
 R \to +\ T\ M\ R_1, \qquad M \to \varepsilon\ \{\ \mathit{print}(\tok{'+'})\ \}
 \]
-When $M\to\varepsilon$ is reduced, the operand $T$ has just been reduced (and printed), so the output order is unchanged: $9\,5\,-\,2\,+$ for \texttt{9-5+2}.
+When $M\to\varepsilon$ is reduced, the operand $T$ has just been reduced (and printed), so the output order is unchanged: $9\,5\,-\,2\,+$ for \texttt{9-5+2}. (This example only illustrates the marker technique. For this translation an LR parser would not use markers at all: the left-recursive postfix SDT of Section~\ref{sec:infix2postfix} has every action at the right end of its body.)
 \end{examplebox}
 
 \begin{pitfallbox}{Markers can create conflicts}
@@ -1640,16 +2019,115 @@ We will use markers $M$ and $N$ extensively in backpatching (Section~\ref{sec:ba
 
 \subsection{Eliminating left recursion from an SDT}
 \label{sec:leftrec}
-A top-down parser cannot use a left-recursive grammar such as $E\to E_1+T$, but the \emph{translation} we want (a left-associative tree or value) is naturally defined by that grammar. The fix is to rewrite the grammar \emph{and} the actions together, using an inherited attribute that carries the result built so far.
 
-\begin{defbox}{General transformation}
+We go in three small steps: (1) why a top-down parser needs a different grammar, (2) the change of the grammar alone, and (3) how the actions must change with it. The running example is the grammar for sums and differences, $E\to E_1+T\mid E_1-T\mid T$.
+
+\paragraph{Step 1: why bother?} A top-down (recursive-descent) parser has one procedure per nonterminal, and it chooses a production by looking at the next input token. For a left-recursive production the procedure would have to start by calling \emph{itself}:
+\begin{lstlisting}
+void E() {            // for  E -> E + T
+    E();              // calls E() again before reading any token ...
+    match('+'); T();  // ... so this line is never reached: infinite recursion
+}
+\end{lstlisting}
+No input is consumed between the two calls, so the parser loops forever. A grammar is \textbf{left-recursive} when a nonterminal can derive a string that starts with itself, as in $A\to A\,\alpha$. Top-down parsers need that rule rewritten; LR parsers do not (they handle left recursion happily, which is why the postfix SDT of Section~\ref{sec:infix2postfix} could use $E\to E_1+T$).
+
+\paragraph{Step 2: change the grammar (no actions yet).} What does $E\to E+T\mid T$ generate? Just a $T$ followed by any number of ``$+\,T$'' groups: $T$, \ $T+T$, \ $T+T+T$, \dots{} So we can write the same language directly, left to right:
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Left-recursive} & \textbf{Right-recursive (no left recursion)} \\ \midrule
+$E \to E + T \mid T$ & $E \to T\ R$ \\
+ & $R \to +\ T\ R \mid \varepsilon$ \\ \bottomrule
+\end{tabular}
+\end{center}
+$R$ means ``the rest'': zero or more groups of $+\,T$. Both grammars derive the same string $T+T+T$; only the \emph{order of growth} differs:
+\begin{align*}
+\text{left-recursive:}\quad & E \Rightarrow E+T \Rightarrow E+T+T \Rightarrow T+T+T\\
+\text{right-recursive:}\quad & E \Rightarrow T\,R \Rightarrow T+T\,R \Rightarrow T+T+T\,R \Rightarrow T+T+T
+\end{align*}
+In the first derivation the string grows to the left (the first $T$ is produced last); in the second it grows from left to right, the way we read it.
+
+\begin{defbox}{Recipe: removing immediate left recursion (grammar only)}
+\[
+A \to A\,\alpha \mid \beta
+\qquad\text{becomes}\qquad
+A \to \beta\,R, \qquad R \to \alpha\,R \mid \varepsilon .
+\]
+$\beta$ is what $A$ can start with, and $\alpha$ is what may be repeated after it. With several alternatives, $E\to E+T\mid E-T\mid T$ gives $E\to T\,R$, \ $R\to +\,T\,R\mid -\,T\,R\mid\varepsilon$.
+\end{defbox}
+
+\paragraph{Step 3: why the actions must change, too.} The new grammar gives the \emph{same strings} but a \emph{different parse tree}. Figure~\ref{fig:leftrectrees} compares the two trees for \texttt{9-5+2}.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=1.5pt}]
+ % (a) left-recursive
+ \node[nd] (Ea) at (0,0) {$E$};
+ \node[nd] (Eb) at (-1.9,-1.2) {$E$};
+ \node[nd] (pl) at (0,-1.2) {$+$};
+ \node[nd] (Tc) at (1.3,-1.2) {$T$};
+ \node[nd] (Ec) at (-3.3,-2.4) {$E$};
+ \node[nd] (mi) at (-1.9,-2.4) {$-$};
+ \node[nd] (Tb) at (-0.7,-2.4) {$T$};
+ \node[nd] (n2) at (1.3,-2.4) {2};
+ \node[nd] (Ta) at (-3.3,-3.6) {$T$};
+ \node[nd] (n5) at (-0.7,-3.6) {5};
+ \node[nd] (n9) at (-3.3,-4.8) {9};
+ \foreach \a/\b in {Ea/Eb,Ea/pl,Ea/Tc,Eb/Ec,Eb/mi,Eb/Tb,Tc/n2,Ec/Ta,Tb/n5,Ta/n9} \draw[gray] (\a)--(\b);
+ \node[font=\small,align=center] at (-1.0,-5.8) {(a) left-recursive grammar\\the tree leans \emph{left}: $(9-5)+2$};
+ % (b) right-recursive
+ \begin{scope}[xshift=8.6cm]
+  \node[nd] (E) at (0,0) {$E$};
+  \node[nd] (T) at (-1.3,-1.2) {$T$};
+  \node[nd] (R1) at (1.3,-1.2) {$R$};
+  \node[nd] (a9) at (-1.3,-2.4) {9};
+  \node[nd] (m) at (0.3,-2.4) {$-$};
+  \node[nd] (T5) at (1.4,-2.4) {$T$};
+  \node[nd] (R2) at (2.9,-2.4) {$R$};
+  \node[nd] (a5) at (1.4,-3.6) {5};
+  \node[nd] (p) at (2.3,-3.6) {$+$};
+  \node[nd] (T2) at (3.3,-3.6) {$T$};
+  \node[nd] (R3) at (4.5,-3.6) {$R$};
+  \node[nd] (a2) at (3.3,-4.8) {2};
+  \node[nd] (ep) at (4.5,-4.8) {$\varepsilon$};
+  \foreach \a/\b in {E/T,E/R1,T/a9,R1/m,R1/T5,R1/R2,T5/a5,R2/p,R2/T2,R2/R3,T2/a2,R3/ep} \draw[gray] (\a)--(\b);
+  \node[font=\small,align=center] at (1.7,-5.8) {(b) right-recursive grammar\\the tree leans \emph{right}};
+ \end{scope}
+\end{tikzpicture}}
+\caption{Parse trees of \texttt{9-5+2} for the two grammars. In (a) the subtree for $9-5$ sits below the $+$, so the tree itself shows the grouping. In (b) the $9$ and the two operations are siblings along a chain of $R$'s; the grouping is no longer visible in the shape.}
+\label{fig:leftrectrees}
+\end{figure}
+
+In tree (a) the rule $E.val=E_1.val\pm T.val$ gets the grouping $(9-5)+2$ for free, because $9-5$ is a subtree. In tree (b) there is no such subtree. The 9 is a sibling of the whole chain of $R$'s.
+
+\begin{pitfallbox}{The tempting wrong fix}
+Why not make the grammar right-recursive in the obvious way, $E\to T-E_1\mid T+E_1\mid T$, and keep the rules $E.val=T.val\pm E_1.val$? The grammar is fine, but the meaning is wrong: for \texttt{9-5+2} we get $9-(5+2)=2$ instead of $(9-5)+2=6$. The tree now groups to the right, and subtraction is not associative. The translation must keep the \emph{left} grouping even though the tree leans right.
+\end{pitfallbox}
+
+\paragraph{The idea: carry a running total.} Think of a pocket calculator. You key in 9, then press ``$-5$'' (display shows 4), then ``$+2$'' (display shows 6). You never needed the whole expression; the display always holds \emph{the result so far}. We give $R$ exactly this display:
+\begin{itemize}[nosep]
+\item $R.i$ (\emph{inherited}, handed down from the left) is the result \textbf{so far} when $R$ starts;
+\item $R.s$ (\emph{synthesized}, handed back up) is the \textbf{final result} when $R$ is finished.
+\end{itemize}
+Each rule of the old grammar finds its place in the new one:
+\begin{enumerate}[nosep]
+\item The \textbf{base case} $E\to T$ starts the display: $R.i=T.val$.
+\item Each \textbf{repeated group} $+\,T$ or $-\,T$ updates the display and passes it to the next $R$: $R_1.i=R.i\pm T.val$.
+\item The \textbf{end} $R\to\varepsilon$ has nothing more to read, so the display is the answer: $R.s=R.i$. The answer is then copied upward through every $R$ to $E$.
+\end{enumerate}
+
+\begin{defbox}{General transformation (the recipe in symbols)}
 \begin{align*}
 A &\to A_1\,Y\ \{\ \at{A}{a}=g(\at{A_1}{a},\ \at{Y}{y})\ \}\ \mid\ X\ \{\ \at{A}{a}=f(\at{X}{x})\ \}
 \intertext{becomes}
 A &\to X\ \{\ \at{R}{i}=f(\at{X}{x})\ \}\ R\ \{\ \at{A}{a}=\at{R}{s}\ \}\\
 R &\to Y\ \{\ \at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
 \end{align*}
-$R.i$ (inherited) carries the value accumulated \emph{so far}; $R.s$ (synthesized) carries the final result back to the top.
+$R.i$ (inherited) carries the value accumulated \emph{so far}; $R.s$ (synthesized) carries the final result back to the top. In the sum example $f$ is the identity and $g$ is $+$ or $-$.
 \end{defbox}
 
 \begin{examplebox}{Example: evaluating $9-5+2$ with a left-recursion-free grammar}
@@ -1686,6 +2164,20 @@ T &\to \mathbf{num}\ \{\ T.val=\mathbf{num}.lexval\ \}
 \caption{Annotated parse tree for \texttt{9-5+2}. The inherited $R.i$ flows down and to the right ($9\to4\to6$: first $9-5$, then $4+2$); the synthesized $R.s$ then carries the final $6$ back up to $E.val$.}
 \end{figure}
 
+\textbf{The running total step by step.} Each row is one call of $R$; read $R.i$ as ``the display of the calculator''.
+\begin{center}
+\small
+\begin{tabular}{@{}l c l l c@{}}
+\toprule
+\textbf{Call} & $R.i$ \textbf{on entry} & \textbf{Next input} & \textbf{Action} & $R.s$ \textbf{on return} \\ \midrule
+$E\to T\,R$ & --- & \texttt{9} & $R.i = T.val = 9$ & --- \\
+$R$ (1st) & 9 & \texttt{- 5} & $R_1.i = 9-5 = 4$ & 6 \\
+$R_1$ (2nd) & 4 & \texttt{+ 2} & $R_2.i = 4+2 = 6$ & 6 \\
+$R_2$ (3rd) & 6 & end of input & $\varepsilon$: \ $R_2.s = R_2.i = 6$ & 6 \\ \bottomrule
+\end{tabular}
+\end{center}
+The value goes \emph{down} as $R.i$ ($9\to4\to6$) and the final $6$ is copied back \emph{up} through the $R.s$ attributes to $E.val$.
+
 The tree leans to the right, but the arithmetic is still left-associative: $(9-5)+2=6$, not $9-(5+2)=2$.
 \end{examplebox}
 
@@ -1709,6 +2201,20 @@ T &\to \mathbf{id}\ \{\ \at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{id},\
 T &\to \mathbf{num}\ \{\ \at{T}{node} = \mathbf{new}\ \mathit{Leaf}(\mathbf{num},\at{\mathbf{num}}{val})\ \}
 \end{align*}
 Here $R.i$ (inherited) carries the tree built \emph{so far}; $R.s$ (synthesized) returns the final tree. For \texttt{a - 4 + c} the tree $((a - 4) + c)$ is produced with the correct left-associativity.
+
+\textbf{Trace for \texttt{a - 4 + c}.} Now the ``running total'' is a \emph{pointer to the tree built so far}. The nodes are named $p_1,\dots,p_5$ in the order of creation, exactly as in Section~\ref{sec:sddtree}.
+\begin{center}
+\small
+\begin{tabular}{@{}l c l L{5.6cm} c@{}}
+\toprule
+\textbf{Call} & $R.i$ \textbf{on entry} & \textbf{Next input} & \textbf{Action} & $R.s$ \textbf{on return} \\ \midrule
+$E\to T\,R$ & --- & \texttt{a} & $T.node = p_1$ (leaf $a$); \ $R.i = p_1$ & --- \\
+$R$ (1st) & $p_1$ & \texttt{- 4} & $T.node = p_2$ (leaf 4); \ $R_1.i = \mathbf{new}\ \mathit{Node}(\tok{'-'},p_1,p_2) = p_3$ & $p_5$ \\
+$R_1$ (2nd) & $p_3$ & \texttt{+ c} & $T.node = p_4$ (leaf $c$); \ $R_2.i = \mathbf{new}\ \mathit{Node}(\tok{'+'},p_3,p_4) = p_5$ & $p_5$ \\
+$R_2$ (3rd) & $p_5$ & end & $\varepsilon$: \ $R_2.s = R_2.i = p_5$ & $p_5$ \\ \bottomrule
+\end{tabular}
+\end{center}
+The same five nodes are created in the same order as with the left-recursive SDD, so the syntax tree is identical (Figure~\ref{fig:sddtree-grow}); only the way the pointer travels differs: it is handed down in $R.i$ and returned in $R.s$.
 \end{examplebox}
 
 %====================================================================
@@ -2736,6 +3242,9 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Convert to SSA form and draw the blocks: \texttt{k = 1; while (k < 10) k = k * 2; return k;}
 \item For $x=(a+b)-(c*d)$, write the triples, then reorder the two sub-expressions. State what must be edited (a) with triples, (b) with indirect triples.
 \item For each task say whether a CFG with its parse tree suffices or an SDD is needed: (a) accept \texttt{a = b + c;}, (b) reject the use of an undeclared variable, (c) compute the value of \texttt{3 * 5 + 4}, (d) check that both operands of $+$ are numbers, (e) produce the parse tree of \texttt{a = b + c;}.
+\item Using the SDD of Section~\ref{sec:sddtree}, build the syntax tree of \texttt{a - (b + 3) - c}. Name the nodes $p_1,p_2,\dots$ in the order in which they are created, and say which reductions create no node.
+\item Using the postfix SDT of Section~\ref{sec:infix2postfix}, list the order of the \textit{print} actions for \texttt{(a+b)*c - d/e} and give the postfix output. Then give the output of the right-recursive scheme of Section~\ref{sec:sdt} for the same input.
+\item The grammar $L\to L_1\,\tok{','}\,\mathbf{id}\mid\mathbf{id}$ counts the identifiers of a list with $\at{L}{count}=\at{L_1}{count}+1$ and $\at{L}{count}=1$. Remove the left recursion, write the SDT with an inherited accumulator, and trace it for \texttt{x, y, z}.
 \end{enumerate}
 
 \subsection*{Answers to selected problems}
@@ -2868,6 +3377,17 @@ Trace: $k_2=1,2,4,8,16$; the test fails for $k_2=16$ and the function returns 16
 \textbf{Q15.} Triples: $0:(+,a,b)$, $1:(*,c,d)$, $2:(-,(0),(1))$, $3:(=,x,(2))$. After evaluating $c*d$ first: (a) with triples the triples swap places, so triple 2 must become $(-,(1),(0))$ and every other reference to either of them must be rewritten; (b) with indirect triples the four triples stay exactly as they are and only the order list changes, from $(0),(1),(2),(3)$ to $(1),(0),(2),(3)$.
 
 \textbf{Q16.} (a) CFG suffices (it is a syntax question). (b) SDD needed: it needs a symbol table and a rule that consults it. (c) SDD needed (an attribute \textit{val}). (d) SDD needed (an attribute \textit{type} and a rule comparing it). (e) CFG suffices: the parse tree is the output of syntax analysis.
+
+\textbf{Q17.} Creation order: $p_1$ = leaf $a$; $p_2$ = leaf $b$; $p_3$ = leaf $3$; $p_4=\mathit{Node}(\tok{'+'},p_2,p_3)$; $p_5=\mathit{Node}(\tok{'-'},p_1,p_4)$; $p_6$ = leaf $c$; $p_7=\mathit{Node}(\tok{'-'},p_5,p_6)$. The rules $E\to T$ and $T\to(E)$ create nothing. The root $p_7$ has the children $p_5$ (the node $a-(b+3)$) and $p_6$ ($c$); seven nodes for four operands ($2\cdot4-1=7$).
+
+\textbf{Q18.} The prints occur in the order \texttt{a, b, +, c, *, d, e, /, -}, so the output is \texttt{ab+c*de/-}. The right-recursive scheme prints the same string, because its actions stand right after the operand they follow.
+
+\textbf{Q19.} The scheme is
+\begin{align*}
+L &\to \mathbf{id}\ \{\ \at{R}{i}=1\ \}\ R\ \{\ \at{L}{count}=\at{R}{s}\ \}\\
+R &\to \tok{','}\ \mathbf{id}\ \{\ \at{R_1}{i}=\at{R}{i}+1\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
+\end{align*}
+For \texttt{x, y, z}: $R.i=1$ after \texttt{x}; after \texttt{, y} the next $R$ gets $i=2$; after \texttt{, z} the next gets $i=3$; $R\to\varepsilon$ gives $R.s=3$, which travels up, so $L.count=3$.
 
 %====================================================================
 \section*{References}
