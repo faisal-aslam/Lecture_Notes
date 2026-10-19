@@ -123,6 +123,7 @@
 \newcommand{\ECDLP}{\mathsf{ECDLP}}
 \newcommand{\CDH}{\mathsf{CDH}}
 \newcommand{\DDH}{\mathsf{DDH}}
+\newcommand{\ELsection}{\subsection}
 \newcommand{\sample}{\xleftarrow{\$}}
 
 % ---------- listings ----------
@@ -1775,12 +1776,273 @@ public : 8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a
 \section{Public-key encryption: ElGamal and ECIES}
 %------------------------------------------------------------------------------
 
-\subsection{Textbook EC-ElGamal}
+\ELsection{EC-ElGamal encryption, step by step}\label{sec:ecelgamal}
 
-Public key $Q=dG$. To encrypt a message \emph{point} $M\in\langle G\rangle$ choose $k\sample\Z_r^\times$ and send $(C_1,C_2)=(kG,\,M+kQ)$. Decryption: $M=C_2-dC_1$ since $dC_1=kdG=kQ$.
-The scheme is IND-CPA under $\DDH$ but malleable ($(C_1,C_2+T)$ decrypts to $M+T$), so it is not CCA-secure.
+\begin{keyidea}[What you need to know beforehand \,--\, only four facts]
+\begin{enumerate}[nosep]
+\item The points of an elliptic curve $E$ over $\F_p$ (plus a point at infinity $\Oinf$) form a group written \emph{additively}: we can add points $P+Q$, negate $-(x,y)=(x,-y)$, and subtract $P-Q=P+(-Q)$. The neutral element is $\Oinf$.
+\item $G$ is a public base point whose multiples $G,2G,3G,\dots,nG=\Oinf$ form a cyclic group of (prime) order $n$. Computing $kG$ is fast (double-and-add). Finding $k$ from $kG$ is the hard problem (ECDLP).
+\item Scalar multiples commute: $k(dG)=d(kG)=(kd)G$.
+\item ECDH: Alice sends $A=aG$, Bob sends $B=bG$, and both compute the same point $aB=bA=abG$.
+\end{enumerate}
+That is all. If you remember ECDH, ElGamal will take ten minutes.
+\end{keyidea}
 
-\paragraph{Embedding messages as points (Koblitz).} Let $m<p/\kappa$; try $x=m\kappa+j$ for $j=0,1,\dots,\kappa-1$ until $x^3+ax+b$ is a square; the failure probability is $2^{-\kappa}$. Decode via $m=\lfloor x/\kappa\rfloor$. In modern systems this is avoided by using hybrid encryption.
+\paragraph{The big idea: ElGamal = ECDH + a one-time pad.}
+In ECDH the two parties end up with a shared secret point $abG$ and then turn it into a key. ElGamal does the same thing but with the roles arranged for \emph{encryption}:
+\begin{itemize}[nosep]
+\item Bob publishes a \emph{long-term} public key $Q=dG$ (it plays the role of ``$B=bG$'' in ECDH; $d$ is his private key).
+\item Alice, who wants to send a message $M$, picks a fresh \emph{ephemeral} secret $k$ and sends $C_1=kG$ (the role of ``$A=aG$'').
+\item Now Alice and Bob \emph{both} know the shared point $S=kQ=dC_1=kdG$, exactly as in ECDH.
+\item Alice uses $S$ as a one-time mask: she \emph{adds} it to the message, $C_2=M+S$. Only someone who knows $S$ can undo this.
+\end{itemize}
+The ciphertext is the pair $(C_1,C_2)$. Because Alice's secret $k$ is fresh every time, the mask $S$ is different every time, like a fresh one-time pad.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[>=Stealth]
+\node[draw,rounded corners,fill=blue!8,minimum width=3.2cm] (A) at (0,0) {Alice (sender)};
+\node[draw,rounded corners,fill=blue!8,minimum width=3.2cm] (B) at (9,0) {Bob (receiver)};
+\draw[dashed,gray] (0,-0.4)--(0,-6.6); \draw[dashed,gray] (9,-0.4)--(9,-6.6);
+\node[font=\small,anchor=east,align=right] at (8.7,-1.1) {private key $d$\\ public key $Q=dG$};
+\draw[<-,thick] (0.1,-2.3)--(8.9,-2.3) node[midway,above,font=\small]{Bob publishes $Q$ (once)};
+\node[font=\small,anchor=west,align=left] at (0.3,-3.3) {pick fresh random $k$\\ $C_1=kG$\\ mask $S=kQ$\\ $C_2=M+S$};
+\draw[->,very thick,green!50!black] (0.1,-4.7)--(8.9,-4.7) node[midway,above,font=\small]{send ciphertext $(C_1,C_2)$};
+\node[font=\small,anchor=east,align=right] at (8.7,-5.7) {mask $S=dC_1$ (equals $kQ$!)\\ $M=C_2-S$};
+\node[draw,dotted,fill=red!6,font=\small,align=center,anchor=west] at (0.3,-5.9) {Eve sees $G,\,Q,\,C_1,\,C_2$\\ but not $S$};
+\end{tikzpicture}
+\caption{EC-ElGamal as ECDH plus masking. The point $C_1=kG$ is Alice's ECDH public value; the shared point $S=kQ=dC_1$ is the ECDH secret; it is used to hide $M$ by adding it.}
+\label{fig:EGoverview}
+\end{figure}
+
+\paragraph{Dictionary: from classical ElGamal to the elliptic-curve version.}
+If you know ElGamal in $\Z_p^\times$ (as in Paar's book), the elliptic-curve version is the same scheme with the group written additively: \emph{multiplication becomes addition} and \emph{exponentiation becomes scalar multiplication}.
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & Classical ElGamal in $\Z_p^\times$ & EC-ElGamal on $E(\F_p)$\\
+\midrule
+public base & $g$ & $G$\\
+private key & $d$ & $d$\\
+public key & $\beta=g^d$ & $Q=dG$\\
+message & integer $m\in\Z_p^\times$ & a \emph{point} $M\in\langle G\rangle$\\
+ephemeral secret & $k$ & $k$\\
+first part & $c_1=g^k$ & $C_1=kG$\\
+mask & $\beta^k$ & $kQ$\\
+second part & $c_2=m\cdot\beta^k$ & $C_2=M+kQ$\\
+decryption & $m=c_2\cdot(c_1^{\,d})^{-1}$ & $M=C_2-dC_1$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection*{The scheme}
+
+\begin{definition}[EC-ElGamal]\label{def:ECEG}
+Public parameters: curve $E$ over $\F_p$, point $G$ of prime order $n$.
+\begin{enumerate}[nosep,label=\textbf{\arabic*.}]
+\item \textbf{Key generation (Bob).} Choose $d\sample\{1,\dots,n-1\}$ uniformly. Public key $Q=dG$; private key $d$.
+\item \textbf{Encryption (Alice)} of a message point $M\in\langle G\rangle$: choose a fresh random $k\sample\{1,\dots,n-1\}$ and output $\big(C_1,C_2\big)=\big(kG,\ M+kQ\big)$.
+\item \textbf{Decryption (Bob)}: compute $M=C_2-dC_1$.
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[Correctness]
+Decryption returns $M$.
+\end{theorem}
+\begin{proof}
+$dC_1=d(kG)=k(dG)=kQ$, hence $C_2-dC_1=(M+kQ)-kQ=M$.
+\end{proof}
+
+\paragraph{Cost.} Encryption needs two scalar multiplications ($kG$ and $kQ$) and one point addition; decryption needs one scalar multiplication and one subtraction. The ciphertext consists of \emph{two} points, i.e.\ it is about twice as long as the message point.
+
+\subsubsection*{A problem you must solve first: messages are not points}
+
+The scheme encrypts a \emph{point} $M$, but we want to encrypt numbers, text, keys. The classical (Koblitz) fix is to embed a small integer $m$ into a point:
+
+\begin{keyidea}[Koblitz embedding with parameter $\kappa$]
+To encode $m\in\{0,1,\dots,\lfloor p/\kappa\rfloor-1\}$: try $x=\kappa m,\ \kappa m+1,\ \dots,\ \kappa m+\kappa-1$ and take the first $x$ for which $x^3+ax+b$ is a square modulo $p$ (test with Euler's criterion); let $y$ be a square root (choose the smaller one). Then $M_m=(x,y)$. To decode, output $m=\lfloor x/\kappa\rfloor$ (only the $x$-coordinate is needed). Each trial succeeds with probability about $\frac12$, so encoding fails with probability about $2^{-\kappa}$; real systems take $\kappa\approx30$--$60$.
+\end{keyidea}
+
+We will work on a curve small enough to do everything by hand.
+
+\paragraph{The toy curve.} $E:\ y^2=x^3+2x+2$ over $\F_{17}$, with base point $G=(5,1)$ of prime order $n=19$. All multiples of $G$ (you will use this table all the time):
+\begin{center}
+\scriptsize\setlength{\tabcolsep}{2.6pt}
+\begin{tabular}{@{}c|*{9}{c}@{}}
+$k$ & 1&2&3&4&5&6&7&8&9\\\hline
+$kG$ & $(5,1)$&$(6,3)$&$(10,6)$&$(3,1)$&$(9,16)$&$(16,13)$&$(0,6)$&$(13,7)$&$(7,6)$\\[4pt]
+$k$ & 10&11&12&13&14&15&16&17&18\\\hline
+$kG$ & $(7,11)$&$(13,10)$&$(0,11)$&$(16,4)$&$(9,1)$&$(3,16)$&$(10,11)$&$(6,14)$&$(5,16)$
+\end{tabular}
+\end{center}
+Remember $-kG=(19-k)G$, i.e.\ negation flips $y\mapsto-y$; for instance $-(6,3)=(6,14)$. And $19G=\Oinf$.
+
+\paragraph{Embedding table} for $\kappa=3$, so $m\in\{0,\dots,4\}$ (the squares modulo $17$ are $1,2,4,8,9,13,15,16$; one checks that $f(x)=x^3+2x+2\bmod17$ is a square exactly for $x=0,3,5,6,7,9,10,13,16$):
+\begin{center}
+\small
+\begin{tabular}{@{}c|ccccc@{}}
+$m$ & 0 & 1 & 2 & 3 & 4\\\hline
+$x$ tried & $0$ \checkmark & $3$ \checkmark & $6$ \checkmark & $9$ \checkmark & $12$ (no), $13$ \checkmark\\
+$M_m$ & $(0,6)$ & $(3,1)$ & $(6,3)$ & $(9,1)$ & $(13,7)$\\
+$=$ & $7G$ & $4G$ & $2G$ & $14G$ & $8G$
+\end{tabular}
+\end{center}
+
+\subsubsection*{Worked example 1: encrypt and decrypt}
+
+\begin{example}[Bob's key pair]\label{ex:EGkeys}
+Bob chooses the private key $d=7$ and computes $Q=7G=(0,6)$ (table). He publishes $Q$.
+\end{example}
+
+\begin{example}[Alice encrypts the message $m=4$]\label{ex:EGenc}
+Alice wants to send $m=4$. She embeds it: $M=(13,7)=8G$. She chooses the fresh random nonce $k=3$ and computes
+\begin{align*}
+C_1&=kG=3G=(10,6),\\
+S&=kQ=3\cdot(0,6)=3\cdot7G=21G=2G=(6,3)\qquad\text{(the mask)},\\
+C_2&=M+S=8G+2G=10G=(7,11).
+\end{align*}
+She sends $(C_1,C_2)=\big((10,6),(7,11)\big)$.
+\end{example}
+
+\begin{example}[Bob decrypts]\label{ex:EGdec}
+Bob computes the mask from $C_1$ with his private key:
+$S'=dC_1=7\cdot(10,6)=7\cdot3G=21G=2G=(6,3)$. This is the \emph{same} point $S$ that Alice used. He subtracts it:
+\[
+M=C_2-S'=(7,11)+\big(-(6,3)\big)=(7,11)+(6,14).
+\]
+The slope is $\lambda=\frac{14-11}{6-7}=\frac{3}{-1}\equiv14$, so $x_3=14^2-7-6=183\equiv13$ and $y_3=14(7-13)-11=-95\equiv7$, giving $M=(13,7)$. Decoding: $m=\lfloor13/3\rfloor=4$. \checkmark
+\end{example}
+
+\paragraph{What does Eve see?} Only $G=(5,1)$, $Q=(0,6)$, $C_1=(10,6)$, $C_2=(7,11)$. To recover $M$ she needs the mask $S=kQ=(6,3)$. Computing it needs $k$ (from $C_1=kG$, an ECDLP) or $d$ (from $Q=dG$, an ECDLP). On this toy curve she simply reads $k=3$ off the table; on a $256$-bit curve that is infeasible. Computing $S$ from $(G,Q,C_1)$ without either secret is exactly the Diffie--Hellman problem $\CDH$.
+
+\begin{example}[Same message, new ciphertext]
+Alice encrypts $m=4$ again with a new nonce $k=11$: $C_1=11G=(13,10)$, $S=11Q=77G=G=(5,1)$ (as $77=4\cdot19+1$), $C_2=8G+G=9G=(7,6)$. The ciphertext $\big((13,10),(7,6)\big)$ looks completely different, yet Bob decrypts it: $dC_1=7\cdot11G=77G=G$ and $9G-G=8G=(13,7)$. \checkmark
+This randomisation is essential: if encryption were deterministic, anyone could encrypt guesses and compare.
+\end{example}
+
+\subsubsection*{Why is it secure?}
+
+\begin{theorem}[Semantic security]
+If the Decisional Diffie--Hellman problem is hard in $\langle G\rangle$, EC-ElGamal is IND-CPA secure: an adversary who sees the public key and a ciphertext learns nothing about which of two chosen messages was encrypted.
+\end{theorem}
+\begin{proof}[Idea]
+The adversary sees $Q=dG$, $C_1=kG$ and $C_2=M+S$. If $S=kdG$ were replaced by a uniformly random point $R$, then $C_2=M+R$ would be uniformly distributed whatever $M$ is, exactly as with a one-time pad, and would carry no information about $M$. DDH hardness says that the genuine $S=kdG$ cannot be distinguished from such a random $R$ given $(G,dG,kG)$. So the real ciphertext is indistinguishable from one that hides $M$ perfectly.
+\end{proof}
+
+\paragraph{Intuition.} The point $S$ is a ``fresh one-time pad'' which only Alice (who knows $k$) and Bob (who knows $d$) can compute. This is the same fact that makes ECDH secure.
+
+\subsubsection*{Three pitfalls (and what they teach)}
+
+\paragraph{Pitfall 1: never reuse the nonce $k$.}
+If two messages are encrypted with the same $k$, the same mask $S$ is added twice, like reusing a one-time pad.
+\begin{example}[Nonce reuse]
+Alice encrypts $M_1=(13,7)=8G$ and $M_2=(6,3)=2G$, both with $k=3$. The mask is $S=2G$ in both cases, so $C_1$ is the same and
+$C_2=8G+2G=10G=(7,11)$, $C_2'=2G+2G=4G=(3,1)$.
+Eve notices the repeated $C_1=(10,6)$ and computes $C_2-C_2'=(7,11)-(3,1)=6G=(16,13)=M_1-M_2$. If she also knows (or guesses) one plaintext, say $M_1$, she gets the mask $S=C_2-M_1=(6,3)$ and then $M_2=C_2'-S=(3,1)-(6,3)=2G=(6,3)$. All without the private key.
+\end{example}
+The nonce must be uniformly random and fresh for \emph{every} encryption (a bad random-number generator is as bad as reuse).
+
+\paragraph{Pitfall 2: ciphertexts can be modified (malleability).}
+\begin{example}[An attacker edits the plaintext]
+Take Alice's ciphertext $\big((10,6),(7,11)\big)$ of $m=4$ from \cref{ex:EGenc}. Mallory replaces $C_2$ by $C_2+G=(7,11)+(5,1)=11G=(13,10)$ and forwards $\big((10,6),(13,10)\big)$. Bob decrypts $11G-2G=9G=(7,6)$ and decodes $m=\lfloor7/3\rfloor=2$. The message changed from $4$ to $2$, and Bob notices nothing, although Mallory never learned the key.
+\end{example}
+In general adding a point $T$ to $C_2$ changes the plaintext to $M+T$. This is why EC-ElGamal alone is not secure against \emph{active} attackers (it is not IND-CCA2). Practical systems use ECIES (Lecture~4), which authenticates the ciphertext.
+
+\paragraph{Pitfall 3 (a feature in disguise): the scheme is additively homomorphic.}
+\begin{example}[Adding encrypted messages]
+Encrypt $M_1=(13,7)=8G$ with $k=3$: $(C_1,C_2)=\big((10,6),(7,11)\big)$. Encrypt $M_2=(3,1)=4G$ (this is $m=1$) with $k=11$: $(C_1',C_2')=\big((13,10),(9,16)\big)$. Add the ciphertexts component-wise:
+\[
+\big(C_1+C_1',\ C_2+C_2'\big)=\big((10,6)+(13,10),\ (7,11)+(9,16)\big)=\big((9,1),\ (3,16)\big).
+\]
+Bob decrypts: $d(9,1)=7\cdot14G=98G=3G=(10,6)$, and $(3,16)-(10,6)=15G-3G=12G=(0,11)$. And indeed $M_1+M_2=8G+4G=12G=(0,11)$. \checkmark\\
+So one can add plaintexts \emph{without decrypting}. This is used in electronic voting: encode a vote $v\in\{0,1\}$ as the point $vG$ (``exponential ElGamal''), add all encrypted ballots, decrypt once to get $(\sum v)G$ and recover the tally $\sum v$ by trying $0G,1G,2G,\dots$ (cheap for small tallies).
+\end{example}
+
+\paragraph{Practical remarks.}
+\begin{itemize}[nosep]
+\item Before using a received ciphertext, check that $C_1,C_2$ are valid points of the curve in the correct subgroup (otherwise invalid-curve attacks, Lecture 4); reject $C_1=\Oinf$.
+\item The message $M$ must lie in the subgroup $\langle G\rangle$; on prime-order curves that is every point.
+\item The embedded message is short (about $250$ bits on a $256$-bit curve). Real systems encrypt long data with a symmetric cipher and use ElGamal only to transport the key: this is \textbf{ECIES}: $C_1=kG$, key $=\mathrm{KDF}(x(kQ))$, then authenticated encryption of the data. ECIES avoids both the embedding problem and malleability.
+\end{itemize}
+
+\subsubsection*{Python implementation (toy curve)}
+
+The following code reproduces every number in this section (it uses the \texttt{Curve} class of the appendix with $E(\F_{17})$). It is for learning only.
+\begin{lstlisting}[style=py]
+import secrets
+from ecc_toy import Curve                 # class Curve from the appendix
+
+E = Curve(17, 2, 2, G=(5, 1), n=19)       # y^2 = x^3 + 2x + 2 over F_17, order of G = 19
+KAPPA = 3
+
+def keygen():
+    d = secrets.randbelow(E.n - 1) + 1    # private key
+    return d, E.mul(d, E.G)               # (d, Q = dG)
+
+def embed(m, kappa=KAPPA):                # integer -> curve point (Koblitz)
+    for j in range(kappa):
+        x = kappa * m + j
+        rhs = (x**3 + E.a * x + E.b) % E.p
+        ys = [y for y in range(E.p) if y * y % E.p == rhs]
+        if ys: return (x, min(ys))
+    raise ValueError("embedding failed")
+
+def unembed(P, kappa=KAPPA):              # curve point -> integer
+    return P[0] // kappa
+
+def encrypt(Q, M, k=None):
+    k = k or secrets.randbelow(E.n - 1) + 1          # FRESH random nonce
+    return E.mul(k, E.G), E.add(M, E.mul(k, Q))      # (C1, C2) = (kG, M + kQ)
+
+def decrypt(d, C):
+    C1, C2 = C
+    return E.add(C2, E.neg(E.mul(d, C1)))            # M = C2 - d*C1
+
+d, Q = 7, E.mul(7, E.G)
+M = embed(4)                                         # (13, 7)
+C = encrypt(Q, M, k=3)                               # ((10, 6), (7, 11))
+print(C, decrypt(d, C), unembed(decrypt(d, C)))      # ... (13, 7) 4
+\end{lstlisting}
+
+\begin{keyidea}[One-page summary]
+\begin{itemize}[nosep]
+\item \textbf{Keys:} private $d$; public $Q=dG$.
+\item \textbf{Encrypt $M$:} pick random $k$; send $\big(kG,\ M+kQ\big)$.
+\item \textbf{Decrypt:} $M=C_2-dC_1$, because $dC_1=kQ$ (the ECDH secret).
+\item \textbf{Security:} $kQ$ is a fresh one-time pad; secure if DDH is hard.
+\item \textbf{Must do:} fresh random $k$ every time; embed messages as points; validate points.
+\item \textbf{Limits:} malleable (edit $C_2$ edits $M$), ciphertext twice the size, short messages $\Rightarrow$ use ECIES in practice.
+\item \textbf{Bonus:} additively homomorphic $\Rightarrow$ e-voting, private sums.
+\end{itemize}
+\end{keyidea}
+
+\subsubsection*{Exercises (with answers)}
+
+\begin{exercise}
+With Bob's key $d=7$, $Q=(0,6)$ encrypt $M=(9,1)$ (this is $m=3$) using $k=2$, then decrypt. \emph{Answer:} $C_1=2G=(6,3)$, $S=2Q=14G=(9,1)$, $C_2=14G+14G=28G=9G=(7,6)$; ciphertext $\big((6,3),(7,6)\big)$. Decryption: $dC_1=14G$ and $9G-14G=-5G=14G=(9,1)$. 
+\end{exercise}
+
+\begin{exercise}
+Decrypt $\big((13,10),(0,11)\big)$ with $d=7$ and decode the message. \emph{Answer:} $C_1=11G$, $dC_1=77G=G$, $M=12G-G=11G=(13,10)$, so $m=\lfloor13/3\rfloor=4$ (decoding only uses the $x$-coordinate).
+\end{exercise}
+
+\begin{exercise}
+What happens if Alice chooses $k=19$ (or $k=0$)? \emph{Answer:} $C_1=\Oinf$ and $S=\Oinf$, so $C_2=M$: the plaintext is sent in the clear. This is why $k$ is drawn from $\{1,\dots,n-1\}$.
+\end{exercise}
+
+\begin{exercise}
+Two ciphertexts $\big((10,6),(7,11)\big)$ and $\big((10,6),(3,1)\big)$ are intercepted, and Eve knows the first plaintext is $(13,7)$. Recover the second. \emph{Answer:} the same $C_1$ means the same $k$; $S=(7,11)-(13,7)=(6,3)$; $M_2=(3,1)-(6,3)=(6,3)$, i.e.\ $m=2$.
+\end{exercise}
+
+\begin{exercise}
+In an election with encrypted votes $v_i\in\{0,1\}$ encoded as $v_iG$, explain how to obtain the tally without decrypting individual votes, and why it only works for small tallies. \emph{Answer:} add all ciphertexts (component-wise), decrypt the sum once to get $TG$, $T=\sum v_i$; find $T$ by testing $0G,1G,\dots$ (a discrete logarithm of a small number: cheap only if $T$ is at most about $2^{40}$).
+\end{exercise}
+
+\begin{exercise}
+Show that $(C_1,\,2C_2)$ does \emph{not} decrypt to $2M$, but $(2C_1,\,2C_2)$ does. \emph{Answer:} decrypting $(C_1,2C_2)$ gives $2C_2-dC_1=2M+kQ\ne2M$, whereas $(2C_1,2C_2)$ gives $2C_2-2dC_1=2M+2kQ-2kQ=2M$.
+\end{exercise}
 
 \subsection{ECIES / hashed ElGamal as a KEM}
 
