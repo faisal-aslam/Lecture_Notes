@@ -2024,6 +2024,27 @@ We will use markers $M$ and $N$ extensively in backpatching (Section~\ref{sec:ba
 
 We go in three small steps: (1) why a top-down parser needs a different grammar, (2) the change of the grammar alone, and (3) how the actions must change with it. The running example is the grammar for sums and differences, $E\to E_1+T\mid E_1-T\mid T$.
 
+\begin{defbox}{Two forms of the same question: SDD or SDT}
+An exam may ask you to remove left recursion from an \textbf{SDD} or from an \textbf{SDT}. The work is the same; only the way the semantic rules are written differs.
+\begin{enumerate}[nosep]
+\item \textbf{Rewrite the grammar} (Step 2 below). This is identical in both forms.
+\item \textbf{Rewrite the attribute rules.} The new nonterminal $R$ gets an inherited attribute $R.i$ (the result so far) and a synthesized attribute $R.s$ (the final result). The base case initialises $R.i$; each repeated group updates it and passes it to $R_1.i$; $R\to\varepsilon$ copies $R.i$ into $R.s$; the head copies $R.s$ upward. The outcome is an \textbf{SDD}.
+\item \textbf{Place the rules inside the productions} (SDT only). Each rule becomes an action in braces: an action that computes an inherited attribute of a symbol goes \emph{immediately before} that symbol, and an action that computes a synthesized attribute of the head goes at the \emph{end} of the body (Section~\ref{sec:lattr}). The outcome is an \textbf{SDT}.
+\end{enumerate}
+\begin{center}
+\small
+\begin{tabular}{@{}l p{4.6cm} p{5.6cm}@{}}
+\toprule
+ & \textbf{Answer as an SDD} & \textbf{Answer as an SDT} \\ \midrule
+Semantic rules are written & as equations next to each production & as $\{\dots\}$ actions inside the body \\
+Does position matter? & no & yes: inherited attribute before the symbol, synthesized attribute of the head at the end \\
+Kind of SDD & L-attributed ($R.i$ is inherited) & the same L-attributed SDD, with its rules placed in the bodies \\
+Evaluated by & depth-first, left-to-right traversal & the parser, as it parses (e.g.\ recursive descent) \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Checklist for a full-marks answer:} (a) the new grammar without left recursion; (b) the attributes of the new nonterminal, stating which is inherited and which synthesized; (c) the base-case rule that initialises $R.i$; (d) the update rule for $R_1.i$; (e) the rule $R.s=R.i$ for $\varepsilon$; (f) the rule that copies $R.s$ to the head; (g) for an SDT only, the actions in the correct positions; (h) if an input is given, a trace of $R.i$ and $R.s$.
+\end{defbox}
+
 \paragraph{Step 1: why bother?} A top-down (recursive-descent) parser has one procedure per nonterminal, and it chooses a production by looking at the next input token. For a left-recursive production the procedure would have to start by calling \emph{itself}:
 \begin{lstlisting}
 void E() {            // for  E -> E + T
@@ -2122,7 +2143,24 @@ Each rule of the old grammar finds its place in the new one:
 \item The \textbf{end} $R\to\varepsilon$ has nothing more to read, so the display is the answer: $R.s=R.i$. The answer is then copied upward through every $R$ to $E$.
 \end{enumerate}
 
-\begin{defbox}{General transformation (the recipe in symbols)}
+\begin{defbox}{General transformation, SDD form (equations only)}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Left-recursive SDD} & \\ \midrule
+$A \to A_1\,Y$ & $\at{A}{a}=g(\at{A_1}{a},\ \at{Y}{y})$ \\
+$A \to X$      & $\at{A}{a}=f(\at{X}{x})$ \\ \midrule
+\textbf{After removing left recursion} & \\ \midrule
+$A \to X\,R$   & $\at{R}{i}=f(\at{X}{x})$; \ $\at{A}{a}=\at{R}{s}$ \\
+$R \to Y\,R_1$ & $\at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+$\at{R}{i}$ is inherited and $\at{R}{s}$ is synthesized. There are no braces and no order of writing; the dependencies alone fix the order of evaluation. The SDD is now L-attributed, not S-attributed.
+\end{defbox}
+
+\begin{defbox}{General transformation, SDT form (actions inside the body)}
 \begin{align*}
 A &\to A_1\,Y\ \{\ \at{A}{a}=g(\at{A_1}{a},\ \at{Y}{y})\ \}\ \mid\ X\ \{\ \at{A}{a}=f(\at{X}{x})\ \}
 \intertext{becomes}
@@ -2132,7 +2170,36 @@ R &\to Y\ \{\ \at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})\ \}\ R_1\ \{\ \at{R}{s}=\at{R
 $R.i$ (inherited) carries the value accumulated \emph{so far}; $R.s$ (synthesized) carries the final result back to the top. In the sum example $f$ is the identity and $g$ is $+$ or $-$.
 \end{defbox}
 
-\begin{examplebox}{Example: evaluating $9-5+2$ with a left-recursion-free grammar}
+\begin{examplebox}{Example 1, SDD form: removing left recursion from the SDD of $9-5+2$}
+\textbf{Given (left-recursive, S-attributed):}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} \\ \midrule
+$E \to E_1 + T$ & $\at{E}{val}=\at{E_1}{val}+\at{T}{val}$ \\
+$E \to E_1 - T$ & $\at{E}{val}=\at{E_1}{val}-\at{T}{val}$ \\
+$E \to T$       & $\at{E}{val}=\at{T}{val}$ \\
+$T \to \mathbf{num}$ & $\at{T}{val}=\at{\mathbf{num}}{lexval}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Answer (the SDD after removing left recursion):}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} \\ \midrule
+$E \to T\,R$        & $\at{R}{i}=\at{T}{val}$; \ $\at{E}{val}=\at{R}{s}$ \\
+$R \to +\,T\,R_1$   & $\at{R_1}{i}=\at{R}{i}+\at{T}{val}$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to -\,T\,R_1$   & $\at{R_1}{i}=\at{R}{i}-\at{T}{val}$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ \\
+$T \to \mathbf{num}$ & $\at{T}{val}=\at{\mathbf{num}}{lexval}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Classification and evaluation.} $\at{T}{val}$, $\at{R}{s}$ and $\at{E}{val}$ are synthesized; $\at{R}{i}$ is inherited. The rule for $R_1.i$ uses the inherited attribute of its parent ($R.i$) and the attribute of the sibling $T$ to its left, so the SDD is \textbf{L-attributed} but no longer S-attributed. A single depth-first, left-to-right traversal evaluates it. For \texttt{9-5+2} the values are $R.i=9,\ 4,\ 6$ and finally $E.val=6$, exactly as in the figure and the table of the next example, which shows the same rules written as an SDT.
+\end{examplebox}
+
+\begin{examplebox}{Example 1, SDT form: evaluating $9-5+2$ with a left-recursion-free grammar}
 The left-recursive grammar $E\to E_1+T\mid E_1-T\mid T$, $T\to\mathbf{num}$, with $E.val=E_1.val\pm T.val$, becomes
 \begin{align*}
 E &\to T\ \{\ R.i=T.val\ \}\ R\ \{\ E.val=R.s\ \}\\
@@ -2183,6 +2250,57 @@ The value goes \emph{down} as $R.i$ ($9\to4\to6$) and the final $6$ is copied ba
 The tree leans to the right, but the arithmetic is still left-associative: $(9-5)+2=6$, not $9-(5+2)=2$.
 \end{examplebox}
 
+\begin{examplebox}{Example 2, SDD form: the syntax-tree SDD without left recursion}
+The syntax-tree SDD of Section~\ref{sec:sddtree} is left-recursive in $E$. Here $\at{R}{i}$ holds a \emph{pointer to the tree built so far}:
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rule} \\ \midrule
+$E \to T\,R$        & $\at{R}{i}=\at{T}{node}$; \ $\at{E}{node}=\at{R}{s}$ \\
+$R \to +\,T\,R_1$   & $\at{R_1}{i}=\mathbf{new}\ \mathit{Node}(\tok{'+'},\ \at{R}{i},\ \at{T}{node})$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to -\,T\,R_1$   & $\at{R_1}{i}=\mathbf{new}\ \mathit{Node}(\tok{'-'},\ \at{R}{i},\ \at{T}{node})$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ \\
+$T \to (\,E\,)$     & $\at{T}{node}=\at{E}{node}$ \\
+$T \to \mathbf{id}$ & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \at{\mathbf{id}}{entry})$ \\
+$T \to \mathbf{num}$ & $\at{T}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ \\ \bottomrule
+\end{tabular}
+\end{center}
+Only the first four rows are new; the three $T$ rows are unchanged. The same rules written as an SDT, together with a trace for \texttt{a - 4 + c}, are in the example of Section~\ref{sec:lattr}. The pattern is the one of Example~1: the base case initialises $R.i$, every repeated group updates it (here: builds a new node with the old tree as its left child), and $\varepsilon$ hands the result up.
+\end{examplebox}
+
+\begin{examplebox}{Example 3, both forms: counting the items of a list}
+The grammar $L\to L_1\,\tok{','}\,\mathbf{id}\mid\mathbf{id}$ generates lists such as \texttt{x, y, z}. The attribute $\at{L}{count}$ is the number of identifiers.
+
+\textbf{Left-recursive SDD (given).}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+$L \to L_1\ \tok{','}\ \mathbf{id}$ & $\at{L}{count}=\at{L_1}{count}+1$ \\
+$L \to \mathbf{id}$ & $\at{L}{count}=1$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Step 1, the grammar.} $L$ is an $\mathbf{id}$ followed by any number of ``$\tok{','}\ \mathbf{id}$'' groups, so $L\to\mathbf{id}\ R$ and $R\to\tok{','}\ \mathbf{id}\ R\mid\varepsilon$.
+
+\textbf{Step 2, the SDD form.}
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+$L \to \mathbf{id}\ R$ & $\at{R}{i}=1$; \ $\at{L}{count}=\at{R}{s}$ \\
+$R \to \tok{','}\ \mathbf{id}\ R_1$ & $\at{R_1}{i}=\at{R}{i}+1$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{Step 3, the SDT form} (every inherited attribute is computed just before its symbol, every synthesized attribute of the head at the end):
+\begin{align*}
+L &\to \mathbf{id}\ \{\ \at{R}{i}=1\ \}\ R\ \{\ \at{L}{count}=\at{R}{s}\ \}\\
+R &\to \tok{','}\ \mathbf{id}\ \{\ \at{R_1}{i}=\at{R}{i}+1\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
+\end{align*}
+\textbf{Trace for \texttt{x, y, z}.} $R.i=1$ after \texttt{x}; after \texttt{, y} the next $R$ gets $i=2$; after \texttt{, z} the next gets $i=3$; $R\to\varepsilon$ gives $R.s=3$, which is copied up to $L.count=3$.
+\end{examplebox}
+
 \subsection{Converting an L-attributed SDD into an SDT}
 \label{sec:lattr}
 \begin{defbox}{Rules for converting an L-attributed SDD to an SDT}
@@ -2193,7 +2311,7 @@ The tree leans to the right, but the arithmetic is still left-associative: $(9-5
 \end{defbox}
 
 \begin{examplebox}{Example: syntax tree for a left-recursion-free grammar}
-After removing left recursion from $E \to E_1 + T \mid E_1 - T \mid T$:
+After removing left recursion from $E \to E_1 + T \mid E_1 - T \mid T$ (the SDD form of these rules is Example~2 of Section~\ref{sec:leftrec}):
 \begin{align*}
 E &\to T\ \{\ \at{R}{i} = \at{T}{node}\ \}\ R\ \{\ \at{E}{node} = \at{R}{s}\ \}\\
 R &\to +\ T\ \{\ \at{R_1}{i} = \mathbf{new}\ \mathit{Node}(\tok{'+'},\at{R}{i},\at{T}{node})\ \}\ R_1\ \{\ \at{R}{s} = \at{R_1}{s}\ \}\\
@@ -3208,6 +3326,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item An \textbf{SDT} embeds the actions in the grammar and fixes the order of evaluation. S-attributed SDDs $\to$ \emph{postfix SDTs} (bottom-up). L-attributed SDDs can be implemented during top-down parsing, or, for LR grammars and with marker nonterminals, during bottom-up parsing.
 \item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
 \item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
+\item \textbf{Removing left recursion} (needed for top-down parsing) works for an SDD and for an SDT alike: rewrite the grammar as $A\to X\,R$, $R\to Y\,R\mid\varepsilon$; initialise the inherited $R.i$ in the base case, update it in each repeated group, copy $R.i$ to the synthesized $R.s$ at $\varepsilon$, and copy $R.s$ to the head. For an SDD write these as equations (the result is L-attributed); for an SDT place them as actions, inherited ones just before their symbol and synthesized ones of the head at the end.
 \item \textbf{Backpatching} replaces inherited labels by synthesized lists (\textit{makelist, merge, backpatch}), allowing one-pass bottom-up generation with markers $M$ and $N$.
 \end{itemize}
 
@@ -3246,7 +3365,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item For each task say whether a CFG with its parse tree suffices or an SDD is needed: (a) accept \texttt{a = b + c;}, (b) reject the use of an undeclared variable, (c) compute the value of \texttt{3 * 5 + 4}, (d) check that both operands of $+$ are numbers, (e) produce the parse tree of \texttt{a = b + c;}.
 \item Using the SDD of Section~\ref{sec:sddtree}, build the syntax tree of \texttt{a - (b + 3) - c}. Name the nodes $p_1,p_2,\dots$ in the order in which they are created, and say which reductions create no node.
 \item Using the postfix SDT of Section~\ref{sec:infix2postfix}, list the order of the \textit{print} actions for \texttt{(a+b)*c - d/e} and give the postfix output. Then give the output of the right-recursive scheme of Section~\ref{sec:sdt} for the same input.
-\item The grammar $L\to L_1\,\tok{','}\,\mathbf{id}\mid\mathbf{id}$ counts the identifiers of a list with $\at{L}{count}=\at{L_1}{count}+1$ and $\at{L}{count}=1$. Remove the left recursion, write the SDT with an inherited accumulator, and trace it for \texttt{x, y, z}.
+\item The SDD $B\to B_1\,D\mid D$, \ $\at{B}{val}=2\cdot\at{B_1}{val}+\at{D}{val}$ \ (for $B\to B_1D$), \ $\at{B}{val}=\at{D}{val}$ \ (for $B\to D$), \ $D\to\mathbf{0}\mid\mathbf{1}$ with $\at{D}{val}=0$ or $1$, computes the value of a binary number. Remove the left recursion and give the result (a) as an SDD and (b) as an SDT. Evaluate it for \texttt{101}.
 \end{enumerate}
 
 \subsection*{Answers to selected problems}
@@ -3384,12 +3503,14 @@ Trace: $k_2=1,2,4,8,16$; the test fails for $k_2=16$ and the function returns 16
 
 \textbf{Q18.} The prints occur in the order \texttt{a, b, +, c, *, d, e, /, -}, so the output is \texttt{ab+c*de/-}. The right-recursive scheme prints the same string, because its actions stand right after the operand they follow.
 
-\textbf{Q19.} The scheme is
+\textbf{Q19.} Grammar: $B\to D\,R$, \ $R\to D\,R\mid\varepsilon$, \ $D\to\mathbf{0}\mid\mathbf{1}$.\\
+(a) SDD: $B\to D\,R$: $\at{R}{i}=\at{D}{val}$, $\at{B}{val}=\at{R}{s}$; \ $R\to D\,R_1$: $\at{R_1}{i}=2\cdot\at{R}{i}+\at{D}{val}$, $\at{R}{s}=\at{R_1}{s}$; \ $R\to\varepsilon$: $\at{R}{s}=\at{R}{i}$; \ $D$ unchanged.\\
+(b) SDT:
 \begin{align*}
-L &\to \mathbf{id}\ \{\ \at{R}{i}=1\ \}\ R\ \{\ \at{L}{count}=\at{R}{s}\ \}\\
-R &\to \tok{','}\ \mathbf{id}\ \{\ \at{R_1}{i}=\at{R}{i}+1\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
+B &\to D\ \{\ \at{R}{i}=\at{D}{val}\ \}\ R\ \{\ \at{B}{val}=\at{R}{s}\ \}\\
+R &\to D\ \{\ \at{R_1}{i}=2\cdot\at{R}{i}+\at{D}{val}\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
 \end{align*}
-For \texttt{x, y, z}: $R.i=1$ after \texttt{x}; after \texttt{, y} the next $R$ gets $i=2$; after \texttt{, z} the next gets $i=3$; $R\to\varepsilon$ gives $R.s=3$, which travels up, so $L.count=3$.
+For \texttt{101}: $R.i=1$; after the digit 0 the next $R$ gets $2\cdot1+0=2$; after the digit 1 it gets $2\cdot2+1=5$; $R\to\varepsilon$ gives $R.s=5$, so $B.val=5$.
 
 %====================================================================
 \section*{References}
