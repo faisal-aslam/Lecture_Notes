@@ -2338,6 +2338,271 @@ The same five nodes are created in the same order as with the left-recursive SDD
 \end{examplebox}
 
 %====================================================================
+\subsection{Application: the structure of a type (array types)}
+\label{sec:typestruct}
+
+\paragraph{The task.} A declaration such as \texttt{int [2][3]} must be turned into a \textbf{type expression}: the array type \textit{array}$(2,\ \textit{array}(3,\ \mathit{integer}))$, an array of 2 elements, each of which is an array of 3 integers. The compiler later uses this tree to compute sizes and offsets (Section~\ref{sec:exprtac}) and to check types.
+
+\paragraph{The grammar.} $T\to B\,C$, \ $B\to\mathbf{int}\mid\mathbf{float}$, \ $C\to\tok{[}\,\mathbf{num}\,\tok{]}\,C_1\mid\varepsilon$. The nonterminal $B$ is the basic type and $C$ is the (possibly empty) list of dimensions.
+
+\paragraph{The SDD.} The basic type $B.t$ is known at the \emph{left}, but it has to end up at the \emph{bottom} of the array type, where the last dimension is. So we pass it down in an inherited attribute $C.b$ (``base'') and build the type on the way back up in the synthesized attribute $C.t$.
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$T \to B\,C$ & $\at{T}{t}=\at{C}{t}$; \ $\at{C}{b}=\at{B}{t}$ \\
+$B \to \mathbf{int}$ & $\at{B}{t}=\mathit{integer}$ \\
+$B \to \mathbf{float}$ & $\at{B}{t}=\mathit{float}$ \\
+$C \to \tok{[}\,\mathbf{num}\,\tok{]}\,C_1$ & $\at{C}{t}=\mathit{array}(\at{\mathbf{num}}{val},\ \at{C_1}{t})$; \ $\at{C_1}{b}=\at{C}{b}$ \\
+$C \to \varepsilon$ & $\at{C}{t}=\at{C}{b}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+$B.t$, $C.t$ and $T.t$ are synthesized; $C.b$ is inherited. The SDD is \textbf{L-attributed}: $C.b$ of $C$ depends on its left sibling $B$, and $C_1.b$ depends on the inherited attribute of its parent. It is not S-attributed, because the base type has to travel \emph{downward}.
+
+\begin{examplebox}{Example: the type of \texttt{int [2][3]}}
+The parse tree and the values of the attributes are in Figure~\ref{fig:typetree}.
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center}]
+ \node[nd] (T)  at (0,0) {$T$\\[-1pt]{\scriptsize $t=\mathit{array}(2,\mathit{array}(3,\mathit{integer}))$}};
+ \node[nd] (B)  at (-5.4,-1.8) {$B$\\[-1pt]{\scriptsize $t=\mathit{integer}$}};
+ \node[nd] (C)  at (1.8,-1.8) {$C$\\[-1pt]{\scriptsize $b=\mathit{integer}$}\\[-1pt]{\scriptsize $t=\mathit{array}(2,\mathit{array}(3,\mathit{integer}))$}};
+ \node[nd] (in) at (-5.4,-3.7) {\textbf{int}};
+ \node[nd] (l1) at (-1.6,-3.7) {$\tok{[}$};
+ \node[nd] (n2) at (-0.6,-3.7) {\textbf{num}\\[-1pt]{\scriptsize $val=2$}};
+ \node[nd] (r1) at (0.7,-3.7) {$\tok{]}$};
+ \node[nd] (C1) at (4.2,-3.7) {$C$\\[-1pt]{\scriptsize $b=\mathit{integer}$}\\[-1pt]{\scriptsize $t=\mathit{array}(3,\mathit{integer})$}};
+ \node[nd] (l2) at (1.4,-5.9) {$\tok{[}$};
+ \node[nd] (n3) at (2.4,-5.9) {\textbf{num}\\[-1pt]{\scriptsize $val=3$}};
+ \node[nd] (r2) at (3.7,-5.9) {$\tok{]}$};
+ \node[nd] (C2) at (6.6,-5.9) {$C$\\[-1pt]{\scriptsize $b=\mathit{integer}$}\\[-1pt]{\scriptsize $t=\mathit{integer}$}};
+ \node[nd] (ep) at (6.6,-7.8) {$\varepsilon$};
+ \foreach \a/\b in {T/B,T/C,B/in,C/l1,C/n2,C/r1,C/C1,C1/l2,C1/n3,C1/r2,C1/C2,C2/ep}
+   \draw[gray] (\a.south)--(\b.north);
+\end{tikzpicture}}
+\caption{Annotated parse tree of \texttt{int [2][3]}. The base type \textit{integer} flows \emph{down} through the inherited attributes $C.b$ to the empty production; the array type is assembled on the way \emph{up} in the synthesized attributes $C.t$.}
+\label{fig:typetree}
+\end{figure}
+The order in which the values are computed (depth-first, left to right):
+\begin{center}
+\small
+\begin{tabular}{@{}c l l@{}}
+\toprule
+\textbf{Step} & \textbf{Rule used} & \textbf{Value} \\ \midrule
+1 & $B\to\mathbf{int}$ & $B.t=\mathit{integer}$ \\
+2 & $T\to B\,C$ & $C.b=B.t=\mathit{integer}$ \\
+3 & $C\to\tok{[}2\tok{]}\,C_1$ & $C_1.b=C.b=\mathit{integer}$ \\
+4 & $C_1\to\tok{[}3\tok{]}\,C_2$ & $C_2.b=C_1.b=\mathit{integer}$ \\
+5 & $C_2\to\varepsilon$ & $C_2.t=C_2.b=\mathit{integer}$ \\
+6 & $C_1\to\tok{[}3\tok{]}\,C_2$ & $C_1.t=\mathit{array}(3,\ C_2.t)=\mathit{array}(3,\mathit{integer})$ \\
+7 & $C\to\tok{[}2\tok{]}\,C_1$ & $C.t=\mathit{array}(2,\ C_1.t)=\mathit{array}(2,\mathit{array}(3,\mathit{integer}))$ \\
+8 & $T\to B\,C$ & $T.t=C.t$ \\ \bottomrule
+\end{tabular}
+\end{center}
+Steps 1 to 4 go \emph{down} (inherited attributes), steps 5 to 8 come back \emph{up} (synthesized attributes). The innermost dimension, 3, is applied first, so the result is $\mathit{array}(2,\mathit{array}(3,\mathit{integer}))$ and not the other way round.
+\end{examplebox}
+
+\paragraph{As an SDT.} Following the rules of Section~\ref{sec:lattr}, the action that computes the inherited attribute $C.b$ goes immediately before $C$, and the actions that compute synthesized attributes go at the end:
+\begin{align*}
+T &\to B\ \{\ \at{C}{b}=\at{B}{t}\ \}\ C\ \{\ \at{T}{t}=\at{C}{t}\ \}\\
+B &\to \mathbf{int}\ \{\ \at{B}{t}=\mathit{integer}\ \}\ \mid\ \mathbf{float}\ \{\ \at{B}{t}=\mathit{float}\ \}\\
+C &\to \tok{[}\ \mathbf{num}\ \tok{]}\ \{\ \at{C_1}{b}=\at{C}{b}\ \}\ C_1\ \{\ \at{C}{t}=\mathit{array}(\at{\mathbf{num}}{val},\ \at{C_1}{t})\ \}\ \mid\ \varepsilon\ \{\ \at{C}{t}=\at{C}{b}\ \}
+\end{align*}
+The grammar is right-recursive, so a top-down parser can use it directly; no left recursion has to be removed. Section~\ref{sec:impl-lattr} turns it into a recursive-descent parser.
+
+\begin{pitfallbox}{Why not synthesized attributes only?}
+Suppose we try $C\to\tok{[}\mathbf{num}\tok{]}\,C_1$ with $C.t=\mathit{array}(num.val,\ C_1.t)$ and $C\to\varepsilon$ with $C.t=B.t$. The base type of $B$ is not visible inside $C$ (it is a sibling of $C$'s parent), so $C\to\varepsilon$ cannot read it. This is exactly why the inherited attribute $C.b$ is needed: it carries $B.t$ down to the place where it is used.
+\end{pitfallbox}
+
+%--------------------------------------------------------------------
+\subsection{Implementing L-attributed SDDs during top-down parsing}
+\label{sec:impl-lattr}
+
+An L-attributed SDD can be evaluated in a single left-to-right depth-first traversal, which is exactly the order in which a top-down parser works. So an SDT for an L-attributed SDD can be executed \emph{while parsing}, without building the parse tree. There are three ways to do this with a top-down parser; they differ in where the attribute values are kept.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l p{4.2cm} p{6.4cm}@{}}
+\toprule
+\textbf{Method} & \textbf{Parser} & \textbf{Where attributes live} \\ \midrule
+A. Arguments and return values & recursive descent & inherited attributes are \emph{parameters} of the procedure of the nonterminal, synthesized attributes are its \emph{return values} \\
+B. On-the-fly generation & recursive descent & the big ``code'' attribute is not built as a string; its pieces are \emph{emitted} (printed) as soon as they are known \\
+C. Parser-stack records & table-driven LL (stack) & values are kept in \emph{records on the parser stack} and are copied from record to record \\ \bottomrule
+\end{tabular}
+\end{center}
+A fourth way, for bottom-up parsers (marker nonterminals and attributes on the LR stack), belongs to the bottom-up parsing lectures; Section~\ref{sec:marker} shows the basic marker idea.
+
+\subsubsection{Method A: recursive descent with arguments and return values}
+
+\begin{defbox}{Recipe: one procedure per nonterminal}
+For a nonterminal $A$ with inherited attributes $a_1,\dots$ and synthesized attributes $s_1,\dots$, write a procedure \texttt{A($a_1,\dots$)} that returns $s_1,\dots$. In its body, handle the chosen production from left to right:
+\begin{enumerate}[nosep]
+\item for a terminal: \texttt{match(token)} (and save its attribute, e.g.\ \texttt{lexval}, in a local variable if it is needed);
+\item for a nonterminal $X$: compute its inherited attributes from the variables seen so far, \textbf{call} \texttt{X(\dots)}, and store the returned synthesized attributes in local variables;
+\item for an action: write it as a statement at that point;
+\item at the end: \texttt{return} the synthesized attributes of $A$.
+\end{enumerate}
+Because the SDD is L-attributed, every value an inherited attribute needs has already been computed when the call is made.
+\end{defbox}
+
+\begin{examplebox}{Example A1: the array type of \texttt{int [2][3]}}
+The SDT of the previous subsection becomes three procedures. \texttt{C(b)} receives the inherited attribute $C.b$ as its argument and returns $C.t$:
+\begin{lstlisting}
+Type T() {
+    Type b = B();              // B.t
+    return C(b);               // C.b = B.t ;  T.t = C.t
+}
+Type B() {
+    if (look == INT)  { match(INT);   return integer; }   // B.t
+    else              { match(FLOAT); return float;   }
+}
+Type C(Type b) {               // b is the inherited attribute C.b
+    if (look == '[') {
+        match('[');  n = lexval;  match(NUM);  match(']');
+        Type c1 = C(b);        // C1.b = C.b
+        return array(n, c1);   // C.t = array(num.val, C1.t)
+    }
+    return b;                  // C -> epsilon:  C.t = C.b
+}
+\end{lstlisting}
+Trace for \texttt{int [2][3]}: \texttt{T()} calls \texttt{B()} which returns \textit{integer}; then \texttt{C(integer)} reads \texttt{[2]} and calls \texttt{C(integer)}, which reads \texttt{[3]} and calls \texttt{C(integer)}; this call sees no \texttt{[}, so it returns \textit{integer}. The returns then build $\mathit{array}(3,\mathit{integer})$ and finally $\mathit{array}(2,\mathit{array}(3,\mathit{integer}))$. The values travel \emph{down} as arguments and \emph{up} as return values, exactly as in Figure~\ref{fig:typetree}.
+\end{examplebox}
+
+\begin{examplebox}{Example A2: sums and differences without left recursion}
+For the SDT of Example~1 in Section~\ref{sec:leftrec}, the inherited attribute $R.i$ is the parameter of \texttt{R} and $R.s$ is its return value. The terminal \textbf{num} has the attribute \texttt{lexval}.
+\begin{lstlisting}
+int E() { int t = T();  return R(t); }       // R.i = T.val ;  E.val = R.s
+
+int R(int i) {                               // i is R.i
+    if (look == '+') { match('+'); int t = T(); return R(i + t); }
+    if (look == '-') { match('-'); int t = T(); return R(i - t); }
+    return i;                    // R -> epsilon:  R.s = R.i
+    // R1.i = R.i +/- T.val  is the argument of the recursive call
+}
+
+int T() { int v = lexval;  match(NUM);  return v; }   // T.val = num.lexval
+\end{lstlisting}
+For \texttt{9-5+2}: \texttt{E()} gets $9$ from \texttt{T()} and calls \texttt{R(9)}; \texttt{R(9)} reads \texttt{-5} and calls \texttt{R(4)}; \texttt{R(4)} reads \texttt{+2} and calls \texttt{R(6)}; \texttt{R(6)} finds the end of the input and returns $6$, which every caller returns unchanged. The pointer-based variant for the syntax tree of Section~\ref{sec:lattr} has the same shape: \texttt{Node R(Node i)} returns \texttt{R(new Node('+', i, t))} instead of \texttt{R(i + t)}, and \texttt{return i} at the end.
+\end{examplebox}
+
+\begin{examplebox}{Example A3: code for a \texttt{while} statement}
+The \textbf{while} statement of the Dragon Book (Chapter 5) is $S\to\mathbf{while}\,(\,C\,)\,S_1$. The attributes are: $S.next$ (inherited; the label after the statement), $C.true$ and $C.false$ (inherited; the jump targets of the condition), and the synthesized $S.code$ and $C.code$. The SDT creates two labels $L_1$ and $L_2$:
+\begin{align*}
+S \to \mathbf{while}\ \tok{(}\ &\{\ L_1=\mathit{new}();\ L_2=\mathit{new}();\ \at{C}{false}=\at{S}{next};\ \at{C}{true}=L_2\ \}\ C\ \tok{)}\\
+&\{\ \at{S_1}{next}=L_1\ \}\ S_1\ \{\ \at{S}{code}=\mathit{label}\cc L_1\cc\at{C}{code}\cc\mathit{label}\cc L_2\cc\at{S_1}{code}\ \}
+\end{align*}
+The generated code is $L_1\!:\ C.code$ (it jumps to $L_2$ if the condition is true and to $S.next$ if false), then $L_2\!:\ S_1.code$, which ends with a jump back to $S_1.next=L_1$. (The flow-of-control SDD later in these notes, taken from Chapter~6 of the book, writes the same translation with an explicit \texttt{goto begin}.)
+
+As a recursive-descent procedure, $S.next$ is the argument, $S.code$ the return value (a string), and the labels are local variables:
+\begin{lstlisting}
+string S(label next) {
+    string Scode, Ccode;               // code strings
+    label L1, L2;                      // local labels
+    if (look == WHILE) {
+        match(WHILE);  match('(');
+        L1 = new();  L2 = new();
+        Ccode = C(next, L2);           // C.false = S.next, C.true = L2
+        match(')');
+        Scode = S(L1);                 // S1.next = L1
+        return "label" || L1 || Ccode || "label" || L2 || Scode;
+    }
+    else { /* other statement types */ }
+}
+\end{lstlisting}
+Each call of \texttt{S} or \texttt{C} returns the code of its own part, and the caller concatenates the pieces in the order of the SDD.
+\end{examplebox}
+
+\subsubsection{Method B: on-the-fly code generation}
+Method A builds the whole code of a statement as one long string and returns it, so the code of a big program is copied over and over as it is returned upward. We can avoid this when the main attribute (here $S.code$) is a \emph{concatenation of the pieces produced by its children, in the same order as the children appear in the body, with fixed strings between them}. Then, instead of building the string, each piece is simply \textbf{printed at the moment it is known}; the order of the printing is the order of the concatenation. The SDT of Example~A3 changes in just two places: the construction of $S.code$ disappears and two \textit{print} actions are added.
+\begin{align*}
+S \to \mathbf{while}\ \tok{(}\ &\{\ L_1=\mathit{new}();\ L_2=\mathit{new}();\ \at{C}{false}=\at{S}{next};\ \at{C}{true}=L_2;\ \mathit{print}(\text{``label''},L_1)\ \}\ C\ \tok{)}\\
+&\{\ \at{S_1}{next}=L_1;\ \mathit{print}(\text{``label''},L_2)\ \}\ S_1
+\end{align*}
+\begin{lstlisting}
+void S(label next) {                   // S.code is not returned: it is printed
+    label L1, L2;
+    if (look == WHILE) {
+        match(WHILE);  match('(');
+        L1 = new();  L2 = new();
+        print("label", L1);            // the first piece of S.code
+        C(next, L2);                   // C prints its own code
+        match(')');
+        print("label", L2);            // the next piece
+        S(L1);                         // S1 prints its own code
+    }
+    else { /* other statement types */ }
+}
+\end{lstlisting}
+The output is the same as before, but no code string is ever copied. This is the same idea as the incremental translation with \textit{gen} of Section~\ref{sec:exprtac}.
+
+\begin{pitfallbox}{When on-the-fly generation is not possible}
+Printing is correct only if the pieces appear in the code in the same order as the symbols in the production body. If a rule used $S.code=S_2.code\cc S_1.code$ (the code of the \emph{later} symbol first), the parser would reach $S_1$ first and print its code too early. In that case Method A, which returns strings, is needed.
+\end{pitfallbox}
+
+\subsubsection{Method C: attributes on the stack of a table-driven LL parser}
+A table-driven LL parser has no procedures to hold local variables, so the attribute values are kept on its \textbf{stack} in extra records. The stack is drawn with its top at the \emph{left}; the next thing to be done is the leftmost entry. The rules below (the book calls them action records and synthesize records) are all we need:
+\begin{enumerate}[nosep]
+\item The \textbf{inherited attributes} of a nonterminal $A$ are stored in the stack entry of $A$.
+\item Every \textbf{action} of the SDT becomes an \emph{action record} pushed at its position in the body. An action that computes an inherited attribute of $X$ stands immediately above $X$, so it can write into the entry of $X$.
+\item Every nonterminal $X$ in a body gets a \textbf{synthesize record} $X_s$ pushed immediately \emph{below} $X$. The action at the end of $X$'s body stores the synthesized attribute of $X$ there.
+\item \textbf{Copying.} An action record holds copies of the values it needs. They are copied into it at three moments: when the head of the production is expanded (its inherited attributes), when a terminal is matched (its \textit{lexval}), and when a synthesize record reaches the top of the stack (it is popped and its content is copied into the action record below it).
+\item A record at the top of the stack is processed by executing the action and popping it.
+\end{enumerate}
+
+\begin{examplebox}{Example C1: the \texttt{while} statement on the LL stack}
+Take the on-the-fly SDT of Method B, whose production is $S\to\mathbf{while}\ \tok{(}\ a_1\ C\ \tok{)}\ a_2\ S_1$, where $a_1$ is the first action (creates $L_1,L_2$, sets $C$'s attributes) and $a_2$ is the second (sets $S_1.next$). Let $S.next=x$, and let the new labels be $L_1=y$ and $L_2=z$. Only inherited attributes occur, so there are no synthesize records.
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.3cm} p{8.8cm} l@{}}
+\toprule
+\textbf{Moment} & \textbf{Stack (top at the left)} & \textbf{Output} \\ \midrule
+Just before expanding $S$ & $S\,[next=x]\ \dots$ & \\
+Immediately after expanding $S$ &
+$\mathbf{while}\ \ \tok{(}\ \ [a_1:\ S.next=x,\ L_1,\ L_2]\ \ C\,[true,false]\ \ \tok{)}\ \ [a_2:\ L_1,\ L_2]\ \ S_1\,[next]\ \dots$ & \\
+After \textbf{while}, \texttt{(} are matched and $a_1$ runs &
+$C\,[true=z,\ false=x]\ \ \tok{)}\ \ [a_2:\ L_1=y,\ L_2=z]\ \ S_1\,[next]\ \dots$ & \texttt{label y} \\
+After $C$ and \texttt{)} are processed and $a_2$ runs &
+$S_1\,[next=y]\ \dots$ & \texttt{label z} \\ \bottomrule
+\end{tabular}
+\end{center}
+Note the copying: when $S$ is expanded, the entry of $S$ disappears, so its inherited attribute $S.next=x$ is first \emph{copied} into the record of $a_1$. Action $a_1$ then creates $y$ and $z$, writes $C$'s attributes into the entry of $C$ directly below it, and copies $y$ and $z$ into the record of $a_2$, which will need them later.
+\end{examplebox}
+
+\begin{examplebox}{Example C2: synthesize records for \texttt{9-5+2}}
+Use the SDT of Example~1 in Section~\ref{sec:leftrec}, with the actions named:
+\begin{align*}
+E &\to T\ \{a_1:\ R.i=T.val\}\ R\ \{a_2:\ E.val=R.s\}\\
+R &\to +\ T\ \{b_1:\ R_1.i=R.i+T.val\}\ R_1\ \{b_2:\ R.s=R_1.s\}\\
+  &\mid\ -\ T\ \{b_1:\ R_1.i=R.i-T.val\}\ R_1\ \{b_2:\ R.s=R_1.s\}\ \mid\ \varepsilon\ \{c:\ R.s=R.i\}\\
+T &\to \mathbf{num}\ \{d:\ T.val=\mathbf{num}.lexval\}
+\end{align*}
+\begin{center}
+\small
+\begin{tabular}{@{}p{4.2cm} p{7.8cm} l@{}}
+\toprule
+\textbf{Moment} & \textbf{Stack (top at the left)} & \textbf{Input} \\ \midrule
+Start & $E\ E_s$ & \texttt{9-5+2} \\
+$E$ expanded & $T\ T_s\ a_1\ R\ R_s\ a_2\ E_s$ & \texttt{9-5+2} \\
+$T$ done ($T_s{=}9$ copied into $a_1$), $a_1$ run & $R[i{=}9]\ R_s\ a_2\ E_s$ & \texttt{-5+2} \\
+$R$ expanded by $-$ ($R.i=9$ copied into $b_1$) & $-\ T\ T_s\ [b_1:\ R.i{=}9]\ R\ R_s\ b_2\ R_s\ a_2\ E_s$ & \texttt{-5+2} \\
+$T$ done ($T.val=5$), $b_1$ run: $R_1.i=9-5=4$ & $R[i{=}4]\ R_s\ b_2\ R_s\ a_2\ E_s$ & \texttt{+2} \\
+second $R$ expanded by $+$, $b_1$ run: $R_1.i=4+2=6$ & $R[i{=}6]\ R_s\ b_2\ R_s\ b_2\ R_s\ a_2\ E_s$ & end \\
+$R\to\varepsilon$, action $c$: $R.s=R.i$ & $R_s{=}6\ b_2\ R_s\ b_2\ R_s\ a_2\ E_s$ & end \\
+each $b_2$ copies $R_1.s$ into its $R_s$, then $a_2$ & $E_s{=}6$ & end \\ \bottomrule
+\end{tabular}
+\end{center}
+The inherited value $R.i$ moves \emph{right} through the action records ($9\to4\to6$), and the final $6$ moves \emph{left} through the synthesize records, one for each $R$, until it reaches $E_s$.
+\end{examplebox}
+
+\begin{notebox}{Which method to use?}
+Method A is the easiest to write and to read, and it handles any L-attributed SDD; the price is the strings that are returned. Method B is Method A without the strings and is the choice for code generation. Method C is what a generated, table-driven LL parser does; it is rarely written by hand. All three execute the same SDT, and all three need an L-attributed SDD: an inherited attribute that depends on a symbol to its right could not be evaluated, because that symbol has not been parsed yet.
+\end{notebox}
+
+
 \section{Translation of Expressions and Assignments}
 %====================================================================
 
@@ -3327,6 +3592,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
 \item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
 \item \textbf{Removing left recursion} (needed for top-down parsing) works for an SDD and for an SDT alike: rewrite the grammar as $A\to X\,R$, $R\to Y\,R\mid\varepsilon$; initialise the inherited $R.i$ in the base case, update it in each repeated group, copy $R.i$ to the synthesized $R.s$ at $\varepsilon$, and copy $R.s$ to the head. For an SDD write these as equations (the result is L-attributed); for an SDT place them as actions, inherited ones just before their symbol and synthesized ones of the head at the end.
+\item An L-attributed SDT can be executed during \textbf{top-down parsing} in three ways: (A) recursive descent in which the inherited attributes are arguments and the synthesized attributes are return values; (B) on-the-fly generation, where the pieces of the code attribute are printed instead of being concatenated (possible when they appear in the same order as in the body); (C) a table-driven LL parser that keeps the attributes in action records and synthesize records on its stack.
 \item \textbf{Backpatching} replaces inherited labels by synthesized lists (\textit{makelist, merge, backpatch}), allowing one-pass bottom-up generation with markers $M$ and $N$.
 \end{itemize}
 
@@ -3366,6 +3632,9 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Using the SDD of Section~\ref{sec:sddtree}, build the syntax tree of \texttt{a - (b + 3) - c}. Name the nodes $p_1,p_2,\dots$ in the order in which they are created, and say which reductions create no node.
 \item Using the postfix SDT of Section~\ref{sec:infix2postfix}, list the order of the \textit{print} actions for \texttt{(a+b)*c - d/e} and give the postfix output. Then give the output of the right-recursive scheme of Section~\ref{sec:sdt} for the same input.
 \item The SDD $B\to B_1\,D\mid D$, \ $\at{B}{val}=2\cdot\at{B_1}{val}+\at{D}{val}$ \ (for $B\to B_1D$), \ $\at{B}{val}=\at{D}{val}$ \ (for $B\to D$), \ $D\to\mathbf{0}\mid\mathbf{1}$ with $\at{D}{val}=0$ or $1$, computes the value of a binary number. Remove the left recursion and give the result (a) as an SDD and (b) as an SDT. Evaluate it for \texttt{101}.
+\item Using the SDD of Section~\ref{sec:typestruct}, annotate the parse tree of \texttt{float [4][5][6]} and give the resulting type expression. Then write the recursive-descent procedure \texttt{C(b)}.
+\item For the list-count SDT of Example~3 in Section~\ref{sec:leftrec}, write recursive-descent procedures \texttt{L()} and \texttt{R(i)} in which the inherited attribute is an argument and the synthesized attribute is a return value.
+\item Consider $S\to\mathbf{if}\,(\,C\,)\,S_1$ with the inherited attributes $S.next$, $C.true$, $C.false$ and $S_1.next$, where the code is $C.code$, then the label $C.true$, then $S_1.code$, and $C.false=S_1.next=S.next$. Write an SDT that generates the code \emph{on the fly} (with \textit{print}) and the corresponding recursive-descent procedure \texttt{S(next)}. Why is on-the-fly generation possible here?
 \end{enumerate}
 
 \subsection*{Answers to selected problems}
@@ -3511,6 +3780,39 @@ B &\to D\ \{\ \at{R}{i}=\at{D}{val}\ \}\ R\ \{\ \at{B}{val}=\at{R}{s}\ \}\\
 R &\to D\ \{\ \at{R_1}{i}=2\cdot\at{R}{i}+\at{D}{val}\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
 \end{align*}
 For \texttt{101}: $R.i=1$; after the digit 0 the next $R$ gets $2\cdot1+0=2$; after the digit 1 it gets $2\cdot2+1=5$; $R\to\varepsilon$ gives $R.s=5$, so $B.val=5$.
+
+\textbf{Q20.} $B.t=\mathit{float}$ is copied down as $C.b=\mathit{float}$ through three levels; the empty production gives $C.t=\mathit{float}$, and on the way up $C.t$ becomes $\mathit{array}(6,\mathit{float})$, then $\mathit{array}(5,\mathit{array}(6,\mathit{float}))$, and finally $T.t=\mathit{array}(4,\mathit{array}(5,\mathit{array}(6,\mathit{float})))$. The procedure is the one of Example~A1: if the next token is \texttt{[}, read the number $n$, call \texttt{C(b)} recursively and return \texttt{array(n, c1)}; otherwise return \texttt{b}.
+
+\textbf{Q21.}
+\begin{lstlisting}
+int L()      { match(ID);  return R(1); }            // R.i = 1 ;  L.count = R.s
+int R(int i) {
+    if (look == ',') { match(',');  match(ID);  return R(i + 1); }
+    return i;                                        // R -> epsilon:  R.s = R.i
+}
+\end{lstlisting}
+For \texttt{x, y, z}: \texttt{L()} calls \texttt{R(1)}, then \texttt{R(2)}, then \texttt{R(3)}, which returns 3.
+
+\textbf{Q22.} SDT:
+\begin{align*}
+S \to \mathbf{if}\ \tok{(}\ &\{\ L_1=\mathit{new}();\ \at{C}{true}=L_1;\ \at{C}{false}=\at{S}{next}\ \}\ C\ \tok{)}\\
+&\{\ \mathit{print}(\text{``label''},L_1);\ \at{S_1}{next}=\at{S}{next}\ \}\ S_1
+\end{align*}
+\begin{lstlisting}
+void S(label next) {
+    label L1;
+    if (look == IF) {
+        match(IF);  match('(');
+        L1 = new();
+        C(next, L1);               // C.false = S.next, C.true = L1 ; C prints its code
+        match(')');
+        print("label", L1);
+        S(next);                   // S1.next = S.next ; S1 prints its code
+    }
+    else { /* other statement types */ }
+}
+\end{lstlisting}
+On-the-fly generation is possible because $S.code$ is the concatenation of $C.code$, the label, and $S_1.code$, in the same order as $C$, $S_1$ appear in the body. Printing each piece when it becomes available gives the right order.
 
 %====================================================================
 \section*{References}
