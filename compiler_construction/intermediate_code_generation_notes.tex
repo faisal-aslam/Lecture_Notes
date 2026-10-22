@@ -2053,6 +2053,10 @@ Evaluated by & depth-first, left-to-right traversal & the parser, as it parses (
 \textbf{Checklist for a full-marks answer:} (a) the new grammar without left recursion; (b) the attributes of the new nonterminal, stating which is inherited and which synthesized; (c) the base-case rule that initialises $R.i$; (d) the update rule for $R_1.i$; (e) the rule $R.s=R.i$ for $\varepsilon$; (f) the rule that copies $R.s$ to the head; (g) for an SDT only, the actions in the correct positions; (h) if an input is given, a trace of $R.i$ and $R.s$.
 \end{defbox}
 
+\begin{notebox}{Which SDDs does this cover? (scope)}
+The method is the one of the Dragon Book (Section 5.4.4). It removes left recursion from an SDD or SDT in which the left-recursive rules \emph{compute a synthesized attribute of the head from the attributes of the body}: $A\to A_1\,Y\ \{A.a=g(A_1.a,\,Y.y)\}$ and $A\to X\ \{A.a=f(X.x)\}$. In other words, the \emph{given} SDD is S-attributed (or the SDT only prints, as in infix to postfix). The \emph{result} is L-attributed, because the new attribute $R.i$ is inherited. The notes follow the book and do not go beyond this case.
+\end{notebox}
+
 \paragraph{Step 1: why bother?} A top-down (recursive-descent) parser has one procedure per nonterminal, and it chooses a production by looking at the next input token. For a left-recursive production the procedure would have to start by calling \emph{itself}:
 \begin{lstlisting}
 void E() {            // for  E -> E + T
@@ -2151,32 +2155,150 @@ Each rule of the old grammar finds its place in the new one:
 \item The \textbf{end} $R\to\varepsilon$ has nothing more to read, so the display is the answer: $R.s=R.i$. The answer is then copied upward through every $R$ to $E$.
 \end{enumerate}
 
-\begin{defbox}{General transformation, SDD form (equations only)}
+\providecommand{\cfx}[1]{\textcolor{blue!70!black}{#1}}
+\providecommand{\cgy}[1]{\textcolor{red!70!black}{#1}}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.97\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw,rounded corners=2pt,inner sep=4pt,font=\small},
+  dn/.style={-{Stealth[length=2.2mm]},blue!70!black,thick},
+  up/.style={-{Stealth[length=2.2mm]},red!70!black,thick},
+  lab/.style={font=\scriptsize,align=center}]
+ % top row: running total goes down the chain of R's (left to right)
+ \node[box] (t)  at (-3.4,0) {$T.val=9$};
+ \node[box] (r0) at (0,0)    {$R.i=9$};
+ \node[box] (r1) at (4.4,0)  {$R_1.i=4$};
+ \node[box] (r2) at (8.8,0)  {$R_2.i=6$};
+ \draw[dn] (t)--(r0) node[midway,above,lab] {start:\\$R.i=T.val$};
+ \draw[dn] (r0)--(r1) node[midway,above,lab] {read $-5$:\\$9-5=4$};
+ \draw[dn] (r1)--(r2) node[midway,above,lab] {read $+2$:\\$4+2=6$};
+ % bottom row: the final answer comes back (right to left)
+ \node[box] (s2) at (8.8,-2.4) {$R_2.s=6$};
+ \node[box] (s1) at (4.4,-2.4) {$R_1.s=6$};
+ \node[box] (s0) at (0,-2.4)   {$R.s=6$};
+ \node[box] (e)  at (-3.4,-2.4) {$E.val=6$};
+ \draw[up] (r2)--(s2) node[midway,right,lab] {$\varepsilon$:\\$s=i$};
+ \draw[up] (s2)--(s1) node[midway,below,lab] {$R_1.s=R_2.s$};
+ \draw[up] (s1)--(s0) node[midway,below,lab] {$R.s=R_1.s$};
+ \draw[up] (s0)--(e)  node[midway,below,lab] {$E.val=R.s$};
+ \node[lab,anchor=east,text=blue!70!black] at (-4.6,0) {handed \emph{down}\\(inherited $R.i$)};
+ \node[lab,anchor=east,text=red!70!black]  at (-4.6,-2.4) {handed \emph{back}\\(synthesized $R.s$)};
+\end{tikzpicture}}
+\caption{The running total of \texttt{9-5+2} after removing left recursion. Top row: each $R$ receives the total so far in $R.i$, updates it with the next operand, and passes it to the next $R$. When the input is used up ($R\to\varepsilon$), the total is turned around (bottom row) and copied back through the $R.s$ attributes to $E.val$.}
+\label{fig:runtotal}
+\end{figure}
+
+\begin{defbox}{General transformation, SDD form (equations only), with comments}
+Same colour means same piece: the \cfx{base case} is blue, the \cgy{repeated part} is red. Nothing is invented; every piece of the old rules is only \emph{moved}.
 \begin{center}
 \small
-\begin{tabular}{@{}l l@{}}
+\begin{tabular}{@{}l l p{4.6cm}@{}}
 \toprule
-\textbf{Left-recursive SDD} & \\ \midrule
-$A \to A_1\,Y$ & $\at{A}{a}=g(\at{A_1}{a},\ \at{Y}{y})$ \\
-$A \to X$      & $\at{A}{a}=f(\at{X}{x})$ \\ \midrule
-\textbf{After removing left recursion} & \\ \midrule
-$A \to X\,R$   & $\at{R}{i}=f(\at{X}{x})$; \ $\at{A}{a}=\at{R}{s}$ \\
-$R \to Y\,R_1$ & $\at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})$; \ $\at{R}{s}=\at{R_1}{s}$ \\
-$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ \\ \bottomrule
+\textbf{Production} & \textbf{Semantic rules} & \textbf{Why} \\ \midrule
+\multicolumn{3}{@{}l}{\textbf{Left-recursive SDD (given)}} \\
+$A \to A_1\,\cgy{Y}$ & $\at{A}{a}=\cgy{g}(\at{A_1}{a},\ \cgy{\at{Y}{y}})$ & \\
+$A \to \cfx{X}$      & $\at{A}{a}=\cfx{f}(\cfx{\at{X}{x}})$ & \\ \midrule
+\multicolumn{3}{@{}l}{\textbf{After removing left recursion (answer)}} \\
+$A \to \cfx{X}\,R$ &
+  $\at{R}{i}=\cfx{f}(\cfx{\at{X}{x}})$; \ $\at{A}{a}=\at{R}{s}$ &
+  The base case \emph{starts} the running value. The final answer is brought back in $R.s$. \\
+$R \to \cgy{Y}\,R_1$ &
+  $\at{R_1}{i}=\cgy{g}(\at{R}{i},\ \cgy{\at{Y}{y}})$; \ $\at{R}{s}=\at{R_1}{s}$ &
+  Each repetition \emph{updates} the running value: the old $A_1.a$ is now $R.i$. The answer of the rest is passed up unchanged. \\
+$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ &
+  \emph{Nothing left} to read, so the running value is the answer. \\ \bottomrule
 \end{tabular}
 \end{center}
 $\at{R}{i}$ is inherited and $\at{R}{s}$ is synthesized. There are no braces and no order of writing; the dependencies alone fix the order of evaluation. The SDD is now L-attributed, not S-attributed.
 \end{defbox}
 
-\begin{defbox}{General transformation, SDT form (actions inside the body)}
+\begin{defbox}{General transformation, SDT form (actions inside the body), with comments}
 \begin{align*}
-A &\to A_1\,Y\ \{\ \at{A}{a}=g(\at{A_1}{a},\ \at{Y}{y})\ \}\ \mid\ X\ \{\ \at{A}{a}=f(\at{X}{x})\ \}
-\intertext{becomes}
-A &\to X\ \{\ \at{R}{i}=f(\at{X}{x})\ \}\ R\ \{\ \at{A}{a}=\at{R}{s}\ \}\\
-R &\to Y\ \{\ \at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
+\text{given:}\quad A &\to A_1\,\cgy{Y}\ \{\ \at{A}{a}=\cgy{g}(\at{A_1}{a},\ \cgy{\at{Y}{y}})\ \}\ \mid\ \cfx{X}\ \{\ \at{A}{a}=\cfx{f}(\cfx{\at{X}{x}})\ \}\\[4pt]
+\text{answer:}\quad A &\to \cfx{X}\ \{\ \at{R}{i}=\cfx{f}(\cfx{\at{X}{x}})\ \}\ R\ \{\ \at{A}{a}=\at{R}{s}\ \}\\
+R &\to \cgy{Y}\ \{\ \at{R_1}{i}=\cgy{g}(\at{R}{i},\ \cgy{\at{Y}{y}})\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
 \end{align*}
-$R.i$ (inherited) carries the value accumulated \emph{so far}; $R.s$ (synthesized) carries the final result back to the top. In the sum example $f$ is the identity and $g$ is $+$ or $-$.
+\textbf{Where the actions stand, and why:}
+\begin{itemize}[nosep]
+\item $\{R.i=\dots\}$ and $\{R_1.i=\dots\}$ compute an \emph{inherited} attribute, so they stand \emph{immediately before} the $R$ that uses it (the value must exist before $R$ starts).
+\item $\{A.a=R.s\}$ and $\{R.s=R_1.s\}$ compute a \emph{synthesized} attribute of the head, so they stand at the \emph{end} of the body (the value exists only after $R$ has finished).
+\item The action of $R\to\varepsilon$ is the only body, so it is both first and last.
+\end{itemize}
 \end{defbox}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.78\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  up/.style={-{Stealth[length=2mm]},red!70!black,thick}]
+ \node[nd] (A0) at (0,0)       {$A$\\[-1pt]{\scriptsize $a=g(A_1.a,\,Y.y)$}};
+ \node[nd] (A1) at (-2.8,-1.8) {$A$\\[-1pt]{\scriptsize $a=g(A_2.a,\,Y.y)$}};
+ \node[nd] (Y1) at (1.8,-1.8)  {$Y$};
+ \node[nd] (A2) at (-5.6,-3.6) {$A$\\[-1pt]{\scriptsize $a=f(X.x)$}};
+ \node[nd] (Y2) at (-1.2,-3.6) {$Y$};
+ \node[nd] (X)  at (-5.6,-5.4) {$X$};
+ \foreach \a/\b in {A0/A1,A0/Y1,A1/A2,A1/Y2,A2/X} \draw[gray] (\a.south)--(\b.north);
+ \draw[up] (X.north east) to[bend right=0] node[right,font=\scriptsize,text=red!70!black] {$x$} ([xshift=3mm]A2.south);
+ \draw[up] ([xshift=-4mm,yshift=-1mm]A2.north east) -- ([xshift=-2mm,yshift=1mm]A1.south west);
+ \draw[up] ([xshift=-4mm,yshift=-1mm]A1.north east) -- ([xshift=-2mm,yshift=1mm]A0.south west);
+\end{tikzpicture}}
+\caption{(a) Before: the left-recursive parse tree for the input $X\,Y\,Y$. The values flow \textcolor{red!70!black}{up} the left spine: $f(X.x)$ first, then the first $Y$ is combined, then the second.}
+\label{fig:lrflow}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.85\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  up/.style={-{Stealth[length=2mm]},red!70!black,thick},
+  dn/.style={-{Stealth[length=2mm]},blue!70!black,thick,dashed}]
+ \node[nd] (B0) at (0,0)       {$A$\\[-1pt]{\scriptsize $a=R.s$}};
+ \node[nd] (BX) at (-2.6,-1.8) {$X$};
+ \node[nd] (R0) at (2.6,-1.8)  {$R$\\[-1pt]{\scriptsize $i=f(X.x)$}\\[-1pt]{\scriptsize $s=R_1.s$}};
+ \node[nd] (Ya) at (0.2,-4.2)  {$Y$};
+ \node[nd] (R1) at (5.2,-4.2)  {$R_1$\\[-1pt]{\scriptsize $i=g(R.i,\,Y.y)$}\\[-1pt]{\scriptsize $s=R_2.s$}};
+ \node[nd] (Yb) at (2.6,-6.6)  {$Y$};
+ \node[nd] (R2) at (7.8,-6.6)  {$R_2$\\[-1pt]{\scriptsize $i=g(R_1.i,\,Y.y)$}\\[-1pt]{\scriptsize $s=R_2.i$}};
+ \node[nd] (Ep) at (7.8,-8.3)  {$\varepsilon$};
+ \foreach \a/\b in {B0/BX,B0/R0,R0/Ya,R0/R1,R1/Yb,R1/R2,R2/Ep} \draw[gray] (\a.south)--(\b.north);
+ \draw[dn] ([xshift=9mm]R0.south) -- ([xshift=9mm]R1.north);
+ \draw[dn] ([xshift=9mm]R1.south) -- ([xshift=9mm]R2.north);
+ \draw[up] ([xshift=-9mm]R1.north) -- ([xshift=-9mm]R0.south);
+ \draw[up] ([xshift=-9mm]R2.north) -- ([xshift=-9mm]R1.south);
+\end{tikzpicture}}
+\caption{(b) After: the transformed parse tree for the same input $X\,Y\,Y$. \textcolor{blue!70!black}{Dashed arrows:} the running value $i$ is passed down the chain of $R$'s, starting with $f(X.x)$ and combined with each $Y$ in the same order as in (a). \textcolor{red!70!black}{Solid arrows:} at $R_2\to\varepsilon$ the value is turned around ($s=i$) and comes back up through the $s$ attributes to $A.a$.}
+\label{fig:lrflow2}
+\end{figure}
+
+\begin{examplebox}{What to write in the exam: the procedure in six steps (SDD or SDT)}
+Given $E\to E_1+T\ \{E.val=E_1.val+T.val\}\ \mid\ E_1-T\ \{E.val=E_1.val-T.val\}\ \mid\ T\ \{E.val=T.val\}$. The left column is what to do, the right column is the result for this grammar.
+\begin{center}
+\small
+\begin{tabular}{@{}p{5.8cm} p{8.6cm}@{}}
+\toprule
+\textbf{Step} & \textbf{Result for the example} \\ \midrule
+1. \textbf{Find the parts.} Which alternatives are left-recursive ($A\to A\,\alpha$), which is the base case ($A\to\beta$)? Note the function each one computes.
+  & Recursive: $+\,T$ with $g_1(a,y)=a+y$ and $-\,T$ with $g_2(a,y)=a-y$. Base: $T$ with $f(x)=x$. \\[3pt]
+2. \textbf{New grammar.} $A\to\beta\,R$ and $R\to\alpha_1R\mid\alpha_2R\mid\dots\mid\varepsilon$.
+  & $E\to T\,R$, \ $R\to +\,T\,R\mid -\,T\,R\mid\varepsilon$ \\[3pt]
+3. \textbf{New attributes.} $R.i$ inherited (value so far), $R.s$ synthesized (final value).
+  & $R.i$ and $R.s$ hold numbers, like $E.val$. \\[3pt]
+4. \textbf{Base case.} Start the running value, bring back the answer.
+  & $E\to T\,R$: \ $R.i=T.val$; \ $E.val=R.s$ \\[3pt]
+5. \textbf{Each recursive alternative.} New running value = old function with $R.i$ in place of $A_1.a$; pass the answer up.
+  & $R\to +\,T\,R_1$: $R_1.i=R.i+T.val$; $R.s=R_1.s$. \ Similarly for $-$: $R_1.i=R.i-T.val$. \\[3pt]
+6. \textbf{The empty case.} The running value is the answer.
+  & $R\to\varepsilon$: \ $R.s=R.i$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{For an SDD} the six steps are the whole answer. \textbf{For an SDT} add a seventh step: put each equation into the body as an action, the ones for inherited attributes just before their symbol and the ones for synthesized attributes at the end, exactly as in the box above. \textbf{Always finish with a check} on a short input such as \texttt{9-5+2}: the running value must go $9\to4\to6$.
+\end{examplebox}
 
 \begin{examplebox}{Example 1, SDD form: removing left recursion from the SDD of $9-5+2$}
 \textbf{Given (left-recursive, S-attributed):}
@@ -2308,6 +2430,41 @@ R &\to \tok{','}\ \mathbf{id}\ \{\ \at{R_1}{i}=\at{R}{i}+1\ \}\ R_1\ \{\ \at{R}{
 \end{align*}
 \textbf{Trace for \texttt{x, y, z}.} $R.i=1$ after \texttt{x}; after \texttt{, y} the next $R$ gets $i=2$; after \texttt{, z} the next gets $i=3$; $R\to\varepsilon$ gives $R.s=3$, which is copied up to $L.count=3$.
 \end{examplebox}
+
+\begin{examplebox}{Example 4: two recursive alternatives (the general case)}
+Real grammars have several recursive alternatives, such as $E\to E_1+T\mid E_1-T\mid T$. The general form is
+\[
+A \to A_1\,Y\ \{\ \at{A}{a}=g(\at{A_1}{a},\ \at{Y}{y})\ \}\ \mid\ A_1\,Z\ \{\ \at{A}{a}=h(\at{A_1}{a},\ \at{Z}{z})\ \}\ \mid\ X\ \{\ \at{A}{a}=f(\at{X}{x})\ \}.
+\]
+\textbf{SDD form of the answer.} Every recursive alternative becomes one alternative of $R$, with its \emph{own} function:
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+$A \to X\,R$ & $\at{R}{i}=f(\at{X}{x})$; \ $\at{A}{a}=\at{R}{s}$ \\
+$R \to Y\,R_1$ & $\at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to Z\,R_1$ & $\at{R_1}{i}=h(\at{R}{i},\ \at{Z}{z})$; \ $\at{R}{s}=\at{R_1}{s}$ \\
+$R \to \varepsilon$ & $\at{R}{s}=\at{R}{i}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{SDT form of the answer.}
+\begin{align*}
+A &\to X\ \{\ \at{R}{i}=f(\at{X}{x})\ \}\ R\ \{\ \at{A}{a}=\at{R}{s}\ \}\\
+R &\to Y\ \{\ \at{R_1}{i}=g(\at{R}{i},\ \at{Y}{y})\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\\
+  &\mid\ Z\ \{\ \at{R_1}{i}=h(\at{R}{i},\ \at{Z}{z})\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
+\end{align*}
+The sum-and-difference grammar is the instance $Y=+\,T$, $Z=-\,T$, $g(a,y)=a+y$, $h(a,z)=a-z$, $f(x)=x$. If there are \emph{several base cases} ($A\to X\mid W$), each gets its own copy of the first rule: $A\to X\,R$ with $f_1$ and $A\to W\,R$ with $f_2$. If the SDD computes \emph{several attributes}, each one gets its own pair $R.i_k$, $R.s_k$.
+\end{examplebox}
+
+\begin{pitfallbox}{Common mistakes when removing left recursion}
+\begin{itemize}[nosep]
+\item \textbf{Wrong operand order.} The new running value is $R.i - T.val$ (old value first), never $T.val - R.i$. It does not matter for $+$ and $*$, but it does for $-$ and $/$.
+\item \textbf{Forgetting to start the accumulator,} that is, the rule $R.i=f(X.x)$ in the base case; or forgetting to bring the answer back with $A.a=R.s$.
+\item \textbf{Forgetting the $\varepsilon$ rule} $R.s=R.i$. Without it the final value is never turned around.
+\item \textbf{In an SDT: putting the action for $R_1.i$ after $R_1$.} An inherited attribute must be computed \emph{before} the symbol that uses it.
+\item \textbf{Fixing only the grammar.} The right-recursive grammar with the old rules gives the wrong grouping (see the pitfall box above); the attributes must be rewritten, too.
+\end{itemize}
+\end{pitfallbox}
 
 \subsection{Converting an L-attributed SDD into an SDT}
 \label{sec:lattr}
@@ -3643,6 +3800,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Using the SDD of Section~\ref{sec:typestruct}, annotate the parse tree of \texttt{float [4][5][6]} and give the resulting type expression. Then write the recursive-descent procedure \texttt{C(b)}.
 \item For the list-count SDT of Example~3 in Section~\ref{sec:leftrec}, write recursive-descent procedures \texttt{L()} and \texttt{R(i)} in which the inherited attribute is an argument and the synthesized attribute is a return value.
 \item Consider $S\to\mathbf{if}\,(\,C\,)\,S_1$ with the inherited attributes $S.next$, $C.true$, $C.false$ and $S_1.next$, where the code is $C.code$, then the label $C.true$, then $S_1.code$, and $C.false=S_1.next=S.next$. Write an SDT that generates the code \emph{on the fly} (with \textit{print}) and the corresponding recursive-descent procedure \texttt{S(next)}. Why is on-the-fly generation possible here?
+\item Remove the left recursion from the SDD $T\to T_1*F$ \ ($\at{T}{val}=\at{T_1}{val}\cdot\at{F}{val}$), $T\to T_1/F$ \ ($\at{T}{val}=\at{T_1}{val}\,/\,\at{F}{val}$), $T\to F$ \ ($\at{T}{val}=\at{F}{val}$), $F\to\mathbf{num}$ \ ($\at{F}{val}=\at{\mathbf{num}}{lexval}$). Give the answer (a) as an SDD and (b) as an SDT, and evaluate \texttt{12/3*2}.
 \end{enumerate}
 
 \subsection*{Answers to selected problems}
@@ -3821,6 +3979,16 @@ void S(label next) {
 }
 \end{lstlisting}
 On-the-fly generation is possible because $S.code$ is the concatenation of $C.code$, the label, and $S_1.code$, in the same order as $C$, $S_1$ appear in the body. Printing each piece when it becomes available gives the right order.
+
+\textbf{Q23.} Grammar: $T\to F\,R$, \ $R\to *\,F\,R\mid /\,F\,R\mid\varepsilon$.\\
+(a) SDD: $T\to F\,R$: $\at{R}{i}=\at{F}{val}$, $\at{T}{val}=\at{R}{s}$; \ $R\to *\,F\,R_1$: $\at{R_1}{i}=\at{R}{i}\cdot\at{F}{val}$, $\at{R}{s}=\at{R_1}{s}$; \ $R\to /\,F\,R_1$: $\at{R_1}{i}=\at{R}{i}\,/\,\at{F}{val}$, $\at{R}{s}=\at{R_1}{s}$; \ $R\to\varepsilon$: $\at{R}{s}=\at{R}{i}$; \ $F\to\mathbf{num}$ unchanged.\\
+(b) SDT:
+\begin{align*}
+T &\to F\ \{\ \at{R}{i}=\at{F}{val}\ \}\ R\ \{\ \at{T}{val}=\at{R}{s}\ \}\\
+R &\to *\ F\ \{\ \at{R_1}{i}=\at{R}{i}\cdot\at{F}{val}\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\\
+  &\mid\ /\ F\ \{\ \at{R_1}{i}=\at{R}{i}\,/\,\at{F}{val}\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
+\end{align*}
+For \texttt{12/3*2}: $R.i=12$; after \texttt{/3} the next $R$ gets $12/3=4$; after \texttt{*2} the next gets $4\cdot2=8$; $R\to\varepsilon$ gives $R.s=8$, so $T.val=8$. The order matters: $R.i\,/\,F.val$ gives $12/3=4$, whereas $F.val\,/\,R.i$ would give $3/12$.
 
 %====================================================================
 \section*{References}
