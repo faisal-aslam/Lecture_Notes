@@ -1307,8 +1307,16 @@ Other orders are also valid, e.g.\ all three \textit{len} values first. In pract
 
 \paragraph{The tools.} The attribute \at{E}{node} is a \emph{pointer} to the root of the (sub)tree that $E$ stands for. Two constructor functions create nodes and return a pointer to the new node:
 \begin{itemize}[nosep]
-\item $\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \mathit{entry})$ \ or \ $\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \mathit{val})$: creates a \emph{leaf} for an identifier (with a pointer to its symbol-table entry) or for a number (with its value);
-\item $\mathbf{new}\ \mathit{Node}(op,\ \mathit{left},\ \mathit{right})$: creates an \emph{interior node} labelled $op$ whose two children are the nodes that the pointers \textit{left} and \textit{right} point to.
+\item $\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\ \at{\mathbf{id}}{entry})$ \ or \ $\mathbf{new}\ \mathit{Leaf}(\mathbf{num},\ \at{\mathbf{num}}{val})$ creates a \emph{leaf}. It has two arguments:
+ \begin{itemize}[nosep]
+ \item the \textbf{token name} (\textbf{id} or \textbf{num}), which becomes the \emph{label} of the leaf and says what kind of operand it is;
+ \item the \textbf{token attribute}: for an identifier, $\at{\mathbf{id}}{entry}$ is a \emph{pointer (index) to the symbol-table entry} of that identifier, which the lexer filled in when it recognised the name; for a number, $\at{\mathbf{num}}{val}$ is the \emph{value} of the constant itself.
+ \end{itemize}
+\item $\mathbf{new}\ \mathit{Node}(op,\ \mathit{left},\ \mathit{right})$ creates an \emph{interior node}. It has three arguments:
+ \begin{itemize}[nosep]
+ \item $op$, the \emph{label} of the node, the operator (for example $\tok{'+'}$);
+ \item \textit{left} and \textit{right}, \emph{pointers to the two child nodes} (the roots of the left and the right operand). They are the children of the new node, not neighbours: the new node stores these two pointers.
+ \end{itemize}
 \end{itemize}
 
 \paragraph{The SDD.} The grammar is $E\to E+T\mid E-T\mid T$, $T\to(E)\mid\mathbf{id}\mid\mathbf{num}$. The last column says whether the rule \emph{creates} a node or only \emph{passes a pointer upward}.
