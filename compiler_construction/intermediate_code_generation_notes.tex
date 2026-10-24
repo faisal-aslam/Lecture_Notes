@@ -3898,21 +3898,41 @@ Labels & Symbolic labels generated eagerly & Instruction indices known late \\ \
 \end{center}
 
 %====================================================================
-\section{Switch Statements and Procedure Calls (Brief)}
-%====================================================================
+\section{Switch Statements and Procedure Calls}
+\label{sec:switchcall}
 
+Both constructs fit the pattern of this chapter: an SDD with attributes, and an SDT that is obtained from it. We use the label-based style of Section~\ref{sec:labelintro}: $\at{S}{next}$ is the name of the door right after $S$, handed down by the parent, and $\mathit{newlabel}()$, $\mathit{label}(L)$ and $\mathit{gen}(\dots)$ have the meaning given there. The expression rules of Section~\ref{sec:exprtac} provide $\at{E}{addr}$ (where the value of $E$ lives) and $\at{E}{code}$.
+
+%--------------------------------------------------------------------
 \subsection{Switch statement}
 \label{sec:switch}
-\begin{lstlisting}
-switch (E) {
-    case V1: S1
-    case V2: S2
-    ...
-    case V(n-1): S(n-1)
-    default: Sn
-}
-\end{lstlisting}
-\textbf{Translation scheme:} evaluate $E$ into a temporary $t$, then a sequence of tests, followed by the code of each case.
+
+\paragraph{The intuition: a menu with a doorman.} Think of a hotel reception. The guest shows a number (the value $t$ of the selector $E$); the doorman looks at a list (\emph{if the number is 1, go to room 1; if 2, room 2; \dots; otherwise the default room}) and sends the guest to the right room. Each room is the code of one \textbf{case}. We write the rooms first and the doorman's list at the \emph{end}, for two reasons: (1) while we write the rooms we do not yet know how many cases there will be, so the list can only be completed at the end; and (2) all tests stand together in one block, so a good code generator can replace them by a \textbf{jump table} (one indexed jump) when the values are dense.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  blk/.style={draw,rounded corners=2pt,minimum width=6.2cm,minimum height=7.5mm,align=left,font=\small,inner xsep=6pt},
+  gt/.style={-{Stealth[length=2.2mm]},thick}]
+ \node[blk,fill=gray!10] (e)  at (0,0)    {code to evaluate $E$ into $t$};
+ \node[blk,fill=blue!8] (g)   at (0,-1.1) {\texttt{goto test}};
+ \node[blk,fill=green!10] (c1) at (0,-2.4) {\texttt{L1: } code of $S_1$\ \ \texttt{goto next}};
+ \node[blk,fill=green!10] (c2) at (0,-3.5) {\texttt{L2: } code of $S_2$\ \ \texttt{goto next}};
+ \node[blk,fill=green!10] (cd) at (0,-4.6) {\texttt{Ld: } default code\ \ \texttt{goto next}};
+ \node[blk,fill=red!8] (t)    at (0,-6.2) {\texttt{test:}\ if $t=V_1$ goto L1\\\phantom{\texttt{test:}\ }if $t=V_2$ goto L2\\\phantom{\texttt{test:}\ }goto Ld};
+ \node[blk,fill=gray!10] (n)  at (0,-7.7) {\texttt{next:}\ the statement after the switch};
+ \draw[gt,blue!70!black] (g.west) to[out=180,in=180,looseness=2.2] (t.west);
+ \draw[gt,red!70!black] (t.east) to[out=0,in=0,looseness=1.1] (c1.east);
+ \draw[gt,red!70!black] (t.east) to[out=0,in=0,looseness=1.5] (c2.east);
+ \draw[gt,red!70!black] (t.east) to[out=0,in=0,looseness=1.9] (cd.east);
+ \node[font=\scriptsize,text=blue!70!black,anchor=east,align=center] at (-3.7,-3.6) {the first jump\\skips the rooms};
+ \node[font=\scriptsize,text=red!70!black,anchor=west,align=center] at (4.3,-4.2) {the doorman\\sends the guest\\to the right room};
+\end{tikzpicture}
+\caption{The layout of the code of a \textbf{switch}. The rooms (case bodies) come first and the doorman's list (the tests) comes last. Each room ends with \texttt{goto next}, which leaves the switch.}
+\label{fig:switchlayout}
+\end{figure}
+
+The same layout as code:
 \begin{lstlisting}
         code to evaluate E into t
         goto test
@@ -3921,89 +3941,276 @@ L1:     code for S1
 L2:     code for S2
         goto next
  ...
-Ln:     code for Sn
+Ld:     code for the default part
         goto next
 test:   if t = V1 goto L1
         if t = V2 goto L2
         ...
-        if t = V(n-1) goto L(n-1)
-        goto Ln
+        goto Ld
 next:
 \end{lstlisting}
-Putting the tests \emph{after} the case bodies lets the code generator recognise the test sequence and implement it with a \textbf{jump table} (for dense values) or binary search. The \texttt{case} instruction can also be used: \texttt{case t V1 L1}\; \dots\; \texttt{case t V(n-1) L(n-1)}; \texttt{case t t Ln} (the last entry is the default).
+\texttt{case} instructions may replace the tests: \texttt{case t V1 L1}, \dots, \texttt{case t t Ld} (the last entry is the default).
 
-\begin{notebox}{Break and fall-through}
-The scheme above puts \texttt{goto next} after every case body, which is the behaviour of Pascal-like \texttt{case} statements. In C and Java a body \emph{falls through} into the next one unless it ends with \texttt{break}; to translate those, emit \texttt{goto next} only for \texttt{break}, and leave it out otherwise.
-\end{notebox}
+\paragraph{The grammar.} To keep it small, the default part is last and the cases come in a list:
+\begin{align*}
+S &\to \mathbf{switch}\ \tok{(}\,E\,\tok{)}\ \tok{\{}\ \mathit{CL}\ \mathbf{default}\ \tok{:}\ S_1\ \tok{\}}\\
+\mathit{CL} &\to C\ \mathit{CL}_1\ \mid\ \varepsilon\\
+C &\to \mathbf{case}\ \mathbf{num}\ \tok{:}\ S_1
+\end{align*}
+$\mathit{CL}$ is the list of cases and $C$ is one case. The statements $S_1$ inside are arbitrary statements, for example assignments or further \textbf{if} and \textbf{switch} statements.
 
-\begin{examplebox}{Worked example}
+\paragraph{The attributes: who holds what.}
+\begin{center}
+\small
+\begin{tabular}{@{}l l p{8.0cm}@{}}
+\toprule
+\textbf{Attribute} & \textbf{Kind} & \textbf{What it holds, and when it is used} \\ \midrule
+\at{S}{next} & inherited & The door after the whole switch; given by the parent. Every case body ends with a jump to it. \\
+\at{CL}{next}, \at{C}{next} & inherited & A copy of \at{S}{next}, passed down to the cases so that each one can write \texttt{goto next}. \\
+\at{CL}{t}, \at{C}{t} & inherited & The address of the selector value (a copy of \at{E}{addr}), passed down so that each case can write \emph{its own} test \texttt{if t = V goto L}. \\
+\at{C}{code} & synthesized & The code of one case: its label, the body, and \texttt{goto next}. \\
+\at{C}{test} & synthesized & The one test instruction of this case: \texttt{if t = V goto L}. \\
+\at{CL}{code}, \at{CL}{tests} & synthesized & The bodies of all cases put together, and the tests of all cases put together. Two separate strings. \\
+$L$, $\mathit{test}$, $L_d$ & local names & Door names invented by $\mathit{newlabel}()$ inside a rule: one for each case, one for the test block, one for the default part. \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{defbox}{The SDD for the switch statement}
+\begin{center}
+\small
+\begin{tabular}{@{}p{4.1cm} p{9.9cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$S \to \mathbf{switch}\,(E)\,\{$\newline $\quad\mathit{CL}\ \mathbf{default}:\,S_1\,\}$ &
+ $\mathit{test}=\mathit{newlabel}()$; \ $L_d=\mathit{newlabel}()$;\newline
+ $\at{CL}{t}=\at{E}{addr}$; \ $\at{CL}{next}=\at{S}{next}$; \ $\at{S_1}{next}=\at{S}{next}$;\newline
+ $\at{S}{code}=\at{E}{code}\cc\mathit{gen}(\tok{goto}\ \mathit{test})\cc\at{CL}{code}\cc\mathit{label}(L_d)\cc\at{S_1}{code}$\newline
+ $\qquad\cc\ \mathit{gen}(\tok{goto}\ \at{S}{next})\cc\mathit{label}(\mathit{test})\cc\at{CL}{tests}\cc\mathit{gen}(\tok{goto}\ L_d)$ \\[6pt]
+$\mathit{CL} \to C\ \mathit{CL}_1$ &
+ $\at{C}{t}=\at{CL_1}{t}=\at{CL}{t}$; \ $\at{C}{next}=\at{CL_1}{next}=\at{CL}{next}$;\newline
+ $\at{CL}{code}=\at{C}{code}\cc\at{CL_1}{code}$; \ $\at{CL}{tests}=\at{C}{test}\cc\at{CL_1}{tests}$ \\[6pt]
+$\mathit{CL} \to \varepsilon$ & $\at{CL}{code}=\varepsilon$; \ $\at{CL}{tests}=\varepsilon$ \\[6pt]
+$C \to \mathbf{case}\ \mathbf{num}:\ S_1$ &
+ $L=\mathit{newlabel}()$; \ $\at{S_1}{next}=\at{C}{next}$;\newline
+ $\at{C}{code}=\mathit{label}(L)\cc\at{S_1}{code}\cc\mathit{gen}(\tok{goto}\ \at{C}{next})$;\newline
+ $\at{C}{test}=\mathit{gen}(\tok{if}\ \at{C}{t}\ \tok{=}\ \at{\mathbf{num}}{val}\ \tok{goto}\ L)$ \\ \bottomrule
+\end{tabular}
+\end{center}
+(Here $\varepsilon$ denotes the empty string.) \textbf{How to read it.} Two strings grow side by side while the list of cases is traversed: \at{CL}{code} collects the \emph{bodies}, \at{CL}{tests} collects the \emph{tests}. The rule for $S$ then places them in two different spots of the final code: bodies first, tests last. Every case builds \emph{both} of its pieces itself, because it knows both its own label $L$ and its own value.
+\end{defbox}
+
+\begin{examplebox}{Example 1: the code and the attributes of a switch}
 \begin{lstlisting}
 switch (c) {
-    case 1:  x = 10; break;
-    case 2:  x = 20; break;
+    case 1:  x = 10;
+    case 2:  x = 20;
     default: x = 0;
 }
 \end{lstlisting}
-(The selector is a variable, so no code is needed to evaluate it and $t=c$.)
-\begin{lstlisting}
-        goto test
-L1:     x = 10
-        goto next
-L2:     x = 20
-        goto next
-L3:     x = 0
-        goto next
-test:   if c = 1 goto L1
-        if c = 2 goto L2
-        goto L3
-next:
-\end{lstlisting}
-Because the tests are collected at the end, the code generator can see that the values $1,2,\dots$ are dense and replace them by one indexed jump through a table $[L_1,L_2]$ after the range check $1\le c\le2$.
+The selector is a variable, so $\at{E}{code}$ is empty and $\at{E}{addr}=c$. The parent gave $\at{S}{next}=L_1$. The SDD (with the label numbers in order of creation: $\mathit{test}=L_2$, case~1 $=L_3$, case~2 $=L_4$, $L_d=L_5$) produces:
+\begin{center}
+\small
+\begin{tabular}{@{}l p{9.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Key attributes: what they hold, who set them, when they are used} \\ \midrule
+\texttt{\ \ \ \ goto L2} & $\mathit{gen}(\texttt{goto }\mathit{test})$ in the rule for $S$. The name $\mathit{test}=L_2$ was invented at the start of the rule, so the jump can be written \emph{before} the test block exists. \\[3pt]
+\texttt{L3: x = 10} & Case~1: $L=L_3$ is $\mathit{newlabel}()$ of this case; $\mathit{label}(L)$ puts the tag in front of the body \at{S_1}{code}. \\[3pt]
+\texttt{\ \ \ \ goto L1} & $\mathit{gen}(\texttt{goto }\at{C}{next})$. \at{C}{next}$=L_1$ is a copy of \at{S}{next}, which came down from the parent. \\[3pt]
+\texttt{L4: x = 20} & Case~2, the same way: $L=L_4$. \\[3pt]
+\texttt{\ \ \ \ goto L1} & The same \at{C}{next}$=L_1$ again. \\[3pt]
+\texttt{L5: x = 0} & The default part: $\mathit{label}(L_d)$ with $L_d=L_5$, then \at{S_1}{code}. \\[3pt]
+\texttt{\ \ \ \ goto L1} & $\mathit{gen}(\texttt{goto }\at{S}{next})$ after the default body. \\[3pt]
+\texttt{L2: if c = 1 goto L3} & $\mathit{label}(\mathit{test})$, then the first piece of \at{CL}{tests}: \at{C}{test} of case~1, with \at{C}{t}$=c$ (copied down from \at{E}{addr}), value $1$ and its own label $L_3$. \\[3pt]
+\texttt{\ \ \ \ if c = 2 goto L4} & \at{C}{test} of case~2: value $2$, label $L_4$. \\[3pt]
+\texttt{\ \ \ \ goto L5} & $\mathit{gen}(\texttt{goto }L_d)$: no case matched, go to the default part. \\[3pt]
+\texttt{L1:} & $\mathit{label}(\at{S}{next})$ placed by the \emph{parent} rule $P\to S$, not by the switch. \\ \bottomrule
+\end{tabular}
+\end{center}
+Because the tests are together at the end and the values are dense ($1,2$), a code generator may replace them by a jump table: after the range check $1\le c\le 2$ one indexed jump through the table $[L_3,L_4]$. (Each body ends with \texttt{goto L1}: this is the Pascal-style \textbf{case}; see the note on \textbf{break} below.)
 \end{examplebox}
 
-\subsection{Procedure calls}
-For a call $\mathit{id}(E_1, E_2, \dots, E_n)$:
-\begin{lstlisting}
-        code to evaluate E1 into t1
-        code to evaluate E2 into t2
-        ...
-        code to evaluate En into tn
-        param t1
-        param t2
-        ...
-        param tn
-        call id, n          // or:  y = call id, n   if a value is returned
-\end{lstlisting}
-Grammar and actions (the parameter addresses are collected in a queue, and then emitted as \texttt{param}):
+\begin{notebox}{Break and fall-through (C and Java)}
+The SDD above writes \texttt{goto next} after \emph{every} body, which is the behaviour of Pascal-like \textbf{case} statements. In C and Java a body \emph{falls through} into the next one unless it ends with \textbf{break}. To translate those, write the \texttt{goto next} only for a \textbf{break} (the rule $S\to\mathbf{break}\,;$ is $\at{S}{code}=\mathit{gen}(\tok{goto}\ \at{S}{next})$ with the right $\mathit{next}$) and omit the automatic one at the end of $C\to\mathbf{case}\,\mathbf{num}:\,S_1$.
+\end{notebox}
+
+\paragraph{The SDT.} The SDD builds two long strings. An SDT can instead print the pieces at once, as in Method~B of Section~\ref{sec:impl-lattr}. The bodies are printed immediately, in order, but the tests cannot, because they must come \emph{after} all the bodies. So we \emph{collect} the pairs (value, label) in a synthesized list attribute \at{CL}{list} and print the tests at the very end. Here $\mathit{gen}$ appends an instruction to the output at once. The actions for inherited attributes stand immediately before the symbol that uses them (Section~\ref{sec:lattr}).
 \begin{align*}
-S &\to \mathbf{call}\ \mathbf{id}\,(\,\mathit{Elist}\,) &&\{\ \text{for each } t \text{ in queue: } \mathit{gen}(\tok{param}\ t);\ \mathit{gen}(\tok{call}\ \at{\mathbf{id}}{addr},\ \mathit{size}(\mathit{queue}));\ \}\\
-\mathit{Elist} &\to \mathit{Elist}\,,\,E &&\{\ \text{append } \at{E}{addr} \text{ to the end of } \mathit{queue};\ \}\\
-\mathit{Elist} &\to E &&\{\ \mathit{queue}=[\,\at{E}{addr}\,];\ \}
+S \to \mathbf{switch}\ \tok{(}\,E\,\tok{)}\ \tok{\{}\ &\{\ \mathit{test}=\mathit{newlabel}();\ \mathit{gen}(\tok{goto}\ \mathit{test});\ \at{CL}{next}=\at{S}{next}\ \}\ \mathit{CL}\\
+ \mathbf{default}\ \tok{:}\ &\{\ L_d=\mathit{newlabel}();\ \mathit{label}(L_d);\ \at{S_1}{next}=\at{S}{next}\ \}\ S_1\\
+ &\{\ \mathit{gen}(\tok{goto}\ \at{S}{next});\ \mathit{label}(\mathit{test});\\
+ &\quad\mathbf{for}\ \text{each}\ (V,L)\ \text{in}\ \at{CL}{list}:\\
+ &\qquad\mathit{gen}(\tok{if}\ \at{E}{addr}\ \tok{=}\ V\ \tok{goto}\ L);\\
+ &\quad\mathit{gen}(\tok{goto}\ L_d)\ \}\ \tok{\}}\\[6pt]
+\mathit{CL} \to\ &\{\ \at{C}{next}=\at{CL}{next}\ \}\ C\ \{\ \at{CL_1}{next}=\at{CL}{next}\ \}\ \mathit{CL}_1\\
+ &\{\ \at{CL}{list}=[\at{C}{pair}]\ \mathbin{+\!\!+}\ \at{CL_1}{list}\ \}\\
+\mathit{CL} \to\ &\varepsilon\ \{\ \at{CL}{list}=[\ ]\ \}\\[6pt]
+C \to \mathbf{case}\ \mathbf{num}\ \tok{:}\ &\{\ L=\mathit{newlabel}();\ \mathit{label}(L);\ \at{S_1}{next}=\at{C}{next}\ \}\ S_1\\
+ &\{\ \mathit{gen}(\tok{goto}\ \at{C}{next});\ \at{C}{pair}=(\at{\mathbf{num}}{val},\,L)\ \}
 \end{align*}
+The expression $E$ prints its own code before the first action, so the instructions come out in the right order: $E$'s code, \texttt{goto test}, the bodies, the default body, the tests.
 
-\begin{examplebox}{Worked example: $y = f(a+b,\ c*2)$}
-The arguments are evaluated first, left to right, then the \texttt{param} instructions are emitted, and finally the call:
-\begin{lstlisting}
-t1 = a + b
-t2 = c * 2
-param t1
-param t2
-y = call f, 2
-\end{lstlisting}
+\begin{examplebox}{Example 2: how the list of pairs is built}
+For the switch of Example~1, parsing proceeds from left to right. Read the right column to see the list grow.
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.4cm} p{5.6cm} p{4.4cm}@{}}
+\toprule
+\textbf{Moment} & \textbf{Printed} & \textbf{List attributes} \\ \midrule
+after \texttt{switch (c) \{} & \texttt{goto L2} & \\
+case~1 parsed & \texttt{L3: x = 10}, \texttt{goto L1} & $C.pair=(1,L_3)$ \\
+case~2 parsed & \texttt{L4: x = 20}, \texttt{goto L1} & $C.pair=(2,L_4)$ \\
+$\mathit{CL}\to\varepsilon$ & & $CL.list=[\,]$ \\
+back in $\mathit{CL}$ (case~2) & & $CL.list=[(2,L_4)]$ \\
+back in $\mathit{CL}$ (case~1) & & $CL.list=[(1,L_3),(2,L_4)]$ \\
+\texttt{default:} body & \texttt{L5: x = 0}, \texttt{goto L1} & \\
+the closing \texttt{\}} & \texttt{L2:}, \texttt{if c = 1 goto L3}, \texttt{if c = 2 goto L4}, \texttt{goto L5} & the list is read once, from the front \\ \bottomrule
+\end{tabular}
+\end{center}
+The pairs are \emph{prepended} one level at a time, so the final list has the cases in the order of the program, and the tests come out in that order.
 \end{examplebox}
 
-\begin{pitfallbox}{One global queue is not enough for nested calls}
-Take $f(a,\ g(b))$. After the first argument the queue of $f$ is $[a]$. Parsing $g(b)$ then runs $\mathit{Elist}\to E$, which \emph{resets} the same queue to $[b]$, destroying $f$'s pending $a$. The fix is to keep the list as a synthesized attribute (\at{Elist}{list}), or equivalently to use a \emph{stack} of queues. The correct code is
-\begin{lstlisting}
-param b
-t1 = call g, 1
-param a
-param t1
-t2 = call f, 2
-\end{lstlisting}
+\begin{pitfallbox}{One global queue breaks nested switches}
+A common textbook description keeps the pairs in \emph{one queue}, and ``at the end of the switch'' reads it. With a \textbf{switch} inside a case of another \textbf{switch}, the inner cases would be appended to the \emph{outer} queue (or the queue would be reset), and the tests of the outer switch would jump to labels of the inner one. Making the list a \emph{synthesized attribute} \at{CL}{list} gives every switch its own list for free: the list of the inner switch is finished and used inside the inner $S$ and never reaches the outer one.
 \end{pitfallbox}
 
+%--------------------------------------------------------------------
+\subsection{Procedure calls}
+\label{sec:proccall}
+
+\paragraph{The intuition: ordering a pizza by phone.} First you decide every topping, then you read the toppings out one by one, and only then you say ``please deliver''. A call is the same: the compiler must (1) work out the value of every argument, (2) hand the values over to the callee, and (3) transfer control. Three-address code has one instruction for each of these: the arguments are first computed into temporaries, then each is announced with \texttt{param}, and then one \texttt{call} jumps to the procedure.
+\begin{center}
+\small
+\begin{tabular}{@{}l p{10.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Meaning} \\ \midrule
+\texttt{param x} & Put the value of \texttt{x} where the callee will find its next parameter (for example, push it on the stack). \\
+\texttt{call p, n} & Call the procedure \texttt{p}, which has \texttt{n} parameters (the last $n$ \texttt{param} instructions). Control returns to the next instruction. \\
+\texttt{y = call p, n} & The same, for a procedure that returns a value; the value is stored into \texttt{y}. \\
+\texttt{return y} & In the callee: give the value \texttt{y} back to the caller (\texttt{return} alone if there is no value). \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{The grammar.} A call may be a statement (\texttt{call p(a, b);}) or part of an expression (\texttt{y = f(a, b) + 1;}). $A$ is the possibly empty list of arguments and $\mathit{Elist}$ is a non-empty one:
+\begin{align*}
+S &\to \mathbf{call}\ \mathbf{id}\ \tok{(}\,A\,\tok{)}\ \tok{;}\ \mid\ \mathbf{return}\ E\ \tok{;}\ \mid\ \mathbf{return}\ \tok{;}\\
+E &\to \mathbf{id}\ \tok{(}\,A\,\tok{)}\\
+A &\to \mathit{Elist}\ \mid\ \varepsilon\\
+\mathit{Elist} &\to \mathit{Elist}_1\ \tok{,}\ E\ \mid\ E
+\end{align*}
+
+\paragraph{The attributes.} The \textbf{key idea} is that the $\mathit{param}$ instructions can only be written \emph{after} all arguments have been evaluated. So the addresses of the arguments are collected in a \emph{list} that travels upward, and the $\mathit{param}$ instructions are written once, in the rule for the call.
+\begin{center}
+\small
+\begin{tabular}{@{}l l p{8.4cm}@{}}
+\toprule
+\textbf{Attribute} & \textbf{Kind} & \textbf{What it holds, and when it is used} \\ \midrule
+\at{E}{addr} & synthesized & The address that holds the value of $E$: a name, a constant, or a temporary. For a call it is a new temporary that receives the result. \\
+\at{E}{code} & synthesized & The instructions that compute $E$. \\
+\at{Elist}{list}, \at{A}{list} & synthesized & The \emph{addresses} of the arguments, in order: $[\mathit{addr}_1,\mathit{addr}_2,\dots]$. Used in the rule for the call to write the $\mathit{param}$ instructions and to count the arguments. \\
+\at{Elist}{code}, \at{A}{code} & synthesized & The code that evaluates \emph{all} arguments, from left to right. \\ \bottomrule
+\end{tabular}
+\end{center}
+All the attributes are synthesized, so the SDD is S-attributed and can be evaluated by a post-order traversal of the parse tree. The notation $\mathit{params}(L)$ means $\mathit{gen}(\tok{param}\ a_1)\cc\dots\cc\mathit{gen}(\tok{param}\ a_n)$ for the list $L=[a_1,\dots,a_n]$, and $|L|$ is its length.
+
+\begin{defbox}{The SDD for procedure calls}
+\begin{center}
+\small
+\begin{tabular}{@{}l p{9.8cm}@{}}
+\toprule
+\textbf{Production} & \textbf{Semantic rules} \\ \midrule
+$S \to \mathbf{call}\ \mathbf{id}\,(A)\,;$ & $\at{S}{code}=\at{A}{code}\cc\mathit{params}(\at{A}{list})\cc\mathit{gen}(\tok{call}\ \at{\mathbf{id}}{addr},\ |\at{A}{list}|)$ \\[3pt]
+$E \to \mathbf{id}\,(A)$ & $\at{E}{addr}=\mathbf{new}\ \mathit{Temp}()$;\newline $\at{E}{code}=\at{A}{code}\cc\mathit{params}(\at{A}{list})\cc\mathit{gen}(\at{E}{addr}\ \tok{=}\ \tok{call}\ \at{\mathbf{id}}{addr},\ |\at{A}{list}|)$ \\[3pt]
+$S \to \mathbf{return}\ E\,;$ & $\at{S}{code}=\at{E}{code}\cc\mathit{gen}(\tok{return}\ \at{E}{addr})$ \\
+$S \to \mathbf{return}\,;$ & $\at{S}{code}=\mathit{gen}(\tok{return})$ \\[3pt]
+$A \to \mathit{Elist}$ & $\at{A}{list}=\at{Elist}{list}$; \ $\at{A}{code}=\at{Elist}{code}$ \\
+$A \to \varepsilon$ & $\at{A}{list}=[\ ]$; \ $\at{A}{code}=\varepsilon$ \\[3pt]
+$\mathit{Elist} \to \mathit{Elist}_1\,,\,E$ & $\at{Elist}{list}=\at{Elist_1}{list}\ \mathbin{+\!\!+}\ [\at{E}{addr}]$ \ (add at the end);\newline $\at{Elist}{code}=\at{Elist_1}{code}\cc\at{E}{code}$ \\
+$\mathit{Elist} \to E$ & $\at{Elist}{list}=[\at{E}{addr}]$; \ $\at{Elist}{code}=\at{E}{code}$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\end{defbox}
+For the call $E\to\mathbf{id}\,(A)$ the order of the pieces is the whole story: first the code that evaluates the arguments (\at{A}{code}), then the \texttt{param} instructions, then the \texttt{call}.
+
+\paragraph{The SDT.} With actions at the right end (a postfix SDT, so also usable by a bottom-up parser) and with $\mathit{gen}$ appending instructions at once, the argument code is printed by the expression rules as each argument is parsed, from left to right. Only the list has to be built:
+\begin{align*}
+\mathit{Elist} &\to E\ \{\ \at{Elist}{list}=[\at{E}{addr}]\ \}\\
+\mathit{Elist} &\to \mathit{Elist}_1\ \tok{,}\ E\ \{\ \at{Elist}{list}=\at{Elist_1}{list}\ \mathbin{+\!\!+}\ [\at{E}{addr}]\ \}\\
+A &\to \mathit{Elist}\ \{\ \at{A}{list}=\at{Elist}{list}\ \}\ \mid\ \varepsilon\ \{\ \at{A}{list}=[\ ]\ \}\\
+E &\to \mathbf{id}\ \tok{(}\,A\,\tok{)}\ \{\ \at{E}{addr}=\mathbf{new}\ \mathit{Temp}();\ \mathbf{for}\ \text{each}\ a\ \text{in}\ \at{A}{list}:\ \mathit{gen}(\tok{param}\ a);\\
+ &\qquad\mathit{gen}(\at{E}{addr}\ \tok{=}\ \tok{call}\ \at{\mathbf{id}}{addr},\ |\at{A}{list}|)\ \}\\
+S &\to \mathbf{call}\ \mathbf{id}\ \tok{(}\,A\,\tok{)}\ \tok{;}\ \{\ \mathbf{for}\ \text{each}\ a\ \text{in}\ \at{A}{list}:\ \mathit{gen}(\tok{param}\ a);\ \mathit{gen}(\tok{call}\ \at{\mathbf{id}}{addr},\ |\at{A}{list}|)\ \}\\
+S &\to \mathbf{return}\ E\ \tok{;}\ \{\ \mathit{gen}(\tok{return}\ \at{E}{addr})\ \}
+\end{align*}
+
+\begin{examplebox}{Example 1: \texttt{y = f(a + b, c * 2);}}
+Use the assignment rule of Section~\ref{sec:exprtac}, $S\to\mathbf{id}=E\,;$, and the rule $E\to\mathbf{id}\,(A)$. The right column shows the attributes involved.
+\begin{center}
+\small
+\begin{tabular}{@{}l p{9.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Key attributes: what they hold, who set them, when they are used} \\ \midrule
+\texttt{t1 = a + b} & The first argument. The rule $E\to E_1+E_2$ makes the temporary $t_1$: \at{E}{addr}$=t_1$. Then $\mathit{Elist}\to E$ starts the list: \at{Elist}{list}$=[t_1]$. \\[3pt]
+\texttt{t2 = c * 2} & The second argument: \at{E}{addr}$=t_2$. Now $\mathit{Elist}\to\mathit{Elist}_1,E$ appends it: \at{Elist}{list}$=[t_1,t_2]$. \\[3pt]
+\texttt{param t1} & The rule $E\to\mathbf{id}(A)$ runs \emph{after} all the arguments are evaluated. \at{A}{list}$=[t_1,t_2]$; $\mathit{params}$ writes the first element. \\[3pt]
+\texttt{param t2} & The second element of \at{A}{list}. \\[3pt]
+\texttt{t3 = call f, 2} & The new temporary \at{E}{addr}$=t_3$ was created by this rule; $2=|\at{A}{list}|$ is the number of arguments. \\[3pt]
+\texttt{y = t3} & The assignment rule copies \at{E}{addr}: $y=t_3$. (A later optimisation merges the last two instructions into \texttt{y = call f, 2}.) \\ \bottomrule
+\end{tabular}
+\end{center}
+\end{examplebox}
+
+\begin{examplebox}{Example 2: a call inside a call, \texttt{z = f(a, g(b));}}
+This example shows why the arguments are kept in a \emph{list} that belongs to each call. The parse tree and the lists are in Figure~\ref{fig:nestedcall}.
+\begin{figure}[H]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  em/.style={font=\scriptsize,align=left,text=red!70!black}]
+ \node[nd] (E0) at (0,0)     {$E$ \ \texttt{f(A)}\\[-1pt]{\scriptsize $\mathit{addr}=t_2$}};
+ \node[nd] (A0) at (0,-1.7)  {$A$\\[-1pt]{\scriptsize $\mathit{list}=[a,t_1]$}};
+ \node[nd] (L0) at (0,-3.4)  {$\mathit{Elist}$\\[-1pt]{\scriptsize $\mathit{list}=[a,t_1]$}};
+ \node[nd] (L1) at (-3.6,-5.3) {$\mathit{Elist}_1$\\[-1pt]{\scriptsize $\mathit{list}=[a]$}};
+ \node[nd] (E2) at (3.6,-5.3)  {$E$ \ \texttt{g(A)}\\[-1pt]{\scriptsize $\mathit{addr}=t_1$}};
+ \node[nd] (E1) at (-3.6,-7.1) {$E$ \ \texttt{a}\\[-1pt]{\scriptsize $\mathit{addr}=a$}};
+ \node[nd] (A2) at (3.6,-7.1)  {$A$\\[-1pt]{\scriptsize $\mathit{list}=[b]$}};
+ \node[nd] (L2) at (3.6,-8.8)  {$\mathit{Elist}$\\[-1pt]{\scriptsize $\mathit{list}=[b]$}};
+ \node[nd] (E3) at (3.6,-10.5) {$E$ \ \texttt{b}\\[-1pt]{\scriptsize $\mathit{addr}=b$}};
+ \foreach \a/\b in {E0/A0,A0/L0,L0/L1,L0/E2,L1/E1,E2/A2,A2/L2,L2/E3} \draw[gray] (\a.south)--(\b.north);
+ \node[em,anchor=west] at (5.9,-5.3) {\textbf{emits first} (inner call):\\\texttt{param b}\\\texttt{t1 = call g, 1}};
+ \node[em,anchor=west] at (2.6,-0.2) {\textbf{emits last} (outer call):\\\texttt{param a}\\\texttt{param t1}\\\texttt{t2 = call f, 2}};
+\end{tikzpicture}}
+\caption{Parse tree of \texttt{f(a, g(b))} with the list attributes (the tokens \texttt{f}, \texttt{(}, \texttt{,}, \texttt{)} are not drawn). Each call has its own $A.\mathit{list}$. The inner call finishes first and emits its \texttt{param} and \texttt{call}; the outer call can only write its \texttt{param} instructions when its own list is complete.}
+\label{fig:nestedcall}
+\end{figure}
+\begin{center}
+\small
+\begin{tabular}{@{}l p{9.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Key attributes: what they hold, who set them, when they are used} \\ \midrule
+\texttt{param b} & Rule $E\to\mathbf{id}(A)$ of the \emph{inner} call \texttt{g(b)}: \at{A}{list}$=[b]$. This happens while the outer argument list is still being built. \\[3pt]
+\texttt{t1 = call g, 1} & \at{E}{addr}$=t_1$ is the result of the inner call; \at{Elist}{list} of the outer call becomes $[a,t_1]$. \\[3pt]
+\texttt{param a} & Rule $E\to\mathbf{id}(A)$ of the \emph{outer} call: its list $[a,t_1]$ is complete only now. \\[3pt]
+\texttt{param t1} & The second element of the outer list: the \emph{value} of \texttt{g(b)}. \\[3pt]
+\texttt{t2 = call f, 2} & \at{E}{addr}$=t_2$ of the outer call; $|\at{A}{list}|=2$. \\[3pt]
+\texttt{z = t2} & The assignment rule. \\ \bottomrule
+\end{tabular}
+\end{center}
+If the \texttt{param} instructions of \texttt{f} were written as soon as each argument was evaluated, \texttt{param a} would come \emph{before} \texttt{param b} of the inner call, and the parameters of the two calls would be mixed up on the stack.
+\end{examplebox}
+
+\begin{pitfallbox}{Why not one global queue for the arguments?}
+Many descriptions keep the arguments in a single global queue: $\mathit{Elist}\to E$ starts the queue and $\mathit{Elist}\to\mathit{Elist}_1,E$ appends to it. With the call $f(a,\ g(b))$ the queue of $f$ is $[a]$ when the inner call starts; $\mathit{Elist}\to E$ of $g(b)$ then \emph{resets} the same queue to $[b]$ and destroys the pending $a$. Keeping the list as a \emph{synthesized attribute} of $\mathit{Elist}$ gives every call its own list, exactly as with the switch statement.
+\end{pitfallbox}
+
+\begin{notebox}{What the callee does with it}
+The notes stop at the three-address code. At run time, \texttt{param} places the values where the procedure expects them (for example on the stack, in an activation record), \texttt{call} saves the return address and jumps, and \texttt{return} stores the value and jumps back. The count \texttt{n} in \texttt{call p, n} tells the machine how many of the last \texttt{param} instructions belong to this call, which is why nested calls need no extra bookkeeping.
+\end{notebox}
+
+
 %====================================================================
+
 \section{A Complete Worked Example}
 %====================================================================
 
@@ -4061,6 +4268,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
 \item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
 \item \textbf{Removing left recursion} (needed for top-down parsing) works for an SDD and for an SDT alike: rewrite the grammar as $A\to X\,R$, $R\to Y\,R\mid\varepsilon$; initialise the inherited $R.i$ in the base case, update it in each repeated group, copy $R.i$ to the synthesized $R.s$ at $\varepsilon$, and copy $R.s$ to the head. For an SDD write these as equations (the result is L-attributed); for an SDT place them as actions, inherited ones just before their symbol and synthesized ones of the head at the end.
+\item \textbf{Switch and procedure calls} follow the same pattern. A switch writes the case bodies first and collects (value, label) pairs in a synthesized list that is turned into the tests at the end; a call writes the code of all arguments first, then one \texttt{param} per entry of a synthesized argument list, then \texttt{call p, n}. Each switch and each call has its own list, so nesting works.
 \item An L-attributed SDT can be executed during \textbf{top-down parsing} in three ways: (A) recursive descent in which the inherited attributes are arguments and the synthesized attributes are return values; (B) on-the-fly generation, where the pieces of the code attribute are printed instead of being concatenated (possible when they appear in the same order as in the body); (C) a table-driven LL parser that keeps the attributes in action records and synthesize records on its stack.
 \item \textbf{Backpatching} replaces inherited labels by synthesized lists (\textit{makelist, merge, backpatch}), allowing one-pass bottom-up generation with markers $M$ and $N$.
 \end{itemize}
@@ -4105,6 +4313,8 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item For the list-count SDT of Example~3 in Section~\ref{sec:leftrec}, write recursive-descent procedures \texttt{L()} and \texttt{R(i)} in which the inherited attribute is an argument and the synthesized attribute is a return value.
 \item Consider $S\to\mathbf{if}\,(\,C\,)\,S_1$ with the inherited attributes $S.next$, $C.true$, $C.false$ and $S_1.next$, where the code is $C.code$, then the label $C.true$, then $S_1.code$, and $C.false=S_1.next=S.next$. Write an SDT that generates the code \emph{on the fly} (with \textit{print}) and the corresponding recursive-descent procedure \texttt{S(next)}. Why is on-the-fly generation possible here?
 \item Remove the left recursion from the SDD $T\to T_1*F$ \ ($\at{T}{val}=\at{T_1}{val}\cdot\at{F}{val}$), $T\to T_1/F$ \ ($\at{T}{val}=\at{T_1}{val}\,/\,\at{F}{val}$), $T\to F$ \ ($\at{T}{val}=\at{F}{val}$), $F\to\mathbf{num}$ \ ($\at{F}{val}=\at{\mathbf{num}}{lexval}$). Give the answer (a) as an SDD and (b) as an SDT, and evaluate \texttt{12/3*2}.
+\item Using the SDT of Section~\ref{sec:proccall}, translate \texttt{z = f(g(x), y + 1);} and give the list $A.\mathit{list}$ of each call.
+\item Using the switch SDT of Section~\ref{sec:switch} with $\at{S}{next}=L_1$, give the code and the list $\mathit{CL}.\mathit{list}$ for \texttt{switch (n) \{ case 3: s = 1; case 7: s = 2; default: s = 0; \}}. Why can the tests not be printed while the cases are being parsed?
 \end{enumerate}
 
 \subsection*{Answers to selected problems}
@@ -4293,6 +4503,32 @@ R &\to *\ F\ \{\ \at{R_1}{i}=\at{R}{i}\cdot\at{F}{val}\ \}\ R_1\ \{\ \at{R}{s}=\
   &\mid\ /\ F\ \{\ \at{R_1}{i}=\at{R}{i}\,/\,\at{F}{val}\ \}\ R_1\ \{\ \at{R}{s}=\at{R_1}{s}\ \}\ \mid\ \varepsilon\ \{\ \at{R}{s}=\at{R}{i}\ \}
 \end{align*}
 For \texttt{12/3*2}: $R.i=12$; after \texttt{/3} the next $R$ gets $12/3=4$; after \texttt{*2} the next gets $4\cdot2=8$; $R\to\varepsilon$ gives $R.s=8$, so $T.val=8$. The order matters: $R.i\,/\,F.val$ gives $12/3=4$, whereas $F.val\,/\,R.i$ would give $3/12$.
+
+\textbf{Q24.} The inner call \texttt{g(x)} has $A.\mathit{list}=[x]$; the outer call has $A.\mathit{list}=[t_1,t_2]$, where $t_1$ is the value of \texttt{g(x)} and $t_2$ the value of \texttt{y + 1}.
+\begin{lstlisting}
+param x
+t1 = call g, 1
+t2 = y + 1
+param t1
+param t2
+t3 = call f, 2
+z = t3
+\end{lstlisting}
+
+\textbf{Q25.} Labels: $\mathit{test}=L_2$, case~3 $=L_3$, case~7 $=L_4$, $L_d=L_5$; $\mathit{CL}.\mathit{list}=[(3,L_3),(7,L_4)]$.
+\begin{lstlisting}
+        goto L2
+L3:     s = 1
+        goto L1
+L4:     s = 2
+        goto L1
+L5:     s = 0
+        goto L1
+L2:     if n = 3 goto L3
+        if n = 7 goto L4
+        goto L5
+\end{lstlisting}
+The tests must stand \emph{after} all the bodies, and while the cases are parsed the compiler does not yet know how many cases follow (nor, for the last test, the default label). The pairs are therefore collected in the list and printed at the closing brace.
 
 %====================================================================
 \section*{References}
