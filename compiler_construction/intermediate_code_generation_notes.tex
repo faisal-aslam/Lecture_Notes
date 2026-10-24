@@ -3147,6 +3147,139 @@ B \to B \,|\!|\, B \ \mid\ B\ \&\&\ B\ \mid\ !\,B\ \mid\ (B)\ \mid\ E\ \mathit{r
 \]
 with $|\!|$ standing for the C operator \texttt{||}; \texttt{||} and \texttt{\&\&} are left-associative, \texttt{||} has lower precedence than \texttt{\&\&}, which is lower than \texttt{!}.
 
+\subsection{Start here: a tiny example with labels}
+\label{sec:labelintro}
+
+\paragraph{The story.} A computer follows the instructions of a program one after the other, like a child walking down a corridor with many numbered doors. A \texttt{goto} instruction says: ``do not go on to the next door; run to the door with this name instead''. An \texttt{if} test says: ``if the answer is yes, run to door \emph{T}; if no, run to door \emph{F}''. The names of the doors are called \textbf{labels}.
+
+The compiler has a problem: before it can write ``run to door \emph{T}'', it must \emph{know the name} of door \emph{T}. The scheme of this section solves it like a school with a head teacher: \textbf{the boss decides the door names first and tells each worker}, and only then does the worker write its instructions.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l p{11.6cm}@{}}
+\toprule
+\textbf{Word} & \textbf{Meaning in plain language} \\ \midrule
+label & The name of a door (an instruction), written $L_1, L_2, \dots$ \\
+$\mathit{newlabel}()$ & A ticket machine: each press prints a brand-new, unused door name. \\
+$\mathit{label}(L)$ & Fix the name tag $L$ on the \emph{next} instruction that is written, so that jumps to $L$ arrive there. \\
+\at{S}{next} & A sticky note on the statement $S$ that says: ``the door \emph{right after you} is called \dots''. \\
+\at{B}{true} & A sticky note on the test $B$: ``if you are \textbf{true}, run to door \dots''. \\
+\at{B}{false} & A sticky note on the test $B$: ``if you are \textbf{false}, run to door \dots''. \\
+code & The list of instructions that a piece of the program turns into. \\ \bottomrule
+\end{tabular}
+\end{center}
+These three sticky notes (\at{S}{next}, \at{B}{true}, \at{B}{false}) are the \emph{key attributes} of the whole section. They are \textbf{inherited}: they are written by the \emph{parent} and read by the child. That is exactly the boss telling the worker where the exits are, \emph{before} the worker starts.
+
+\begin{examplebox}{Example 1: \texttt{if (a < b) x = 1;} and then the program ends}
+The rules used (they are given in full in the next subsections) are
+\begin{align*}
+P &\to S: && \at{S}{next}=\mathit{newlabel}(),\qquad \at{P}{code}=\at{S}{code}\cc\mathit{label}(\at{S}{next})\\
+S &\to \mathbf{if}\,(B)\,S_1: && \at{B}{true}=\mathit{newlabel}(),\ \ \at{B}{false}=\at{S_1}{next}=\at{S}{next},\\
+  & && \at{S}{code}=\at{B}{code}\cc\mathit{label}(\at{B}{true})\cc\at{S_1}{code}\\
+B &\to E_1\ \mathit{rel}\ E_2: && \at{B}{code}=\text{``\texttt{if} $E_1$ \textit{rel} $E_2$ \texttt{goto} \at{B}{true}''}\cc\text{``\texttt{goto} \at{B}{false}''}
+\end{align*}
+\textbf{Order of events} (top-down for the sticky notes, then bottom-up for the code):
+\begin{enumerate}[nosep]
+\item $P\to S$ presses the ticket machine: $L_1$. It sticks \at{S}{next}$=L_1$ on $S$: ``after you comes door $L_1$, the end of the program''.
+\item $S\to\mathbf{if}\,(B)\,S_1$ presses the machine again: $L_2$. It sticks \at{B}{true}$=L_2$ on $B$, and copies its own note $L_1$ onto $B$ as \at{B}{false} and onto $S_1$ as \at{S_1}{next}.
+\item $B$ now \emph{knows} both door names and writes its two jumps. $S_1$ (the assignment) writes \texttt{x = 1}.
+\item $S$ puts its pieces together in order, inserting the name tag $L_2$ in front of $S_1$'s code. Finally $P$ appends the name tag $L_1$.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=3pt,align=center},
+  note/.style={font=\scriptsize,align=center},
+  dn/.style={-{Stealth[length=2.2mm]},blue!70!black,thick,dashed},
+  up/.style={-{Stealth[length=2.2mm]},red!70!black,thick}]
+ \node[nd] (P)  at (0,0)     {$P$};
+ \node[nd] (S)  at (0,-2.0)  {$S$\\[-1pt]{\scriptsize $\mathit{next}=L_1$}};
+ \node[nd] (B)  at (-3.8,-4.4) {$B$\\[-1pt]{\scriptsize $\mathit{true}=L_2$}\\[-1pt]{\scriptsize $\mathit{false}=L_1$}};
+ \node[nd] (S1) at (3.8,-4.4)  {$S_1$\\[-1pt]{\scriptsize $\mathit{next}=L_1$}};
+ \node[nd] (e1) at (-3.8,-6.4) {\texttt{a < b}};
+ \node[nd] (e2) at (3.8,-6.4)  {\texttt{x = 1}};
+ \node[nd] (kw) at (-1.0,-4.4) {\texttt{if (}};
+ \node[nd] (cp) at (1.2,-4.4)  {\texttt{)}};
+ \foreach \a/\b in {P/S,S/B,S/S1,S/kw,S/cp,B/e1,S1/e2} \draw[gray] (\a.south)--(\b.north);
+ % notes going down (blue) and code coming up (red)
+ \draw[dn] ([xshift=-4mm]P.south) -- ([xshift=-4mm]S.north);
+ \node[note,text=blue!70!black,anchor=east] at (-0.7,-1.0) {$P$ presses the machine: $L_1$};
+ \draw[dn] ([xshift=-5mm,yshift=-1mm]S.south west) -- ([xshift=-1mm,yshift=2mm]B.north);
+ \node[note,text=blue!70!black,anchor=east] at (-4.6,-3.0) {$S$ presses the machine: $L_2$\\and tells $B$ both names};
+ \draw[dn] ([xshift=5mm,yshift=-1mm]S.south east) -- ([xshift=1mm,yshift=2mm]S1.north);
+ \node[note,text=blue!70!black,anchor=west] at (3.1,-2.8) {tells $S_1$:\\``your next is $L_1$''};
+ \draw[up] ([xshift=4mm]S.north) -- ([xshift=4mm]P.south);
+ \node[note,text=red!70!black,anchor=west] at (0.7,-1.0) {$S.code$ comes up};
+ \draw[up] ([xshift=3mm,yshift=-1mm]e1.north) -- ([xshift=3mm,yshift=1mm]B.south);
+ \node[note,text=red!70!black,anchor=east] at (-4.4,-5.4) {\texttt{if a<b goto L2}\\\texttt{goto L1}};
+ \draw[up] ([xshift=3mm,yshift=-1mm]e2.north) -- ([xshift=3mm,yshift=1mm]S1.south);
+\end{tikzpicture}}
+\caption{The sticky notes of Example~1. \textcolor{blue!70!black}{Blue dashed arrows:} the door names travel \emph{down}, from the parent to its children, before any instruction is written (inherited attributes). \textcolor{red!70!black}{Red arrows:} the instructions travel \emph{up} and are put together in order (synthesized attribute \textit{code}).}
+\label{fig:labelintro}
+\end{figure}
+
+\textbf{The generated code, instruction by instruction.} The right column tells you which sticky note each instruction needed, who had written it, and when:
+\begin{center}
+\small
+\begin{tabular}{@{}l p{10.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Key attributes: what they hold, who set them, when they are used} \\ \midrule
+\texttt{\ \ \ \ if a < b goto L2} &
+ \at{B}{true}$=L_2$. Set by the parent rule $S\to\mathbf{if}\,(B)\,S_1$, \emph{before} $B$ wrote any code. Used here: ``if the test is true, run to $L_2$''. \\[4pt]
+\texttt{\ \ \ \ goto L1} &
+ \at{B}{false}$=L_1$. This is a \emph{copy} of \at{S}{next}$=L_1$, which came from $P\to S$. Used here: ``if the test is false, run to $L_1$, behind the whole \textbf{if}''. \\[4pt]
+\texttt{L2: x = 1} &
+ The name tag $L_2=\at{B}{true}$ is stuck on this instruction by the rule of $S$, with $\mathit{label}(\at{B}{true})$. So the true jump above arrives exactly at the beginning of the then part. The statement $S_1$ was told \at{S_1}{next}$=L_1$, but an assignment never jumps, so it does not use it. \\[4pt]
+\texttt{L1:} &
+ The name tag $L_1=\at{S}{next}$ is stuck on the instruction that follows by $P\to S$, with $\mathit{label}(\at{S}{next})$. Nothing follows here (the program ends), but the tag must exist, because \texttt{goto L1} refers to it. \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to remember:} a door name is \emph{invented once} (by $\mathit{newlabel}()$), then \emph{handed down} by copying, and finally \emph{fixed on exactly one instruction} by $\mathit{label}(\dots)$. Every jump that mentions the name arrives at that instruction.
+\end{examplebox}
+
+\begin{examplebox}{Example 2: \texttt{if (a < b) x = 1; else x = 2;} and then the program ends}
+The rule is $S\to\mathbf{if}\,(B)\,S_1\ \mathbf{else}\ S_2$. Two new door names are needed this time, one for each branch: \at{B}{true}$=\mathit{newlabel}()=L_2$ and \at{B}{false}$=\mathit{newlabel}()=L_3$. Both statements are told \at{S_1}{next}$=\at{S_2}{next}=\at{S}{next}=L_1$.
+\begin{center}
+\small
+\begin{tabular}{@{}l p{10.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Key attributes: what they hold, who set them, when they are used} \\ \midrule
+\texttt{\ \ \ \ if a < b goto L2} & \at{B}{true}$=L_2$, new, set by the $\mathbf{if}$-$\mathbf{else}$ rule. \\[3pt]
+\texttt{\ \ \ \ goto L3} & \at{B}{false}$=L_3$, also new now: false must go to the \textbf{else} part, not behind the statement. \\[3pt]
+\texttt{L2: x = 1} & Tag $L_2$ is fixed here by $\mathit{label}(\at{B}{true})$: the beginning of the then part. \\[3pt]
+\texttt{\ \ \ \ goto L1} & \emph{Generated by the rule itself:} after the then part we must run \emph{over} the else part. The destination is \at{S}{next}$=L_1$, the note that came from $P\to S$. \\[3pt]
+\texttt{L3: x = 2} & Tag $L_3$ is fixed here by $\mathit{label}(\at{B}{false})$: the beginning of the else part. \\[3pt]
+\texttt{L1:} & Tag $L_1$ is fixed by $P\to S$, behind everything. \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to notice:} compare with Example~1. There, \at{B}{false} was a \emph{copy} of \at{S}{next}. Here it is a \emph{new} name, because the false branch now has work to do (the else part). The \texttt{goto L1} in the middle is the reason \at{S}{next} has to be known to $S$ itself.
+\end{examplebox}
+
+\begin{examplebox}{Example 3: a loop, \texttt{while (a < b) x = x + 1;} and then the program ends}
+The rule is $S\to\mathbf{while}\,(B)\,S_1$. It uses a \emph{local} name $\mathit{begin}$ (not an attribute): $\mathit{begin}=\mathit{newlabel}()=L_2$ marks the top of the loop. Also \at{B}{true}$=\mathit{newlabel}()=L_3$, \at{B}{false}$=\at{S}{next}=L_1$, and \at{S_1}{next}$=\mathit{begin}=L_2$: ``when the body is finished, you must run back to the top''.
+\begin{center}
+\small
+\begin{tabular}{@{}l p{10.4cm}@{}}
+\toprule
+\textbf{Instruction} & \textbf{Key attributes: what they hold, who set them, when they are used} \\ \midrule
+\texttt{L2: if a < b goto L3} & Tag $L_2=\mathit{begin}$ is fixed here by $\mathit{label}(\mathit{begin})$: the \emph{top of the loop}, where we come back to. \at{B}{true}$=L_3$ is the body. \\[3pt]
+\texttt{\ \ \ \ goto L1} & \at{B}{false}$=L_1$ is a copy of \at{S}{next}: the way out of the loop. \\[3pt]
+\texttt{L3: x = x + 1} & Tag $L_3=\at{B}{true}$, the start of the body. The body was told \at{S_1}{next}$=L_2$. \\[3pt]
+\texttt{\ \ \ \ goto L2} & \emph{Generated by the rule itself} with $\mathit{gen}(\texttt{goto}\ \mathit{begin})$: after the body, go back to the test. \\[3pt]
+\texttt{L1:} & Tag $L_1=\at{S}{next}$, fixed by $P\to S$. This is where the loop exits. \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to notice:} the loop needs one more name than the \textbf{if}: $\mathit{begin}$, the door to which the body jumps \emph{back}. The sticky note \at{S_1}{next}$=\mathit{begin}$ is how the body learns it.
+\end{examplebox}
+
+\begin{notebox}{The key idea, and what comes later}
+In this scheme \textbf{every jump target is a name that someone has already invented and handed down} through the inherited attributes \at{S}{next}, \at{B}{true} and \at{B}{false}. The code is built bottom-up, but the \emph{names} are passed \emph{top-down}. That is perfect for a top-down parser. A bottom-up parser works in the opposite direction (it finishes the children first), and for it the notes use \textbf{backpatching} (Section~\ref{sec:backpatch}): leave the jump blank, and fill the blank when the target becomes known. Section~\ref{sec:backpatch} starts with similar small examples (an \textbf{if}, an \textbf{if}-\textbf{else} and a \textbf{while}), so you can compare the two schemes side by side.
+\end{notebox}
+
+
 \subsection{Short-circuit (jumping) code}
 In \textbf{short-circuit code}, the operators \texttt{\&\&}, \texttt{||} and \texttt{!} do not appear in the generated code. Instead a boolean expression is translated into jumps to labels: control \emph{reaches} one position if the expression is true and another if it is false. In
 \[
