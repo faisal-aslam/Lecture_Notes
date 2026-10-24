@@ -3405,25 +3405,196 @@ Only 4 instructions (3 tests and the assignment) instead of 7, and no useless \t
 \label{sec:backpatch}
 %====================================================================
 
+\providecommand{\blk}{\textcolor{red!70!black}{\texttt{\_}}}
+\providecommand{\fv}[1]{\textcolor{green!45!black}{\textbf{\texttt{#1}}}}
+
 \subsection{The problem and the idea}
-In the one-pass, label-based scheme above we needed \emph{inherited} labels (\at{B}{true}, \at{S}{next}) because a jump may be generated \emph{before} its target is known. Inherited attributes make one-pass \textbf{bottom-up} translation awkward. \textbf{Backpatching} avoids this:
-\begin{itemize}
-\item When a jump is generated, its \emph{target is left blank}.
-\item Each such incomplete jump is put on a \textbf{list} of jumps that will eventually go to the same target.
-\item When the target address becomes known, the instructions on the list are \emph{patched} (filled in).
-\end{itemize}
-Thus we only need \emph{synthesized} attributes (lists of instruction indices), and the whole translation can be done in a single bottom-up pass.
+
+\paragraph{The problem: a jump to a place that does not exist yet.} Look at the code for \texttt{if (a < b) x = 1;} followed by some later statement. The compiler writes the three-address instructions one after the other and numbers them:
+\begin{center}
+\begin{tabular}{@{}l l l@{}}
+\texttt{100:} & \texttt{if a < b goto } \texttt{?} & \emph{true: go to the \textbf{then} part (instruction 102)} \\
+\texttt{101:} & \texttt{goto } \texttt{?} & \emph{false: skip the then part; but where does the next statement start?} \\
+\texttt{102:} & \texttt{x = 1} & \\
+\end{tabular}
+\end{center}
+When instruction 101 is written, the compiler has not yet seen the statement after the \textbf{if}, so it cannot know the number after which to jump. A jump to an instruction that has not been generated yet is a \textbf{forward jump}. Every \textbf{if}, \textbf{while} and boolean expression with $\&\&$ or $||$ produces such jumps, so the compiler needs a trick.
+
+\paragraph{Two ways out.} The earlier scheme (the flow-of-control SDD with inherited labels, earlier in this chapter) \emph{invents a label name in advance} and passes it down to the code that needs it: that needs inherited attributes, which are awkward for a bottom-up parser. A second solution is to translate twice, with the first pass only counting instructions. \textbf{Backpatching} does it in one pass, with synthesized attributes only.
+
+\begin{defbox}{The idea of backpatching in three sentences}
+\begin{enumerate}[nosep]
+\item When a jump is generated and its target is not known, write the jump \textbf{with a blank target} (\texttt{goto \blk}).
+\item Write down the \textbf{number of that instruction} in a \textbf{list}: all jumps that must go to the same place share one list.
+\item As soon as the target becomes known, go through the list and \textbf{patch} (fill in) the blank of every instruction on it.
+\end{enumerate}
+\emph{Analogy:} you are writing a book and, in many places, you write ``see page \blk'' because the index page is not finished. You keep a list of the places that need that page number. When the index gets its page number, you walk through the list once and fill in every blank.
+\end{defbox}
+
+\begin{minipage}{\textwidth}
+\paragraph{Words you will meet.}
+\begin{center}
+\small
+\begin{tabular}{@{}l p{10.6cm}@{}}
+\toprule
+\textbf{Word} & \textbf{Meaning in plain language} \\ \midrule
+instruction number & The position of a three-address instruction in the output, for example 100, 101, 102. Jumps refer to these numbers. \\
+$\mathit{nextinstr}$ & The number that the \emph{next} instruction to be written will get. It is a counter that grows by 1 with every instruction. \\
+blank target \blk & A jump written as \texttt{goto \blk}: the destination will be filled in later. \\
+list of jumps & A set of instruction numbers, such as $\{100,102\}$, whose jumps share one destination. \\
+\at{B}{truelist} & The jumps out of the code of the boolean expression $B$ that must go to the place where \emph{$B$ is true}. \\
+\at{B}{falselist} & The same for \emph{$B$ is false}. \\
+\at{S}{nextlist} & The jumps out of the statement $S$ that must go to the instruction that comes \emph{right after $S$}. \\
+marker $M$ & An empty production $M\to\varepsilon$ whose only job is to take a \emph{bookmark}: $\at{M}{instr}=\mathit{nextinstr}$, the number of the next instruction at that moment. It stands exactly where we need to know an address. \\
+marker $N$ & An empty production $N\to\varepsilon$ that writes one \texttt{goto \blk} (used to jump over the \textbf{else} part) and keeps its number in $\at{N}{nextlist}$. \\ \bottomrule
+\end{tabular}
+\end{center}
+\end{minipage}
 
 \begin{defbox}{Backpatching primitives}
 \begin{itemize}
-\item $\mathit{makelist}(i)$: create a new list containing only $i$, an index into the instruction array; return a pointer to it.
-\item $\mathit{merge}(p_1, p_2)$: concatenate the lists pointed to by $p_1$ and $p_2$; return the merged list.
-\item $\mathit{backpatch}(p, i)$: insert $i$ as the target label for each instruction on the list $p$.
+\item $\mathit{makelist}(i)$: create a new list containing only $i$, an index into the instruction array; return a pointer to it. \emph{Example:} $\mathit{makelist}(100)=\{100\}$.
+\item $\mathit{merge}(p_1, p_2)$: concatenate the lists pointed to by $p_1$ and $p_2$; return the merged list. \emph{Example:} $\mathit{merge}(\{100\},\{102\})=\{100,102\}$.
+\item $\mathit{backpatch}(p, i)$: insert $i$ as the target label for each instruction on the list $p$. \emph{Example:} $\mathit{backpatch}(\{100,102\},\,104)$ turns \texttt{100: if a<b goto \blk} into \texttt{100: if a<b goto 104} and does the same for 102.
 \item $\mathit{nextinstr}$: global variable containing the index of the next instruction to be generated. $\mathit{emit}(\dots)$ appends an instruction and increments it.
 \end{itemize}
 \end{defbox}
 
+\paragraph{Why only synthesized attributes?} The translation rules run when the parser has \emph{finished} a piece of the input (a bottom-up, post-order evaluation, as for every S-attributed SDD). At that moment the lists \at{B}{truelist}, \at{B}{falselist}, \at{S}{nextlist} are already complete, and they are simply handed upward to the parent. The destination is never needed in advance, so nothing has to be passed \emph{down}.
+
+\subsection{Start here: four small examples by hand}
+The formal rules follow in the next two subsections. First we see what they do on four tiny programs. In every example the relational test is between simple names, so a test \texttt{a < b} needs exactly \emph{two} instructions: \texttt{if a < b goto \blk} (the true jump) and \texttt{goto \blk} (the false jump). The first instruction of the whole program has number 100.
+
+\begin{examplebox}{Example 1: \texttt{if (a < b) x = 1;} followed by \texttt{y = 2;}}
+The rules used (given in full later): $S\to\mathbf{if}\,(B)\,M\,S_1$ with $\mathit{backpatch}(B.truelist,\ M.instr)$ and $S.nextlist=\mathit{merge}(B.falselist,\ S_1.nextlist)$, and $L\to L_1\,M\,S$ with $\mathit{backpatch}(L_1.nextlist,\ M.instr)$.
+\begin{enumerate}[nosep]
+\item \textbf{The condition $B$ is translated.} Write \texttt{100: if a < b goto \blk} and \texttt{101: goto \blk}. \ $B.truelist=\{100\}$, $B.falselist=\{101\}$. Both targets are blank.
+\item \textbf{The marker $M$} comes next and takes a bookmark: $M.instr=102$, because 102 is the number the next instruction will get. This is where the \emph{then} part starts. \ $\mathit{backpatch}(\{100\},102)$ fills the true jump: \texttt{100: if a < b goto 102}.
+\item \textbf{The statement $S_1$} is written: \texttt{102: x = 1}. An assignment never jumps, so $S_1.nextlist=\mathbf{null}$ (empty). The \textbf{if} statement concludes: $S.nextlist=\mathit{merge}(\{101\},\mathbf{null})=\{101\}$. In words: ``instruction 101 must go to whatever comes after the \textbf{if}''. The blank stays.
+\item \textbf{The next statement starts.} The marker $M$ of the statement list takes a bookmark: $M.instr=103$. \ $\mathit{backpatch}(\{101\},103)$ fills the last blank: \texttt{101: goto 103}. Then \texttt{103: y = 2} is written.
+\end{enumerate}
+The code as it grows (red \blk\ is a blank, green is a value that was just filled in):
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+ & \textbf{after step 1} & \textbf{after step 3} & \textbf{after step 4 (final)} \\ \midrule
+\texttt{100} & \texttt{if a<b goto }\blk & \texttt{if a<b goto }\fv{102} & \texttt{if a<b goto 102} \\
+\texttt{101} & \texttt{goto }\blk & \texttt{goto }\blk & \texttt{goto }\fv{103} \\
+\texttt{102} & & \texttt{x = 1} & \texttt{x = 1} \\
+\texttt{103} & & & \texttt{y = 2} \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to remember:} the \emph{true} jump was patched \emph{immediately} (the then part follows right behind it), and the \emph{false} jump had to wait on a list until the next statement was known.
+\end{examplebox}
+
+\begin{examplebox}{Example 2: why lists? \texttt{if (a < b || c < d) x = 1;}}
+Now there are \emph{two} tests, and \emph{both} jump to the then part when they succeed. The rule is $B\to B_1\,||\,M\,B_2$: $\mathit{backpatch}(B_1.falselist,\ M.instr)$, $B.truelist=\mathit{merge}(B_1.truelist,\ B_2.truelist)$, $B.falselist=B_2.falselist$. In words: ``if the first test is false, try the second test; the expression is true if either test is true''.
+\begin{enumerate}[nosep]
+\item \textbf{$B_1$} is \texttt{a < b}: \texttt{100: if a<b goto \blk}, \texttt{101: goto \blk}. \ $B_1.truelist=\{100\}$, $B_1.falselist=\{101\}$.
+\item \textbf{The marker $M$} takes a bookmark: $M.instr=102$, the start of the second test. \ $\mathit{backpatch}(B_1.falselist,102)$ fills \texttt{101: goto 102}: ``if $a<b$ is false, go and test $c<d$''.
+\item \textbf{$B_2$} is \texttt{c < d}: \texttt{102: if c<d goto \blk}, \texttt{103: goto \blk}. \ $B_2.truelist=\{102\}$, $B_2.falselist=\{103\}$.
+\item \textbf{$B$ is finished.} $B.truelist=\mathit{merge}(\{100\},\{102\})=\{100,102\}$ \ \emph{(two jumps, one destination)}, and $B.falselist=\{103\}$.
+\item \textbf{The \textbf{if} rule:} the marker for the then part has $M.instr=104$. \ $\mathit{backpatch}(\{100,102\},104)$ fills \emph{both} true jumps with one call. Then \texttt{104: x = 1} is written, and $S.nextlist=\{103\}$, which is patched later (say, with 105).
+\end{enumerate}
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=3pt,align=center},
+  note/.style={font=\scriptsize,align=left}]
+ \node[nd] (B)  at (0,0)    {$B$\\[-1pt]{\scriptsize $\mathit{truelist}=\{100,102\}$}\\[-1pt]{\scriptsize $\mathit{falselist}=\{103\}$}};
+ \node[nd] (B1) at (-5.4,-2.4) {$B_1$ \ (\texttt{a<b})\\[-1pt]{\scriptsize $\mathit{truelist}=\{100\}$}\\[-1pt]{\scriptsize $\mathit{falselist}=\{101\}$}};
+ \node[nd] (or) at (-2.0,-2.4) {$||$};
+ \node[nd] (M)  at (0.6,-2.4)  {$M$\\[-1pt]{\scriptsize $\mathit{instr}=102$}};
+ \node[nd] (B2) at (4.6,-2.4)  {$B_2$ \ (\texttt{c<d})\\[-1pt]{\scriptsize $\mathit{truelist}=\{102\}$}\\[-1pt]{\scriptsize $\mathit{falselist}=\{103\}$}};
+ \foreach \a/\b in {B/B1,B/or,B/M,B/B2} \draw[gray] (\a.south)--(\b.north);
+ \node[note,anchor=north west] at (-6.9,-4.0) {\textbf{1.}\ \texttt{101} is patched when $M$ is read:\\ $\mathit{backpatch}(B_1.\mathit{falselist}=\{101\},\ M.\mathit{instr}=102)$};
+ \node[note,anchor=north west] at (-0.6,-4.0) {\textbf{2.}\ when $B$ is finished the two true lists are joined:\\ $B.\mathit{truelist}=\mathit{merge}(\{100\},\{102\})=\{100,102\}$};
+\end{tikzpicture}}
+\caption{The attributes of \texttt{a<b || c<d}. The false jump of the first test is patched at once (to the second test); the true jumps of both tests wait together on one list and are patched together later.}
+\end{figure}
+The final code, with the destination 105 supplied by whatever follows:
+\begin{center}
+\small
+\begin{tabular}{@{}c l l@{}}
+\toprule
+\textbf{No.} & \textbf{Instruction} & \textbf{Comment} \\ \midrule
+\texttt{100} & \texttt{if a<b goto 104} & first test true $\to$ then part \\
+\texttt{101} & \texttt{goto 102} & first test false $\to$ try the second test \\
+\texttt{102} & \texttt{if c<d goto 104} & second test true $\to$ then part \\
+\texttt{103} & \texttt{goto 105} & second test false $\to$ skip the then part \\
+\texttt{104} & \texttt{x = 1} & the then part \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to remember:} a list is needed because \emph{several jumps share one destination}. $\mathit{merge}$ collects them, and one $\mathit{backpatch}$ call fixes all of them.
+\end{examplebox}
+
+\begin{examplebox}{Example 3: the marker $N$ and the \textbf{else} part: \texttt{if (a < b) x = 1; else x = 2;} followed by \texttt{y = 3;}}
+The rule is $S\to\mathbf{if}\,(B)\,M_1\,S_1\,N\,\mathbf{else}\,M_2\,S_2$. After the then part is executed we must \emph{jump over} the else part; the marker $N$ writes that jump, and its number goes on a list.
+\begin{enumerate}[nosep]
+\item $B$: \texttt{100: if a<b goto \blk}, \texttt{101: goto \blk}. \ $B.truelist=\{100\}$, $B.falselist=\{101\}$.
+\item $M_1.instr=102$ (start of the then part). \ $\mathit{backpatch}(B.truelist,102)$: \texttt{100: if a<b goto 102}.
+\item $S_1$ is \texttt{102: x = 1}.
+\item \textbf{The marker $N$} writes \texttt{103: goto \blk}; $N.nextlist=\{103\}$. This jump is only executed after the then part, and it must go behind the else part: the destination is not known yet.
+\item $M_2.instr=104$ (start of the else part). \ $\mathit{backpatch}(B.falselist,104)$: \texttt{101: goto 104}. \ Then $S_2$ is \texttt{104: x = 2}.
+\item The statement ends: $S.nextlist=\mathit{merge}(S_1.nextlist,\ N.nextlist,\ S_2.nextlist)=\{103\}$. The next statement starts at 105, so the statement list patches \texttt{103: goto 105} (and \texttt{y = 3} is \texttt{105}).
+\end{enumerate}
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+\textbf{No.} & \textbf{Instruction} & \textbf{Written by} & \textbf{Blank filled by} \\ \midrule
+\texttt{100} & \texttt{if a<b goto 102} & $B$ (true jump)  & $M_1$ (start of then part) \\
+\texttt{101} & \texttt{goto 104}        & $B$ (false jump) & $M_2$ (start of else part) \\
+\texttt{102} & \texttt{x = 1}           & $S_1$ & \\
+\texttt{103} & \texttt{goto 105}        & $N$ (skip the else part) & the next statement (via $S.nextlist$) \\
+\texttt{104} & \texttt{x = 2}           & $S_2$ & \\
+\texttt{105} & \texttt{y = 3}           & next statement & \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to remember:} the \emph{false} jump is patched at once now (to the else part); the \emph{only} jump that waits for the next statement is the one written by $N$.
+\end{examplebox}
+
+\begin{examplebox}{Example 4: a loop, \texttt{while (a < b) x = x + 1;} followed by \texttt{y = 3;}}
+The rule is $S\to\mathbf{while}\,M_1\,(B)\,M_2\,S_1$. A loop must jump \emph{back} to the test after every pass; that target is known early, so it needs no list. The ordinary exit jump is the one that waits.
+\begin{enumerate}[nosep]
+\item $M_1.instr=100$ is a bookmark of the beginning of the test (it will be the target of the jump \emph{back}).
+\item $B$: \texttt{100: if a<b goto \blk}, \texttt{101: goto \blk}. \ $B.truelist=\{100\}$, $B.falselist=\{101\}$.
+\item $M_2.instr=102$ (start of the body). \ $\mathit{backpatch}(B.truelist,102)$: \texttt{100: if a<b goto 102}.
+\item $S_1$ (the body) is \texttt{102: x = x + 1}. It does not jump: $S_1.nextlist=\mathbf{null}$.
+\item The rule now closes the loop: $\mathit{backpatch}(S_1.nextlist,\ M_1.instr)$ (nothing to patch here), then $\mathit{emit}(\texttt{goto }M_1.instr)$ writes \texttt{103: goto 100}, a jump with a \emph{known} target. Finally $S.nextlist=B.falselist=\{101\}$.
+\item The next statement starts at 104, so the statement list patches \texttt{101: goto 104}.
+\end{enumerate}
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+\textbf{No.} & \textbf{Instruction} & \textbf{Written by} & \textbf{Blank filled by} \\ \midrule
+\texttt{100} & \texttt{if a<b goto 102} & $B$ (true jump)  & $M_2$ (start of body) \\
+\texttt{101} & \texttt{goto 104}        & $B$ (false jump) & the next statement (via $S.nextlist$) \\
+\texttt{102} & \texttt{x = x + 1}       & $S_1$ & \\
+\texttt{103} & \texttt{goto 100}        & the \textbf{while} rule & known at once ($M_1.instr$) \\
+\texttt{104} & \texttt{y = 3}           & next statement & \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to remember:} a jump \emph{back} never needs backpatching, because its target is already behind us. Only \emph{forward} jumps wait on lists.
+\end{examplebox}
+
+\begin{notebox}{Cheat sheet: who fills which blank?}
+\begin{itemize}[nosep]
+\item The \textbf{true} jump of a test is filled by the marker at the start of the code that must run when it is true (the then part, the loop body, or the second operand of $\&\&$).
+\item The \textbf{false} jump is filled either by the marker at the start of the else part, or by the marker at the start of the second operand of $||$, or it \emph{waits} on $S.nextlist$.
+\item The jump written by $N$ always waits on $S.nextlist$.
+\item $S.nextlist$ is filled by whoever starts the \emph{next statement} (the rule $L\to L_1\,M\,S$) or, at the end of the program, by the code that follows.
+\end{itemize}
+\end{notebox}
+
+
 \subsection{Boolean expressions}
+The four examples above used the rules informally. Here they are in full, for boolean expressions first and then for statements. Read each rule together with the example it belongs to: $B\to B_1\,||\,M\,B_2$ is Example~2, the \textbf{if} rules are Examples~1 and~3, the \textbf{while} rule is Example~4.
+
 Synthesized attributes: \at{B}{truelist} (instructions that jump when $B$ is true) and \at{B}{falselist} (when false). A \textbf{marker nonterminal} $M \to \varepsilon$ records the index of the next instruction (\at{M}{instr}).
 
 \begin{table}[htbp]
