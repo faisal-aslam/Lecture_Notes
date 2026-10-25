@@ -2442,6 +2442,94 @@ $T \to \mathbf{num}$ & $\at{T}{val}=\at{\mathbf{num}}{lexval}$ \\ \bottomrule
 \end{tabular}
 \end{center}
 \textbf{Classification and evaluation.} $\at{T}{val}$, $\at{R}{s}$ and $\at{E}{val}$ are synthesized; $\at{R}{i}$ is inherited. The rule for $R_1.i$ uses the inherited attribute of its parent ($R.i$) and the attribute of the sibling $T$ to its left, so the SDD is \textbf{L-attributed} but no longer S-attributed. A single depth-first, left-to-right traversal evaluates it. For \texttt{9-5+2} the values are $R.i=9,\ 4,\ 6$ and finally $E.val=6$, exactly as in the figure and the table of the next example, which shows the same rules written as an SDT.
+
+\medskip
+\textbf{The dependency graph, drawn on the parse tree.} Every attribute instance is a small box next to its node. An arrow $x\to y$ means \emph{``$y$ is computed from $x$''}: the value flows along the arrow (the book's convention, ``used $\to$ defined''; if you read arrows as ``depends on'' they point the other way round). The yellow numbers are one valid evaluation order.
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt},
+  ab/.style={draw,rounded corners=1.5pt,inner sep=2pt,font=\scriptsize,fill=white},
+  ord/.style={circle,fill=yellow!70,inner sep=1pt,font=\tiny\bfseries},
+  tr/.style={gray!55},
+  dn/.style={-{Stealth[length=2mm]},blue!70!black,thick},
+  up/.style={-{Stealth[length=2mm]},red!70!black,thick},
+  lx/.style={-{Stealth[length=2mm]},black!60,thick}]
+ % ---- the parse tree
+ \node[nd] (E)  at (0,0)       {$E$};
+ \node[nd] (Ta) at (-4.2,-2.4) {$T$};
+ \node[nd] (R0) at (1.8,-2.4)  {$R$};
+ \node[nd] (n9) at (-4.2,-4.6) {\textbf{num}};
+ \node[nd] (mi) at (-0.5,-4.8) {$-$};
+ \node[nd] (Tb) at (1.8,-4.8)  {$T$};
+ \node[nd] (R1) at (5.8,-4.8)  {$R$};
+ \node[nd] (n5) at (1.8,-7.0)  {\textbf{num}};
+ \node[nd] (pl) at (4.3,-7.0)  {$+$};
+ \node[nd] (Tc) at (6.4,-7.0)  {$T$};
+ \node[nd] (R2) at (10.6,-7.0) {$R$};
+ \node[nd] (n2) at (6.4,-9.2)  {\textbf{num}};
+ \node[nd] (ep) at (10.6,-9.2) {$\varepsilon$};
+ \foreach \a/\b in {E/Ta,E/R0,Ta/n9,R0/mi,R0/Tb,R0/R1,Tb/n5,R1/pl,R1/Tc,R1/R2,Tc/n2,R2/ep}
+   \draw[tr] (\a.south)--(\b.north);
+ % ---- attribute boxes (the yellow number is the evaluation order)
+ \node[ab,label={[ord]above:10}] (Ev)  at (1.2,0)     {val=6};
+ \node[ab,label={[ord]above:1}]  (Tav) at (-3.1,-2.4) {val=9};
+ \node[ab,label={[ord]above:2}]  (R0i) at (0.65,-2.4) {i=9};
+ \node[ab,label={[ord]above:9}]  (R0s) at (2.95,-2.4) {s=6};
+ \node[ab] (l9) at (-3.1,-4.6) {lexval=9};
+ \node[ab,label={[ord]above:3}]  (Tbv) at (2.9,-4.8)  {val=5};
+ \node[ab,label={[ord]above:4}]  (R1i) at (4.7,-4.8)  {i=4};
+ \node[ab,label={[ord]above:8}]  (R1s) at (6.9,-4.8)  {s=6};
+ \node[ab] (l5) at (2.9,-7.0) {lexval=5};
+ \node[ab,label={[ord]above:5}]  (Tcv) at (7.5,-7.0)  {val=2};
+ \node[ab,label={[ord]above:6}]  (R2i) at (9.5,-7.0)  {i=6};
+ \node[ab,label={[ord]above:7}]  (R2s) at (11.7,-7.0) {s=6};
+ \node[ab] (l2) at (7.5,-9.2) {lexval=2};
+ % ---- token value -> T.val
+ \draw[lx] (l9.north)--(Tav.south);
+ \draw[lx] (l5.north)--(Tbv.south);
+ \draw[lx] (l2.north)--(Tcv.south);
+ % ---- inherited flow: left sibling and parent -> R.i
+ \draw[dn] (Tav.east)--(R0i.west);
+ \draw[dn] (R0i.south) to[bend right=18] (R1i.north west);
+ \draw[dn] (Tbv.east)--(R1i.west);
+ \draw[dn] (R1i.south) to[bend right=18] (R2i.north west);
+ \draw[dn] (Tcv.east)--(R2i.west);
+ % ---- turn-around at epsilon, then synthesized flow back up
+ \draw[up] (R2i.south) to[bend right=55] (R2s.south);
+ \draw[up] (R2s.north) to[bend right=12] (R1s.south east);
+ \draw[up] (R1s.north) to[bend right=12] (R0s.south east);
+ \draw[up] (R0s.north) to[bend right=12] (Ev.south east);
+\end{tikzpicture}}
+\caption{Dependency graph of \texttt{9-5+2} for the SDD without left recursion. Grey arrows: the token value becomes $T.val$. \textcolor{blue!70!black}{Blue arrows:} $R.i$ is computed from its \emph{left sibling} ($T.val$) and from its \emph{parent's} $R.i$ and goes down the chain of $R$'s. \textcolor{red!70!black}{Red arrows:} at $R\to\varepsilon$ the value is turned around ($R_2.s=R_2.i$) and copied up to $E.val$.}
+\label{fig:lrdepgraph}
+\end{figure}
+
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+\textbf{Order} & \textbf{Attribute computed} & \textbf{Rule (from the production)} & \textbf{Value} \\ \midrule
+1 & $T.val$ (first $T$) & $T\to\mathbf{num}$ & $9$ \\
+2 & $R.i$ & $E\to T\,R$: \ $R.i=T.val$ & $9$ \\
+3 & $T.val$ (second $T$) & $T\to\mathbf{num}$ & $5$ \\
+4 & $R_1.i$ & $R\to -\,T\,R_1$: \ $R_1.i=R.i-T.val$ & $9-5=4$ \\
+5 & $T.val$ (third $T$) & $T\to\mathbf{num}$ & $2$ \\
+6 & $R_2.i$ & $R_1\to +\,T\,R_2$: \ $R_2.i=R_1.i+T.val$ & $4+2=6$ \\
+7 & $R_2.s$ & $R_2\to\varepsilon$: \ $R_2.s=R_2.i$ & $6$ \\
+8 & $R_1.s$ & $R_1\to +\,T\,R_2$: \ $R_1.s=R_2.s$ & $6$ \\
+9 & $R.s$ & $R\to -\,T\,R_1$: \ $R.s=R_1.s$ & $6$ \\
+10 & $E.val$ & $E\to T\,R$: \ $E.val=R.s$ & $6$ \\ \bottomrule
+\end{tabular}
+\end{center}
+\textbf{How to read the tree in three questions.}
+\begin{enumerate}[nosep]
+\item \emph{Where does an $R.i$ come from?} It is computed by the rule of the production in which that $R$ appears in the body. The first $R$ gets $T.val$ from its left sibling (rule of $E\to T\,R$). Every later $R_1$ gets $R.i\ (\pm)\ T.val$: the value of its \textbf{parent} $R$ and of its \textbf{left sibling} $T$, combined by the operator of that production.
+\item \emph{What happens at the bottom?} $R\to\varepsilon$ has no input left. Its only rule, $R.s=R.i$, \emph{turns the value around}: the running total becomes the final answer.
+\item \emph{How does the answer reach the root?} Each $R.s$ is just a copy of the $R.s$ of its child ($R.s=R_1.s$), so the value climbs one $R$ at a time until $E.val=R.s$.
+\end{enumerate}
 \end{examplebox}
 
 \begin{examplebox}{Example 1, SDT form: evaluating $9-5+2$ with a left-recursion-free grammar}
