@@ -531,10 +531,10 @@ Three-address code can be generated from the DAG alone; no SDD or SDT is needed.
 
 \paragraph{Idea.} Every \emph{interior} node of the DAG becomes exactly \emph{one} three-address instruction, with a fresh temporary holding its result. \emph{Leaves} generate no instruction: they only supply a name (a variable such as $a$, or a constant). A shared node is still one node, so it produces only one instruction; this is how the DAG removes the common sub-expression.
 
-\paragraph{Order.} Process the records of the array in increasing order of value number. A node's children were always created before the node, so their value numbers are smaller, and their results are ready when the node is reached. The array order is therefore already a valid evaluation order.
+\paragraph{Order.} Process the records of the array in increasing order of value number. This \emph{is} a \textbf{post-order traversal of the DAG}: the children are visited before their parent, and a shared node is visited only once. The reason is that the array was filled while the syntax tree was walked in post-order (Section~\ref{sec:vn}), so a node always gets a larger number than its children, and the results of the children are ready when the node is reached. Check it on the DAG of Figure~\ref{fig:dagarray}: a depth-first post-order from the root (left child first, skipping nodes already visited) visits $1,2,3,4,5,6,7,8,9$, exactly the order of the array. So no second traversal is needed: scanning the array \emph{is} the traversal. (Any order in which children come before their parents would be correct; post-order is simply the one that the array already holds.)
 
 \begin{lstlisting}
-for i = 1 to n:                          // records in the array, in index order
+for i = 1 to n:                          // index order = post-order of the DAG
     if record i is a leaf:
         name[i] = the variable or constant it stands for
     else:                                // record i = (op, left, right)
@@ -568,7 +568,7 @@ Here $\mathit{name}[i]$ is the address that holds the value of node $i$. For an 
 \begin{tabular}{@{}L{3.6cm} L{4.7cm} L{5.4cm}@{}}
 \toprule
 \textbf{Method} & \textbf{How} & \textbf{Common sub-expressions} \\ \midrule
-1.\ From a finished DAG & Scan the array in index order (above); no SDD/SDT needed. & Computed once (shared nodes). \\
+1.\ From a finished DAG & Scan the array in index order, which is the post-order of the DAG (above); no SDD/SDT needed. & Computed once (shared nodes). \\
 2.\ During DAG construction & Whenever find-or-create \emph{creates} a node, emit its instruction; when it finds an existing node, emit nothing. Needs SDD/SDT (Section~\ref{sec:sdddag}). & Computed once. \\
 3.\ SDD/SDT directly from the parse (Section~\ref{sec:exprtac}) & Each reduction emits an instruction using \textit{newTemp} and \textit{gen}; no DAG is built. & Computed again each time they occur (e.g., $b-c$ twice). \\ \bottomrule
 \end{tabular}
