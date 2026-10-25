@@ -124,6 +124,121 @@ Static checking includes type checking and syntactic checks that the grammar can
 \section{Variants of Syntax Trees and Intermediate Representations}
 %====================================================================
 
+\subsection{Parse tree, syntax tree and DAG side by side}
+\label{sec:threetrees}
+
+The compiler can represent the same expression in three different shapes. They look alike at first sight, so we begin with \emph{one} expression and draw all three: the \textbf{parse tree} (what the grammar did), the \textbf{syntax tree} (what the expression means), and the \textbf{DAG} (the syntax tree with repeated sub-expressions stored only once). The next subsections look at each of them more closely.
+
+\begin{examplebox}{One expression, three structures: $a*b + a*b$}
+We use the usual grammar $E\to E+T\mid T$, \ $T\to T*F\mid F$, \ $F\to\mathbf{id}$ (with $F\to(E)$ added when parentheses occur). The expression contains the sub-expression $a*b$ \emph{twice}; this is what the DAG will exploit.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  n/.style={inner sep=1.5pt,font=\small},
+  s/.style={circle,draw,minimum size=6.8mm,inner sep=0pt,font=\small},
+  sh/.style={circle,draw,fill=green!15,minimum size=6.8mm,inner sep=0pt,font=\small},
+  capt/.style={font=\small,align=center}]
+ % ------------- (a) parse tree: 17 nodes
+ \node[n] (E0) at (0,0)      {$E$};
+ \node[n] (E1) at (-2.7,-1)  {$E$};
+ \node[n] (pl) at (0,-1)     {$+$};
+ \node[n] (T3) at (2.7,-1)   {$T$};
+ \node[n] (T1) at (-2.7,-2)  {$T$};
+ \node[n] (T4) at (1.8,-2)   {$T$};
+ \node[n] (s2) at (2.7,-2)   {$*$};
+ \node[n] (F4) at (3.6,-2)   {$F$};
+ \node[n] (T2) at (-3.6,-3)  {$T$};
+ \node[n] (s1) at (-2.7,-3)  {$*$};
+ \node[n] (F2) at (-1.8,-3)  {$F$};
+ \node[n] (F3) at (1.8,-3)   {$F$};
+ \node[n] (b2) at (3.6,-3)   {\textbf{id}$_b$};
+ \node[n] (F1) at (-3.6,-4)  {$F$};
+ \node[n] (b1) at (-1.8,-4)  {\textbf{id}$_b$};
+ \node[n] (a2) at (1.8,-4)   {\textbf{id}$_a$};
+ \node[n] (a1) at (-3.6,-5)  {\textbf{id}$_a$};
+ \foreach \a/\b in {E0/E1,E0/pl,E0/T3,E1/T1,T3/T4,T3/s2,T3/F4,T1/T2,T1/s1,T1/F2,T4/F3,F4/b2,T2/F1,F2/b1,F3/a2,F1/a1}
+   \draw[gray] (\a)--(\b);
+ \node[capt] at (0,-6.2) {\textbf{(a) Parse tree}\\17 nodes};
+ % ------------- (b) syntax tree: 7 nodes
+ \begin{scope}[xshift=7.4cm]
+  \node[s] (P)  at (0,0)       {$+$};
+  \node[s] (M1) at (-1.1,-1.4) {$*$};
+  \node[s] (M2) at (1.1,-1.4)  {$*$};
+  \node[s] (A1) at (-1.6,-2.8) {$a$};
+  \node[s] (B1) at (-0.6,-2.8) {$b$};
+  \node[s] (A2) at (0.6,-2.8)  {$a$};
+  \node[s] (B2) at (1.6,-2.8)  {$b$};
+  \foreach \a/\b in {P/M1,P/M2,M1/A1,M1/B1,M2/A2,M2/B2} \draw (\a)--(\b);
+  \draw[dashed,orange!80!black,rounded corners=3pt] (-2.1,-0.95) rectangle (-0.1,-3.3);
+  \draw[dashed,orange!80!black,rounded corners=3pt] (0.1,-0.95) rectangle (2.1,-3.3);
+  \node[font=\scriptsize,text=orange!80!black,align=center] at (0,-4.0) {the same sub-expression\\stored twice};
+  \node[capt] at (0,-6.2) {\textbf{(b) Syntax tree}\\7 nodes};
+ \end{scope}
+ % ------------- (c) DAG: 4 nodes
+ \begin{scope}[xshift=11.7cm]
+  \node[s]  (DP) at (0,0)       {$+$};
+  \node[sh] (DM) at (0,-1.6)    {$*$};
+  \node[s]  (DA) at (-0.9,-3.2) {$a$};
+  \node[s]  (DB) at (0.9,-3.2)  {$b$};
+  \begin{scope}[every path/.style={-{Stealth[length=2mm]}}]
+   \draw (DP) to[bend right=25] (DM);
+   \draw (DP) to[bend left=25] (DM);
+   \draw (DM)--(DA); \draw (DM)--(DB);
+  \end{scope}
+  \node[font=\scriptsize,text=green!40!black,align=center] at (0,-4.0) {one node,\\two arrows into it};
+  \node[capt] at (0,-6.2) {\textbf{(c) DAG}\\4 nodes};
+ \end{scope}
+\end{tikzpicture}}
+\caption{The same expression $a*b+a*b$ as (a) parse tree, (b) syntax tree and (c) DAG. From (a) to (b) the grammar chains $E\to T\to F\to\mathbf{id}$ disappear; from (b) to (c) the two identical sub-trees $a*b$ merge into one node, which the $+$ node reaches by two arrows.}
+\label{fig:threetrees}
+\end{figure}
+
+\textbf{What each one keeps and drops.}
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.3cm} p{2.9cm} p{3.1cm} p{3.6cm}@{}}
+\toprule
+ & \textbf{Parse tree} & \textbf{Syntax tree} & \textbf{DAG} \\ \midrule
+Grammar chains ($E\to T\to F$) & kept: every rule used is a node & dropped & dropped \\
+Parentheses, punctuation & kept as leaves & dropped (the shape shows the grouping) & dropped \\
+Operators & leaves beside their operands & interior nodes & interior nodes \\
+Repeated sub-expression $a*b$ & two copies & two copies & \textbf{one shared node} \\
+Nodes for $a*b+a*b$ & 17 & 7 & 4 \\
+Built by & the parser & the SDD of Section~\ref{sec:sddtree} ($\mathit{Leaf}$, $\mathit{Node}$) & the same SDD, with $\mathit{Leaf}$ and $\mathit{Node}$ \emph{reusing} nodes (value numbers, Section~\ref{sec:vn}) \\
+Used for & checking that the input is legal & type checking, code generation & code that computes $a*b$ only once \\ \bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The difference shows in the code.} Walking the \emph{syntax tree} computes the sub-expression twice; walking the \emph{DAG} computes the shared node once (Section~\ref{sec:tacdag}):
+\begin{center}
+\small
+\begin{tabular}{@{}l l@{}}
+\textbf{From the syntax tree} \qquad\qquad & \textbf{From the DAG} \\[2pt]
+\texttt{t1 = a * b} & \texttt{t1 = a * b} \\
+\texttt{t2 = a * b} & \texttt{t2 = t1 + t1} \\
+\texttt{t3 = t1 + t2} & \\
+\end{tabular}
+\end{center}
+Three operations against two: the DAG saves the repeated multiplication. For a big program with many repeated sub-expressions this is a real saving, and it is the reason why DAGs are used.
+
+\textbf{How the DAG is stored.} The nodes of a DAG are kept in an array; the position in the array is the \emph{value number} of the node (Section~\ref{sec:vn}). For this expression:
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+\textbf{value number} & \textbf{label} & \textbf{left child} & \textbf{right child} \\ \midrule
+1 & \textbf{id} $\to$ entry of $a$ & & \\
+2 & \textbf{id} $\to$ entry of $b$ & & \\
+3 & $*$ & 1 & 2 \\
+4 & $+$ & 3 & 3 \\ \bottomrule
+\end{tabular}
+\end{center}
+When the second $a*b$ is read, the builder asks ``is there already a node $(*,1,2)$?'', finds node~3, and \emph{returns its number instead of creating a new one}; this is why node~4 has the same child twice.
+\end{examplebox}
+
+
 \subsection{Syntax trees (abstract syntax trees)}
 \label{sec:syntaxtree}
 A \textbf{syntax tree} is a condensed form of the parse tree: operators and keywords appear as \emph{interior nodes}, and operands as children. Chains of single productions (such as $E\to T\to F\to\mathbf{id}$) disappear, and so do punctuation tokens such as parentheses. The tree keeps only what later phases need: \emph{which operation is applied to which operands}.
