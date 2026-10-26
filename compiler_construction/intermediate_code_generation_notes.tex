@@ -70,7 +70,7 @@
 \begin{tcolorbox}[colback=gray!5,colframe=gray!50,title=\textbf{Suggested Lecture Plan (3--4 lectures)}]
 \begin{description}[leftmargin=2.2cm,style=nextline]
 \item[Lecture 1] Role of intermediate code; forms of IR: syntax trees, DAGs, three-address code, quadruples and triples (indirect triples as a refinement), SSA form and the $\varphi$-function.
-\item[Lecture 2] \emph{Syntax-directed definitions and translation, from scratch:} why syntax alone is not enough, attributes, semantic rules, synthesized and inherited attributes, dependency graphs, S- and L-attributed definitions; then SDTs: actions inside productions, postfix translation, marker nonterminals.
+\item[Lecture 2] \emph{Syntax-directed definitions and translation, from scratch:} why syntax alone is not enough, attributes, semantic rules, synthesized and inherited attributes, dependency graphs, S- and L-attributed definitions; then SDTs: actions inside productions, postfix translation.
 \item[Lecture 3] Translation of expressions and assignments, array references, type checking and conversion.
 \item[Lecture 4] Boolean expressions and short-circuit code, flow-of-control statements, backpatching, switch statements and procedure calls; revision and exercises.
 \end{description}
@@ -570,7 +570,7 @@ Here $\mathit{name}[i]$ is the address that holds the value of node $i$. For an 
 \textbf{Method} & \textbf{How} & \textbf{Common sub-expressions} \\ \midrule
 1.\ From a finished DAG & Scan the array in index order, which is the post-order of the DAG (above); no SDD/SDT needed. & Computed once (shared nodes). \\
 2.\ During DAG construction & Whenever find-or-create \emph{creates} a node, emit its instruction; when it finds an existing node, emit nothing. Needs SDD/SDT (Section~\ref{sec:sdddag}). & Computed once. \\
-3.\ SDD/SDT directly from the parse (Section~\ref{sec:exprtac}) & Each reduction emits an instruction using \textit{newTemp} and \textit{gen}; no DAG is built. & Computed again each time they occur (e.g., $b-c$ twice). \\ \bottomrule
+3.\ SDD/SDT directly from the parse (Section~\ref{sec:exprtac}) & Each rule emits an instruction (using \textit{newTemp} and \textit{gen}) when its node is completed; no DAG is built. & Computed again each time they occur (e.g., $b-c$ twice). \\ \bottomrule
 \end{tabular}
 \end{center}
 SDD/SDT is the \emph{mechanism} for generating code in one pass while parsing; the DAG is what gives \emph{sharing}. Methods 1 and 2 give the same code.
@@ -938,8 +938,8 @@ The CFG part is unchanged and still defines the syntax. The new parts add meanin
 \begin{notebox}{Do real compilers build the parse tree?}
 Usually not. The parse tree is a \emph{conceptual} object: it is the structure that the grammar assigns to the input, and it is what an SDD is defined on (annotated parse tree, dependency graph). A real parser seldom stores it:
 \begin{itemize}[nosep]
-\item A recursive-descent parser follows the derivation through its procedure calls, and an LR parser follows it through its stack and reductions. The tree is traversed implicitly, not built.
-\item At each reduction (or procedure return) the parser executes the semantic actions, which is exactly the SDT idea. Typically these actions build a \textbf{syntax tree (AST)} node directly, e.g.\ $\at{E}{node}=\mathbf{new}\ \mathit{Node}(\tok{'+'},\at{E_1}{node},\at{T}{node})$ (Section~\ref{sec:sddtree}).
+\item A recursive-descent parser follows the derivation through its procedure calls. The tree is traversed implicitly, not built.
+\item At each procedure return (that is, whenever a node of the parse tree is completed) the parser executes the semantic actions, which is exactly the SDT idea. Typically these actions build a \textbf{syntax tree (AST)} node directly, e.g.\ $\at{E}{node}=\mathbf{new}\ \mathit{Node}(\tok{'+'},\at{E_1}{node},\at{T}{node})$ (Section~\ref{sec:sddtree}).
 \end{itemize}
 A parse tree has a node for every grammar symbol, including chain steps such as $E\to T\to F\to\mathbf{digit}$ and punctuation such as parentheses. A syntax tree keeps only the operators and operands that matter, so it is much smaller and is the usual input of the later phases (type checking, intermediate-code generation).
 
@@ -1054,7 +1054,7 @@ Think of the parse tree as a company. A \textbf{synthesized} attribute is a \emp
 \end{notebox}
 
 \begin{itemize}
-\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children}. (Occasionally it also uses another attribute of $N$ itself, e.g.\ $\at{A}{t}=\at{A}{s}+1$; this is allowed as long as there is no cycle.) Information flows \emph{bottom-up}. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
+\item A \textbf{synthesized attribute} at a parse-tree node $N$ is computed from attributes of $N$'s \emph{children}. (Occasionally it also uses another attribute of $N$ itself, e.g.\ $\at{A}{t}=\at{A}{s}+1$; this is allowed as long as there is no cycle.) Information flows from the children up to the parent. Terminals have synthesized attributes only (supplied by the lexer, e.g., \at{\mathbf{digit}}{lexval}).
 \item An \textbf{inherited attribute} at $N$ is computed from attributes of $N$'s \emph{parent and siblings}. Information flows \emph{top-down / sideways}. Useful when the structure of the parse tree does not match the abstract syntax, e.g., passing a type to a list of identifiers, or passing the label to jump to.
 \end{itemize}
 
@@ -1107,7 +1107,7 @@ $F \to \mathbf{digit}$ & $\at{F}{val} = \at{\mathbf{digit}}{lexval}$ \\ \bottomr
 \item $T \to T_1 * F$ is applied once both its children are known: $3 \times 5 = 15$.
 \item $E \to E_1 + T$ then adds $15 + 4 = 19$, and $L \to E\,\mathbf{n}$ passes $19$ to the root.
 \end{enumerate}
-Every node is computed \emph{after} its children, i.e., in \textbf{post-order}. This is natural for synthesized attributes, and it is exactly the order in which an LR parser performs reductions.
+Every node is computed \emph{after} its children, i.e., in \textbf{post-order}. This is natural for synthesized attributes: a node needs the values of its children, so the children must be finished first.
 \end{examplebox}
 
 \begin{notebox}{Which evaluation order is needed?}
@@ -1116,7 +1116,7 @@ Every node is computed \emph{after} its children, i.e., in \textbf{post-order}. 
 \begin{tabular}{@{}L{3.3cm} L{4.2cm} L{6cm}@{}}
 \toprule
 \textbf{Kind of SDD} & \textbf{Evaluation order} & \textbf{Dependency graph needed?} \\ \midrule
-S-attributed (synthesized only) & post-order (children before parent), i.e.\ LR reductions & No: every edge points from child to parent, so post-order is already a topological order. \\
+S-attributed (synthesized only) & post-order (children before parent) & No: every edge points from child to parent, so post-order is already a topological order. \\
 L-attributed & one depth-first, left-to-right traversal & No: inherited attributes depend only on the parent and left siblings. \\
 General (arbitrary mix) & any topological order of the dependency graph & Yes: build the graph, topologically sort it, and reject it if it has a cycle. \\ \bottomrule
 \end{tabular}
@@ -1253,7 +1253,7 @@ Steps (4) and (5) do not depend on each other, so they may be swapped; both iden
 
 \begin{defbox}{S-attributed and L-attributed definitions}
 \begin{itemize}
-\item An SDD is \textbf{S-attributed} if \emph{every attribute is synthesized}. It can be evaluated in any bottom-up order, e.g., during LR parsing, at the time of reduction.
+\item An SDD is \textbf{S-attributed} if \emph{every attribute is synthesized}. It can be evaluated in any order that visits the children before their parent, for example post-order.
 \item An SDD is \textbf{L-attributed} if each attribute is either synthesized, or inherited such that, for a production $A \to X_1 X_2 \cdots X_n$, the inherited attribute of $X_i$ depends only on:
  \begin{enumerate}[label=(\alph*),nosep]
  \item inherited attributes of $A$, and
@@ -1300,7 +1300,7 @@ Most examples so far are S-attributed. Here are two examples with inherited attr
 
 \begin{notebox}{How to classify an SDD}
 \begin{enumerate}[nosep]
-\item Is every attribute synthesized? $\Rightarrow$ \textbf{S-attributed}: evaluate in post-order (LR reductions).
+\item Is every attribute synthesized? $\Rightarrow$ \textbf{S-attributed}: evaluate in post-order.
 \item Otherwise, look at \emph{every inherited attribute} $X_i.a$ in a production $A\to X_1\cdots X_n$. Does its rule use only inherited attributes of $A$, attributes of $X_1,\dots,X_{i-1}$ (left siblings), or other attributes of $X_i$ itself? If this holds for all of them $\Rightarrow$ \textbf{L-attributed}: one depth-first left-to-right traversal suffices.
 \item If some inherited attribute uses a \emph{right} sibling (or a synthesized attribute that would have to come from the right), the SDD is \textbf{not L-attributed}. Draw the dependency graph. If it has no cycle, the SDD is \textbf{non-circular} and any topological order evaluates it; if it has a cycle, the SDD is erroneous.
 \end{enumerate}
@@ -1410,7 +1410,7 @@ $B \to 1$ & $\at{B}{val}=2^{\at{B}{pos}}$ \\ \bottomrule
 \item $\at{L_a}{len}=\at{L_b}{len}+1=3$ and $\at{B_1}{pos}=\at{L_b}{len}=2$.
 \item $\at{B_1}{val}=2^{2}=4$ \ ($B_1\to1$), then $\at{L_a}{val}=4+1=5$.
 \end{enumerate}
-Other orders are also valid, e.g.\ all three \textit{len} values first. In practice a compiler evaluates such an SDD in \emph{several passes over the parse tree}: a bottom-up pass for \textit{len}, a top-down pass for \textit{pos}, and a bottom-up pass for \textit{val}.
+Other orders are also valid, e.g.\ all three \textit{len} values first. In practice a compiler evaluates such an SDD in \emph{several passes over the parse tree}: a pass from the leaves upward for \textit{len}, a pass from the root downward for \textit{pos}, and a pass from the leaves upward for \textit{val}.
 
 \textbf{Remark.} The difficulty comes from the right-recursive grammar. With the left-recursive grammar $L\to L_1B\mid B$ and $\at{L}{val}=2\times\at{L_1}{val}+\at{B}{val}$ the same value is computed by an S-attributed SDD, with no \textit{pos} and no \textit{len}. Choosing the grammar well can remove the need for a dependency graph.
 \end{examplebox}
@@ -1460,7 +1460,7 @@ Because this SDD is S-attributed (every attribute is synthesized), its rules can
 \item An \textbf{operator rule} ($E\to E_1\pm T$) creates \emph{one} interior node. Its left child is the pointer of $E_1$, its right child is the pointer of $T$.
 \item The \textit{node} of the root of the parse tree points to the finished syntax tree.
 \end{enumerate}
-Post-order guarantees that the children are visited before their parent, which is exactly what an operator rule needs: it uses the pointers of its operands. An LR parser reduces in the same post-order, so the same rules can also be run during parsing.
+Post-order guarantees that the children are visited before their parent, which is exactly what an operator rule needs: it uses the pointers of its operands.
 \end{defbox}
 
 \begin{examplebox}{Worked example 1: the syntax tree of \texttt{a - 4 + c}}
@@ -1493,7 +1493,7 @@ Post-order guarantees that the children are visited before their parent, which i
 \label{fig:sddtree-parse}
 \end{figure}
 
-\textbf{Step 2: the order in which the rules run.} A post-order traversal of the parse tree visits the nodes in the order below and executes the rule of each visited node (an LR parser reduces in the same order, so each rule runs at its reduction). Read the table from top to bottom and watch the pointers $p_1,\dots,p_5$ appear.
+\textbf{Step 2: the order in which the rules run.} A post-order traversal of the parse tree visits the nodes in the order below and executes the rule of each visited node. Read the table from top to bottom and watch the pointers $p_1,\dots,p_5$ appear.
 
 \begin{center}
 \small
@@ -1656,7 +1656,7 @@ Compare the two trees in Figure~\ref{fig:sddtree-paren}. The input symbols are t
 
 \paragraph{The problem with the two-step method.} In Section~\ref{sec:vn} we first built the complete syntax tree and then walked over it in post-order to obtain the DAG. That works, but it builds a structure (the tree) that is thrown away immediately. An SDD lets us skip the tree: the parser creates DAG nodes \emph{while it parses}, and the tree never exists in memory.
 
-\paragraph{The key observation.} The SDD of the previous subsection already has the right shape. Its rules for $E \to E_1 + T$ and $T \to T_1 * F$ create a node \emph{after} the nodes of the children are known, and a bottom-up parser performs reductions in exactly that (post-)order, which is also the order used by the value-number method. All we change is \emph{what the constructor functions do}:
+\paragraph{The key observation.} The SDD of the previous subsection already has the right shape. Its rules for $E \to E_1 + T$ and $T \to T_1 * F$ create a node \emph{after} the nodes of the children are known, so they run in post-order, which is also the order used by the value-number method. All we change is \emph{what the constructor functions do}:
 \begin{itemize}[nosep]
 \item In the tree SDD, $\mathbf{new}\ \mathit{Node}(op, l, r)$ \emph{always} allocates a fresh node.
 \item In the DAG SDD, $\mathit{Node}(op, l, r)$ first \emph{searches} for an existing record with the same $(op, l, r)$ and allocates a new one only if there is none. $\mathit{Leaf}$ behaves in the same way.
@@ -1715,16 +1715,16 @@ So whoever writes the SDD must state which of the two is meant. In these notes w
 \end{notebox}
 
 \begin{notebox}{Why this is a legitimate SDD}
-$\mathit{Node}$ and $\mathit{Leaf}$ have a \emph{side effect} (they change the global table), which Section~\ref{sec:sddwhat} allowed under one condition: the order of the calls must not change the result. Here it is fixed by the dependencies: a parent's $\mathit{Node}$ call needs the value numbers of its children, so those calls are made first. The SDD is S-attributed, so it can be evaluated during LR parsing, with each rule executed at the reduction by which its production is recognised.
+$\mathit{Node}$ and $\mathit{Leaf}$ have a \emph{side effect} (they change the global table), which Section~\ref{sec:sddwhat} allowed under one condition: the order of the calls must not change the result. Here it is fixed by the dependencies: a parent's $\mathit{Node}$ call needs the value numbers of its children, so those calls are made first. The SDD is S-attributed, so it can be evaluated by a post-order traversal of the parse tree, each rule being executed when its node is completed.
 \end{notebox}
 
 \begin{examplebox}{Example: input $(a+b)*(a+b)$}
-The table lists the reductions in the order the parser performs them, but only those that call $\mathit{Leaf}$ or $\mathit{Node}$. The omitted reductions ($T\to F$, $E\to T$, $F\to(E)$) just copy the value number upward.
+The table lists the rules in the order in which they run (post-order), but only those that call $\mathit{Leaf}$ or $\mathit{Node}$. The omitted rules ($T\to F$, $E\to T$, $F\to(E)$) just copy the value number upward.
 \begin{center}
 \small
 \begin{tabular}{@{}c l l l c@{}}
 \toprule
-\textbf{Step} & \textbf{Reduction} & \textbf{Call} & \textbf{Result} & \textbf{Value no.} \\ \midrule
+\textbf{Step} & \textbf{Node completed} & \textbf{Call} & \textbf{Result} & \textbf{Value no.} \\ \midrule
 1 & $F \to \mathbf{id}$ \ (first $a$) & $\mathit{Leaf}(\mathbf{id},a)$ & new record & 1 \\
 2 & $F \to \mathbf{id}$ \ (first $b$) & $\mathit{Leaf}(\mathbf{id},b)$ & new record & 2 \\
 3 & $E \to E_1 + T$ & $\mathit{Node}(+,1,2)$ & new record & 3 \\
@@ -1737,7 +1737,7 @@ The table lists the reductions in the order the parser performs them, but only t
 The attribute of the root $E$ is $\at{E}{node}=4$: the root of a DAG with four records, $1\!:\!a$, $2\!:\!b$, $3\!:\!(+,1,2)$, $4\!:\!(*,3,3)$. At step 6 the second copy of $a+b$ is recognised as the first and no new node is made; this is the sharing we wanted. The tree version would have created seven nodes.
 \end{examplebox}
 
-For the larger expression $a + a*(b-c) + (b-c)*d$ the sequence of $\mathit{Leaf}$ and $\mathit{Node}$ calls is exactly the sequence of requests in Table~\ref{tab:vntrace}. This is no accident: the value-number method visits the tree in post-order, and an LR parser reduces in post-order too. Both methods therefore build the \emph{same DAG with the same value numbers}, and the final $\at{E}{node}=9$ identifies its root.
+For the larger expression $a + a*(b-c) + (b-c)*d$ the sequence of $\mathit{Leaf}$ and $\mathit{Node}$ calls is exactly the sequence of requests in Table~\ref{tab:vntrace}. This is no accident: the value-number method visits the tree in post-order, and the rules of the SDD run in post-order too. Both methods therefore build the \emph{same DAG with the same value numbers}, and the final $\at{E}{node}=9$ identifies its root.
 
 \paragraph{Tree-first versus direct construction.}
 \begin{center}
@@ -1746,8 +1746,8 @@ For the larger expression $a + a*(b-c) + (b-c)*d$ the sequence of $\mathit{Leaf}
 \toprule
  & \textbf{Tree first, then DAG} (Section~\ref{sec:vn}) & \textbf{Directly with an SDD} \\ \midrule
 Needs a syntax tree in memory & yes & no \\
-Who calls find-or-create & a tree-walking procedure & the semantic rules, at reductions \\
-Order of calls & post-order of the tree & order of the parser's reductions (the same) \\
+Who calls find-or-create & a tree-walking procedure & the semantic rules, when a node is completed \\
+Order of calls & post-order of the tree & post-order of the tree (the same) \\
 Resulting DAG & identical & identical \\ \bottomrule
 \end{tabular}
 \end{center}
@@ -1832,10 +1832,10 @@ Here action $a$ is executed after $X$ has been recognised (and before $Y$).
 \label{fig:actiontree}
 \end{figure}
 
-In practice the parser does not need to build this tree. A top-down parser executes an action at the corresponding point of its recursive-descent procedure. A bottom-up (LR) parser can only act when it \emph{reduces}: an action at the right end of a body runs at that reduction (a postfix SDT, next subsection), while an action in the middle of a body needs a marker nonterminal (Section~\ref{sec:marker}).
+In practice the parser does not need to build this tree. A top-down parser executes an action at the corresponding point of its recursive-descent procedure. An action at the right end of a body (a postfix SDT, next subsection) simply runs when the procedure of that production is about to return.
 
 \subsection{Postfix translation schemes}
-If the grammar is LR-parsable and the SDD is \textbf{S-attributed}, we can build an SDT with every action at the \emph{right end} of its production (a \textbf{postfix SDT}). The actions then execute at \emph{reduction time}, so the attribute of each grammar symbol can be stored beside it on the parser stack.
+If the SDD is \textbf{S-attributed}, we can build an SDT with every action at the \emph{right end} of its production (a \textbf{postfix SDT}). Each action then runs when the node of its production is \emph{completed} in a post-order traversal of the parse tree, so the values of all the children are already available.
 
 \begin{examplebox}{Postfix SDT for the desk calculator}
 \begin{align*}
@@ -1849,23 +1849,21 @@ F &\to \mathbf{digit} &&\{\ \at{F}{val} = \at{\mathbf{digit}}{lexval}\ \}
 \end{align*}
 \end{examplebox}
 
-\paragraph{Implementation on the LR parse stack.} Each stack entry holds a grammar symbol and its attribute value. When $A \to X Y Z$ is reduced, the actions read the values in the top three entries (\texttt{stack[top-2].val}, \texttt{stack[top-1].val}, \texttt{stack[top].val}), compute \at{A}{val}, pop three entries, and push $A$ with the new value.
-
+\paragraph{Evaluation in post-order.} Each action runs when the node of its production is completed, that is, after all its children (which already hold their values) have been completed. For the input \texttt{3 * 5 + 4 n} the nodes of the parse tree are completed in this order:
 \begin{center}
 \small
-\begin{tabular}{@{}l l l l@{}}
+\begin{tabular}{@{}c l l c@{}}
 \toprule
-\textbf{Stack (symbol:val)} & \textbf{Remaining input} & \textbf{Action} \\ \midrule
-$\$$ & \texttt{3 * 5 + 4 n} & shift \\
-$\$\ \mathbf{digit}{:}3$ & \texttt{* 5 + 4 n} & reduce $F\to\mathbf{digit}$ \\
-$\$\ F{:}3$ & \texttt{* 5 + 4 n} & reduce $T\to F$ \\
-$\$\ T{:}3$ & \texttt{* 5 + 4 n} & shift $*$, shift \textbf{digit} \\
-$\$\ T{:}3\ *\ \mathbf{digit}{:}5$ & \texttt{+ 4 n} & reduce $F\to\mathbf{digit}$ \\
-$\$\ T{:}3\ *\ F{:}5$ & \texttt{+ 4 n} & reduce $T\to T*F$ \quad ($3\times5=15$) \\
-$\$\ T{:}15$ & \texttt{+ 4 n} & reduce $E\to T$ \\
-$\$\ E{:}15$ & \texttt{+ 4 n} & shift $+$, shift \textbf{digit}, reduce to $T{:}4$ \\
-$\$\ E{:}15\ +\ T{:}4$ & \texttt{n} & reduce $E\to E+T$ \quad ($15+4=19$) \\
-$\$\ E{:}19$ & \texttt{n} & shift \textbf{n}, reduce $L\to E\,\mathbf{n}$, print 19 \\ \bottomrule
+\textbf{\#} & \textbf{Node completed (production)} & \textbf{Action} & \textbf{Value} \\ \midrule
+1 & $F\to\mathbf{digit}$ \ (3) & $F.val=3$ & 3 \\
+2 & $T\to F$ & $T.val=F.val$ & 3 \\
+3 & $F\to\mathbf{digit}$ \ (5) & $F.val=5$ & 5 \\
+4 & $T\to T_1*F$ & $T.val=3\times5$ & 15 \\
+5 & $E\to T$ & $E.val=T.val$ & 15 \\
+6 & $F\to\mathbf{digit}$ \ (4) & $F.val=4$ & 4 \\
+7 & $T\to F$ & $T.val=F.val$ & 4 \\
+8 & $E\to E_1+T$ & $E.val=15+4$ & 19 \\
+9 & $L\to E\,\mathbf{n}$ & $\mathit{print}(E.val)$ & prints 19 \\ \bottomrule
 \end{tabular}
 \end{center}
 
@@ -1891,9 +1889,9 @@ $F \to \mathbf{id}$  & $\at{F}{t} = \at{\mathbf{id}}{lexeme}$ \\
 $F \to \mathbf{num}$ & $\at{F}{t} = \at{\mathbf{num}}{lexval}$ \\ \bottomrule
 \end{tabular}
 \end{center}
-Every rule is S-attributed, so the SDD can be evaluated by a post-order traversal of the parse tree (or during LR parsing). Notice the special form of the rules: the string of the head is made of the strings of the body nonterminals \emph{in the same order}, with extra characters (the operators) inserted in between or appended. For such ``simple'' SDDs we do not have to build the long strings at all: we may print each piece \emph{at the moment it would have been appended}. That gives the SDT.
+Every rule is S-attributed, so the SDD can be evaluated by a post-order traversal of the parse tree. Notice the special form of the rules: the string of the head is made of the strings of the body nonterminals \emph{in the same order}, with extra characters (the operators) inserted in between or appended. For such ``simple'' SDDs we do not have to build the long strings at all: we may print each piece \emph{at the moment it would have been appended}. That gives the SDT.
 
-\paragraph{Step 2: the SDT.} Each rule is replaced by a $\mathit{print}$ action at the right end of the body. Since all actions are at the right end, this is a \textbf{postfix SDT} and an LR parser can run it. All productions are listed, including those that have no action.
+\paragraph{Step 2: the SDT.} Each rule is replaced by a $\mathit{print}$ action at the right end of the body. Since all actions are at the right end, this is a \textbf{postfix SDT}: each action runs when the node of its production is completed (post-order). All productions are listed, including those that have no action.
 \begin{align*}
 E &\to E_1 + T &&\{\ \mathit{print}(\tok{'+'})\ \}\\
 E &\to E_1 - T &&\{\ \mathit{print}(\tok{'-'})\ \}\\
@@ -1905,42 +1903,36 @@ F &\to (\,E\,)\\
 F &\to \mathbf{id}  &&\{\ \mathit{print}(\at{\mathbf{id}}{lexeme})\ \}\\
 F &\to \mathbf{num} &&\{\ \mathit{print}(\at{\mathbf{num}}{lexval})\ \}
 \end{align*}
-The rules $E\to T$, $T\to F$ and $F\to(E)$ print nothing: they only pass the work on. Operands are printed by the leaf rules, operators by the operator rules, and the position of the action explains the order: when $E\to E_1+T$ is reduced, $E_1$ and $T$ have already been reduced, so their output has already appeared and the $+$ comes after both.
+The rules $E\to T$, $T\to F$ and $F\to(E)$ print nothing: they only pass the work on. Operands are printed by the leaf rules, operators by the operator rules, and the position of the action explains the order: when the node of $E\to E_1+T$ is completed, $E_1$ and $T$ have already been completed, so their output has already appeared and the $+$ comes after both.
 
-\begin{examplebox}{Trace 1: \texttt{9-5+2} on the LR parse stack}
-Nothing needs to be stored on the stack; the actions simply print. Read the last column to see the output grow.
-\begin{center}
-\small
-\begin{tabular}{@{}r l l l l@{}}
-\toprule
-\textbf{\#} & \textbf{Stack} & \textbf{Remaining input} & \textbf{Parser step} & \textbf{Output} \\ \midrule
-1  & $\$$ & \texttt{9-5+2} & shift & \\
-2  & $\$\ \mathbf{num}$ & \texttt{-5+2} & reduce $F\to\mathbf{num}$, \textbf{print 9} & \texttt{9} \\
-3  & $\$\ F$ & \texttt{-5+2} & reduce $T\to F$ & \texttt{9} \\
-4  & $\$\ T$ & \texttt{-5+2} & reduce $E\to T$ & \texttt{9} \\
-5  & $\$\ E$ & \texttt{-5+2} & shift \texttt{-} & \texttt{9} \\
-6  & $\$\ E\ -$ & \texttt{5+2} & shift \textbf{num} & \texttt{9} \\
-7  & $\$\ E\ -\ \mathbf{num}$ & \texttt{+2} & reduce $F\to\mathbf{num}$, \textbf{print 5} & \texttt{95} \\
-8  & $\$\ E\ -\ F$ & \texttt{+2} & reduce $T\to F$ & \texttt{95} \\
-9  & $\$\ E\ -\ T$ & \texttt{+2} & reduce $E\to E-T$, \textbf{print -} & \texttt{95-} \\
-10 & $\$\ E$ & \texttt{+2} & shift \texttt{+} & \texttt{95-} \\
-11 & $\$\ E\ +$ & \texttt{2} & shift \textbf{num} & \texttt{95-} \\
-12 & $\$\ E\ +\ \mathbf{num}$ & & reduce $F\to\mathbf{num}$, \textbf{print 2} & \texttt{95-2} \\
-13 & $\$\ E\ +\ F$ & & reduce $T\to F$ & \texttt{95-2} \\
-14 & $\$\ E\ +\ T$ & & reduce $E\to E+T$, \textbf{print +} & \texttt{95-2+} \\
-15 & $\$\ E$ & & accept & \texttt{95-2+} \\ \bottomrule
-\end{tabular}
-\end{center}
-Step 9 is the important one: the parser reduces $E\to E-T$ \emph{before} shifting the next \texttt{+}, so the minus is printed first. That is left associativity: $(9-5)+2$, not $9-(5+2)$.
-\end{examplebox}
-
-\begin{examplebox}{Trace 2: \texttt{a*(b+c)-d}, with parentheses and precedence}
-Only the reductions that print something are listed; the copy reductions ($T\to F$, $E\to T$, $F\to(E)$) print nothing.
+\begin{examplebox}{Trace 1: \texttt{9-5+2} in post-order}
+The nodes of the parse tree are completed in the order below; read the last column to see the output grow. Only three kinds of rule print, and the copy rules ($T\to F$, $E\to T$) print nothing.
 \begin{center}
 \small
 \begin{tabular}{@{}c l l l@{}}
 \toprule
-\textbf{\#} & \textbf{Reduction that prints} & \textbf{Prints} & \textbf{Output so far} \\ \midrule
+\textbf{\#} & \textbf{Node completed (production)} & \textbf{Action} & \textbf{Output so far} \\ \midrule
+1 & $F\to\mathbf{num}$ \ (9) & \textbf{print 9} & \texttt{9} \\
+2 & $T\to F$ & --- & \texttt{9} \\
+3 & $E\to T$ & --- & \texttt{9} \\
+4 & $F\to\mathbf{num}$ \ (5) & \textbf{print 5} & \texttt{95} \\
+5 & $T\to F$ & --- & \texttt{95} \\
+6 & $E\to E_1-T$ & \textbf{print -} & \texttt{95-} \\
+7 & $F\to\mathbf{num}$ \ (2) & \textbf{print 2} & \texttt{95-2} \\
+8 & $T\to F$ & --- & \texttt{95-2} \\
+9 & $E\to E_1+T$ & \textbf{print +} & \texttt{95-2+} \\ \bottomrule
+\end{tabular}
+\end{center}
+Step 6 is the important one: the node $E\to E_1-T$ (the subtraction $9-5$) is completed \emph{before} the \texttt{+} is handled, so the minus is printed first. That is left associativity: $(9-5)+2$, not $9-(5+2)$.
+\end{examplebox}
+
+\begin{examplebox}{Trace 2: \texttt{a*(b+c)-d}, with parentheses and precedence}
+Only the nodes that print something are listed; the copy rules ($T\to F$, $E\to T$, $F\to(E)$) print nothing.
+\begin{center}
+\small
+\begin{tabular}{@{}c l l l@{}}
+\toprule
+\textbf{\#} & \textbf{Node completed that prints} & \textbf{Prints} & \textbf{Output so far} \\ \midrule
 1 & $F\to\mathbf{id}$ \ (a)            & \texttt{a} & \texttt{a} \\
 2 & $F\to\mathbf{id}$ \ (b)            & \texttt{b} & \texttt{ab} \\
 3 & $F\to\mathbf{id}$ \ (c)            & \texttt{c} & \texttt{abc} \\
@@ -1950,7 +1942,7 @@ Only the reductions that print something are listed; the copy reductions ($T\to 
 7 & $E\to E_1-T$ \ (whole expression)  & \texttt{-} & \texttt{abc+*d-} \\ \bottomrule
 \end{tabular}
 \end{center}
-The reduction $F\to(E)$ happens between rows 4 and 5, but it prints nothing: the parentheses have done their job once $b+c$ was reduced as a unit, before the multiplication. The output is the \textbf{post-order traversal of the syntax tree}: Figure~\ref{fig:postfixtree} numbers the nodes in the order in which they are finished, and these are exactly the rows of the table.
+The node $F\to(E)$ is completed between rows 4 and 5, but it prints nothing: the parentheses have done their job once $b+c$ was completed as a unit, before the multiplication. The output is the \textbf{post-order traversal of the syntax tree}: Figure~\ref{fig:postfixtree} numbers the nodes in the order in which they are finished, and these are exactly the rows of the table.
 
 \begin{figure}[H]
 \centering
@@ -1973,19 +1965,19 @@ The reduction $F\to(E)$ happens between rows 4 and 5, but it prints nothing: the
 \end{examplebox}
 
 \begin{notebox}{The position of the action decides the output}
-Take $E\to E_1 + T$. With the action at the \emph{end}, after $T$, the operator is printed after both operands: \textbf{postfix}. If the action is moved into the \emph{middle}, between $E_1$ and $T$ (written $E\to E_1\ \{\mathit{print}(\tok{'+'})\}\ +\ T$), the operator is printed between its operands, and the same traversal gives back the \textbf{infix} order (without the parentheses). The grammar did not change; only the place of the action did. This is the whole point of an SDT: \emph{where} the action stands defines \emph{when} it runs. (An LR parser could run a middle action only through a marker nonterminal, Section~\ref{sec:marker}.)
+Take $E\to E_1 + T$. With the action at the \emph{end}, after $T$, the operator is printed after both operands: \textbf{postfix}. If the action is moved into the \emph{middle}, between $E_1$ and $T$ (written $E\to E_1\ \{\mathit{print}(\tok{'+'})\}\ +\ T$), the operator is printed between its operands, and the same traversal gives back the \textbf{infix} order (without the parentheses). The grammar did not change; only the place of the action did. This is the whole point of an SDT: \emph{where} the action stands defines \emph{when} it runs.
 \end{notebox}
 
 \subsection{SDTs with actions inside productions}
-When an action is in the middle of a production, it is performed \emph{immediately after all grammar symbols to its left have been matched}. A top-down parser does exactly that: the action is just a statement placed at that point of the recursive-descent procedure. An LR parser cannot: it only takes decisions at reductions, so a mid-production action must first be turned into a reduction using a marker nonterminal (Section~\ref{sec:marker}).
+When an action is in the middle of a production, it is performed \emph{immediately after all grammar symbols to its left have been matched}. A top-down parser does exactly that: the action is just a statement placed at that point of the recursive-descent procedure.
 
 \begin{center}
 \small
-\begin{tabular}{@{}L{3.6cm} L{5.4cm} L{5.4cm}@{}}
+\begin{tabular}{@{}L{4.2cm} L{9.6cm}@{}}
 \toprule
-\textbf{Where the action is} & \textbf{Top-down (LL / recursive descent)} & \textbf{Bottom-up (LR)} \\ \midrule
-At the right end & run after the last symbol of the body is matched & run at the reduction of the body \\
-In the middle & run at that point of the procedure & not possible directly: introduce a marker $M\to\varepsilon$ \\ \bottomrule
+\textbf{Where the action is} & \textbf{In a top-down parser (recursive descent)} \\ \midrule
+At the right end & run after the last symbol of the body is matched, just before the procedure returns \\
+In the middle & run at that point of the procedure, right after the symbols to its left \\ \bottomrule
 \end{tabular}
 \end{center}
 
@@ -2060,7 +2052,7 @@ T &\to F\ Q\\
 Q &\to *\ F\ \{\ \mathit{print}(\tok{'*'})\ \}\ Q_1 \ \mid\ /\ F\ \{\ \mathit{print}(\tok{'/'})\ \}\ Q_1 \ \mid\ \varepsilon\\
 F &\to (\,E\,) \ \mid\ \mathbf{id}\ \{\ \mathit{print}(\at{\mathbf{id}}{lexeme})\ \}\ \mid\ \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{num}}{lexval})\ \}
 \end{align*}
-For \texttt{a*(b+c)-d} this scheme prints \texttt{abc+*d-}, the same output as the bottom-up scheme of Section~\ref{sec:infix2postfix}: $F$ prints \texttt{a}; $Q$ matches $*$, calls $F$, which parses $(b+c)$ and prints \texttt{bc+} inside; only then does $Q$ print \texttt{*}; finally $R$ matches $-$, $T$ prints \texttt{d}, and $R$ prints \texttt{-}.
+For \texttt{a*(b+c)-d} this scheme prints \texttt{abc+*d-}, the same output as the left-recursive scheme of Section~\ref{sec:infix2postfix}: $F$ prints \texttt{a}; $Q$ matches $*$, calls $F$, which parses $(b+c)$ and prints \texttt{bc+} inside; only then does $Q$ print \texttt{*}; finally $R$ matches $-$, $T$ prints \texttt{d}, and $R$ prints \texttt{-}.
 \end{examplebox}
 
 
@@ -2108,7 +2100,7 @@ The actions of $T$ are at the right end of their bodies, but the actions in $D$ 
 \end{enumerate}
 Result: the symbol table says $x:float$ and $y:float$.
 
-\textbf{Why the position matters.} If the action of $D$ were written at the \emph{end}, after $L$, then $L$ would be processed before $\at{L}{inh}$ has a value, and \textit{addType}$(y,\dots)$ would use an undefined type. A mid-production action is therefore the way an SDT guarantees that an inherited attribute is computed \emph{before} the symbol that uses it. A top-down parser executes these actions as statements of its recursive-descent procedures; an LR parser needs marker nonterminals (Section~\ref{sec:marker}).
+\textbf{Why the position matters.} If the action of $D$ were written at the \emph{end}, after $L$, then $L$ would be processed before $\at{L}{inh}$ has a value, and \textit{addType}$(y,\dots)$ would use an undefined type. A mid-production action is therefore the way an SDT guarantees that an inherited attribute is computed \emph{before} the symbol that uses it. A top-down parser executes these actions as statements of its recursive-descent procedures.
 \end{examplebox}
 
 \begin{examplebox}{Example: actions at the left end of a production body}
@@ -2119,28 +2111,6 @@ P &\to \{\ \mathit{print}(\at{P}{d})\ \}\ \tok{'('}\ \{\ \at{P_1}{d}=\at{P}{d}+1
 \end{align*}
 Here the first action of $S$ \emph{initialises} the inherited attribute of $P$, and the first action of $P$ \emph{reads} $\at{P}{d}$, which was set by an action before $P$ was entered. For the input \texttt{(()())} the output is \texttt{0 1 1}.
 \end{examplebox}
-
-\subsection{Marker nonterminals (actions in the middle, for bottom-up parsing)}
-\label{sec:marker}
-Suppose an action must appear in the middle of a production, e.g., $B \to X\ \{a\}\ Y$. For an LR parser we replace the action by a \textbf{marker nonterminal} $M$ with an empty production:
-\[
-B \to X\ M\ Y, \qquad M \to \varepsilon\ \{a\}
-\]
-The action $a$ is then executed upon reducing $M \to \varepsilon$, which happens exactly when $X$ is on top of the stack and $Y$ has not been read yet.
-
-\begin{examplebox}{Example: the infix-to-postfix scheme under LR parsing}
-The top-down scheme $R \to +\ T\ \{\mathit{print}(\tok{'+'})\}\ R_1$ has its action in the middle. For an LR parser we write
-\[
-R \to +\ T\ M\ R_1, \qquad M \to \varepsilon\ \{\ \mathit{print}(\tok{'+'})\ \}
-\]
-When $M\to\varepsilon$ is reduced, the operand $T$ has just been reduced (and printed), so the output order is unchanged: $9\,5\,-\,2\,+$ for \texttt{9-5+2}. (This example only illustrates the marker technique. For this translation an LR parser would not use markers at all: the left-recursive postfix SDT of Section~\ref{sec:infix2postfix} has every action at the right end of its body.)
-\end{examplebox}
-
-\begin{pitfallbox}{Markers can create conflicts}
-A marker forces the parser to decide to reduce $M\to\varepsilon$ \emph{before} it knows which production will finally be used. If two productions start with the same symbols, say $S\to X\,M\,Y \mid X\,Z$, the parser must choose, using only the next input token, whether to reduce $M$. If $Y$ and $Z$ can start with the same token, the result is a conflict and the grammar is no longer LR(1). The markers in backpatching ($M$ before a statement, $N$ before \textbf{else}) are safe because they always occur at a point where the parser can already tell what is coming.
-\end{pitfallbox}
-
-We will use markers $M$ and $N$ extensively in backpatching (Section~\ref{sec:backpatch}).
 
 \subsection{Eliminating left recursion from an SDT}
 \label{sec:leftrec}
@@ -2179,7 +2149,7 @@ void E() {            // for  E -> E + T
     match('+'); T();  // ... so this line is never reached: infinite recursion
 }
 \end{lstlisting}
-No input is consumed between the two calls, so the parser loops forever. A grammar is \textbf{left-recursive} when a nonterminal can derive a string that starts with itself, as in $A\to A\,\alpha$. Top-down parsers need that rule rewritten; LR parsers do not (they handle left recursion happily, which is why the postfix SDT of Section~\ref{sec:infix2postfix} could use $E\to E_1+T$).
+No input is consumed between the two calls, so the parser loops forever. A grammar is \textbf{left-recursive} when a nonterminal can derive a string that starts with itself, as in $A\to A\,\alpha$. A top-down parser needs such a rule rewritten, which is what the rest of this section does.
 
 \paragraph{Step 2: change the grammar (no actions yet).} What does $E\to E+T\mid T$ generate? Just a $T$ followed by any number of ``$+\,T$'' groups: $T$, \ $T+T$, \ $T+T+T$, \dots{} So we can write the same language directly, left to right:
 \begin{center}
@@ -2802,7 +2772,6 @@ B. On-the-fly generation & recursive descent & the big ``code'' attribute is not
 C. Parser-stack records & table-driven LL (stack) & values are kept in \emph{records on the parser stack} and are copied from record to record \\ \bottomrule
 \end{tabular}
 \end{center}
-A fourth way, for bottom-up parsers (marker nonterminals and attributes on the LR stack), belongs to the bottom-up parsing lectures; Section~\ref{sec:marker} shows the basic marker idea.
 
 \subsubsection{Method A: recursive descent with arguments and return values}
 
@@ -3068,11 +3037,11 @@ $\ \ \mid\ -E_1$ & $\{\ \at{E}{addr} = \mathbf{new}\ \mathit{Temp}();\ \mathit{g
 $\ \ \mid\ (E_1)$ & $\{\ \at{E}{addr} = \at{E_1}{addr};\ \}$ \\
 $\ \ \mid\ \mathbf{id}$ & $\{\ \at{E}{addr} = \mathit{top}.\mathit{get}(\at{\mathbf{id}}{lexeme});\ \}$ \\ \bottomrule
 \end{tabular}
-\caption{Incremental SDT for expressions (all actions are at the right end, so it is a postfix SDT, suitable for LR parsing).}
+\caption{Incremental SDT for expressions (all actions are at the right end, so it is a postfix SDT).}
 \end{table}
 
 \begin{examplebox}{Worked example (incremental SDT): \texttt{x = a * b + c * d ;}}
-An LR parser reduces from left to right, and every reduction that creates a temporary emits \emph{one} instruction at that moment. Reductions $E\to\mathbf{id}$ only set \textit{addr} and emit nothing. The red numbers show the order in which instructions are emitted.
+The rules are executed in post-order, from left to right, and every rule that creates a temporary emits \emph{one} instruction at the moment its node is completed. The rules $E\to\mathbf{id}$ only set \textit{addr} and emit nothing. The red numbers show the order in which instructions are emitted.
 
 \begin{figure}[H]
 \centering
@@ -3108,14 +3077,14 @@ An LR parser reduces from left to right, and every reduction that creates a temp
 \small
 \begin{tabular}{@{}c l l@{}}
 \toprule
-\textbf{\#} & \textbf{Reduction} & \textbf{Instruction emitted} \\ \midrule
+\textbf{\#} & \textbf{Node completed} & \textbf{Instruction emitted} \\ \midrule
 1 & $E\to E_1*E_2$ \ (\texttt{a * b}) & \texttt{t1 = a * b} \\
 2 & $E\to E_1*E_2$ \ (\texttt{c * d}) & \texttt{t2 = c * d} \\
 3 & $E\to E_1+E_2$ & \texttt{t3 = t1 + t2} \\
 4 & $S\to\mathbf{id}=E\,;$ & \texttt{x = t3} \\ \bottomrule
 \end{tabular}
 \end{center}
-Note that \texttt{c * d} is reduced only after the parser has seen the \texttt{;}: precedence decides that $*$ binds tighter, so the $+$ cannot be reduced earlier.
+Note that \texttt{c * d} is completed before the $+$ node: precedence makes $*$ bind tighter, so \texttt{c * d} is a deeper node of the tree than the $+$.
 \end{examplebox}
 
 \subsection{Addressing array elements}
@@ -3319,7 +3288,7 @@ x  = t3
 \end{examplebox}
 
 \begin{examplebox}{Worked example: widening on \emph{both} sides, $x = i + j * x$}
-Let \texttt{x} be \texttt{float} and \texttt{i, j} be \texttt{int}. The code is emitted at reductions, so the product $j*x$ (reduced first) comes before the sum:
+Let \texttt{x} be \texttt{float} and \texttt{i, j} be \texttt{int}. The code is emitted when each node is completed, so the product $j*x$ (completed first) comes before the sum:
 \begin{enumerate}[nosep]
 \item $E\to E_1*E_2$ with $E_1=j$ (\texttt{int}) and $E_2=x$ (\texttt{float}): $E.type=\texttt{float}$; $\mathit{widen}(j)$ emits \texttt{t1 = (float) j}; $\mathit{widen}(x)$ does nothing; then \texttt{t2 = t1 * x}.
 \item $E\to E_1+E_2$ with $E_1=i$ (\texttt{int}) and $E_2$ of type \texttt{float}: $\mathit{widen}(i)$ emits \texttt{t3 = (float) i}; then \texttt{t4 = t3 + t2}.
@@ -3332,7 +3301,7 @@ t3 = (float) i
 t4 = t3 + t2
 x  = t4
 \end{lstlisting}
-Note that $i$, which is written first, is converted \emph{after} $j$: the order of the instructions follows the order of the reductions, not the order of the source text.
+Note that $i$, which is written first, is converted \emph{after} $j$: the order of the instructions follows the order in which the nodes are completed (post-order), not the order of the source text.
 \end{examplebox}
 
 %====================================================================
@@ -3381,7 +3350,7 @@ S &\to \mathbf{if}\,(B)\,S_1: && \at{B}{true}=\mathit{newlabel}(),\ \ \at{B}{fal
   & && \at{S}{code}=\at{B}{code}\cc\mathit{label}(\at{B}{true})\cc\at{S_1}{code}\\
 B &\to E_1\ \mathit{rel}\ E_2: && \at{B}{code}=\text{``\texttt{if} $E_1$ \textit{rel} $E_2$ \texttt{goto} \at{B}{true}''}\cc\text{``\texttt{goto} \at{B}{false}''}
 \end{align*}
-\textbf{Order of events} (top-down for the sticky notes, then bottom-up for the code):
+\textbf{Order of events} (first downward for the sticky notes, then upward for the code):
 \begin{enumerate}[nosep]
 \item $P\to S$ presses the ticket machine: $L_1$. It sticks \at{S}{next}$=L_1$ on $S$: ``after you comes door $L_1$, the end of the program''.
 \item $S\to\mathbf{if}\,(B)\,S_1$ presses the machine again: $L_2$. It sticks \at{B}{true}$=L_2$ on $B$, and copies its own note $L_1$ onto $B$ as \at{B}{false} and onto $S_1$ as \at{S_1}{next}.
@@ -3479,7 +3448,7 @@ The rule is $S\to\mathbf{while}\,(B)\,S_1$. It uses a \emph{local} name $\mathit
 \end{examplebox}
 
 \begin{notebox}{The key idea, and what comes later}
-In this scheme \textbf{every jump target is a name that someone has already invented and handed down} through the inherited attributes \at{S}{next}, \at{B}{true} and \at{B}{false}. The code is built bottom-up, but the \emph{names} are passed \emph{top-down}. That is perfect for a top-down parser. A bottom-up parser works in the opposite direction (it finishes the children first), and for it the notes use \textbf{backpatching} (Section~\ref{sec:backpatch}): leave the jump blank, and fill the blank when the target becomes known. Section~\ref{sec:backpatch} starts with similar small examples (an \textbf{if}, an \textbf{if}-\textbf{else} and a \textbf{while}), so you can compare the two schemes side by side.
+In this scheme \textbf{every jump target is a name that someone has already invented and handed down} through the inherited attributes \at{S}{next}, \at{B}{true} and \at{B}{false}. The code is assembled from the leaves upward, but the \emph{names} are passed \emph{downward}. This works because a name can be handed down before the code of the children is written. When the target cannot be known in advance, the notes use \textbf{backpatching} (Section~\ref{sec:backpatch}): leave the jump blank, and fill the blank when the target becomes known. Section~\ref{sec:backpatch} starts with similar small examples (an \textbf{if}, an \textbf{if}-\textbf{else} and a \textbf{while}), so you can compare the two schemes side by side.
 \end{notebox}
 
 
@@ -3756,7 +3725,7 @@ Only 4 instructions (3 tests and the assignment) instead of 7, and no useless \t
 \end{center}
 When instruction 101 is written, the compiler has not yet seen the statement after the \textbf{if}, so it cannot know the number after which to jump. A jump to an instruction that has not been generated yet is a \textbf{forward jump}. Every \textbf{if}, \textbf{while} and boolean expression with $\&\&$ or $||$ produces such jumps, so the compiler needs a trick.
 
-\paragraph{Two ways out.} The earlier scheme (the flow-of-control SDD with inherited labels, earlier in this chapter) \emph{invents a label name in advance} and passes it down to the code that needs it: that needs inherited attributes, which are awkward for a bottom-up parser. A second solution is to translate twice, with the first pass only counting instructions. \textbf{Backpatching} does it in one pass, with synthesized attributes only.
+\paragraph{Two ways out.} The earlier scheme (the flow-of-control SDD with inherited labels, earlier in this chapter) \emph{invents a label name in advance} and passes it down to the code that needs it: that needs inherited attributes (the names must be handed down before the code is written). A second solution is to translate twice, with the first pass only counting instructions. \textbf{Backpatching} does it in one pass, with synthesized attributes only.
 
 \begin{defbox}{The idea of backpatching in three sentences}
 \begin{enumerate}[nosep]
@@ -3781,7 +3750,7 @@ list of jumps & A set of instruction numbers, such as $\{100,102\}$, whose jumps
 \at{B}{truelist} & The jumps out of the code of the boolean expression $B$ that must go to the place where \emph{$B$ is true}. \\
 \at{B}{falselist} & The same for \emph{$B$ is false}. \\
 \at{S}{nextlist} & The jumps out of the statement $S$ that must go to the instruction that comes \emph{right after $S$}. \\
-marker $M$ & An empty production $M\to\varepsilon$ whose only job is to take a \emph{bookmark}: $\at{M}{instr}=\mathit{nextinstr}$, the number of the next instruction at that moment. It stands exactly where we need to know an address. \\
+marker $M$ & An empty production $M\to\varepsilon$ whose only job is to take a \emph{bookmark}: $\at{M}{instr}=\mathit{nextinstr}$, the number of the next instruction at that moment. It stands exactly where we need to know an address; writing $M$ is the same as writing the action $\{\at{M}{instr}=\mathit{nextinstr}\}$ at that point of the production. \\
 marker $N$ & An empty production $N\to\varepsilon$ that writes one \texttt{goto \blk} (used to jump over the \textbf{else} part) and keeps its number in $\at{N}{nextlist}$. \\ \bottomrule
 \end{tabular}
 \end{center}
@@ -3796,7 +3765,7 @@ marker $N$ & An empty production $N\to\varepsilon$ that writes one \texttt{goto 
 \end{itemize}
 \end{defbox}
 
-\paragraph{Why only synthesized attributes?} The translation rules run when the parser has \emph{finished} a piece of the input (a bottom-up, post-order evaluation, as for every S-attributed SDD). At that moment the lists \at{B}{truelist}, \at{B}{falselist}, \at{S}{nextlist} are already complete, and they are simply handed upward to the parent. The destination is never needed in advance, so nothing has to be passed \emph{down}.
+\paragraph{Why only synthesized attributes?} The translation rules run when the parser has \emph{finished} a piece of the input (a post-order evaluation, as for every S-attributed SDD). At that moment the lists \at{B}{truelist}, \at{B}{falselist}, \at{S}{nextlist} are already complete, and they are simply handed upward to the parent. The destination is never needed in advance, so nothing has to be passed \emph{down}.
 
 \subsection{Start here: four small examples by hand}
 The formal rules follow in the next two subsections. First we see what they do on four tiny programs. In every example the relational test is between simple names, so a test \texttt{a < b} needs exactly \emph{two} instructions: \texttt{if a < b goto \blk} (the true jump) and \texttt{goto \blk} (the false jump). The first instruction of the whole program has number 100.
@@ -3974,9 +3943,9 @@ $\{\ \at{M}{instr}=\mathit{nextinstr};\ \}$ \\ \bottomrule
 \item $M_2.instr = 104$.
 \item $B_4 \equiv x\ne y$: emit \texttt{104: if x!=y goto \_}, \texttt{105: goto \_}\\
  \hspace*{1em} $B_4.truelist=\{104\}$, $B_4.falselist=\{105\}$.
-\item Reduce $B_2 \to B_3 \,\&\&\, M_2\, B_4$:\ \ $\mathit{backpatch}(\{102\},104)$ $\Rightarrow$ instruction 102 becomes \texttt{if x>200 goto 104}.\\
+\item Complete $B_2 \to B_3 \,\&\&\, M_2\, B_4$:\ \ $\mathit{backpatch}(\{102\},104)$ $\Rightarrow$ instruction 102 becomes \texttt{if x>200 goto 104}.\\
  \hspace*{1em} $B_2.truelist=\{104\}$, $B_2.falselist=\mathit{merge}(\{103\},\{105\})=\{103,105\}$.
-\item Reduce $B \to B_1 \,||\, M_1\, B_2$:\ \ $\mathit{backpatch}(\{101\},102)$ $\Rightarrow$ instruction 101 becomes \texttt{goto 102}.\\
+\item Complete $B \to B_1 \,||\, M_1\, B_2$:\ \ $\mathit{backpatch}(\{101\},102)$ $\Rightarrow$ instruction 101 becomes \texttt{goto 102}.\\
  \hspace*{1em} $B.truelist=\mathit{merge}(\{100\},\{104\})=\{100,104\}$, $B.falselist=\{103,105\}$.
 \end{enumerate}
 \textbf{Result} (still incomplete -- the lists will be patched by the enclosing statement):
@@ -4094,7 +4063,7 @@ Assume numbering starts at 100; $M_1.instr=100$.
  & \textbf{Label-based SDD (Fig.~6.36/6.37)} & \textbf{Backpatching (Fig.~6.43/6.46)} \\ \midrule
 Attributes & Inherited labels (\textit{true, false, next}) & Synthesized lists (\textit{truelist, falselist, nextlist}) \\
 Class of SDD & L-attributed & S-attributed (with markers $M$, $N$) \\
-Best suited for & Top-down / recursive-descent (or AST traversal) & Bottom-up (LR) parsing, single pass \\
+Best suited for & Top-down / recursive-descent (or AST traversal) & Single-pass generation with synthesized attributes (post-order) \\
 Code storage & Attribute \at{}{code}, or incremental \textit{gen} & Instruction array; patched later \\
 Labels & Symbolic labels generated eagerly & Instruction indices known late \\ \bottomrule
 \end{tabular}
@@ -4334,7 +4303,7 @@ $\mathit{Elist} \to E$ & $\at{Elist}{list}=[\at{E}{addr}]$; \ $\at{Elist}{code}=
 \end{defbox}
 For the call $E\to\mathbf{id}\,(A)$ the order of the pieces is the whole story: first the code that evaluates the arguments (\at{A}{code}), then the \texttt{param} instructions, then the \texttt{call}.
 
-\paragraph{The SDT.} With actions at the right end (a postfix SDT, so also usable by a bottom-up parser) and with $\mathit{gen}$ appending instructions at once, the argument code is printed by the expression rules as each argument is parsed, from left to right. Only the list has to be built:
+\paragraph{The SDT.} With actions at the right end (a postfix SDT) and with $\mathit{gen}$ appending instructions at once, the argument code is printed by the expression rules as each argument is parsed, from left to right. Only the list has to be built:
 \begin{align*}
 \mathit{Elist} &\to E\ \{\ \at{Elist}{list}=[\at{E}{addr}]\ \}\\
 \mathit{Elist} &\to \mathit{Elist}_1\ \tok{,}\ E\ \{\ \at{Elist}{list}=\at{Elist_1}{list}\ \mathbin{+\!\!+}\ [\at{E}{addr}]\ \}\\
@@ -4467,13 +4436,13 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \begin{itemize}
 \item Intermediate code (syntax trees, DAGs, three-address code in quadruple/triple form) decouples front and back ends and enables machine-independent optimisation.
 \item A CFG gives syntax (is it a legal program, what is its structure) but not meaning. An \textbf{SDD} attaches \emph{attributes} to grammar symbols and \emph{semantic rules} to productions; \textbf{synthesized} attributes flow upward, \textbf{inherited} attributes flow downward or sideways. \textbf{S-attributed} $\subset$ \textbf{L-attributed}.
-\item An \textbf{SDT} embeds the actions in the grammar and fixes the order of evaluation. S-attributed SDDs $\to$ \emph{postfix SDTs} (bottom-up). L-attributed SDDs can be implemented during top-down parsing, or, for LR grammars and with marker nonterminals, during bottom-up parsing.
+\item An \textbf{SDT} embeds the actions in the grammar and fixes the order of evaluation. S-attributed SDDs $\to$ \emph{postfix SDTs} (evaluated in post-order). L-attributed SDDs can be implemented during top-down parsing.
 \item Expressions: \at{E}{addr} holds the result; \textit{gen} emits TAC; temporaries are created by \textit{newTemp}. Array references use offsets computed from the widths of sub-arrays.
 \item Boolean expressions are translated into \textbf{jumping code}, using the inherited labels \textit{true/false}. Statements use \textit{next}.
 \item \textbf{Removing left recursion} (needed for top-down parsing) works for an SDD and for an SDT alike: rewrite the grammar as $A\to X\,R$, $R\to Y\,R\mid\varepsilon$; initialise the inherited $R.i$ in the base case, update it in each repeated group, copy $R.i$ to the synthesized $R.s$ at $\varepsilon$, and copy $R.s$ to the head. For an SDD write these as equations (the result is L-attributed); for an SDT place them as actions, inherited ones just before their symbol and synthesized ones of the head at the end.
 \item \textbf{Switch and procedure calls} follow the same pattern. A switch writes the case bodies first and collects (value, label) pairs in a synthesized list that is turned into the tests at the end; a call writes the code of all arguments first, then one \texttt{param} per entry of a synthesized argument list, then \texttt{call p, n}. Each switch and each call has its own list, so nesting works.
 \item An L-attributed SDT can be executed during \textbf{top-down parsing} in three ways: (A) recursive descent in which the inherited attributes are arguments and the synthesized attributes are return values; (B) on-the-fly generation, where the pieces of the code attribute are printed instead of being concatenated (possible when they appear in the same order as in the body); (C) a table-driven LL parser that keeps the attributes in action records and synthesize records on its stack.
-\item \textbf{Backpatching} replaces inherited labels by synthesized lists (\textit{makelist, merge, backpatch}), allowing one-pass bottom-up generation with markers $M$ and $N$.
+\item \textbf{Backpatching} replaces inherited labels by synthesized lists (\textit{makelist, merge, backpatch}), allowing one-pass generation with markers $M$ and $N$.
 \end{itemize}
 
 \begin{pitfallbox}{Common mistakes (check your own answers against these)}
@@ -4481,7 +4450,6 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Reading a \emph{value number} as the value of the expression. It is only the index of a record.
 \item Forgetting that a DAG shares a node only if \emph{operator and both children} match; $b+a$ and $a+b$ are different unless the operands are put in canonical order.
 \item Using $B.true$ where $S.next$ is meant: $S.next$ is where control goes \emph{after} a statement, $B.true$ is where it goes \emph{into} the body.
-\item In a postfix SDT, putting an action in the middle of a body and expecting an LR parser to run it there; use a marker.
 \item Off-by-one errors in backpatching: $M.instr$ is the index of the \emph{next} instruction to be emitted, not of the last one.
 \item Treating array subscripts as indices in the three-address code; they are scaled to byte offsets.
 \item Evaluating both operands of $\&\&$ / $||$ in jumping code, which loses short-circuit behaviour.
@@ -4509,7 +4477,7 @@ Both of the incomplete jumps at 102 and 106 form \at{S}{nextlist} of the loop; w
 \item Convert to SSA form and draw the blocks: \texttt{k = 1; while (k < 10) k = k * 2; return k;}
 \item For $x=(a+b)-(c*d)$, write the triples, then reorder the two sub-expressions. State what must be edited (a) with triples, (b) with indirect triples.
 \item For each task say whether a CFG with its parse tree suffices or an SDD is needed: (a) accept \texttt{a = b + c;}, (b) reject the use of an undeclared variable, (c) compute the value of \texttt{3 * 5 + 4}, (d) check that both operands of $+$ are numbers, (e) produce the parse tree of \texttt{a = b + c;}.
-\item Using the SDD of Section~\ref{sec:sddtree}, build the syntax tree of \texttt{a - (b + 3) - c}. Name the nodes $p_1,p_2,\dots$ in the order in which they are created, and say which reductions create no node.
+\item Using the SDD of Section~\ref{sec:sddtree}, build the syntax tree of \texttt{a - (b + 3) - c}. Name the nodes $p_1,p_2,\dots$ in the order in which they are created, and say which rules create no node.
 \item Using the postfix SDT of Section~\ref{sec:infix2postfix}, list the order of the \textit{print} actions for \texttt{(a+b)*c - d/e} and give the postfix output. Then give the output of the right-recursive scheme of Section~\ref{sec:sdt} for the same input.
 \item The SDD $B\to B_1\,D\mid D$, \ $\at{B}{val}=2\cdot\at{B_1}{val}+\at{D}{val}$ \ (for $B\to B_1D$), \ $\at{B}{val}=\at{D}{val}$ \ (for $B\to D$), \ $D\to\mathbf{0}\mid\mathbf{1}$ with $\at{D}{val}=0$ or $1$, computes the value of a binary number. Remove the left recursion and give the result (a) as an SDD and (b) as an SDT. Evaluate it for \texttt{101}.
 \item Using the SDD of Section~\ref{sec:typestruct}, annotate the parse tree of \texttt{float [4][5][6]} and give the resulting type expression. Then write the recursive-descent procedure \texttt{C(b)}.
@@ -4569,7 +4537,7 @@ t4 = t2 * t3
 a  = t4
 \end{lstlisting}
 
-\textbf{Q5.} $B_1\equiv a<b$ at 100--101, $M_1=102$, $B_3\equiv c<d$ at 102--103, $M_2=104$, $B_4\equiv e<f$ at 104--105. Reducing $B_3\,\&\&\,M_2\,B_4$ patches $\{102\}$ with 104 and gives $\mathit{truelist}=\{104\}$, $\mathit{falselist}=\{103,105\}$. Reducing $B_1\,||\,M_1\,B_2$ patches $\{101\}$ with 102 and gives $\mathit{truelist}=\{100,104\}$, $\mathit{falselist}=\{103,105\}$.
+\textbf{Q5.} $B_1\equiv a<b$ at 100--101, $M_1=102$, $B_3\equiv c<d$ at 102--103, $M_2=104$, $B_4\equiv e<f$ at 104--105. Completing $B_3\,\&\&\,M_2\,B_4$ patches $\{102\}$ with 104 and gives $\mathit{truelist}=\{104\}$, $\mathit{falselist}=\{103,105\}$. Completing $B_1\,||\,M_1\,B_2$ patches $\{101\}$ with 102 and gives $\mathit{truelist}=\{100,104\}$, $\mathit{falselist}=\{103,105\}$.
 \begin{lstlisting}
 100:  if a < b goto _     <- truelist
 101:  goto 102
