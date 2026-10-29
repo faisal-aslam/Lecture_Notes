@@ -5,7 +5,7 @@
 \usepackage{geometry}
 \geometry{margin=1in}
 \usepackage{tikz}
-\usepackage{tikz-qtree}
+\usetikzlibrary{arrows.meta,positioning,calc}
 \usepackage{listings}
 \usepackage{xcolor}
 
@@ -33,298 +33,250 @@ We are given the following context-free grammar (CFG):
 \[
 \begin{aligned}
 E &\to T\,R \\
-R &\to +\,T\,R \mid -\,T\,R \mid \epsilon \mid \text{num}
-\end{aligned}
-\]
-
-\textbf{Note:} The production \(R \to \text{num}\) appears to be problematic for the intended grammar. 
-A more standard left-recursive or right-recursive grammar for addition and subtraction is:
-\[
-\begin{aligned}
-E &\to E + T \mid E - T \mid T \\
-T &\to \text{num}
-\end{aligned}
-\]
-However, to stay close to the given grammar, we interpret it as a right-recursive grammar where 
-\(T\) is a nonterminal that derives a number, and the \(R \to \text{num}\) production is likely a typo. 
-For the purpose of this SDT, we will use the following corrected grammar (still right-recursive):
-\[
-\begin{aligned}
-E &\to T\,R \\
 R &\to +\,T\,R \mid -\,T\,R \mid \epsilon \\
 T &\to \text{num}
 \end{aligned}
 \]
-This grammar correctly generates expressions like \texttt{3+7-5} and is suitable for an SDT that computes the value and counts operations.
 
-The goal is to create a calculator that:
+The goal is to build a calculator that:
 \begin{itemize}
-  \item Computes the final result of an expression with addition and subtraction.
-  \item Counts the total number of operations (additions and subtractions) performed.
-  \item Prints the result and the operation count using simple C \texttt{printf} statements.
+  \item computes the final result of an expression with addition and subtraction,
+  \item counts the total number of operations (additions and subtractions) performed,
+  \item and prints both using simple C \texttt{printf} statements.
 \end{itemize}
+
+The grammar is right-recursive: the whole expression is a first term \(T\), followed by a chain of ``\(+\,T\)'' or ``\(-\,T\)'' groups. Because the operators are consumed left to right, we keep a \emph{running total} in an inherited attribute \(R.i\). When the chain ends (\(R\to\epsilon\)), the running total is the final answer, and that is the point where we print it.
 
 \section{Derivation and Parse Tree}
 
-Consider the input expression \texttt{3+7-5}. 
-Using the corrected grammar:
+For the input \texttt{3+7-5}, a leftmost derivation is:
 \[
-\begin{aligned}
-E &\to T\,R \\
-T &\to \text{num} \\
-R &\to +\,T\,R \mid -\,T\,R \mid \epsilon
-\end{aligned}
-\]
-A leftmost derivation is:
-\[
-E \Rightarrow T\,R \Rightarrow \text{num}\,R 
-\Rightarrow \text{num} + T\,R 
-\Rightarrow \text{num} + \text{num}\,R 
-\Rightarrow \text{num} + \text{num} - T\,R 
-\Rightarrow \text{num} + \text{num} - \text{num}\,R 
+E \Rightarrow T\,R \Rightarrow \text{num}\,R
+\Rightarrow \text{num} + T\,R
+\Rightarrow \text{num} + \text{num}\,R
+\Rightarrow \text{num} + \text{num} - T\,R
+\Rightarrow \text{num} + \text{num} - \text{num}\,R
 \Rightarrow \text{num} + \text{num} - \text{num}
 \]
-where the last step uses \(R \to \epsilon\).
+The last step uses \(R\to\epsilon\).
 
-The corresponding parse tree is shown below.
+The parse tree is:
 
 \begin{center}
-\begin{tikzpicture}[level distance=1.2cm, sibling distance=1.5cm]
-\Tree [.E
-        [.T [.\text{num} ] ]
-        [.R
-          [.+ ]
-          [.T [.\text{num} ] ]
-          [.R
-            [.- ]
-            [.T [.\text{num} ] ]
-            [.R [.\epsilon ] ]
-          ]
-        ]
-      ]
+\begin{tikzpicture}[
+  level distance=1.1cm,
+  level 1/.style={sibling distance=3.2cm},
+  level 2/.style={sibling distance=1.6cm},
+  level 3/.style={sibling distance=1.2cm},
+  every node/.style={font=\small}
+]
+\node {E}
+  child { node {T}
+    child { node {num} } }
+  child { node {R}
+    child { node {+} }
+    child { node {T}
+      child { node {num} } }
+    child { node {R}
+      child { node {-} }
+      child { node {T}
+        child { node {num} } }
+      child { node {R}
+        child { node {\(\epsilon\)} } } } };
 \end{tikzpicture}
 \end{center}
 
 \section{Syntax-Directed Translation (SDT)}
 
-We use synthesized attributes to compute the value and operation count. 
-Each nonterminal \(E\), \(T\), and \(R\) will have two attributes:
+\subsection{Attributes}
+
+Each nonterminal carries the attributes needed to evaluate the expression:
+
 \begin{itemize}
-  \item \texttt{val}: the numerical value of the subexpression.
-  \item \texttt{cnt}: the number of operations performed in the subexpression.
+  \item \(T.\text{val}\): the value of a number (synthesized).
+  \item \(R.i\): the running total so far (inherited). It is set once at the start (from \(T.\text{val}\)) and updated at each ``\(+\,T\)'' or ``\(-\,T\)'' group.
+  \item \(R.c\): the number of operations performed so far (inherited). It is set to \(0\) at the start and incremented by each operator group.
 \end{itemize}
 
-\subsection{Semantic Rules}
+No attribute needs to be carried back to the root: the final result and the operation count are both known inside \(R\), and they are printed there at the base case \(R\to\epsilon\).
 
-The SDT rules are given below. 
-We use a simple C-like notation for the actions.
+\subsection{Semantic Rules with \texttt{printf}}
+
+The SDT actions below use C \texttt{printf}. They are placed inside the production bodies as required: an action that computes an inherited attribute goes immediately before the symbol that uses it; an action that prints the final result goes at the point where the value is finalized.
 
 \begin{center}
 \begin{tabular}{ll}
 \toprule
-\textbf{Production} & \textbf{Semantic Rules} \\
+\textbf{Production} & \textbf{SDT actions (C)} \\
 \midrule
-\(E \to T\,R\) 
-& \(E.\text{val} = T.\text{val} + R.\text{val}\) \\
-& \(E.\text{cnt} = R.\text{cnt}\) \\
+\(E \to T\,R\)
+& \texttt{R.i = T.val;} \newline \texttt{R.c = 0;} \\
 \midrule
-\(R \to +\,T\,R_1\) 
-& \(R.\text{val} = T.\text{val} + R_1.\text{val}\) \\
-& \(R.\text{cnt} = R_1.\text{cnt} + 1\) \\
+\(R \to +\,T\,R_1\)
+& \texttt{R1.i = R.i + T.val;} \newline \texttt{R1.c = R.c + 1;} \\
 \midrule
-\(R \to -\,T\,R_1\) 
-& \(R.\text{val} = T.\text{val} - R_1.\text{val}\) \\
-& \(R.\text{cnt} = R_1.\text{cnt} + 1\) \\
+\(R \to -\,T\,R_1\)
+& \texttt{R1.i = R.i - T.val;} \newline \texttt{R1.c = R.c + 1;} \\
 \midrule
-\(R \to \epsilon\) 
-& \(R.\text{val} = 0\) \\
-& \(R.\text{cnt} = 0\) \\
+\(R \to \epsilon\)
+& \texttt{printf("total=\%d and the number of operations=\%d\texttt{\char`\\n}", R.i, R.c);} \\
 \midrule
-\(T \to \text{num}\) 
-& \(T.\text{val} = \text{num.value}\) \\
-& \(T.\text{cnt} = 0\) \\
+\(T \to \text{num}\)
+& \texttt{T.val = num.lexval;} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection{Explanation}
-
+\paragraph{How the actions are placed.}
 \begin{itemize}
-  \item For \(E \to T\,R\), the value of \(E\) is the value of \(T\) plus the value of \(R\). 
-        The operation count is simply the count from \(R\) (since \(T\) contributes no operations).
-  \item For \(R \to +\,T\,R_1\), the value is \(T.\text{val} + R_1.\text{val}\). 
-        The operation count is \(R_1.\text{cnt} + 1\) because we perform one addition.
-  \item For \(R \to -\,T\,R_1\), the value is \(T.\text{val} - R_1.\text{val}\). 
-        The operation count is \(R_1.\text{cnt} + 1\) because we perform one subtraction.
-  \item For \(R \to \epsilon\), the value is \(0\) and the count is \(0\) (base case for the right-recursive list).
-  \item For \(T \to \text{num}\), the value is the number's value and the count is \(0\).
+  \item The two assignments in \(E\to T\,R\) set the inherited attributes of \(R\) (the running total \(R.i\) and the operation count \(R.c\)). They must be computed before \(R\) is evaluated, so they sit at the start of the body, just before \(R\).
+  \item In the recursive productions \(R\to +\,T\,R_1\) and \(R\to -\,T\,R_1\), the running total \(R_1.i\) and the count \(R_1.c\) are inherited by the right-hand \(R_1\), so they are computed just before \(R_1\) in the body.
+  \item In \(R\to\epsilon\) there is nothing left to read: the running total \(R.i\) is the final value of the expression and \(R.c\) is the final operation count. Both are printed with a single \texttt{printf}. This is the only place where printing happens, so exactly one line is printed per expression.
+  \item In \(T\to\text{num}\), the value of the token is copied into \(T.\text{val}\) (synthesized attribute of \(T\)).
 \end{itemize}
 
 \subsection{Example: \texttt{3+7-5}}
 
-Using the SDT rules, we can evaluate the expression:
-\begin{itemize}
-  \item \(T_1 \to \text{num}(3)\): \(T_1.\text{val} = 3\), \(T_1.\text{cnt} = 0\).
-  \item \(T_2 \to \text{num}(7)\): \(T_2.\text{val} = 7\), \(T_2.\text{cnt} = 0\).
-  \item \(T_3 \to \text{num}(5)\): \(T_3.\text{val} = 5\), \(T_3.\text{cnt} = 0\).
-  \item \(R_3 \to \epsilon\): \(R_3.\text{val} = 0\), \(R_3.\text{cnt} = 0\).
-  \item \(R_2 \to -\,T_3\,R_3\): 
-        \(R_2.\text{val} = 5 - 0 = 5\), 
-        \(R_2.\text{cnt} = 0 + 1 = 1\).
-  \item \(R_1 \to +\,T_2\,R_2\): 
-        \(R_1.\text{val} = 7 + 5 = 12\), 
-        \(R_1.\text{cnt} = 1 + 1 = 2\).
-  \item \(E \to T_1\,R_1\): 
-        \(E.\text{val} = 3 + 12 = 15\), 
-        \(E.\text{cnt} = 2\).
-\end{itemize}
+The actions produce the following sequence of values and finally one \texttt{printf}.
 
-The final result is \(15\), and the number of operations is \(2\). 
-(Note: The example in the problem statement says \texttt{3+7-5} yields \texttt{total=5}, which seems incorrect; 
-\(3+7-5 = 5\) is the value, but the example says \texttt{total=5} and operations=2. 
-Actually, \(3+7-5 = 5\), so the value is 5. The operation count is 2. 
-The problem statement's example ``total=5'' likely means the final value is 5. 
-Our SDT computes the value correctly as 15? Wait, \(3+7-5 = 5\), not 15. 
-Let's re-evaluate: \(3 + 7 - 5 = 10 - 5 = 5\). 
-Our calculation above gave \(R_2.\text{val} = 5 - 0 = 5\) (but that's for the subexpression ``-5''), 
-then \(R_1.\text{val} = 7 + 5 = 12\)? That is wrong because the subtraction should apply to the whole previous result, 
-not just to the 5. The grammar \(R \to +\,T\,R \mid -\,T\,R\) with right recursion evaluates as 
-\(3 + (7 - 5) = 3 + 2 = 5\), which is correct. 
-Let's recompute:
-\(R_3 \to \epsilon\): val=0, cnt=0.
-\(R_2 \to -\,T_3\,R_3\): val = \(5 - 0 = 5\)? No, the rule is \(R.\text{val} = T.\text{val} - R_1.\text{val}\). 
-So \(R_2.\text{val} = T_3.\text{val} - R_3.\text{val} = 5 - 0 = 5\). 
-But this means the subexpression ``-5'' evaluates to 5, which is wrong. 
-The problem is that the subtraction should be \(T.\text{val} - R_1.\text{val}\)? 
-Actually, for right recursion, the expression is \(T_1 + T_2 - T_3\), which parses as \(T_1 + (T_2 - T_3)\). 
-So \(R_1\) should represent ``+ T_2 - T_3'', and its value should be \(T_2 - T_3\). 
-Thus for \(R \to -\,T\,R_1\), the value should be \(T.\text{val} - R_1.\text{val}\)? 
-Wait, if \(R_1\) represents the rest after the minus sign, then the expression is \(T - R_1\). 
-But in the parse tree, \(R \to -\,T\,R_1\) means the minus sign comes first, then \(T\), then \(R_1\). 
-So the expression is \(-T + R_1\)? That's not right. 
-The grammar is ambiguous or incorrectly written for standard arithmetic. 
-The standard right-recursive grammar for addition and subtraction is:
-\(E \to T\,R\)
-\(R \to +\,T\,R \mid -\,T\,R \mid \epsilon\)
-But this grammar generates strings like ``+ 3 - 5'' which is not standard infix. 
-Actually, the grammar \(E \to T\,R\), \(R \to +\,T\,R \mid -\,T\,R \mid \epsilon\) generates 
-\(T (+ T)^* (- T)^*\)? No, it generates \(T (+ T | - T)^*\) but the operators are prefix? 
-Wait, the production \(R \to +\,T\,R\) means the plus sign comes before \(T\) and \(R\). 
-So the string is \(T + T + T ...\) which is infix if we consider the plus sign as a separator? 
-No, the string is \(T + T R\), so the plus sign is between \(T\) and \(T\). 
-Actually, \(E \to T R\) and \(R \to + T R\) gives \(T + T R\), so the plus is between the first \(T\) and the second \(T\). 
-So the string is \(T + T + T ...\) which is infix. 
-But the parse tree for \(3+7-5\) would be:
-\(E \to T R\)
-\(T \to 3\)
-\(R \to + T R\) (with \(T \to 7\))
-\(R \to - T R\) (with \(T \to 5\))
-\(R \to \epsilon\)
-This gives the string \(3 + 7 - 5\). 
-The evaluation should be: \(R\) after \(+7\) is \(-5\), which evaluates to \(-5\)? 
-No, the \(R\) after \(+7\) represents the rest of the expression after \(7\), which is \(-5\). 
-So \(R_1\) (after \(+7\)) has value \(-5\)? 
-Then \(R_1.\text{val}\) should be \(-5\), and \(E.\text{val} = 3 + (-5) = -2\), which is wrong. 
-The issue is that the minus sign is part of the \(R\) production, so the value of \(R \to - T R_1\) should be 
-\(-T.\text{val} + R_1.\text{val}\)? 
-Let's think: the string generated by \(R \to - T R_1\) is ``- T R_1''. 
-If we interpret this as a suffix to be added to the previous value, then the minus sign applies to \(T\), 
-so the contribution is \(-T.\text{val} + R_1.\text{val}\). 
-But that would make \(3 + 7 - 5\) evaluate as \(3 + (7) + (-5) = 5\), which is correct. 
-So the semantic rule for \(R \to - T R_1\) should be:
-\(R.\text{val} = -T.\text{val} + R_1.\text{val}\).
-Similarly, for \(R \to + T R_1\):
-\(R.\text{val} = T.\text{val} + R_1.\text{val}\).
-Then for \(E \to T R\):
-\(E.\text{val} = T.\text{val} + R.\text{val}\).
-Let's test with \(3+7-5\):
-\(T_1=3\), \(T_2=7\), \(T_3=5\).
-\(R_3 \to \epsilon\): val=0, cnt=0.
-\(R_2 \to - T_3 R_3\): val = \(-5 + 0 = -5\), cnt = 0+1=1.
-\(R_1 \to + T_2 R_2\): val = \(7 + (-5) = 2\), cnt = 1+1=2.
-\(E \to T_1 R_1\): val = \(3 + 2 = 5\), cnt = 2.
-Correct! The value is 5, operations=2. 
-So the corrected semantic rules are:
-\begin{itemize}
-  \item \(E \to T R\): \(E.\text{val} = T.\text{val} + R.\text{val}\), \(E.\text{cnt} = R.\text{cnt}\)
-  \item \(R \to + T R_1\): \(R.\text{val} = T.\text{val} + R_1.\text{val}\), \(R.\text{cnt} = R_1.\text{cnt} + 1\)
-  \item \(R \to - T R_1\): \(R.\text{val} = -T.\text{val} + R_1.\text{val}\), \(R.\text{cnt} = R_1.\text{cnt} + 1\)
-  \item \(R \to \epsilon\): \(R.\text{val} = 0\), \(R.\text{cnt} = 0\)
-  \item \(T \to \text{num}\): \(T.\text{val} = \text{num.value}\), \(T.\text{cnt} = 0\)
-\end{itemize}
-This matches the example: \(3+7-5\) gives value 5 and operations 2.
+\begin{center}
+\small
+\begin{tabular}{l l l l}
+\toprule
+\textbf{Step} & \textbf{Production} & \textbf{Action} & \textbf{Value} \\
+\midrule
+1 & \(T_1\to\text{num}(3)\) & \texttt{T1.val = 3} & \(T_1.\text{val}=3\) \\
+2 & \(E\to T\,R\) (left part) & \texttt{R.i = T1.val} & \(R.i=3\) \\
+3 & \(E\to T\,R\) (right part) & \texttt{R.c = 0} & \(R.c=0\) \\
+4 & \(T_2\to\text{num}(7)\) & \texttt{T2.val = 7} & \(T_2.\text{val}=7\) \\
+5 & \(R\to +\,T\,R_1\) & \texttt{R1.i = R.i + T2.val} & \(R_1.i=10\) \\
+6 & \(R\to +\,T\,R_1\) & \texttt{R1.c = R.c + 1} & \(R_1.c=1\) \\
+7 & \(T_3\to\text{num}(5)\) & \texttt{T3.val = 5} & \(T_3.\text{val}=5\) \\
+8 & \(R_1\to -\,T\,R_2\) & \texttt{R2.i = R1.i - T3.val} & \(R_2.i=5\) \\
+9 & \(R_1\to -\,T\,R_2\) & \texttt{R2.c = R1.c + 1} & \(R_2.c=2\) \\
+10 & \(R_2\to\epsilon\) & \texttt{printf} & \texttt{total=5 and the number of operations=2} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The final output is:
+\begin{verbatim}
+total=5 and the number of operations=2
+\end{verbatim}
+
+\section{Dependency Graph for \texttt{3+7-5}}
+
+The dependency graph shows where each attribute value comes from. Each box is an attribute instance attached to a parse-tree node. Black arrows show the token's value becoming \(T.\text{val}\). Blue arrows show the inherited attributes \(R.i\) and \(R.c\) flowing down the chain of \(R\)'s. The \texttt{printf} at the \(\epsilon\)-node reads the running total and the count directly; nothing is carried back up to the root.
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  nd/.style={inner sep=2pt,align=center},
+  ab/.style={draw,rounded corners=1.5pt,inner sep=2pt,font=\scriptsize,fill=white},
+  pr/.style={draw,rounded corners=2pt,inner sep=3pt,font=\scriptsize,fill=green!10},
+  tr/.style={gray!55},
+  dn/.style={-{Stealth[length=2mm]},blue!70!black,thick},
+  lx/.style={-{Stealth[length=2mm]},black!60,thick},
+  emit/.style={-{Stealth[length=2mm]},green!50!black,thick}]
+ \node[nd] (E)  at (0,0)       {$E$};
+ \node[nd] (T1) at (-3.2,-1.8) {$T_1$};
+ \node[nd] (R1) at (2.2,-1.8)  {$R$};
+ \node[nd] (n3) at (-3.2,-3.6) {\textbf{num}};
+ \node[nd] (p1) at (0.4,-3.6)  {$+$};
+ \node[nd] (T2) at (2.0,-3.6)  {$T_2$};
+ \node[nd] (R2) at (5.0,-3.6)  {$R_1$};
+ \node[nd] (n7) at (2.0,-5.4)  {\textbf{num}};
+ \node[nd] (m1) at (3.8,-5.4)  {$-$};
+ \node[nd] (T3) at (5.2,-5.4)  {$T_3$};
+ \node[nd] (R3) at (8.0,-5.4)  {$R_2$};
+ \node[nd] (n5) at (5.2,-7.2)  {\textbf{num}};
+ \node[nd] (ep) at (8.0,-7.2)  {$\varepsilon$};
+ \foreach \a/\b in {E/T1,E/R1,T1/n3,R1/p1,R1/T2,R1/R2,T2/n7,R2/m1,R2/T3,R2/R3,T3/n5,R3/ep}
+   \draw[tr] (\a.south)--(\b.north);
+ \node[ab] (T1v) at (-4.4,-1.8) {val=3};
+ \node[ab] (R1i) at (1.1,-1.8)  {i=3};
+ \node[ab] (R1c) at (3.4,-1.8)  {c=0};
+ \node[ab] (l3)  at (-4.4,-3.6) {lexval=3};
+ \node[ab] (T2v) at (3.1,-3.6)  {val=7};
+ \node[ab] (R2i) at (4.6,-3.6)  {i=10};
+ \node[ab] (R2c) at (6.6,-3.6)  {c=1};
+ \node[ab] (l7)  at (3.1,-5.4)  {lexval=7};
+ \node[ab] (T3v) at (6.3,-5.4)  {val=5};
+ \node[ab] (R3i) at (7.8,-5.4)  {i=5};
+ \node[ab] (R3c) at (9.6,-5.4)  {c=2};
+ \node[ab] (l5)  at (6.3,-7.2)  {lexval=5};
+ \node[pr] (prn) at (10.6,-7.2) {\texttt{printf}};
+ \draw[lx] (l3.north)--(T1v.south);
+ \draw[lx] (l7.north)--(T2v.south);
+ \draw[lx] (l5.north)--(T3v.south);
+ \draw[dn] (T1v.east)--(R1i.west);
+ \draw[dn] (R1i.south) to[bend right=18] (R2i.north west);
+ \draw[dn] (T2v.east)--(R2i.west);
+ \draw[dn] (R2i.south) to[bend right=18] (R3i.north west);
+ \draw[dn] (T3v.east)--(R3i.west);
+ \draw[dn] (R1c.south) to[bend right=14] (R2c.north west);
+ \draw[dn] (R2c.south) to[bend right=14] (R3c.north west);
+ \draw[emit] (R3i.east)--(prn.west);
+ \draw[emit] (R3c.east)--(prn.west);
+\end{tikzpicture}}
+\caption{Dependency graph for \texttt{3+7-5}. Grey lines are parse-tree edges. Black arrows: the token value becomes \(T.\text{val}\). Blue arrows: the inherited running total \(R.i\) and count \(R.c\) flow down the \(R\)-chain (\(3\to10\to5\) and \(0\to1\to2\)). Green arrows: at \(R_2\to\epsilon\), the \texttt{printf} reads \(R.i=5\) and \(R.c=2\) and prints the final line. No attribute is carried back up to \(E\).}
+\label{fig:depgraph}
+\end{figure}
 
 \section{C Code for the SDT}
 
-Below is a simple C implementation of the SDT using a recursive descent parser. 
-It computes the value and operation count and prints them.
+The C code below mirrors the actions exactly. \(R\) receives the running total \(i\) and the running count \(c\) as parameters (these are the inherited attributes), updates them at each operator, and at the end prints the result. The \texttt{printf} occurs only once, inside the \(\epsilon\)-case of \(R\).
 
 \begin{lstlisting}
 #include <stdio.h>
-#include <stdlib.h>
 #include <ctype.h>
 
-// Global variable to hold the current input character
 char *input;
 int pos = 0;
 
-// Function prototypes
-int E(int *cnt);
-int T(int *cnt);
-int R(int *cnt);
-int num(int *cnt);
+int T(void);
+int R(int i, int c);
 
-// Parse E -> T R
-int E(int *cnt) {
-    int val = T(cnt);
-    val += R(cnt);
-    return val;
+int E(void) {
+    int t = T();
+    int i = t;          /* R.i = T.val */
+    int c = 0;          /* R.c = 0     */
+    return R(i, c);
 }
 
-// Parse R -> + T R | - T R | epsilon
-int R(int *cnt) {
+int R(int i, int c) {
     if (input[pos] == '+') {
-        pos++; // consume '+'
-        int t = T(cnt);
-        int r = R(cnt);
-        (*cnt)++; // one addition
-        return t + r;
+        pos++;
+        int t = T();
+        return R(i + t, c + 1);   /* R1.i = R.i + T.val;  R1.c = R.c + 1 */
     } else if (input[pos] == '-') {
-        pos++; // consume '-'
-        int t = T(cnt);
-        int r = R(cnt);
-        (*cnt)++; // one subtraction
-        return -t + r;
+        pos++;
+        int t = T();
+        return R(i - t, c + 1);   /* R1.i = R.i - T.val;  R1.c = R.c + 1 */
     } else {
-        // epsilon
+        printf("total=%d and the number of operations=%d\n", i, c);
         return 0;
     }
 }
 
-// Parse T -> num
-int T(int *cnt) {
-    return num(cnt);
-}
-
-// Parse a number
-int num(int *cnt) {
-    int val = 0;
-    while (isdigit(input[pos])) {
-        val = val * 10 + (input[pos] - '0');
+int T(void) {
+    int v = 0;
+    while (isdigit((unsigned char)input[pos])) {
+        v = v * 10 + (input[pos] - '0');
         pos++;
     }
-    return val;
+    return v;
 }
 
-int main() {
+int main(void) {
     char expr[100];
     printf("Enter expression: ");
-    scanf("%s", expr);
+    if (scanf("%99s", expr) != 1) return 1;
     input = expr;
     pos = 0;
-    int cnt = 0;
-    int result = E(&cnt);
-    printf("total=%d and the number of operations=%d\n", result, cnt);
+    E();
     return 0;
 }
 \end{lstlisting}
@@ -337,12 +289,6 @@ total=5 and the number of operations=2
 
 \section{Conclusion}
 
-We have constructed an SDT for a calculator grammar that handles addition and subtraction, 
-computes the final result, and counts the number of operations. 
-The semantic rules use synthesized attributes \texttt{val} and \texttt{cnt}. 
-The provided C code implements the SDT using recursive descent and prints the result 
-and operation count as required. 
-The corrected grammar and semantic rules ensure that expressions like \texttt{3+7-5} 
-are evaluated correctly as \(3 + (7 - 5) = 5\) with 2 operations.
+The calculator uses the right-recursive grammar \(E\to T\,R\), \(R\to +\,T\,R\mid -\,T\,R\mid\epsilon\), \(T\to\text{num}\). The running total \(R.i\) and the running operation count \(R.c\) are inherited attributes; they are started in \(E\to T\,R\) and updated at each operator. When the input is exhausted, \(R\to\epsilon\) prints the final result and the number of operations with a single \texttt{printf}. No value is carried back to the root; the final state of the inherited attributes at the \(\epsilon\)-production is the answer.
 
 \end{document}
