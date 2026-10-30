@@ -2952,14 +2952,16 @@ In this section we build the parser step by step, from a program that only says 
 \begin{tabular}{@{}l p{4.3cm} p{4.6cm} p{3.6cm}@{}}
 \toprule
 \textbf{Program} & \textbf{File} & \textbf{What it shows} & \textbf{Kind of SDD/SDT} \\ \midrule
-1 & \texttt{rd1\_recognizer.c} & the recipe: grammar $\to$ C & none (only syntax) \\
-2a, 2b, 2c & \texttt{rd2a\_listsum.c}, \texttt{rd2b\_depth.c}, \texttt{rd2c\_power.c} & several attributes; left factoring; right associativity & \textbf{S-attributed} (synthesized only) \\
-3 & \texttt{rd3\_calc.c} & a calculator with the accumulator $R.i$ & \textbf{L-attributed} SDD \\
-3b & \texttt{rd3b\_calc\_loops.c} & the same, with loops & L-attributed SDD \\
-4 & \texttt{rd4\_postfix.c} & infix to postfix with print actions & SDT with actions \\
-5 & \texttt{rd5\_ast.c} & building and using a syntax tree & L-attributed SDD (pointers) \\
-6 & \texttt{rd6\_types.c} & array types, inherited base type & L-attributed SDD \\
-7 & \texttt{rd7\_flow.c} & three-address code for \textbf{if}, \textbf{while} & L-attributed SDD (inherited labels) \\ \bottomrule
+1 & \texttt{rd01\_recognizer.c} & the recipe: grammar $\to$ C & none (only syntax) \\
+2 & \texttt{rd02\_listsum.c} & two synthesized attributes in a struct & \textbf{S-attributed} \\
+3 & \texttt{rd03\_depth.c} & nesting depth of parentheses & S-attributed \\
+4 & \texttt{rd04\_power.c} & left factoring; right associativity & S-attributed \\
+5 & \texttt{rd05\_calc.c} & a calculator with the accumulator $R.i$ & \textbf{L-attributed} SDD \\
+6 & \texttt{rd06\_calc\_loops.c} & the same calculator, with loops & L-attributed SDD \\
+7 & \texttt{rd07\_postfix.c} & infix to postfix with print actions & SDT with actions \\
+8 & \texttt{rd08\_ast.c} & building and using a syntax tree & L-attributed SDD (pointers) \\
+9 & \texttt{rd09\_types.c} & array types, inherited base type & L-attributed SDD \\
+10 & \texttt{rd10\_flow.c} & three-address code for \textbf{if}, \textbf{while} & L-attributed SDD (inherited labels) \\ \bottomrule
 \end{tabular}
 \end{center}
 
@@ -2986,7 +2988,7 @@ In this section we build the parser step by step, from a program that only says 
 void E(void) { E(); match('+'); T(); }     /* never terminates */
 \end{lstlisting}
 Remove it as in Section~\ref{sec:leftrec}: $E\to T\,R$, $R\to+\,T\,R\mid\varepsilon$.
-\item \textbf{A common beginning (needs left factoring).} If two alternatives start with the same symbols, such as $X\to T\,\hat{}\,E\mid T$, the parser cannot choose by looking at one token. Factor the common part out: $E\to T\,X$, $X\to\hat{}\,E\mid\varepsilon$. (Program 2c does exactly this.)
+\item \textbf{A common beginning (needs left factoring).} If two alternatives start with the same symbols, such as $X\to T\,\hat{}\,E\mid T$, the parser cannot choose by looking at one token. Factor the common part out: $E\to T\,X$, $X\to\hat{}\,E\mid\varepsilon$. (Program 4 does exactly this.)
 \end{itemize}
 
 \paragraph{Choosing the alternative: FIRST and FOLLOW.} For the expression grammar used in most of the programs,
@@ -3107,7 +3109,7 @@ void start(const char *text)   /* begin parsing 'text' */
 #endif
 \end{lstlisting}
 
-To compile and run a program: \texttt{gcc -Wall -Wextra -o rd1\_recognizer rd1\_recognizer.c} and then \texttt{./rd1\_recognizer "2*(3+4)-5"}. If no argument is given, each program uses a built-in sample input.
+To compile and run a program: \texttt{gcc -Wall -Wextra -o rd01\_recognizer rd01\_recognizer.c} and then \texttt{./rd01\_recognizer "2*(3+4)-5"}. If no argument is given, each program uses a built-in sample input.
 
 %====================================================================
 \subsection{Program 1: a recognizer (no attributes)}
@@ -3116,7 +3118,7 @@ To compile and run a program: \texttt{gcc -Wall -Wextra -o rd1\_recognizer rd1\_
 The first program has no attributes and no actions. It only answers ``is the input a legal expression?''. It is the plain translation of the grammar into C.
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd1_recognizer.c -- Program 1: a recursive-descent recognizer.
+/* rd01_recognizer.c -- Program 1: a recursive-descent recognizer.
  *
  *   E -> T R          R -> + T R | - T R | epsilon
  *   T -> F Q          Q -> * F Q | / F Q | epsilon
@@ -3169,13 +3171,13 @@ int main(int argc, char **argv)
 
 Sample runs:
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd1_recognizer "2*(3+4)-5"
+$ ./rd01_recognizer "2*(3+4)-5"
 accepted
-$ ./rd1_recognizer "(1+2)*(3-4)/5"
+$ ./rd01_recognizer "(1+2)*(3-4)/5"
 accepted
-$ ./rd1_recognizer "2*(3+"
+$ ./rd01_recognizer "2*(3+"
 error near position 5: expected a number or '('
-$ ./rd1_recognizer "2 3"
+$ ./rd01_recognizer "2 3"
 error near position 3: extra input after the expression
 \end{lstlisting}
 
@@ -3211,7 +3213,7 @@ The values travel upward through the \texttt{return} statements, exactly in the 
 
 A word of warning: the familiar S-attributed SDD $E\to E_1+T$ is left-recursive and cannot be used directly in a recursive-descent parser. The examples below are S-attributed SDDs whose grammars are naturally LL(1). (If you must keep a left-recursive grammar, remove the left recursion as in Section~\ref{sec:leftrec}; the SDD then becomes L-attributed, which is the next subsection.)
 
-\subsubsection*{Program 2a: sum and count of a list (two synthesized attributes)}
+\subsubsection*{Program 2: sum and count of a list (two synthesized attributes)}
 \begin{center}
 \small
 \begin{tabular}{@{}l l@{}}
@@ -3224,7 +3226,7 @@ $M \to \varepsilon$ & $\at{M}{sum}=0$; \ $\at{M}{count}=0$ \\ \bottomrule
 \end{center}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd2a_listsum.c -- Program 2a: an S-attributed SDD (synthesized only).
+/* rd02_listsum.c -- Program 2: an S-attributed SDD (synthesized only).
  *
  *   L -> num M        L.sum = num.val + M.sum ; L.count = 1 + M.count
  *   M -> , L          M.sum = L.sum           ; M.count = L.count
@@ -3278,11 +3280,11 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd2a_listsum "3, 4, 10"
+$ ./rd02_listsum "3, 4, 10"
 sum = 17, count = 3
-$ ./rd2a_listsum "7"
+$ ./rd02_listsum "7"
 sum = 7, count = 1
-$ ./rd2a_listsum "3,"
+$ ./rd02_listsum "3,"
 error near position 2: unexpected token
 \end{lstlisting}
 
@@ -3297,7 +3299,7 @@ L()                          reads 3
 L() returns {3 + 4, 1 + 1}      = {7, 2}
 \end{lstlisting}
 
-\subsubsection*{Program 2b: the nesting depth of balanced parentheses}
+\subsubsection*{Program 3: the nesting depth of balanced parentheses}
 \begin{center}
 \small
 \begin{tabular}{@{}l l@{}}
@@ -3309,7 +3311,7 @@ $S \to \varepsilon$ & $\at{S}{depth}=0$ \\ \bottomrule
 \end{center}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd2b_depth.c -- Program 2b: nesting depth of balanced parentheses.
+/* rd03_depth.c -- Program 3: nesting depth of balanced parentheses.
  *
  *   S -> ( S ) S      S.depth = max(1 + S1.depth, S2.depth)
  *   S -> epsilon      S.depth = 0
@@ -3347,15 +3349,15 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd2b_depth "(()())()"
+$ ./rd03_depth "(()())()"
 depth = 2
-$ ./rd2b_depth "((()))"
+$ ./rd03_depth "((()))"
 depth = 3
-$ ./rd2b_depth "(()"
+$ ./rd03_depth "(()"
 error near position 3: unexpected token
 \end{lstlisting}
 
-\subsubsection*{Program 2c: a right-associative operator, and left factoring}
+\subsubsection*{Program 4: a right-associative operator, and left factoring}
 The power operator \texttt{\^{}} associates to the \emph{right}: $2\hat{}3\hat{}2=2^{(3^2)}=512$. The natural grammar $E\to T\,\hat{}\,E\mid T$ cannot be used, because both alternatives begin with $T$. After \textbf{left factoring} we get $E\to T\,X$ and $X\to\hat{}\,E\mid\varepsilon$. Now $X$ must tell $E$ \emph{whether a power follows}, so it has two synthesized attributes:
 \begin{center}
 \small
@@ -3370,7 +3372,7 @@ $T \to \mathbf{num}\ \mid\ \tok{(}\,E\,\tok{)}$ & $\at{T}{val}=\at{\mathbf{num}}
 \end{center}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd2c_power.c -- Program 2c: a right-associative operator, S-attributed.
+/* rd04_power.c -- Program 4: a right-associative operator, S-attributed.
  *
  *   E -> T X
  *   X -> ^ E | epsilon
@@ -3455,11 +3457,11 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd2c_power "2^3^2"
+$ ./rd04_power "2^3^2"
 512
-$ ./rd2c_power "(2^3)^2"
+$ ./rd04_power "(2^3)^2"
 64
-$ ./rd2c_power "5"
+$ ./rd04_power "5"
 5
 \end{lstlisting}
 
@@ -3477,7 +3479,7 @@ In an \textbf{L-attributed} SDD an inherited attribute of a symbol may depend on
 \end{itemize}
 This is Method~A of Section~\ref{sec:impl-lattr}; here every example is a complete program.
 
-\subsubsection*{Program 3: the calculator (left associativity with an accumulator)}
+\subsubsection*{Program 5: the calculator (left associativity with an accumulator)}
 This is the SDD of Section~\ref{sec:leftrec} for the grammar without left recursion. $R.i$ and $Q.i$ are the ``running value'' that is handed down; $R.s$ and $Q.s$ bring the final value back.
 \begin{center}
 \small
@@ -3499,7 +3501,7 @@ $F \to \mathbf{num}$ & $\at{F}{val}=\at{\mathbf{num}}{val}$ \\ \bottomrule
 Each inherited attribute ($R.i$, $Q.i$) is a parameter; each synthesized attribute is a return value.
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd3_calc.c -- Program 3: an L-attributed SDD, evaluated by recursive descent.
+/* rd05_calc.c -- Program 5: an L-attributed SDD, evaluated by recursive descent.
  *
  *   E -> T R          R.i = T.val ; E.val = R.s
  *   R -> + T R1       R1.i = R.i + T.val ; R.s = R1.s
@@ -3602,19 +3604,19 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd3_calc "9-5+2"
+$ ./rd05_calc "9-5+2"
 6
-$ ./rd3_calc "12/3*2"
+$ ./rd05_calc "12/3*2"
 8
-$ ./rd3_calc "10-4-3"
+$ ./rd05_calc "10-4-3"
 3
-$ ./rd3_calc "2+3*4"
+$ ./rd05_calc "2+3*4"
 14
-$ ./rd3_calc "2*(3+4)-5"
+$ ./rd05_calc "2*(3+4)-5"
 9
-$ ./rd3_calc "100/(5-5)"
+$ ./rd05_calc "100/(5-5)"
 error near position 9: division by zero
-$ ./rd3_calc "2+"
+$ ./rd05_calc "2+"
 error near position 2: expected a number or '('
 \end{lstlisting}
 
@@ -3635,13 +3637,13 @@ E() returns 6
 \item A division by zero is reported by the program; it is a semantic error, not a syntax error.
 \end{itemize}
 
-\subsubsection*{Program 3b: the same calculator with loops}
+\subsubsection*{Program 6: the same calculator with loops}
 The procedures \texttt{R(i)} and \texttt{Q(i)} are \emph{tail-recursive}: the recursive call is the last thing they do. A tail call can be replaced by a loop, and then the inherited attribute $R.i$ is nothing but an ordinary local variable that is updated on every pass. Many real parsers are written this way.
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd3b_calc_loops.c -- Program 3b: the same calculator, with loops.
+/* rd06_calc_loops.c -- Program 6: the same calculator, with loops.
  *
- * The tail-recursive procedures R(i) and Q(i) of Program 3 are replaced by
+ * The tail-recursive procedures R(i) and Q(i) of Program 5 are replaced by
  * while loops. The inherited attribute R.i has become an ordinary local
  * variable 'v' that is updated on every pass of the loop. */
 #include "scanner.h"
@@ -3715,15 +3717,15 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd3b_calc_loops "9-5+2"
+$ ./rd06_calc_loops "9-5+2"
 6
-$ ./rd3b_calc_loops "12/3*2"
+$ ./rd06_calc_loops "12/3*2"
 8
-$ ./rd3b_calc_loops "10-4-3"
+$ ./rd06_calc_loops "10-4-3"
 3
 \end{lstlisting}
 
-\subsubsection*{Program 4: infix to postfix (an SDT with print actions)}
+\subsubsection*{Program 7: infix to postfix (an SDT with print actions)}
 Here the translation is not a value but a \emph{sequence of printed symbols}. The SDT of Section~\ref{sec:infix2postfix} for the grammar without left recursion has its actions in the middle of the bodies:
 \begin{align*}
 R &\to +\ T\ \{\ \mathit{print}(\tok{'+'})\ \}\ R_1\ \mid\ -\ T\ \{\ \mathit{print}(\tok{'-'})\ \}\ R_1\ \mid\ \varepsilon\\
@@ -3733,7 +3735,7 @@ F &\to \tok{(}\,E\,\tok{)}\ \mid\ \mathbf{num}\ \{\ \mathit{print}(\at{\mathbf{n
 Each action is a \texttt{printf} at the same place in the body, and the functions have no attributes at all.
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd4_postfix.c -- Program 4: an SDT with print actions (infix to postfix).
+/* rd07_postfix.c -- Program 7: an SDT with print actions (infix to postfix).
  *
  *   E -> T R
  *   R -> + T { print('+') } R | - T { print('-') } R | epsilon
@@ -3800,21 +3802,21 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd4_postfix "a*(b+c)-d"
+$ ./rd07_postfix "a*(b+c)-d"
 a b c + * d - 
-$ ./rd4_postfix "9-5+2"
+$ ./rd07_postfix "9-5+2"
 9 5 - 2 + 
-$ ./rd4_postfix "a+b*c"
+$ ./rd07_postfix "a+b*c"
 a b c * + 
-$ ./rd4_postfix "(a+b)*(c-d)/e"
+$ ./rd07_postfix "(a+b)*(c-d)/e"
 a b + c d - * e / 
-$ ./rd4_postfix "a+"
+$ ./rd07_postfix "a+"
 a error near position 2: expected an operand or '('
 \end{lstlisting}
 
 \textbf{What to notice.} The action of $R\to+\,T\,\{\dots\}\,R_1$ is written \emph{after} \texttt{T()} and \emph{before} \texttt{R()}: the operand is printed first, then the operator, and only then the rest of the expression. In the last run the output \texttt{a} appears \emph{before} the error is found: an SDT that prints acts \emph{during} the parse, so it may already have written part of its output when a later syntax error is detected.
 
-\subsubsection*{Program 5: building the syntax tree}
+\subsubsection*{Program 8: building the syntax tree}
 This is the syntax-tree SDD of Section~\ref{sec:sddtree} in its L-attributed form. The inherited attribute is now a \emph{pointer} to the tree built so far; the synthesized attribute is a pointer, too.
 \begin{center}
 \small
@@ -3834,7 +3836,7 @@ $F \to \mathbf{id}$ & $\at{F}{node}=\mathbf{new}\ \mathit{Leaf}(\mathbf{id},\,\a
 After parsing, the program shows what one can do with the tree: print it (one node per line, indented), traverse it in post-order (this prints the postfix form), evaluate it if it contains only numbers, and release the memory.
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd5_ast.c -- Program 5: building the syntax tree (AST) while parsing.
+/* rd08_ast.c -- Program 8: building the syntax tree (AST) while parsing.
  *
  * The syntax-tree SDD without left recursion (Section "SDD for constructing
  * syntax trees"). R.i and Q.i are POINTERS to the tree built so far.
@@ -4017,7 +4019,7 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd5_ast "a - 4 + c"
+$ ./rd08_ast "a - 4 + c"
 syntax tree:
     +
         -
@@ -4026,7 +4028,7 @@ syntax tree:
         c
 postfix: a 4 - c + 
 value: cannot be evaluated (identifier or division by zero)
-$ ./rd5_ast "a - (4 + c)"
+$ ./rd08_ast "a - (4 + c)"
 syntax tree:
     -
         a
@@ -4035,7 +4037,7 @@ syntax tree:
             c
 postfix: a 4 c + - 
 value: cannot be evaluated (identifier or division by zero)
-$ ./rd5_ast "2*(3+4)-5"
+$ ./rd08_ast "2*(3+4)-5"
 syntax tree:
     -
         *
@@ -4050,7 +4052,7 @@ value: 9
 
 \textbf{What to notice.} The first two inputs differ only in the parentheses, and the two trees have a different \emph{shape}: this is Figure~\ref{fig:sddtree-paren}. The parentheses themselves appear nowhere in the tree; \texttt{F()} simply returns the pointer of the inner expression.
 
-\subsubsection*{Program 6: the structure of a type (inherited base type)}
+\subsubsection*{Program 9: the structure of a type (inherited base type)}
 This is the array-type SDD of Section~\ref{sec:typestruct}. The base type travels \emph{down} in the inherited attribute $C.b$ (a parameter), and the array type is assembled on the way \emph{up} (the return value). To show two attributes at once, a type carries its text and also its \textbf{width} in bytes.
 \begin{center}
 \small
@@ -4066,7 +4068,7 @@ $C \to \varepsilon$ & $\at{C}{t}=\at{C}{b}$ \\ \bottomrule
 \end{center}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd6_types.c -- Program 6: the structure of a type (array types).
+/* rd09_types.c -- Program 9: the structure of a type (array types).
  *
  *   T -> B C          C.b = B.t ; T.t = C.t
  *   B -> int          B.t = integer, width 4
@@ -4175,32 +4177,32 @@ int main(int argc, char **argv)
 \end{lstlisting}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd6_types "int [2][3]"
+$ ./rd09_types "int [2][3]"
 type  : array(2, array(3, integer))
 width : 24 bytes
-$ ./rd6_types "float [10]"
+$ ./rd09_types "float [10]"
 type  : array(10, float)
 width : 80 bytes
-$ ./rd6_types "int"
+$ ./rd09_types "int"
 type  : integer
 width : 4 bytes
-$ ./rd6_types "float [2][3][4]"
+$ ./rd09_types "float [2][3][4]"
 type  : array(2, array(3, array(4, float)))
 width : 192 bytes
-$ ./rd6_types "char"
+$ ./rd09_types "char"
 error near position 4: expected int or float
 \end{lstlisting}
 
 \textbf{What to notice.} The two values pass in \emph{opposite directions}: \texttt{b} goes down through the parameter of \texttt{C}, and the finished type comes back up through the return value. The base case \texttt{C} $\to\varepsilon$ is the turning point: it returns a copy of the type it received. The dynamic strings are released as soon as they are no longer needed (the \texttt{free} calls); the program was also run under the address and leak sanitizers.
 
-\subsubsection*{Program 7: three-address code for \textbf{if} and \textbf{while} (inherited labels)}
+\subsubsection*{Program 10: three-address code for \textbf{if} and \textbf{while} (inherited labels)}
 The last program is a small compiler front end. It reads statements and prints three-address code. It uses the scheme of Section~\ref{sec:labelintro}: the door names $S.next$, $B.true$, $B.false$ are \emph{inherited} attributes, that is, \textbf{parameters}; the address of an expression is \emph{synthesized}, that is, a return value; and the instructions are printed \emph{on the fly} (Method~B). The language:
 \begin{align*}
 S &\to \mathbf{id} = E\,;\ \mid\ \mathbf{if}\,(B)\,S_1\ [\,\mathbf{else}\ S_2\,]\ \mid\ \mathbf{while}\,(B)\,S_1\ \mid\ \tok{\{}\ L\ \tok{\}}\\
 L &\to S\,L\ \mid\ \varepsilon\\
 B &\to E\ \mathit{rel}\ E
 \end{align*}
-and the expressions are those of Program 3, with the addresses of the operands in place of the numbers. In the table, $\mathit{label}(L)$ prints the name tag \texttt{L:}.
+and the expressions are those of Program 5, with the addresses of the operands in place of the numbers. In the table, $\mathit{label}(L)$ prints the name tag \texttt{L:}.
 \begin{center}
 \small
 \begin{tabular}{@{}l p{9.6cm}@{}}
@@ -4213,7 +4215,7 @@ $\mathbf{while}\,(B)\,S_1$ & $\mathit{label}(\mathit{begin})$; \ $B$ with $B.tru
 \end{center}
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-/* rd7_flow.c -- Program 7: three-address code for a small language, with
+/* rd10_flow.c -- Program 10: three-address code for a small language, with
  * the inherited labels of the flow-of-control SDD (on-the-fly generation).
  *
  *   P -> L                      S.next = newlabel() is given to every statement
@@ -4425,7 +4427,7 @@ while (i < 10) {
 }
 \end{lstlisting}
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd7_flow
+$ ./rd10_flow
 	i = 0
 L1:
 	s = 0
@@ -4454,14 +4456,14 @@ L3:
 
 Other statements:
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize,tabsize=4]
-$ ./rd7_flow "if (a < b) x = 1;"
+$ ./rd10_flow "if (a < b) x = 1;"
 	if a < b goto L2
 	goto L3
 L2:
 	x = 1
 L3:
 L1:
-$ ./rd7_flow "if (a < b) x = 1; else x = 2; y = 3;"
+$ ./rd10_flow "if (a < b) x = 1; else x = 2; y = 3;"
 	if a < b goto L2
 	goto L3
 L2:
@@ -4472,7 +4474,7 @@ L3:
 L1:
 	y = 3
 L4:
-$ ./rd7_flow "while (a < b) x = x + 1; y = 3;"
+$ ./rd10_flow "while (a < b) x = x + 1; y = 3;"
 L2:
 	if a < b goto L3
 	goto L1
@@ -4503,12 +4505,12 @@ L4:
 \toprule
 \textbf{Program} & \textbf{SDD class} & \textbf{How the attributes travel in the C code} \\ \midrule
 1 & no attributes & only \texttt{match()} and calls \\
-2a, 2b, 2c & S-attributed & no parameters; values are \texttt{return}ed (a \texttt{struct} for several) \\
-3, 3b & L-attributed & the accumulator $R.i$ is a parameter (or a loop variable); $R.s$ is the return value \\
-4 & SDT with actions & \texttt{printf} statements between the calls \\
-5 & L-attributed (pointers) & the tree built so far is the parameter; the finished tree is the return value \\
-6 & L-attributed & the base type is a parameter; the array type is the return value \\
-7 & L-attributed (labels) & the labels $S.next$, $B.true$, $B.false$ are parameters; the instructions are printed on the fly \\ \bottomrule
+2, 3, 4 & S-attributed & no parameters; values are \texttt{return}ed (a \texttt{struct} for several) \\
+5, 6 & L-attributed & the accumulator $R.i$ is a parameter (or a loop variable); $R.s$ is the return value \\
+7 & SDT with actions & \texttt{printf} statements between the calls \\
+8 & L-attributed (pointers) & the tree built so far is the parameter; the finished tree is the return value \\
+9 & L-attributed & the base type is a parameter; the array type is the return value \\
+10 & L-attributed (labels) & the labels $S.next$, $B.true$, $B.false$ are parameters; the instructions are printed on the fly \\ \bottomrule
 \end{tabular}
 \end{center}
 
@@ -4516,7 +4518,7 @@ L4:
 \begin{itemize}[nosep]
 \item \textbf{Reading \texttt{lexval} or \texttt{lexeme} after \texttt{match()}.} \texttt{match} scans the next token and overwrites them. Copy the value \emph{first}.
 \item \textbf{Left recursion.} A function that calls itself before consuming a token never terminates. Remove the left recursion first (Section~\ref{sec:leftrec}).
-\item \textbf{Two alternatives with the same first token.} The parser cannot choose; left-factor the grammar (Program 2c).
+\item \textbf{Two alternatives with the same first token.} The parser cannot choose; left-factor the grammar (Program 4).
 \item \textbf{Forgetting the final test \texttt{look == END}} in \texttt{main}: the parser accepts a legal prefix followed by garbage.
 \item \textbf{The wrong operand order} when the accumulator is updated: \texttt{R(i - t)}, not \texttt{R(t - i)}.
 \item \textbf{Keeping an inherited attribute in a global variable.} It is overwritten by the nested calls (see the nested switch and the nested procedure call earlier). A parameter belongs to \emph{one} call.
@@ -4526,11 +4528,11 @@ L4:
 
 \paragraph{Exercises.}
 \begin{enumerate}[nosep]
-\item Extend Program 3 with \textbf{unary minus}: $F\to-\,F$ (so that \texttt{-3+5} is $2$). Which function changes, and what is the new production's rule?
-\item Add the operator $\%$ (remainder) at the level of $*$ and $/$ to Programs 3 and 4.
-\item Add \textbf{unary minus} to Program 4. The postfix form of \texttt{-a+b} should contain a distinct symbol for the unary operator (for example \texttt{neg}), so that it is not confused with the binary minus. Decide where the action must stand.
+\item Extend Program 5 with \textbf{unary minus}: $F\to-\,F$ (so that \texttt{-3+5} is $2$). Which function changes, and what is the new production's rule?
+\item Add the operator $\%$ (remainder) at the level of $*$ and $/$ to Programs 5 and 7.
+\item Add \textbf{unary minus} to Program 7. The postfix form of \texttt{-a+b} should contain a distinct symbol for the unary operator (for example \texttt{neg}), so that it is not confused with the binary minus. Decide where the action must stand.
 \item Write the recursive-descent procedures for the procedure-call SDD of Section~\ref{sec:proccall}: \texttt{Elist} returns the list of addresses; the \texttt{param} instructions are printed after all arguments have been evaluated.
-\item Extend Program 7 with the statement \textbf{do} $S$ \textbf{while} $(B)$\texttt{;} and write its code table first.
+\item Extend Program 10 with the statement \textbf{do} $S$ \textbf{while} $(B)$\texttt{;} and write its code table first.
 \end{enumerate}
 
 
