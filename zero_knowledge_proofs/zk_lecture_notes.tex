@@ -260,7 +260,7 @@ The \emph{verifier} $\Ver$ is the party who must decide whether to believe the s
 \end{center}
 
 \begin{definition}[Interactive protocol, round, transcript]\label{def:intro-protocol}
-An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of programs that take turns sending messages to each other, starting from the common input $x$. Each message sent is one \emph{move}; a prover message together with the verifier's reply is called a \emph{round}. The list of all messages exchanged, $(m_1,m_2,\dots,m_n)$, is the \emph{transcript}. We write
+An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of programs that take turns sending messages to each other, starting from the common input $x$. Each message sent is one \emph{move}; a prover message together with the verifier's reply is called a \emph{round}. A protocol with an odd number of moves ends with a prover message that gets no reply, so it consists of a number of rounds plus a ``half round''; for example, the commit--challenge--response protocols below have \emph{three moves}. To avoid confusion, we call one complete run of such a short protocol a \emph{repetition}, and we speak of repeating it $k$ times. The verifier's final check is a private computation, not a message. The list of all messages exchanged, $(m_1,m_2,\dots,m_n)$, is the \emph{transcript}. We write
 \[
  \pair{\Prv(w)}{\Ver}(x)\in\{0,1\}
 \]
@@ -304,7 +304,7 @@ If soundness (defined below) holds against \emph{every} cheating prover, even on
 
 \subsection{What ``small probability'' means}
 \begin{definition}[Negligible function]\label{def:intro-negl}
-Let $\lambda$ be a \emph{security parameter}, a positive integer that measures how much security we want (think ``number of rounds'', or ``key length in bits''). A function $\epsilon(\lambda)$ is \emph{negligible}, written $\epsilon=\negl(\lambda)$, if it eventually becomes smaller than $1/\lambda^c$ for every constant $c$.
+Let $\lambda$ be a \emph{security parameter}, a positive integer that measures how much security we want (think ``number of repetitions'', or ``key length in bits''). A function $\epsilon(\lambda)$ is \emph{negligible}, written $\epsilon=\negl(\lambda)$, if it eventually becomes smaller than $1/\lambda^c$ for every constant $c$.
 \end{definition}
 The standard example is $\epsilon(\lambda)=2^{-\lambda}$. For $\lambda=128$ this is about $3\times 10^{-39}$: smaller than the probability of randomly guessing a particular grain of sand among all those on Earth many times over. We say an event happens with \emph{overwhelming probability} if the probability that it fails is negligible. Chapter~\ref{ch:prelim} contains the careful treatment.
 
@@ -324,7 +324,7 @@ Each one protects someone different, and it is a good habit to always ask ``\emp
 
 \begin{remark}[Is the completeness error $c$ ever nonzero?]
 In almost all protocols in these notes (the colour-blind game, the cave, graph isomorphism, Schnorr) an honest prover is \emph{never} rejected, so $c=0$. This is called \emph{perfect completeness}. The general definition keeps a tiny error $c$ only so that it also covers protocols in which an honest prover may occasionally abort, for example because a random value it picked falls outside an allowed range; some lattice-based protocols behave this way.
-Note the contrast with soundness: the completeness error can be removed by careful design, whereas the soundness error $s$ comes from a cheater guessing the verifier's challenge. In a short protocol with random challenges it is therefore always positive, and we can only make it negligible by repeating rounds.
+Note the contrast with soundness: the completeness error can be removed by careful design, whereas the soundness error $s$ comes from a cheater guessing the verifier's challenge. In a short protocol with random challenges it is therefore always positive, and we can only make it negligible by repeating the protocol.
 
 \emph{Do not confuse the two errors.} $c=0$ does \textbf{not} mean that the verifier is always sure when it accepts. It only says that a \emph{true} statement proved by an honest prover is never rejected. The doubt about a \emph{false} statement is measured by $s$. The result is a one-sided guarantee: if the verifier \textbf{rejects}, it is certain that something is wrong (the statement is false or the prover deviated), whereas if it \textbf{accepts}, a small doubt of at most $s$ remains.
 \end{remark}
@@ -335,7 +335,7 @@ Note the contrast with soundness: the completeness error can be removed by caref
  \Pr\big[\pair{\Prv^*}{\Ver}(x)=1\big]\;\le\;s.
 \]
 \end{definition}
-\emph{Protects} the verifier against liars. Without it, the protocol could simply accept everyone. The number $s$ is the \emph{soundness error}; typical values are $s=\tfrac12$ for a single round and $s=2^{-k}$ after $k$ independent rounds.
+\emph{Protects} the verifier against liars. Without it, the protocol could simply accept everyone. The number $s$ is the \emph{soundness error}; typical values are $s=\tfrac12$ for a single repetition and $s=2^{-k}$ after $k$ independent repetitions.
 
 \begin{definition}[Zero-knowledge, first look]\label{def:intro-zk}
 \emph{Whatever a verifier can compute after talking to the honest prover, it could have computed on its own, without the interaction.}
@@ -363,8 +363,8 @@ Zero-knowledge & true & the prover's witness & curious or malicious verifiers $\
 \end{center}
 
 \begin{intuition}[Why a simulator captures ``learning nothing'']
-Imagine you want to prove to a sceptic that a \emph{video recording} teaches nothing. You show that a forger with no access to the secret could have produced an indistinguishable recording. Then the recording cannot contain any information about the secret: if it did, the forger could not have reproduced it.
-The simulator is that forger. It does not need to be the \emph{same} as the real prover, it just needs to produce transcripts that look exactly like real ones. The verifier's view is therefore ``worthless'' in the sense that anyone could have manufactured it alone.
+Whatever the verifier learns must come from its \emph{record} of the interaction (its view). Suppose you can show that a forger with no access to the secret could have written down an indistinguishable record. Then the record cannot contain any information about the secret: if it did, the forger could not have reproduced it.
+The simulator is that forger. It does not need to behave like the real prover; it just needs to output records that look exactly like real ones. The verifier's view is therefore ``worthless'' in the sense that anyone could have manufactured it alone. (The cave example in \Cref{sec:cave} carries this out in detail.)
 \end{intuition}
 
 \begin{warning}[Common misconceptions]
@@ -427,37 +427,40 @@ We now walk through a classic story from start to finish, using all of the vocab
 \end{tikzpicture}
 \end{center}
 
-\begin{protocol}{Ali Baba cave (one round)}
+\begin{protocol}{Ali Baba cave (one repetition)}
 \begin{enumerate}[leftmargin=1.4em]
-\item \textbf{Commit.} Peggy walks into the cave and chooses path $A$ or $B$ by a fair coin. Victor waits at the entrance and cannot see which she took.
-\item \textbf{Challenge.} Victor walks to the fork and shouts a random side, ``come out via $A$'' or ``come out via $B$''.
-\item \textbf{Response.} Peggy walks out of the cave by the requested side, opening the magic door with the secret word if necessary.
-\item \textbf{Check.} Victor accepts if Peggy emerges from the requested side.
+\item \textbf{Commit} (move 1, Peggy $\to$ Victor). Peggy walks into the cave and chooses path $A$ or $B$ by a fair coin. Victor waits at the entrance and cannot see which she took, but she can no longer change her mind: she has \emph{committed}.
+\item \textbf{Challenge} (move 2, Victor $\to$ Peggy). Victor walks to the fork and shouts a random side, ``come out via $A$'' or ``come out via $B$''.
+\item \textbf{Response} (move 3, Peggy $\to$ Victor). Peggy walks out of the cave by the requested side, opening the magic door with the secret word if necessary.
+\item \textbf{Check} (no message). Victor privately checks that Peggy emerged from the requested side, and accepts or rejects.
 \end{enumerate}
+Moves 1 and 2 form one round (a prover message and the verifier's reply); move 3 is a final prover message. The whole protocol is therefore a \emph{three-move} protocol, and it is run $k$ times in a row.
 \end{protocol}
 
-\paragraph{Completeness.} If Peggy knows the word she can reach either side whatever Victor asks, so Victor accepts every round.
+\paragraph{Completeness.} If Peggy knows the word she can reach either side whatever Victor asks, so Victor accepts in every repetition.
 
-\paragraph{Soundness.} Suppose Peggy does \emph{not} know the word. She went in via some side, say $A$. If Victor asks for $A$, she just walks out. If Victor asks for $B$, she is stuck behind the door and fails. Because Victor's coin is unpredictable, she survives a single round with probability exactly $\tfrac12$. After $k$ independent rounds she survives with probability $2^{-k}$:
+\paragraph{Soundness.} Suppose Peggy does \emph{not} know the word. She went in via some side, say $A$. If Victor asks for $A$, she just walks out. If Victor asks for $B$, she is stuck behind the door and fails. Because Victor's coin is unpredictable, she survives a single repetition with probability exactly $\tfrac12$. After $k$ independent repetitions she survives with probability $2^{-k}$:
 
 \begin{center}
 \renewcommand{\arraystretch}{1.15}
 \begin{tabular}{@{}c|cccc@{}}
 \toprule
-rounds $k$ & $1$ & $10$ & $20$ & $40$\\ \midrule
+repetitions $k$ & $1$ & $10$ & $20$ & $40$\\ \midrule
 cheater survives & $50\%$ & $\approx 0.1\%$ & $\approx 10^{-6}$ & $\approx 10^{-12}$\\
 \bottomrule
 \end{tabular}
 \end{center}
 Here the soundness error is $s=2^{-k}$, and by choosing $k=\lambda$ it becomes negligible in the security parameter.
 
-\paragraph{Zero-knowledge.} What does Victor see in a round? Only ``Peggy came out of the side I asked for''. He never sees the word, never sees the door open, and never learns whether Peggy actually used the door. Here is the simulator argument, in story form. A fraudster \emph{Sam}, who does \emph{not} know the word, wants to fake a video of the protocol:
-\begin{enumerate}
-\item Sam enters the cave and picks a side at random, say $A$. \emph{Then Victor's challenge is announced.}
-\item If the challenge is $A$, Sam walks out and keeps the recording of this round.
-\item If the challenge is $B$, Sam \emph{cuts the take and starts again}. This is called \emph{rewinding}.
-\end{enumerate}
-Each attempt succeeds with probability $\tfrac12$, so on average Sam needs two attempts per round, and the final video is \emph{perfectly} indistinguishable from a real one. Since a person with no knowledge of the secret can manufacture the same ``evidence'' that Victor gets, Victor cannot have learned anything about the secret from it. (This also illustrates the last bullet of the warning above: the video convinces no one else.)
+\paragraph{Zero-knowledge.} Whatever Victor learns must come from what he \emph{sees}. In one repetition, the \emph{record} of everything he saw is very short: ``I shouted $b$, and Peggy came out of side $b$''. (Its technical name is the \emph{transcript}, or Victor's \emph{view}.) He never sees the secret word, he never sees the door open, and he never learns whether Peggy used the door or simply walked back the way she came.
+
+To show that this record contains no information about the word, we ask a question: \emph{could someone who does not know the word write down an identical-looking record entirely on their own?} In the cave, yes. Let \emph{Sam} be a fraudster who does not know the word and is not even in the cave. To produce one repetition of the record, Sam flips a fair coin to get $b\in\{A,B\}$ and writes
+\begin{center}``challenge $b$; Peggy came out of side $b$''.\end{center}
+Now compare with a real record. There, Victor's challenge $b$ is a fair coin and an honest Peggy always comes out of side $b$, so the real record has \emph{exactly} the same distribution as Sam's. For three repetitions, a real record might read $(A,A),(B,B),(B,B)$ and Sam's might read $(B,B),(A,A),(B,B)$; nobody can tell which one came from the real protocol. Hence the record cannot contain the word. (Compare: had Peggy shouted the word aloud, the real record would contain it, and Sam could not have written it down.) Sam plays the role of the \emph{simulator}: an algorithm that never sees the witness yet outputs records distributed exactly like real ones. Because the distributions are identical, this is \emph{perfect} zero-knowledge.
+
+\paragraph{But then why is Victor convinced?} Victor is convinced because he \emph{was there}: he chose his challenge \emph{after} Peggy had gone in, and she could not predict it. Sam's fake record has no such history; it is just ink on paper. So the record convinces Victor, but it convinces nobody else, since anyone could have written it. This is the last bullet of the warning above.
+
+\paragraph{Cheating verifiers, and where rewinding comes in.} A cheating verifier $\Ver^*$ may choose its challenge in a clever, non-random way. This does not break the argument above: Sam runs $\Ver^*$ as a program, sees which challenge $b^*$ it announces, and writes $(b^*,b^*)$. In the cave this works without any trick because Victor cannot see which side Peggy entered, so his challenge cannot depend on it. In many other protocols the prover's first message \emph{is} visible to the verifier. Then the simulator must produce that first message before it knows the challenge, and it cannot do this honestly. The standard trick is to \emph{guess} the challenge in advance and prepare a first message that works only for that guess (in the cave: Sam enters via the guessed side $A$). Sam then runs $\Ver^*$. If $\Ver^*$ announces the guessed challenge, Sam completes the repetition and keeps it. Otherwise Sam \emph{rewinds}: he restarts $\Ver^*$ from the beginning and guesses again. Since the first message hides the guess, each attempt succeeds with probability $\tfrac12$, so on average two attempts per repetition suffice. We will use rewinding in later chapters.
 
 \begin{intuition}[The three ideas behind every ZK protocol]
 \textbf{(1) Commit--challenge--response.} The prover commits to something random (a side of the cave); the verifier asks one of several questions; the prover can answer \emph{every} possible question only if she knows the witness, but any \emph{single} answer is independent of the witness.\\
@@ -550,10 +553,10 @@ proof vs.\ argument & & soundness against all provers vs.\ only efficient ones\\
 Write down a relation $R$ for the statement ``the number $N$ is a perfect square''. What is a witness for $N=144$? Is it easy to check?
 \end{exercise}
 \begin{exercise}[Soundness in the cave]
-In the cave protocol, how many rounds $k$ are needed so that a cheating prover is accepted with probability below $10^{-9}$? Below $2^{-128}$?
+In the cave protocol, how many repetitions $k$ are needed so that a cheating prover is accepted with probability below $10^{-9}$? Below $2^{-128}$?
 \end{exercise}
 \begin{exercise}[A prover who guesses better]
-Suppose Victor's challenge in the cave is \emph{not} a fair coin, but he picks $A$ with probability $0.9$. Peggy does not know the word and always enters via $A$. What is her success probability per round? Why is a fair coin the best choice for Victor?
+Suppose Victor's challenge in the cave is \emph{not} a fair coin, but he picks $A$ with probability $0.9$. Peggy does not know the word and always enters via $A$. What is her success probability per repetition? Why is a fair coin the best choice for Victor?
 \end{exercise}
 \begin{exercise}[Colour-blind verifier]
 Describe, in terms of completeness, soundness and zero-knowledge, what each property says in the colour-blind game of Section~\ref{sec:colourblind}. What is the verifier's view, and how would a simulator produce it?
@@ -572,17 +575,105 @@ Decide which of $2^{-\lambda}$, $1/\lambda^{100}$, $2^{-\sqrt{\lambda}}$ and $1/
 Explain why a zero-knowledge proof cannot be used by the verifier to convince a third party. How does this relate to the existence of a simulator?
 \end{exercise}
 
-\chapter{Mathematical Preliminaries}\label{ch:prelim}
-\section{Asymptotics, negligible functions and indistinguishability}
-\begin{definition}[Negligible]
-$\mu:\NN\to\mathbb{R}_{\ge0}$ is \emph{negligible} if for every polynomial $p$ there is $N$ such that $\mu(\lambda)<1/p(\lambda)$ for all $\lambda>N$. We write $\mu=\negl(\lambda)$. A function is \emph{overwhelming} if $1-\mu$ is negligible.
-\end{definition}
-Negligible functions are closed under addition and under multiplication by polynomials: $\poly\cdot\negl=\negl$. This is exactly what is needed so that an event of negligible probability cannot be amplified by polynomially many repetitions.
+\newtcolorbox{plain}{enhanced,breakable,colback=blue!5,colframe=blue!5,boxrule=0pt,arc=0pt,
+  borderline west={2.4pt}{0pt}{blue!60!black},left=8pt,right=4pt,top=3pt,bottom=3pt}
+\newcommand{\PE}{\textbf{In plain English.}\ }
 
+\chapter{Mathematical Preliminaries}\label{ch:prelim}
+
+\begin{intuition}[How to use this chapter]
+Every zero-knowledge protocol is built from a small toolbox. This chapter introduces the tools \emph{one at a time}. For each tool you will find (i) a formal definition, (ii) the same idea in plain English, and (iii) worked examples with numbers small enough to check by hand.
+You do \textbf{not} have to master everything before reading Chapter~\ref{ch:ip}. Read the sections you need, and come back when a later chapter points here. All the numerical examples use the same tiny ``toy'' numbers ($p=23$, $q=11$, $N=77$), so you can reuse your calculations.
+\end{intuition}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}L{4.3cm} L{5.9cm} L{3.6cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{What it gives us} & \textbf{First used in}\\
+\midrule
+Negligible, indistinguishable & precise meaning of ``tiny error'' and ``looks the same'' & Ch.~\ref{ch:zk}\\
+$\NP$ relations & what a statement and a witness are & everywhere\\
+Cyclic groups, discrete log & a hard problem with useful algebra & Ch.~\ref{ch:sigma}\\
+Quadratic residues & a second hard problem & Ch.~\ref{ch:classical}\\
+Polynomials, Schwartz--Zippel & test a huge equality at one random point & Ch.~\ref{ch:sumcheck}, \ref{ch:snark}\\
+Pairings & check one product of hidden numbers & Ch.~\ref{ch:snark}\\
+One-way functions & the minimal assumption for ZK & Ch.~\ref{ch:np}\\
+Commitments & a digital sealed envelope & Ch.~\ref{ch:np}, \ref{ch:pcs}\\
+Random oracle & replace the verifier's coins by a hash & Ch.~\ref{ch:fs}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%=====================================================================
+\section{Asymptotics, negligible functions and indistinguishability}
+%=====================================================================
+\subsection{Negligible and overwhelming}
+Cryptographic security is never absolute, because an attacker can always \emph{guess}. Guessing a 128-bit key succeeds with probability $2^{-128}$. That is not zero, but it is so tiny that we treat it as impossible. To say this precisely we use a \emph{security parameter} $\lambda$, a ``knob'' (bigger $\lambda$ means longer keys, more repetitions, more safety), and we ask how fast the attacker's success probability \emph{shrinks} as we turn the knob.
+
+\begin{definition}[Negligible, overwhelming]
+A function $\mu:\NN\to\mathbb{R}_{\ge0}$ is \emph{negligible} if for every polynomial $p$ there is $N$ such that $\mu(\lambda)<1/p(\lambda)$ for all $\lambda>N$. We write $\mu=\negl(\lambda)$. A function is \emph{overwhelming} if $1-\mu$ is negligible.
+\end{definition}
+\begin{plain}\PE
+A function is negligible if it dies out faster than \emph{every} fraction of the form $1/\lambda^c$, however large the constant $c$. A probability is overwhelming if the chance of the \emph{opposite} outcome is negligible.
+\end{plain}
+
+\begin{example}[Which functions are negligible?]\label{ex:negl}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}l c L{8.2cm}@{}}
+\toprule
+\textbf{Function} & \textbf{Negligible?} & \textbf{Reason}\\
+\midrule
+$2^{-\lambda}$ & yes & exponentially small; beats every $1/\lambda^c$\\
+$2^{-\sqrt\lambda}$ & yes & $\sqrt\lambda$ eventually exceeds $c\log_2\lambda$ for every $c$\\
+$1/\lambda!$ & yes & $\lambda!$ grows faster than any exponential\\
+$1/\lambda^{10}$ & \textbf{no} & it is itself $1/p(\lambda)$ for the polynomial $p=\lambda^{10}$\\
+$1/\log\lambda$ & \textbf{no} & shrinks far too slowly\\
+\bottomrule
+\end{tabular}
+\end{center}
+For scale, at $\lambda=128$ we have $2^{-128}\approx2.9\times10^{-39}$, whereas $1/\lambda^3=1/2\,097\,152\approx4.8\times10^{-7}$.
+\end{example}
+
+\begin{example}[Why negligible functions are closed under polynomial multiplication]
+An attacker tries $\lambda^3$ independent guesses.
+\begin{itemize}
+\item If each guess succeeds with probability $2^{-\lambda}$, the total success probability is at most $\lambda^3\cdot2^{-\lambda}$ (add the probabilities). At $\lambda=128$ this is $2^{21}\cdot2^{-128}=2^{-107}$: still negligible.
+\item If each guess succeeds with probability only $1/\lambda^2$, the attacker expects $\lambda^3/\lambda^2=\lambda$ successes: success is nearly certain.
+\end{itemize}
+This is why ``negligible'' (and not just ``small for one guess'') is the right notion: a negligible chance cannot be amplified to a real chance by any polynomial amount of effort.
+\end{example}
+
+\begin{example}[Overwhelming probability in the cave]
+After $k=\lambda$ repetitions of the cave protocol, a cheating Peggy is caught with probability $1-2^{-\lambda}$. This is overwhelming, because the opposite outcome (she survives) has the negligible probability $2^{-\lambda}$.
+\end{example}
+
+\subsection{Distributions and how far apart they are}
 \begin{definition}[Ensembles, statistical distance]
 A \emph{probability ensemble} $X=\{X_{a}\}_{a\in S}$ indexed by $S\subseteq\{0,1\}^*$ is a family of random variables. For distributions $D_0,D_1$ on a finite set $\Omega$,
 \[\SD(D_0,D_1)=\max_{T\subseteq\Omega}\big|D_0(T)-D_1(T)\big|=\tfrac12\sum_{\omega}|D_0(\omega)-D_1(\omega)|.\]
 \end{definition}
+\begin{plain}\PE
+An \emph{ensemble} is just ``one probability distribution for every input $a$'' (for instance, the verifier's view for each statement $a=x$). The \emph{statistical distance} measures how different two distributions are, on a scale from $0$ (identical) to $1$ (completely different). It equals the largest gap that any yes/no question about the outcome can reveal. If you are handed a single sample and must guess which distribution it came from, the best possible strategy wins with probability $\tfrac12+\tfrac12\SD(D_0,D_1)$.
+\end{plain}
+
+\begin{example}[A fair coin versus a biased coin]
+Let $D_0$ be a fair coin ($\Pr[\text{heads}]=0.5$) and $D_1$ a coin with $\Pr[\text{heads}]=0.6$. Using the sum formula,
+\[\SD(D_0,D_1)=\tfrac12\big(|0.5-0.6|+|0.5-0.4|\big)=0.1.\]
+Using the max formula, the best test is $T=\{\text{heads}\}$, which gives the gap $|0.5-0.6|=0.1$. The best one-look guesser wins with probability $0.55$.
+\end{example}
+
+\begin{example}[Distance zero: the cave records]
+In Section~\ref{sec:cave} the real record of one cave repetition is $(b,b)$ with $b$ a fair coin, and Sam's fake record is also $(b,b)$ with $b$ a fair coin. The two distributions are identical, so $\SD=0$.
+\end{example}
+
+\begin{example}[Small but nonzero: random numbers versus random units]\label{ex:sd-units}
+Pick a uniform number from $\{0,\dots,N-1\}$ and compare it with a uniform \emph{invertible} number from $\Zs N$ (those coprime to $N$). They differ only because the first can hit a non-invertible number, so $\SD=\dfrac{N-\varphi(N)}{N}=\dfrac{P+Q-1}{N}$ for $N=PQ$.
+For the toy $N=77=7\cdot11$ this is $\tfrac{17}{77}\approx0.22$, which is large. For a 2048-bit RSA modulus with $P,Q\approx2^{1024}$ it is about $2^{-1023}$, which is negligible. So here the two distributions are \emph{statistically indistinguishable}.
+\end{example}
+
+\subsection{Three levels of ``looks the same''}
 \begin{definition}[Indistinguishability]
 Two ensembles $X=\{X_a\}$, $Y=\{Y_a\}$ are
 \begin{itemize}
@@ -591,30 +682,107 @@ Two ensembles $X=\{X_a\}$, $Y=\{Y_a\}$ are
 \item \emph{computationally indistinguishable} ($X\approx_c Y$) if for every non-uniform PPT distinguisher $D$ the advantage $\big|\Pr[D(a,X_a)=1]-\Pr[D(a,Y_a)=1]\big|=\negl(|a|)$.
 \end{itemize}
 \end{definition}
+\begin{plain}\PE
+Think of two sealed bags of marbles.
+\emph{Perfect:} the bags hold exactly the same mix of marbles.
+\emph{Statistical:} the mixes differ by a negligible amount, so even an unlimited-time examiner who draws a marble learns essentially nothing.
+\emph{Computational:} the mixes may genuinely differ, but finding out would take an examiner more time than any realistic computer has.
+A \emph{distinguisher} $D$ is the examiner: an algorithm that receives one sample and outputs a guess bit. Its \emph{advantage} is how differently it behaves on the two inputs. (``Non-uniform'' only means that $D$ may carry a fixed cheat-sheet depending on the input length; just think of it as ``any efficient algorithm''.)
+\end{plain}
+
+\begin{example}[One example of each level]\label{ex:three-levels}
+\textbf{Perfect:} the real cave record and Sam's fake record (Example above, $\SD=0$).\\
+\textbf{Statistical:} a uniform element of $\Z N$ versus a uniform element of $\Zs N$ for a huge $N$ (Example~\ref{ex:sd-units}).\\
+\textbf{Computational:} the output of a pseudorandom generator versus a truly random string. Let $G:\{0,1\}^n\to\{0,1\}^{2n}$. Only $2^n$ of the $2^{2n}$ possible strings are outputs of $G$, so a distinguisher with unlimited time could try all $2^n$ seeds and succeed with advantage $1-2^{-n}$. The two distributions are therefore \emph{not} statistically close; they are only computationally close, because that exhaustive search is not an efficient algorithm.
+\end{example}
+
 \begin{lemma}[Hybrid argument]\label{lem:hybrid}
 Let $X^{(0)},\dots,X^{(m)}$ be distributions, $m=\poly$. If $D$ distinguishes $X^{(0)}$ from $X^{(m)}$ with advantage $\varepsilon$, then for some $i<m$ it distinguishes $X^{(i)}$ from $X^{(i+1)}$ with advantage at least $\varepsilon/m$.
 \end{lemma}
 \begin{proof}
 Let $p_i=\Pr[D(X^{(i)})=1]$. Then $\varepsilon\le|p_0-p_m|=\big|\sum_{i<m}(p_i-p_{i+1})\big|\le\sum_{i<m}|p_i-p_{i+1}|$, so some term is at least $\varepsilon/m$.
 \end{proof}
-The hybrid argument is the workhorse for every ZK proof with polynomially many commitments (e.g.\ Chapter~\ref{ch:np}). Its constructive form: a distinguisher for the endpoints yields a distinguisher for an adjacent pair that you can \emph{embed a challenge into}, by guessing $i$ with probability $1/m$.
+\begin{plain}\PE
+Imagine a staircase with $m$ steps. If the top and the bottom are at very different heights, then at least one single step must be a big one. To show that two \emph{far-apart} distributions look alike, it is enough to find a chain of intermediate distributions where each \emph{neighbouring} pair looks alike.
+\end{plain}
+\begin{example}[The staircase with numbers]
+Let $m=3$ and suppose $D$ outputs $1$ with probability $p_0=0.9,\ p_1=0.85,\ p_2=0.35,\ p_3=0.3$ on $X^{(0)},\dots,X^{(3)}$. The endpoints differ by $\varepsilon=0.9-0.3=0.6$. The three steps have sizes $0.05,\ 0.5,\ 0.05$, and indeed the biggest step ($0.5$) is at least $\varepsilon/m=0.2$. So $D$ also tells $X^{(1)}$ from $X^{(2)}$ well.
+\end{example}
+\begin{example}[Where the hybrid argument is used]
+A verifier $\Ver^*$ talks to the prover in $m$ sessions. Let hybrid $H_i$ be the view in which the first $i$ sessions are simulated and the rest are real. Then $H_0$ is the real view, $H_m$ is the fully simulated view, and neighbouring hybrids differ in \emph{one} session only. If each single session is indistinguishable, the lemma shows that the whole view is, with the error multiplied by $m$. This is why $m$ must be polynomial: $m\cdot\negl$ is still negligible, whereas $\varepsilon/m$ stays non-negligible whenever $\varepsilon$ is. Chapter~\ref{ch:np} uses exactly this pattern.
+\end{example}
 
+%=====================================================================
 \section{Languages, relations and \texorpdfstring{$\NP$}{NP}}
+%=====================================================================
 \begin{definition}
 A binary relation $R\subseteq\{0,1\}^*\times\{0,1\}^*$ is an \emph{$\NP$-relation} if membership $(x,w)\in R$ is decidable in time $\poly(|x|)$ and there is a polynomial $p$ with $(x,w)\in R\Rightarrow|w|\le p(|x|)$. Its language is $L_R=\{x:\exists w,(x,w)\in R\}$; $w$ is a \emph{witness} for $x$. We write $R(x)$ for the set of witnesses.
 \end{definition}
-\begin{example}\label{ex:relations}
-\begin{itemize}
-\item \textbf{Discrete log}: $R_{\mathrm{DL}}=\{((\GG,g,y),x): g^x=y\}$.
-\item \textbf{Graph isomorphism}: $R_{\mathrm{GI}}=\{((G_0,G_1),\pi):\pi(G_0)=G_1\}$.
-\item \textbf{Quadratic residuosity}: $R_{\mathrm{QR}}=\{((N,v),s):s^2\equiv v\pmod N\}$.
-\item \textbf{Circuit satisfiability}: $R_{\mathrm{SAT}}=\{(C,w):C(w)=1\}$, $\NP$-complete.
-\item \textbf{Hamiltonian cycle}, \textbf{3-colourability}: both $\NP$-complete.
-\end{itemize}
-\end{example}
-Proofs \emph{of membership} ($x\in L$) and proofs \emph{of knowledge} ($\Prv$ knows $w$ with $(x,w)\in R$) are different goals; Chapter~\ref{ch:zk} treats the difference.
+\begin{plain}\PE
+An $\NP$-relation describes a problem where an answer is \emph{short} and \emph{quick to check}, even if it may be very hard to \emph{find}. The statement $x$ is the question; the witness $w$ is a proposed answer; the check is a fast program. The language $L_R$ is the set of questions that have at least one valid answer. The length bound is there so that a witness can at least be read in polynomial time.
+\end{plain}
 
+\begin{example}\label{ex:relations}
+Each relation below comes with a tiny instance, so that you can run the check yourself.
+\begin{center}
+\small\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}L{2.5cm} L{3.4cm} L{2.6cm} L{4.2cm}@{}}
+\toprule
+\textbf{Relation} & \textbf{Statement $x$} & \textbf{Witness $w$} & \textbf{Check}\\
+\midrule
+Discrete log $R_{\mathrm{DL}}=\{((\GG,g,y),x):g^x=y\}$ & toy group, $g=2$, $y=13$ & $x=7$ & $2^7=128=5\cdot23+13$, so $2^7\equiv13$ \checkmark\\
+Graph isomorphism $R_{\mathrm{GI}}=\{((G_0,G_1),\pi):\pi(G_0)=G_1\}$ & $G_0$: edges $12,23,34$; $G_1$: edges $24,41,13$ & $\pi(1)=2,\pi(2)=4,\pi(3)=1,\pi(4)=3$ & apply $\pi$ to each edge of $G_0$: $12\to24$, $23\to41$, $34\to13$ \checkmark\\
+Quadratic residuosity $R_{\mathrm{QR}}=\{((N,v),s):s^2\equiv v\}$ & $N=77$, $v=4$ & $s=9$ & $9^2=81\equiv4\pmod{77}$ \checkmark\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{center}
+\small\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}L{2.5cm} L{3.4cm} L{2.6cm} L{4.2cm}@{}}
+\toprule
+\textbf{Relation} & \textbf{Statement $x$} & \textbf{Witness $w$} & \textbf{Check}\\
+\midrule
+Circuit satisfiability $R_{\mathrm{SAT}}=\{(C,w):C(w)=1\}$ ($\NP$-complete) & $C(w_1,w_2,w_3)=(w_1\lor w_2)\land\lnot w_3$ & $w=(1,0,0)$ & $(1\lor0)=1$, $\lnot0=1$, so $C(w)=1$ \checkmark\\
+3-colourability ($\NP$-complete) & triangle on vertices $1,2,3$ & colours red, green, blue & each of the $3$ edges has two different colours \checkmark\\
+Hamiltonian cycle ($\NP$-complete) & square $1\!-\!2\!-\!3\!-\!4\!-\!1$ & order $1,2,3,4$ & each consecutive pair is an edge, every vertex used once \checkmark\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\begin{example}[Finding is hard, checking is easy]
+Given $N=8633$, \emph{finding} a factor means trying many candidates. Given the witness $w=89$, \emph{checking} takes one division: $8633=89\cdot97$. The same gap appears in Sudoku: solving a hard puzzle can take hours, but checking a completed grid takes a minute.
+\end{example}
+
+\begin{example}[A statement with no known short witness]
+``This graph is \emph{not} 3-colourable'' is a perfectly good statement, but nobody knows a short witness for it (it belongs to the class $\coNP$, not known to be in $\NP$). The colour-blind game of Section~\ref{sec:colourblind} proves a similar ``negative'' fact (``the balls are \emph{different}''), and in Chapter~\ref{ch:ip} we will see interactive proofs for such statements. This is one reason interaction is powerful.
+\end{example}
+
+\begin{plain}\PE
+Proofs \emph{of membership} ($x\in L$) and proofs \emph{of knowledge} ($\Prv$ knows $w$ with $(x,w)\in R$) are different goals; Chapter~\ref{ch:zk} treats the difference. For instance, in a cyclic group \emph{every} element $y$ has a discrete logarithm, so ``$y$ has a discrete logarithm'' is always true and proving it is pointless. The meaningful claim is ``\emph{I know} $x$ with $g^x=y$''.
+\end{plain}
+
+%=====================================================================
 \section{Algebraic background}
+%=====================================================================
+\subsection{Modular arithmetic and groups in a nutshell}
+\begin{definition}[Congruence, $\Z n$, $\Zs n$]
+For $n\ge2$ we write $a\equiv b\pmod n$ if $n$ divides $a-b$. The set $\Z n=\{0,1,\dots,n-1\}$ with addition and multiplication mod $n$ is ``clock arithmetic''. The set $\Zs n$ consists of those elements of $\Z n$ that have a multiplicative inverse, which are exactly those coprime to $n$.
+\end{definition}
+\begin{plain}\PE
+Mod-$n$ arithmetic is like a clock with $n$ hours: after $n-1$ you wrap around to $0$. $\Zs n$ is the set of numbers you are allowed to ``divide by''.
+\end{plain}
+\begin{example}[Clock arithmetic mod 23]
+$17+9=26\equiv3$. \ $5\cdot9=45\equiv22$, and $22\equiv-1$. \ The inverse of $5$ is $14$, because $5\cdot14=70=3\cdot23+1\equiv1$. Since $23$ is prime, $\Zs{23}=\{1,\dots,22\}$ has $22$ elements. For $n=77=7\cdot11$ only numbers not divisible by $7$ or $11$ are invertible, so $|\Zs{77}|=6\cdot10=60$.
+\end{example}
+
+\begin{definition}[Group, order, cyclic group]
+A \emph{group} is a set with an operation that is associative, has an identity, and in which every element has an inverse. The \emph{order} of a group is its number of elements, and the \emph{order} $\ord(a)$ of an element $a$ is the least $k\ge1$ with $a^k=1$. A group is \emph{cyclic} if it equals $\langle g\rangle=\{g^0,g^1,g^2,\dots\}$ for some \emph{generator} $g$.
+\end{definition}
+\begin{plain}\PE
+A cyclic group is what you get by multiplying one fixed number $g$ by itself over and over until you return to $1$. All the elements are powers of $g$.
+\end{plain}
+
 \subsection{Cyclic groups and discrete logarithm assumptions}
 Let $\GG=\langle g\rangle$ be cyclic of prime order $q$. Throughout we use a toy group for numerical examples:
 \begin{center}
@@ -628,6 +796,13 @@ $k$ & 0&1&2&3&4&5&6&7&8&9&10\\\hline
 $2^k \bmod 23$ & 1&2&4&8&16&9&18&13&3&6&12
 \end{tabular}
 \end{center}
+\begin{example}[Using the table, and a pitfall]
+Going \emph{forward} is a table lookup: $2^8=3$. Going \emph{backward} means searching the table: which $k$ gives $2^k=13$? Row $7$, so $k=7$. Exponents live \emph{mod $q=11$}, not mod $p=23$: $2^{13}=2^{13\bmod11}=2^2=4$. (Check: $2^{13}=8192=356\cdot23+4$.) Since $11$ is prime, every non-identity element generates $\GG$; for instance $3=2^8$ is also a generator.
+\end{example}
+\begin{example}[Fast exponentiation]
+To compute $2^{13}$ without a table, write $13=8+4+1$ and multiply the precomputed squarings $2,\,2^2=4,\,2^4=16,\,2^8=256\equiv3$: $2^{13}=2^8\cdot2^4\cdot2^1=3\cdot16\cdot2=96\equiv4\pmod{23}$. This takes about $\log_2(13)$ multiplications, so exponentiation stays fast even when the exponent has $256$ bits.
+\end{example}
+
 \begin{definition}[Discrete logarithm, CDH, DDH]
 For a group $\GG$ of prime order $q$ with generator $g$:
 \begin{itemize}
@@ -637,13 +812,45 @@ For a group $\GG$ of prime order $q$ with generator $g$:
 \end{itemize}
 Each assumption states that every PPT algorithm succeeds with negligible advantage. The assumptions get stronger from DL to DDH: if DDH is hard then CDH is hard, and if CDH is hard then DL is hard (an algorithm solving DL immediately solves CDH, and one solving CDH immediately distinguishes DDH tuples).
 \end{definition}
-DDH is \emph{false} in the toy group and in $\Zs p$ itself (Legendre symbol), but holds conjecturally in prime-order subgroups of $\Zs p$ and in elliptic curve groups.
+\begin{plain}\PE
+\emph{DL:} from the public number $g^a$, recover the secret exponent. \emph{CDH:} from $g^a$ and $g^b$, compute the ``shared secret'' $g^{ab}$. \emph{DDH:} given a candidate $Z$, decide whether it really is $g^{ab}$ or just a random group element. Each problem is at least as easy as the next.
+\end{plain}
+\begin{example}[Diffie--Hellman in the toy group]
+Alice picks $a=3$ and publishes $g^a=2^3=8$. Bob picks $b=5$ and publishes $g^b=2^5=9$. Each can compute the shared key: Alice $9^3=729\equiv16$, Bob $8^5=32768\equiv16$, and indeed $g^{ab}=2^{15}=2^4=16$.
+An eavesdropper sees only $(8,9)$. \emph{CDH} asks for $16$. \emph{DDH} asks: given $(8,9,Z)$, is $Z=16$? \emph{DL} would let the eavesdropper recover $a=3$ and then compute $9^3=16$ themselves, which is why CDH is no harder than DL. In the toy group the table breaks all three at once; the assumptions are meant for groups so large that no table can be built.
+\end{example}
+\begin{example}[Why DDH fails in $\Zs p$ itself, and why we use prime-order subgroups]\label{ex:ddh-fails}
+In $\Zs{23}$ take the generator $5$ (order $22$). The squares mod $23$ are $\{1,2,3,4,6,8,9,12,13,16,18\}$, and $5^k$ is a square exactly when $k$ is even. So $5^{ab}$ is a \emph{non-square} exactly when $a$ and $b$ are both odd, i.e.\ exactly when $5^a$ and $5^b$ are both non-squares.
+Take $a=3,\ b=5$: $5^a=10$ and $5^b=20$ are both non-squares, and the true $5^{ab}=5^{15}=19$ is a non-square, as predicted. A random $Z=5^6=8$ is a square, so the test ``$Z$ is a non-square iff $X$ and $Y$ both are'' \emph{rejects} it. Random triples pass this test only half of the time, while real triples always pass, which gives a cheap distinguisher. Working in the prime-order subgroup (where every element is a square) removes this leak.
+\end{example}
 
 \subsection{Quadratic residues and the Blum integer setting}
 Let $N=PQ$ with $P,Q$ distinct odd primes. $\QR_N=\{a\in\Zs N:\exists s,\,s^2\equiv a\}$. The Jacobi symbol $\left(\frac aN\right)=\left(\frac aP\right)\left(\frac aQ\right)$ is efficiently computable without the factorisation. Let $J_N^{+1}=\{a:(\frac aN)=1\}$; then $\QR_N\subsetneq J_N^{+1}$ and $|J_N^{+1}|=2|\QR_N|$.
+\begin{plain}\PE
+A \emph{quadratic residue} (QR) is a number that is a perfect square mod $N$. The Legendre symbol $(\frac aP)$ is $+1$ if $a$ is a square mod the prime $P$ and $-1$ if not; the Jacobi symbol multiplies the two. The surprising fact is that a number with Jacobi symbol $+1$ is a square mod $P$ and mod $Q$ \emph{or} a non-square mod both, and without knowing $P,Q$ you cannot tell which.
+\end{plain}
+\begin{example}[Squares and Jacobi symbols modulo $77=7\cdot11$]
+The squares mod $7$ are $\{1,2,4\}$ and the squares mod $11$ are $\{1,3,4,5,9\}$.
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}c c c c c@{}}
+\toprule
+$a$ & $(\frac a7)$ & $(\frac a{11})$ & Jacobi $(\frac a{77})$ & in $\QR_{77}$?\\
+\midrule
+$4$ & $+1$ & $+1$ & $+1$ & yes ($4=2^2$)\\
+$6$ & $-1$ & $-1$ & $+1$ & \textbf{no}: Jacobi $+1$ but not a square\\
+$2$ & $+1$ & $-1$ & $-1$ & no\\
+\bottomrule
+\end{tabular}
+\end{center}
+There are $60$ elements in $\Zs{77}$, of which $30$ have Jacobi symbol $+1$ and only $15$ are squares: $\QR_{77}=\{1,4,9,15,16,23,25,36,37,53,58,60,64,67,71\}$. The numbers $4$ and $6$ both look the same to the Jacobi symbol, yet only $4$ is a square.
+\end{example}
 \begin{definition}[Quadratic residuosity assumption (QRA)]
 Given $N$ (of unknown factorisation) and a uniform $a\in J_N^{+1}$, deciding whether $a\in\QR_N$ is hard for PPT algorithms.
 \end{definition}
+\begin{plain}\PE
+If you know the factors $7$ and $11$, deciding whether $6$ is a square is easy (check mod $7$ and mod $11$). If you know only $N$ and it is huge, nobody knows how to decide this efficiently.
+\end{plain}
 \begin{lemma}[Square roots $\Leftrightarrow$ factoring]\label{lem:sqrtfactor}
 Given $N=PQ$ and two square roots $s,s'$ of $a\in\QR_N$ with $s'\not\equiv\pm s$, one can factor $N$.
 \end{lemma}
@@ -651,44 +858,109 @@ Given $N=PQ$ and two square roots $s,s'$ of $a\in\QR_N$ with $s'\not\equiv\pm s$
 $s^2\equiv s'^2$ gives $N\mid(s-s')(s+s')$ but $N\nmid(s\pm s')$; hence $\gcd(s-s',N)\in\{P,Q\}$.
 \end{proof}
 Every $a\in\QR_N$ has exactly four roots $\pm s_1,\pm s_2$ (CRT). \textbf{Toy modulus:} $N=77=7\cdot11$.
+\begin{example}[Four roots, and factoring from two of them]\label{ex:fourroots}
+The number $a=4$ has the obvious roots $\pm2$, i.e.\ $2$ and $75$. Solving $s\equiv2\pmod7$ and $s\equiv-2\pmod{11}$ gives the other pair: $s=9$ (since $9\equiv2$ mod $7$ and $9\equiv-2$ mod $11$) and $-9=68$. Check: $9^2=81\equiv4$ \checkmark. So the four roots of $4$ are $\{2,\,9,\,68,\,75\}$.
+Now suppose someone shows you the two roots $2$ and $9$ ($9\not\equiv\pm2$). Then
+\[\gcd(9-2,\,77)=\gcd(7,77)=7,\qquad\gcd(9+2,\,77)=\gcd(11,77)=11,\]
+and $77$ is factored. Two different square roots of the same number are therefore as good as the factorisation itself. This is the engine behind many soundness proofs (Chapter~\ref{ch:classical}).
+\end{example}
+\begin{remark}
+A \emph{Blum integer} is $N=PQ$ with $P\equiv Q\equiv3\pmod4$; the toy $77=7\cdot11$ is one ($7\equiv11\equiv3$). For such $N$, every square has \emph{exactly one} root that is itself a square: among $\{2,9,68,75\}$ only $9$ is in $\QR_{77}$.
+\end{remark}
 
 \subsection{Pairings}
 A (type-3) \emph{bilinear pairing} is an efficiently computable map $e:\GG_1\times\GG_2\to\GG_T$ between groups of prime order $q$, with generators $g_1,g_2$ and $e(g_1,g_2)\ne1$, satisfying $e(g_1^a,g_2^b)=e(g_1,g_2)^{ab}$. We use additive-bracket notation $[a]_1=g_1^a$, $[a]_2=g_2^a$, $[a]_T=e(g_1,g_2)^a$ so that $e([a]_1,[b]_2)=[ab]_T$. Pairings let us verify \emph{one} multiplicative relation between hidden exponents---the key to SNARKs (Ch.~\ref{ch:pcs}--\ref{ch:snark}). Instantiated by BN254 or BLS12-381.
+\begin{plain}\PE
+Group elements hide their exponents, and in an ordinary group you can \emph{add} hidden exponents (multiply the elements) but never \emph{multiply} them. A pairing is a special gadget that lets you multiply two hidden exponents once, with the result landing in a third group.
+\end{plain}
+\begin{example}[Exponent bookkeeping]
+Suppose $a=3$ and $b=5$ are hidden inside $[3]_1$ and $[5]_2$. The pairing gives $e([3]_1,[5]_2)=[15]_T$. A verifier who is handed a claimed product $[c]_T$ simply compares: $[15]_T$ passes the test, while $[16]_T$ fails. The verifier checked $3\cdot5=15$ without ever seeing $3$ or $5$. (Here we wrote the exponents down for bookkeeping; in a real pairing group the verifier sees only group elements.)
+\end{example}
 
 \subsection{Polynomials over finite fields}
+\begin{definition}[Finite field, polynomial]
+For a prime $p$ the set $\FF_p=\Z p$ with arithmetic mod $p$ is a \emph{field}: every non-zero element has an inverse, so you can add, subtract, multiply and divide. A \emph{polynomial} over $\FF$ is $f(X)=c_0+c_1X+\dots+c_dX^d$ with coefficients in $\FF$ ($c_d\neq0$); $d=\deg f$ is its \emph{degree}.
+\end{definition}
+\begin{example}[Arithmetic in $\FF_{17}$, and roots]
+Division is multiplication by the inverse: $2^{-1}=9$ because $2\cdot9=18\equiv1$, so $\tfrac{6}{2}=6\cdot9=54\equiv3$ (as expected). The polynomial $X^2-4$ has degree $2$ and exactly two roots in $\FF_{17}$, namely $X=2$ and $X=15\equiv-2$. In general \emph{a non-zero polynomial of degree $d$ has at most $d$ roots}, just as a line crosses the $x$-axis at most once.
+\end{example}
 \begin{lemma}[Schwartz--Zippel]\label{lem:sz}
 Let $f\in\FF[X_1,\dots,X_n]$ be a nonzero polynomial of total degree $d$ and $S\subseteq\FF$ finite. For $r_1,\dots,r_n\getsr S$, $\Pr[f(r_1,\dots,r_n)=0]\le d/|S|$.
 \end{lemma}
 \begin{proof}
 Induction on $n$. For $n=1$, a nonzero degree-$d$ polynomial has at most $d$ roots. For $n>1$ write $f=\sum_{i=0}^{k}X_n^i f_i(X_1,\dots,X_{n-1})$ with $f_k\ne0$, $\deg f_k\le d-k$. Let $E$ be the event $f_k(r_1..r_{n-1})=0$; $\Pr[E]\le(d-k)/|S|$ by induction. If $\neg E$, then $f(r_1,..,r_{n-1},X_n)$ is a nonzero univariate polynomial of degree $k$ so vanishes at $r_n$ with probability $\le k/|S|$. Hence $\Pr[f(\vec r)=0]\le\Pr[E]+\Pr[\neg E\wedge f=0]\le(d-k)/|S|+k/|S|=d/|S|$.
 \end{proof}
+\begin{plain}\PE
+A nonzero polynomial cannot be zero at many points: the fraction of points where it vanishes is at most its degree divided by the number of points available. So if two polynomials $f\ne g$, then $f-g$ is a nonzero polynomial and a \emph{random} point exposes the difference with overwhelming probability. (Proof idea: do one variable at a time; each variable can ``use up'' at most its own share of the degree.)
+\end{plain}
 \begin{intuition}
 Schwartz--Zippel says: \emph{a random point is a perfect polynomial-identity test}. To check two huge polynomials $f=g$, evaluate $f-g$ at a random point. This single lemma underlies sum-check, QAP verification, KZG and FRI.
 \end{intuition}
-\begin{lemma}[Lagrange interpolation]
-For distinct $x_1,\dots,x_n\in\FF$ and any $y_1..y_n$, the unique polynomial of degree $<n$ with $f(x_i)=y_i$ is $f(X)=\sum_i y_i L_i(X)$ with $L_i(X)=\prod_{j\ne i}\frac{X-x_j}{x_i-x_j}$.
-\end{lemma}
-\begin{example}[Lagrange interpolation over $\FF_{17}$]
-Interpolate $(1,1),(2,0),(3,1)$. $L_1(X)=\frac{(X-2)(X-3)}{(1-2)(1-3)}=\frac{(X-2)(X-3)}2$, $L_3(X)=\frac{(X-1)(X-2)}{(3-1)(3-2)}=\frac{(X-1)(X-2)}2$, and $L_2$ is irrelevant since $y_2=0$. So $f=L_1+L_3=\frac{(X-2)\big[(X-3)+(X-1)\big]}{2}=(X-2)^2=X^2-4X+4$. Check: $f(1)=1$, $f(2)=0$, $f(3)=1$. \checkmark
+\begin{example}[Two polynomials, one random test]
+Over $\FF_{17}$ let $f(X)=(X-2)^2=X^2-4X+4$ and $g(X)=X^2$. Then $f-g=-4X+4=-4(X-1)$ has the single root $X=1$. So $f$ and $g$ agree at exactly one point ($f(1)=g(1)=1$) and differ at the other $16$. A random test point catches the difference with probability $16/17$.
+For scale: two polynomials of degree $10^6$ over a field with $2^{256}$ elements are mistakenly declared equal with probability at most $10^6/2^{256}\approx2^{-236}$, after evaluating each at \emph{one} point, instead of comparing a million coefficients.
 \end{example}
 \begin{example}[Schwartz--Zippel in action]
 Let $f(X,Y)=XY-X=X(Y-1)$, total degree $2$, over $\FF_{17}$. It vanishes iff $X=0$ or $Y=1$, so for uniform $(x,y)$ the exact probability is $\frac1{17}+\frac1{17}-\frac1{289}=\frac{33}{289}\approx0.114$, which indeed is at most $d/|\FF|=2/17=\frac{34}{289}$. The bound is nearly tight here.
 \end{example}
+\begin{lemma}[Lagrange interpolation]
+For distinct $x_1,\dots,x_n\in\FF$ and any $y_1..y_n$, the unique polynomial of degree $<n$ with $f(x_i)=y_i$ is $f(X)=\sum_i y_i L_i(X)$ with $L_i(X)=\prod_{j\ne i}\frac{X-x_j}{x_i-x_j}$.
+\end{lemma}
+\begin{plain}\PE
+$n$ points determine exactly one polynomial of degree less than $n$: two points determine a line, three points a parabola, and so on. The formula builds the polynomial as a sum of ``switches'' $L_i$, where $L_i$ equals $1$ at $x_i$ and $0$ at all the other $x_j$.
+\end{plain}
+\begin{example}[Two points give a line]
+Over $\FF_{17}$ interpolate $(1,3),(2,5)$: $L_1=\frac{X-2}{1-2}=-(X-2)$ and $L_2=\frac{X-1}{2-1}=X-1$, so $f=3\cdot(-(X-2))+5(X-1)=2X+1$. Check: $f(1)=3$, $f(2)=5$. \checkmark
+\end{example}
+\begin{example}[Lagrange interpolation over $\FF_{17}$]
+Interpolate $(1,1),(2,0),(3,1)$. $L_1(X)=\frac{(X-2)(X-3)}{(1-2)(1-3)}=\frac{(X-2)(X-3)}2$, $L_3(X)=\frac{(X-1)(X-2)}{(3-1)(3-2)}=\frac{(X-1)(X-2)}2$, and $L_2$ is irrelevant since $y_2=0$. So $f=L_1+L_3=\frac{(X-2)\big[(X-3)+(X-1)\big]}{2}=(X-2)^2=X^2-4X+4$. Check: $f(1)=1$, $f(2)=0$, $f(3)=1$. \checkmark
+Once we have $f$ we can predict new values, e.g.\ $f(4)=(4-2)^2=4$. This ``recover everything from a few points'' behaviour is the basis of secret sharing and of the polynomial protocols in later chapters.
+\end{example}
 \begin{lemma}[Factor theorem / division]\label{lem:factor}
 $f(z)=y$ if and only if $(X-z)$ divides $f(X)-y$ in $\FF[X]$.
 \end{lemma}
-This last fact powers KZG openings (Chapter~\ref{ch:pcs}).
+\begin{plain}\PE
+Saying ``$f$ takes the value $y$ at $z$'' is the same as saying that $f(X)-y$ has $z$ as a root, i.e.\ that you can factor out $(X-z)$ with nothing left over.
+\end{plain}
+\begin{example}[Checking a claimed value by division]
+Take $f(X)=(X-2)^2$ over $\FF_{17}$. Claim: $f(5)=9$. Indeed $f(X)-9=X^2-4X-5=(X-5)(X+1)$, so $(X-5)$ divides it, and the quotient is $q(X)=X+1$. A false claim, say $f(4)=9$, fails: $f(X)-9$ at $X=4$ equals $16-16-5=-5\neq0$, so $(X-4)$ does not divide it.
+\end{example}
+This last fact powers KZG openings (Chapter~\ref{ch:pcs}): to prove $f(z)=y$, the prover supplies the quotient $q$ with $f(X)-y=(X-z)q(X)$, and the verifier checks this identity at one hidden random point.
 
+%=====================================================================
 \section{One-way functions, pseudorandomness and trapdoor permutations}
+%=====================================================================
 \begin{definition}
 A polynomial-time computable $f:\{0,1\}^*\to\{0,1\}^*$ is a \emph{one-way function} (OWF) if for every PPT $\mathcal A$, $\Pr_{x\getsr\{0,1\}^n}\big[f(\mathcal A(f(x)))=f(x)\big]=\negl(n)$. A \emph{pseudorandom generator} (PRG) is a deterministic polynomial-time $G:\{0,1\}^n\to\{0,1\}^{\ell(n)}$ with $\ell(n)>n$ whose output on a uniform seed is computationally indistinguishable from a uniform $\ell(n)$-bit string. A \emph{trapdoor permutation} (TDP) is a family of permutations $f_{pk}$ that are easy to evaluate and one-way to invert, but easy to invert given a trapdoor $sk$ (e.g.\ RSA: $f_{N,e}(x)=x^e\bmod N$).
 \end{definition}
+\begin{plain}\PE
+\emph{One-way function:} easy to compute, practically impossible to undo, like scrambling an egg. \emph{PRG:} a machine that stretches a short random seed into a long string that looks random to every efficient observer. \emph{Trapdoor permutation:} a one-way function with a secret ``back door'': whoever holds the trapdoor can undo it.
+\end{plain}
+\begin{example}[Candidate one-way functions and non-examples]
+\textbf{Multiplication:} $f(P,Q)=PQ$. Going forward is easy ($7\cdot13=91$); undoing it means factoring, which is believed hard when $P,Q$ have $1000$ bits each. \textbf{Exponentiation:} $f(x)=2^x\bmod23$; forward is fast, backward needs the table (infeasible in a huge group).
+\textbf{Non-examples:} $f(x)=x+1$ is undone by subtracting $1$, and $f(x)=x^2$ over the integers is undone by taking a square root; neither is one-way.
+\end{example}
+\begin{example}[Bad generators and a distinguisher]
+$G(s)=s\|s$ stretches $n$ bits to $2n$ but is \emph{not} pseudorandom: the distinguisher ``output $1$ iff the first half equals the second half'' says yes on every output of $G$ but on a truly random string only with probability $2^{-n}$. Likewise $G(s)=s\|\mathrm{parity}(s)$ (one extra bit equal to the XOR of the bits of $s$) fails: the test ``does the last bit equal the parity of the first $n$ bits?'' always says yes for $G$ and says yes for a random string only half of the time, an advantage of $\tfrac12$.
+\end{example}
+\begin{example}[Toy RSA trapdoor permutation]\label{ex:rsa}
+Take $N=77$, $\varphi(N)=60$, public exponent $e=7$ (coprime to $60$). The trapdoor is $d=43$ since $7\cdot43=301=5\cdot60+1$. The permutation is $f(x)=x^7\bmod77$: $f(2)=128\equiv51$. Without $d$ you cannot invert (unless you factor $77$); with $d$ you compute $51^{43}\bmod77=2$. \checkmark
+\end{example}
 H\aa stad--Impagliazzo--Levin--Luby: OWF $\Leftrightarrow$ PRG. These are the \emph{minimal} assumptions for computational ZK proofs of $\NP$ (Theorem~\ref{thm:gmw} and its converse in Chapter~\ref{ch:theory}).
 \begin{example}[Naor's commitment from a PRG]\label{ex:naor}
 Let $G:\{0,1\}^n\to\{0,1\}^{3n}$ be a PRG. \emph{Commit to a bit $b$:} the receiver sends a random $R\in\{0,1\}^{3n}$; the committer picks a seed $s$ and sends $c=G(s)$ if $b=0$ and $c=G(s)\oplus R$ if $b=1$. \emph{Hiding:} $G(s)$ and $G(s)\oplus R$ are both pseudorandom, hence indistinguishable. \emph{Binding:} a cheating committer needs $s,s'$ with $G(s)=G(s')\oplus R$, i.e.\ $R\in\{G(s)\oplus G(s'):s,s'\}$, a set of size at most $2^{2n}$; a uniform $R$ lies in it with probability at most $2^{2n}/2^{3n}=2^{-n}$. So binding is \emph{statistical}, hiding is computational, and only OWFs are needed.
+
+\textbf{Tiny numbers ($n=2$, so $G:\{0,1\}^2\to\{0,1\}^6$).} Use the toy (insecure, for illustration only) table $G(00)=010110$, $G(01)=111000$, $G(10)=001101$, $G(11)=100010$. The receiver sends $R=101010$.
+\begin{itemize}
+\item Commit $b=0$ with seed $s=01$: send $c=G(01)=111000$.
+\item Commit $b=1$ with seed $s=10$: send $c=G(10)\oplus R=001101\oplus101010=100111$.
+\end{itemize}
+Both look like arbitrary $6$-bit strings (hiding). To cheat, the committer needs a single $c$ that opens both ways, i.e.\ $R=G(s)\oplus G(s')$ for some seeds. The XORs of pairs of outputs are $\{000000,\,011010,\,011011,\,101110,\,101111,\,110100,\,110101\}$ (at most $2^{2n}=16$ values out of $2^6=64$ possible $R$). Our $R=101010$ is not among them, so no cheating is possible. A ``bad'' $R$ would be, for instance, $101110=G(00)\oplus G(01)$: then $c=G(00)=010110$ opens as $0$ (seed $00$) and as $1$ (seed $01$, since $G(01)\oplus R=010110$). The chance that a random $R$ is bad is at most $16/64=2^{-n}$.
 \end{example}
 
+%=====================================================================
 \section{Commitment schemes}
+%=====================================================================
 \begin{definition}[Commitment scheme]
 A commitment scheme consists of PPT algorithms $\Setup(1^\lambda)\to ck$, $\Com_{ck}(m;r)\to c$, with opening $(m,r)$ to $c$. It must be
 \begin{itemize}
@@ -696,9 +968,21 @@ A commitment scheme consists of PPT algorithms $\Setup(1^\lambda)\to ck$, $\Com_
 \item \textbf{Binding}: no PPT adversary outputs $c$ and two openings $(m,r)\neq(m',r')$, $m\ne m'$, with $\Com(m;r)=\Com(m';r')=c$ (except negligible probability; perfect binding if impossible).
 \end{itemize}
 \end{definition}
+\begin{plain}\PE
+A commitment is a \emph{sealed envelope}. You write a message, seal it, and hand it over. \emph{Hiding:} nobody can read it through the paper. \emph{Binding:} you cannot swap the message after sealing. Later you \emph{open} the envelope by revealing the message and the randomness $r$ used for sealing. The cave protocol's ``Peggy enters and fixes a side'' is exactly such a commitment.
+\end{plain}
+\begin{example}[Two broken schemes, one for each property]
+$\Com(m)=m$ (just send the message) is perfectly \emph{binding} but not \emph{hiding}: the envelope is transparent. $\Com(m)=0$ (always send $0$) is perfectly \emph{hiding} but not \emph{binding}: the envelope reveals nothing, but you can later claim any message you like. A useful scheme must achieve both at once.
+\end{example}
+\begin{example}[Coin flipping over the phone]
+Alice and Bob want to flip a fair coin by phone, without trusting each other. Alice picks a secret bit $a$ and sends a commitment $c=\Com(a;r)$. Bob replies with his own bit $b$ in the clear. Alice then opens $c$, and the coin is $a\oplus b$. Alice cannot change $a$ after seeing $b$ (binding), and Bob cannot learn $a$ before choosing $b$ (hiding). If either property failed, one party could force the outcome.
+\end{example}
 \begin{theorem}[No scheme is both perfectly hiding and perfectly binding]
 Perfect hiding means every $c$ has openings to every message; so a computationally unbounded committer can equivocate: binding is at best computational. The reverse holds as well.
 \end{theorem}
+\begin{plain}\PE
+If an envelope hides the message \emph{perfectly}, then the same envelope content is consistent with every possible message, so a committer with unlimited time can find the openings for another message and cheat. Hence you must choose which property you want to be unconditional and which one rests on a hardness assumption (Pedersen: hiding is perfect; Blum/GM below: binding is perfect).
+\end{plain}
 \begin{example}[Pedersen commitment (perfectly hiding, computationally binding)]\label{ex:pedersen}
 Let $g,h\in\GG$ generate a group of prime order $q$ with $\log_gh$ \emph{unknown}. Define $\Com(m;r)=g^mh^r$ for $m,r\in\ZZ_q$.
 \emph{Hiding:} for each $m$, $g^mh^r$ is uniform in $\GG$ when $r$ is uniform, so $c$ is independent of $m$.
@@ -707,6 +991,16 @@ Let $g,h\in\GG$ generate a group of prime order $q$ with $\log_gh$ \emph{unknown
 
 \textbf{Numbers.} Toy group, $g=2$, $h=3=2^8$ (so $\log_gh=8$, which in reality must be unknown). Commit $m=4,r=6$: $g^4h^6=16\cdot3^6=16\cdot16=256\equiv3$. Commit $m'=2,r'=3$: $4\cdot3^3=4\cdot4=16$. Product $3\cdot16=48\equiv2$, and $\Com(6;9)=2^6\cdot3^9=18\cdot18=324\equiv2$. \checkmark\\
 \emph{Equivocation with the trapdoor $t=8$:} to open $c=3$ (committed to $4$ with $r=6$) as $m^*=7$ we need $4+8\cdot6=7+8r^*\pmod{11}$, i.e.\ $52\equiv8\equiv7+8r^*$, so $8r^*\equiv1$, $r^*=7$ (as $8\cdot7=56\equiv1$). Check: $2^7\cdot3^7=13\cdot2=26\equiv3$. \checkmark
+
+\emph{Perfect hiding, seen in numbers.} The single commitment $c=3$ has an opening for \emph{every} message, so $c$ says nothing about $m$:
+\begin{center}\small
+\begin{tabular}{c|cccc}
+message $m$ & $0$ & $1$ & $4$ & $7$\\\hline
+randomness $r$ & $1$ & $5$ & $6$ & $7$\\
+$2^m3^r\bmod23$ & $3$ & $3$ & $3$ & $3$
+\end{tabular}
+\end{center}
+(For example $2^1\cdot3^5=2\cdot13=26\equiv3$.) Only someone who knows $t=\log_gh=8$ can \emph{find} these alternative openings, and that is exactly why $\log_gh$ must stay unknown to the committer.
 \end{example}
 \begin{example}[Hash-based commitment]
 $\Com(m;r)=H(m\|r)$ with $H$ modelled as a random oracle (or collision resistant + hiding via randomness extraction). Computationally hiding and binding; the basis of Merkle trees used in FRI/STARKs. A \emph{Merkle tree} commits to a vector $(v_1..v_n)$ with a single root and opens position $i$ with a log-size authentication path.
@@ -721,13 +1015,101 @@ $\Com(m;r)=H(m\|r)$ with $H$ modelled as a random oracle (or collision resistant
 \end{tikzpicture}
 \end{center}
 \emph{Example (opening $v_3$).} The prover sends $v_3$ with the authentication path $(v_4,h_{12})$ (green nodes). The verifier computes $h_{34}=H(v_3\|v_4)$ and then $H(h_{12}\|h_{34})$ and compares it with the root. Any other value $v_3'$ accepted for the same root yields a collision of $H$, so the commitment is binding; the path has $\log_2n$ hashes.
+For a vector of $n=2^{20}\approx10^6$ entries the root is one hash, and opening any single entry needs only $20$ hashes, instead of sending all $10^6$ values.
 \end{example}
 \begin{example}[Perfectly binding: Blum / Goldwasser--Micali style]
 Given $N=PQ$, commit to a bit $b$ by $c=z^2\cdot y^b\bmod N$ for a fixed non-residue $y\in J_N^{+1}$ and random $z$. Computationally hiding under QRA and perfectly binding (a QR cannot also be a non-residue). Hence for each bit the commitment determines it uniquely.
+
+\textbf{Numbers.} $N=77$ and $y=6$ (Jacobi symbol $+1$ but not a square, see the table above). With $z=10$: committing $b=0$ gives $c=z^2=100\equiv23$, a square; committing $b=1$ gives $c=23\cdot6=138\equiv61$, a non-square. Someone who knows $7$ and $11$ can see the difference ($61\equiv5\pmod7$ and $5$ is not a square mod $7$), and so can read the bit. Without the factorisation, $23$ and $61$ both have Jacobi symbol $+1$ and look alike (QRA), so the bit stays hidden; and since $23$ is a square and $61$ is not, one commitment can never be opened both ways.
+\end{example}
+\begin{center}
+\small\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}l L{2.5cm} L{2.6cm} L{3.6cm}@{}}
+\toprule
+\textbf{Scheme} & \textbf{Hiding} & \textbf{Binding} & \textbf{Assumption}\\
+\midrule
+Naor (PRG) & computational & statistical & one-way functions\\
+Pedersen & \textbf{perfect} & computational & discrete log\\
+Blum / GM & computational & \textbf{perfect} & quadratic residuosity\\
+Hash / Merkle & computational & computational & collision resistance / ROM\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%=====================================================================
+\section{The random oracle model}
+%=====================================================================
+A \emph{random oracle} $H:\{0,1\}^*\to\{0,1\}^\ell$ is a function chosen uniformly at random; all parties (including the adversary) access it as a black box. In proofs the simulator \emph{programs} $H$ (answers queries lazily and consistently, possibly choosing outputs in advance) and \emph{observes} the adversary's queries. The ROM is a heuristic: instantiating $H$ with SHA-3 voids the formal guarantee, but no natural attack is known for natural protocols; contrived counterexamples exist \cite{CGH04}.
+\begin{plain}\PE
+Imagine a giant book that lists, for every possible question, a perfectly random answer. Everybody (including the attacker) can look up entries but nobody can see the whole book. A real hash function such as SHA-3 plays the role of this book. The model is a convenient idealisation: security proofs become possible, at the price of trusting that the real hash function behaves like the book.
+\end{plain}
+\begin{example}[A lazily sampled oracle with $4$-bit answers]
+The oracle does not need to write the whole book in advance: it picks a random answer the first time a question is asked and remembers it.
+\begin{center}\small
+\begin{tabular}{@{}c l l@{}}
+\toprule
+query \# & question & answer\\
+\midrule
+1 & ``a1'' & $0110$ (fresh random)\\
+2 & ``b7'' & $1011$ (fresh random)\\
+3 & ``a1'' & $0110$ (repeat: \emph{same} answer as query 1)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+\begin{example}[Programming the oracle]
+A simulator that wants to fake a transcript $(a,e,z)$ \emph{without} the witness can pick the challenge $e$ first and the response $z$ next, compute the matching first message $a$, and then \emph{define} the oracle's answer on the question ``$x\|a$'' to be $e$. To everyone else this is indistinguishable from a freshly sampled random answer, as long as ``$x\|a$'' was not asked before. This programming step is how Chapter~\ref{ch:fs} shows that Fiat--Shamir proofs leak nothing.
 \end{example}
 
-\section{The random oracle model}
-A \emph{random oracle} $H:\{0,1\}^*\to\{0,1\}^\ell$ is a function chosen uniformly at random; all parties (including the adversary) access it as a black box. In proofs the simulator \emph{programs} $H$ (answers queries lazily and consistently, possibly choosing outputs in advance) and \emph{observes} the adversary's queries. The ROM is a heuristic: instantiating $H$ with SHA-3 voids the formal guarantee, but no natural attack is known for natural protocols; contrived counterexamples exist \cite{CGH04}.
+%=====================================================================
+\section{Chapter summary}
+%=====================================================================
+\begin{center}
+\small\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}L{3.6cm} L{6.4cm} L{3.7cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{One-line meaning} & \textbf{Worked example}\\
+\midrule
+negligible & shrinks faster than every $1/\mathrm{poly}$ & Ex.~\ref{ex:negl}\\
+statistical distance & biggest gap any test can show & coin $0.5$ vs $0.6$: $0.1$\\
+three flavours of ``same'' & identical / differ negligibly / no efficient test finds a difference & Ex.~\ref{ex:three-levels}\\
+hybrid argument & big gap $\Rightarrow$ some small step has a gap & $0.9,0.85,0.35,0.3$\\
+$\NP$ relation & short witness, fast check & Ex.~\ref{ex:relations}\\
+discrete log, CDH, DDH & recover / compute / recognise hidden exponents & DH with $a=3,b=5$\\
+quadratic residue & a perfect square mod $N$; hard to recognise without factors & $4$ vs $6$ mod $77$\\
+two roots $\Rightarrow$ factors & $\gcd(s-s',N)$ reveals a prime & Ex.~\ref{ex:fourroots}\\
+Schwartz--Zippel & a random point exposes a polynomial difference & $f=(X-2)^2$ vs $g=X^2$\\
+commitment & sealed envelope: hiding + binding & Pedersen, Ex.~\ref{ex:pedersen}\\
+random oracle & idealised random hash function & lazy table\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Exercises}
+\begin{exercise}
+Decide which of $2^{-\lambda/2}$, $\lambda^{-\log\lambda}$, $1/\lambda^{50}$, $1/\sqrt{\lambda}$ are negligible, and justify each answer.
+\end{exercise}
+\begin{exercise}
+Let $D_0$ be uniform on $\{1,2,3,4\}$ and $D_1$ have probabilities $(0.4,0.3,0.2,0.1)$. Compute $\SD(D_0,D_1)$ by the sum formula and find a test $T$ that achieves it.
+\end{exercise}
+\begin{exercise}
+In the toy group find $\log_2 12$ from the table, and compute $2^{25}$ without a table by reducing the exponent mod $11$.
+\end{exercise}
+\begin{exercise}
+Run Diffie--Hellman in the toy group with $a=4$ and $b=6$. Write down the two public values and the shared key, and confirm that both parties obtain the same key.
+\end{exercise}
+\begin{exercise}
+Show that $16$ is a square mod $77$, find all four of its square roots, and use two roots $s\not\equiv\pm s'$ to factor $77$ with a gcd.
+\end{exercise}
+\begin{exercise}
+Over $\FF_{17}$ find the polynomial of degree $\le2$ through $(0,1),(1,3),(2,7)$, and use the factor theorem to check the claim $f(3)=13$.
+\end{exercise}
+\begin{exercise}
+In the toy group with $g=2$, $h=3$ compute $\Com(5;2)=g^5h^2$. Then use the trapdoor $t=\log_gh=8$ to open the same commitment to the message $m^*=0$, i.e.\ find $r^*$.
+\end{exercise}
+\begin{exercise}
+In the Naor toy example of Example~\ref{ex:naor}, let the receiver send $R'=011011$ instead of $R=101010$. Show that now a cheating committer \emph{can} open some commitment both ways, and give the commitment and the two seeds.
+\end{exercise}
 
 \chapter{Interactive Proof Systems}\label{ch:ip}
 \section{Definitions}
