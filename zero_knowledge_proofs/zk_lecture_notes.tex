@@ -222,21 +222,45 @@ The \emph{verifier} $\Ver$ is the party who must decide whether to believe the s
 \end{definition}
 
 \begin{center}
+\begin{minipage}{\linewidth}\centering
 \begin{tikzpicture}[every node/.style={font=\small},
-  party/.style={draw,rounded corners,minimum width=3.4cm,minimum height=1.5cm,align=center}]
+  party/.style={draw,rounded corners,minimum width=3.4cm,minimum height=1.3cm,align=center},
+  msg/.style={-{Stealth},thick}]
  \node[party,fill=blue!8] (P) at (0,0) {Prover $\Prv$\\[2pt]knows $x$ and \textbf{witness $w$}};
- \node[party,fill=green!8] (V) at (8,0) {Verifier $\Ver$\\[2pt]knows only $x$};
- \draw[-{Stealth},thick] (P.north east)++(0,-0.2) -- node[above] {message $m_1$} ($(V.north west)+(0,-0.2)$);
- \draw[{Stealth}-,thick] (P.east) -- node[above] {message $m_2$} (V.west);
- \draw[-{Stealth},thick] (P.south east)++(0,0.2) -- node[above] {message $m_3$} ($(V.south west)+(0,0.2)$);
- \node[below=0.35cm of V,align=center] {outputs \textbf{accept} ($1$) or \textbf{reject} ($0$)};
- \node[above=0.1cm of P,font=\footnotesize,gray] {private input: $w$};
- \node[above=0.1cm of V,font=\footnotesize,gray] {private coins: $r$};
+ \node[party,fill=green!8] (V) at (7.5,0) {Verifier $\Ver$\\[2pt]knows only $x$};
+ \node[above=0.05cm of P,font=\footnotesize,gray] {private input: $w$};
+ \node[above=0.05cm of V,font=\footnotesize,gray] {private coins: $r$};
+ % lifelines
+ \draw[dashed,gray] (0,-0.65)--(0,-7.4);
+ \draw[dashed,gray] (7.5,-0.65)--(7.5,-7.4);
+ % round bands
+ \fill[orange!12] (-1.7,-1.0) rectangle (9.3,-2.6);
+ \fill[orange!12] (-1.7,-2.9) rectangle (9.3,-4.5);
+ \fill[orange!12] (-1.7,-5.5) rectangle (9.3,-7.1);
+ \node[anchor=west,orange!60!black] at (7.7,-1.8) {\textbf{Round 1}};
+ \node[anchor=west,orange!60!black] at (7.7,-3.7) {\textbf{Round 2}};
+ \node[anchor=west,orange!60!black] at (7.7,-6.3) {\textbf{Round $t$}};
+ % round 1
+ \draw[msg] (0,-1.45)--node[above]{$m_1$}(7.5,-1.45);
+ \draw[msg] (7.5,-2.15)--node[above]{$m_2$}(0,-2.15);
+ % round 2
+ \draw[msg] (0,-3.35)--node[above]{$m_3$}(7.5,-3.35);
+ \draw[msg] (7.5,-4.05)--node[above]{$m_4$}(0,-4.05);
+ % dots
+ \node at (3.75,-4.95) {$\vdots$};
+ % round t
+ \draw[msg] (0,-5.95)--node[above]{$m_{2t-1}$}(7.5,-5.95);
+ \draw[msg] (7.5,-6.65)--node[above]{$m_{2t}$}(0,-6.65);
+ \node[align=center] at (7.5,-7.8) {outputs \textbf{accept} ($1$) or \textbf{reject} ($0$)};
 \end{tikzpicture}
+
+\smallskip
+\begin{flushleft}\small\emph{Figure: a general interactive protocol.} One \emph{round} is a message from the prover together with the verifier's reply (shaded). The number of rounds $t$ is not fixed: it may be one, a handful, or a number that depends on the statement. Who speaks first also varies from protocol to protocol. The picture shows only the pattern. After the last round the verifier outputs its decision.\end{flushleft}
+\end{minipage}
 \end{center}
 
 \begin{definition}[Interactive protocol, round, transcript]\label{def:intro-protocol}
-An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of programs that take turns sending messages to each other, starting from the common input $x$. Each message sent is one \emph{move}; a prover message together with the verifier's reply is called a \emph{round}. The list of all messages exchanged, $(m_1,m_2,\dots,m_t)$, is the \emph{transcript}. We write
+An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of programs that take turns sending messages to each other, starting from the common input $x$. Each message sent is one \emph{move}; a prover message together with the verifier's reply is called a \emph{round}. The list of all messages exchanged, $(m_1,m_2,\dots,m_n)$, is the \emph{transcript}. We write
 \[
  \pair{\Prv(w)}{\Ver}(x)\in\{0,1\}
 \]
@@ -489,7 +513,7 @@ language & $L_R$ & the set of true statements $\{x:\exists w,(x,w)\in R\}$\\
 prover & $\Prv$ & party that holds $w$ and tries to convince\\
 verifier & $\Ver$ & efficient party that holds only $x$ and outputs accept/reject\\
 cheating parties & $\Prv^*,\ \Ver^*$ & arbitrary (dishonest) strategies\\
-transcript & $(m_1,\dots,m_t)$ & the list of all messages exchanged\\
+transcript & $(m_1,\dots,m_n)$ & the list of all messages exchanged\\
 view & $\view$ & everything one party sees: input, coins and received messages\\
 completeness / soundness error & $c,\ s$ & chance that an honest prover is rejected / a cheat is accepted\\
 simulator & $\Sim$ & algorithm without a witness that fakes the verifier's view\\
