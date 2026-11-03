@@ -108,63 +108,349 @@ Chapters end with exercises. Starred sections are optional on a first reading.
 \tableofcontents
 \clearpage\pagenumbering{arabic}
 
-\chapter{Introduction and Motivation}
-\section{What is a zero-knowledge proof?}
-A \emph{proof} in the classical sense (a written derivation, or an $\NP$ witness) convinces the reader of a statement
-but also \emph{teaches} the reader something: the reader obtains the derivation and can now convince others.
-Goldwasser, Micali and Rackoff (1985) asked a startling question:
-\begin{quote}\itshape
-Can a prover convince a verifier that a statement is true while revealing \emph{nothing} except its truth?
-\end{quote}
-The answer, perhaps surprisingly, is \emph{yes}, provided we relax the notion of proof in two ways:
-the proof is \textbf{interactive} (the verifier talks to the prover) and \textbf{probabilistic} (the verifier may
-err with negligible probability). Three properties characterise a zero-knowledge proof for a statement $x$:
-\begin{description}
-\item[Completeness.] If $x$ is true and both parties follow the protocol, the verifier accepts.
-\item[Soundness.] If $x$ is false, no (possibly cheating, possibly unbounded) prover can make the verifier accept, except with small probability.
-\item[Zero-knowledge.] If $x$ is true, whatever a (possibly cheating) verifier can compute after the interaction, it could have computed \emph{without} the interaction, from $x$ alone. Formalised by a \emph{simulator}.
-\end{description}
+\chapter{Introduction and Motivation}\label{ch:intro}
 
-\subsection{The Ali Baba cave}
-Quisquater et al.\ gave the following popular story. A circular cave has an entrance and, at the far end, a magic door that opens with a secret word. Peggy (prover) claims to know the word; Victor (verifier) wants to be convinced without learning the word.
+\begin{intuition}[How to read this chapter]
+This chapter assumes \emph{no} prior knowledge of cryptography or complexity theory. We introduce every character
+and every word in plain language first, and then give the precise definition. Everything defined here is stated
+again, with full rigour, in later chapters; here the goal is that you understand \emph{what} the definitions say and \emph{why}
+they are written the way they are. If a symbol looks scary, skip to the sentence in words just before it.
+\end{intuition}
+
+%=====================================================================
+\section{The central question: proving without revealing}
+%=====================================================================
+Suppose you want to convince somebody that something is true. The usual way is to \emph{show your work}.
+
+\begin{itemize}
+\item To prove that $91$ is not prime, you write $91 = 7 \times 13$. The reader checks the multiplication and is convinced.
+\item To prove that you know the password of an account, you type the password. The server compares it with its records.
+\item To prove that a Sudoku puzzle has a solution, you hand over a completed grid. The reader checks every row, column and box.
+\end{itemize}
+
+In each case the proof \emph{also teaches the reader something extra}: the factorisation, the password, the solution.
+Worse, the reader can now reuse that knowledge, for example by logging in as you, or by showing the Sudoku solution to someone else and claiming to have solved it.
+
+\begin{center}
+\fbox{\parbox{0.88\linewidth}{\centering\itshape
+Is it possible to convince someone that a statement is true \emph{without giving them anything else at all}?}}
+\end{center}
+
+In 1985 Goldwasser, Micali and Rackoff showed that the answer is \emph{yes}. Such a convincing-but-silent argument is called a
+\textbf{zero-knowledge proof}. The price is that we must relax what we mean by ``proof'' in two ways:
+the proof becomes \textbf{interactive} (the two sides exchange several messages instead of one written document), and
+\textbf{probabilistic} (the checker may be fooled, but only with astronomically small probability). In this chapter we explain
+precisely what that means.
+
+\subsection{A first example: the colour-blind verifier}\label{sec:colourblind}
+Here is the simplest story that shows the main idea. Victor is colour-blind. He holds two balls, one red and one green. To him they look identical.
+Peggy has normal colour vision, and she claims the balls have different colours. How can she convince Victor, \emph{without telling him which ball is which colour}?
+
+\begin{enumerate}
+\item Victor holds one ball in each hand and shows them to Peggy.
+\item Peggy turns away (or closes her eyes). Victor flips a fair coin. If it lands heads he swaps the balls behind his back; if tails he does nothing.
+\item Peggy looks again and says ``swapped'' or ``not swapped''.
+\item Victor checks her answer against his coin. If it is wrong, he rejects.
+\end{enumerate}
+
+\textbf{If the balls really differ in colour,} Peggy always answers correctly, so Victor is never rejected.
+\textbf{If the balls are really identical,} Peggy sees no difference between the two situations and can only guess, so she is right with probability $\tfrac12$.
+Repeating the game $20$ times, a bluffing Peggy survives with probability $2^{-20}<10^{-6}$, less than one in a million.
+And Victor learns nothing about the colours themselves (he never finds out which ball is the red one), only that the colours differ.
+
+\begin{remark}
+This story has an unusual feature. Peggy's ``secret'' is not a string of symbols but an \emph{ability} (colour vision).
+In the rest of the notes the secret will always be a piece of data called a \emph{witness}, and we will see how to define
+it precisely in \Cref{sec:witness}.
+\end{remark}
+
+%=====================================================================
+\section{The cast: statements, witnesses, provers and verifiers}\label{sec:cast}
+%=====================================================================
+We now give names to the ideas in the story above. Each term is introduced in words first, then formally.
+
+\subsection{What is being proved: statements and witnesses}\label{sec:witness}
+A \textbf{statement} (also called an \textbf{instance}) is a claim that is either true or false, such as
+``this graph can be coloured with three colours'', ``the number $N$ has a factor between $2$ and $\sqrt N$'', or ``the person owning this public key knows the matching private key''.
+A \textbf{witness} is a piece of private information that makes it easy to \emph{check} that a statement is true.
+For ``$N=91$ is composite'' a witness is the factor $7$, because checking $91 \bmod 7 = 0$ takes one line.
+
+We encode statements and witnesses as bit strings, and collect all the valid (statement, witness) pairs into one object.
+
+\begin{definition}[Relation, witness, language]\label{def:intro-relation}
+A \emph{relation} $R$ is a set of pairs $(x,w)$ of bit strings. We read $(x,w)\in R$ as ``$w$ is a witness for the statement $x$''.
+We require that membership in $R$ can be tested efficiently, meaning in time polynomial in the length of $x$.
+The \emph{language} of $R$ is the set of true statements
+\[
+ L_R \;=\; \{\,x \;:\; \text{there exists } w \text{ with } (x,w)\in R\,\}.
+\]
+We say ``$x\in L_R$'' as a short way of saying ``the statement $x$ is true''.
+\end{definition}
+
+\begin{example}[Composite numbers]\label{ex:intro-composite}
+Let $R_{\text{comp}} = \{(N,p) : 1<p<N \text{ and } p \text{ divides } N\}$. Then $91\in L_{R_{\text{comp}}}$ because $(91,7)\in R_{\text{comp}}$, while the prime $97$ is not in $L_{R_{\text{comp}}}$ because no $p$ works.
+\end{example}
+
+\begin{example}[Graph 3-colouring]\label{ex:intro-3col}
+A statement $x$ is a graph $G$. A witness $w$ assigns one of three colours to each vertex. $(G,w)\in R_{\text{3COL}}$ means that no edge of $G$ has both endpoints of the same colour. Checking this takes time proportional to the number of edges.
+\end{example}
+
+\begin{example}[Knowing a secret key]\label{ex:intro-dlog}
+Fix a public number $g$ and a modulus $p$. A statement is a number $y$. A witness is a secret exponent $s$ with $g^s \bmod p=y$. This is the setting of the Schnorr identification protocol (Chapter~\ref{ch:sigma}): your public key is $y$, your private key is $s$, and ``proving who you are'' means proving that you know $s$.
+\end{example}
+
+\begin{remark}
+Relations of this type, whose witnesses can be checked quickly, are exactly the problems in the class $\NP$. We study this class in Chapter~\ref{ch:prelim}.
+Note the important asymmetry: \emph{finding} a witness may be very hard (factoring!), but \emph{checking} one is easy.
+\end{remark}
+
+\subsection{The parties: prover and verifier}
+\begin{definition}[Algorithm, probabilistic algorithm]
+An \emph{algorithm} is a step-by-step procedure that a computer can execute. It is \emph{probabilistic} (or \emph{randomised}) if it may also flip fair coins during its execution, so that its output is a random variable and not a fixed value. We write $r\getsr S$ to say that $r$ is chosen uniformly at random from the finite set $S$.
+\end{definition}
+
+\begin{definition}[Efficient algorithm, PPT]\label{def:intro-ppt}
+An algorithm is \emph{efficient} if its running time is bounded by a polynomial in the length of its input (so doubling the input does not make the running time explode). An efficient probabilistic algorithm is called \emph{probabilistic polynomial-time}, abbreviated $\PPT$.
+\end{definition}
+
+\begin{definition}[Prover]\label{def:intro-prover}
+The \emph{prover} $\Prv$ is the party who wants to convince the other party that a statement $x$ is true. It receives as input the statement $x$ (shared with the verifier) \emph{and} a private witness $w$ for $x$. The prover is probabilistic and sends messages to the verifier according to a fixed program.
+\end{definition}
+
+\begin{definition}[Verifier]\label{def:intro-verifier}
+The \emph{verifier} $\Ver$ is the party who must decide whether to believe the statement. It receives only the statement $x$; it never receives the witness. The verifier is a $\PPT$ algorithm. At the end of the interaction it outputs a single bit: $1$ (\emph{accept}) or $0$ (\emph{reject}).
+\end{definition}
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small},
+  party/.style={draw,rounded corners,minimum width=3.4cm,minimum height=1.5cm,align=center}]
+ \node[party,fill=blue!8] (P) at (0,0) {Prover $\Prv$\\[2pt]knows $x$ and \textbf{witness $w$}};
+ \node[party,fill=green!8] (V) at (8,0) {Verifier $\Ver$\\[2pt]knows only $x$};
+ \draw[-{Stealth},thick] (P.north east)++(0,-0.2) -- node[above] {message $m_1$} ($(V.north west)+(0,-0.2)$);
+ \draw[{Stealth}-,thick] (P.east) -- node[above] {message $m_2$} (V.west);
+ \draw[-{Stealth},thick] (P.south east)++(0,0.2) -- node[above] {message $m_3$} ($(V.south west)+(0,0.2)$);
+ \node[below=0.35cm of V,align=center] {outputs \textbf{accept} ($1$) or \textbf{reject} ($0$)};
+ \node[above=0.1cm of P,font=\footnotesize,gray] {private input: $w$};
+ \node[above=0.1cm of V,font=\footnotesize,gray] {private coins: $r$};
+\end{tikzpicture}
+\end{center}
+
+\begin{definition}[Interactive protocol, round, transcript]\label{def:intro-protocol}
+An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of programs that take turns sending messages to each other, starting from the common input $x$. Each message sent is one \emph{move}; a prover message together with the verifier's reply is called a \emph{round}. The list of all messages exchanged, $(m_1,m_2,\dots,m_t)$, is the \emph{transcript}. We write
+\[
+ \pair{\Prv(w)}{\Ver}(x)\in\{0,1\}
+\]
+for the (random) output bit of $\Ver$ when $\Prv$ holds the witness $w$ and both parties hold the statement $x$.
+\end{definition}
+
+\begin{definition}[Verifier's randomness and public coins]
+The \emph{challenge} is a message that the verifier chooses at random and sends to the prover (for example ``come out via path $A$ or $B$'' in the cave below, or Victor's coin in the colour-blind game). A protocol is \emph{public-coin} if all the verifier's messages are just its fresh random coins. Public-coin protocols are the easiest to analyse, and later we will see that they can be made non-interactive.
+\end{definition}
+
+\subsection{Honest and dishonest behaviour}
+A security definition has to say what can go wrong. We therefore distinguish parties that follow the rules from those that do not.
+
+\begin{definition}[Honest, cheating and malicious parties]\label{def:intro-honest}
+A party is \emph{honest} if it follows the protocol exactly. A \emph{cheating prover} $\Prv^*$ is any program that tries to make $\Ver$ accept a \textbf{false} statement; it does not have to follow the protocol and may deviate arbitrarily. A \emph{cheating verifier} $\Ver^*$ (also \emph{malicious}) is any efficient program that interacts with the honest prover and tries to extract extra information, again deviating arbitrarily from the specification. The starred symbols $\Prv^*,\Ver^*$ always mean ``arbitrary, possibly dishonest''.
+\end{definition}
+
+Two different strengths of cheating prover are used.
+\begin{definition}[Proof and argument]\label{def:intro-arg}
+If soundness (defined below) holds against \emph{every} cheating prover, even one with unlimited computing power, the protocol is called a \emph{proof}. If it only holds against cheating provers that run in polynomial time, it is called an \emph{argument}. Arguments are weaker in theory but are what is used in practice, because they permit much shorter and faster protocols.
+\end{definition}
+
+\subsection{What ``small probability'' means}
+\begin{definition}[Negligible function]\label{def:intro-negl}
+Let $\lambda$ be a \emph{security parameter}, a positive integer that measures how much security we want (think ``number of rounds'', or ``key length in bits''). A function $\epsilon(\lambda)$ is \emph{negligible}, written $\epsilon=\negl(\lambda)$, if it eventually becomes smaller than $1/\lambda^c$ for every constant $c$.
+\end{definition}
+The standard example is $\epsilon(\lambda)=2^{-\lambda}$. For $\lambda=128$ this is about $3\times 10^{-39}$: smaller than the probability of randomly guessing a particular grain of sand among all those on Earth many times over. We say an event happens with \emph{overwhelming probability} if the probability that it fails is negligible. Chapter~\ref{ch:prelim} contains the careful treatment.
+
+%=====================================================================
+\section{The three defining properties}\label{sec:threeprops}
+%=====================================================================
+A zero-knowledge proof for a relation $R$ is an interactive protocol $(\Prv,\Ver)$ satisfying three properties.
+Each one protects someone different, and it is a good habit to always ask ``\emph{who is this property protecting, and against whom?}''
+
+\begin{definition}[Completeness]\label{def:intro-complete}
+\emph{If the statement is true and both parties are honest, the verifier accepts} (except with negligible probability $c$). Formally, for every $(x,w)\in R$,
+\[
+ \Pr\big[\pair{\Prv(w)}{\Ver}(x)=1\big]\;\ge\;1-c.
+\]
+\end{definition}
+\emph{Protects} the honest prover: a truthful prover is not wrongly rejected. Without it, the protocol could simply reject everyone.
+
+\begin{remark}[Is the completeness error $c$ ever nonzero?]
+In almost all protocols in these notes (the colour-blind game, the cave, graph isomorphism, Schnorr) an honest prover is \emph{never} rejected, so $c=0$. This is called \emph{perfect completeness}. The general definition keeps a tiny error $c$ only so that it also covers protocols in which an honest prover may occasionally abort, for example because a random value it picked falls outside an allowed range; some lattice-based protocols behave this way.
+Note the contrast with soundness: the completeness error can be removed by careful design, whereas the soundness error $s$ comes from a cheater guessing the verifier's challenge. In a short protocol with random challenges it is therefore always positive, and we can only make it negligible by repeating rounds.
+\end{remark}
+
+\begin{definition}[Soundness]\label{def:intro-sound}
+\emph{If the statement is false, no prover, however clever, can make the verifier accept} (except with small probability $s$). Formally, for every $x\notin L_R$ and \emph{every} cheating prover $\Prv^*$,
+\[
+ \Pr\big[\pair{\Prv^*}{\Ver}(x)=1\big]\;\le\;s.
+\]
+\end{definition}
+\emph{Protects} the verifier against liars. Without it, the protocol could simply accept everyone. The number $s$ is the \emph{soundness error}; typical values are $s=\tfrac12$ for a single round and $s=2^{-k}$ after $k$ independent rounds.
+
+\begin{definition}[Zero-knowledge, first look]\label{def:intro-zk}
+\emph{Whatever a verifier can compute after talking to the honest prover, it could have computed on its own, without the interaction.}
+The precise form is as follows. The \emph{view} of a verifier $\Ver^*$ is everything it sees during the protocol: its input, its random coins and all messages it receives,
+written $\view_{\Ver^*}^{\Prv(w)}(x)$. The protocol is \emph{zero-knowledge} if for every efficient cheating verifier $\Ver^*$ there is an efficient algorithm $\Sim$, the \emph{simulator}, that is given only the statement $x$ (no witness!) and outputs something that is \emph{indistinguishable} from the real view:
+\[
+ \view_{\Ver^*}^{\Prv(w)}(x)\;\approx\;\Sim(x)\qquad\text{for all }(x,w)\in R .
+\]
+\end{definition}
+\emph{Protects} the prover's secret. The words ``indistinguishable'' (written $\approx$) come in three strengths:
+\emph{perfect} means the two distributions are identical; \emph{statistical} means they differ by a negligible amount; \emph{computational} means no efficient test can tell them apart, except with negligible advantage. Definition~\ref{def:zk} in Chapter~\ref{ch:zk} states all of this with every quantifier written out.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}L{2.6cm} L{3.8cm} L{3.8cm} L{3.6cm}@{}}
+\toprule
+\textbf{Property} & \textbf{Statement is\ldots} & \textbf{Protects\ldots} & \textbf{Against\ldots}\\
+\midrule
+Completeness & true & the honest prover & bad luck / protocol bugs\\
+Soundness & false & the verifier & cheating provers $\Prv^*$\\
+Zero-knowledge & true & the prover's witness & curious or malicious verifiers $\Ver^*$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{intuition}[Why a simulator captures ``learning nothing'']
+Imagine you want to prove to a sceptic that a \emph{video recording} teaches nothing. You show that a forger with no access to the secret could have produced an indistinguishable recording. Then the recording cannot contain any information about the secret: if it did, the forger could not have reproduced it.
+The simulator is that forger. It does not need to be the \emph{same} as the real prover, it just needs to produce transcripts that look exactly like real ones. The verifier's view is therefore ``worthless'' in the sense that anyone could have manufactured it alone.
+\end{intuition}
+
+\begin{warning}[Common misconceptions]
+\begin{itemize}
+\item \textbf{``Zero-knowledge means the prover reveals nothing.''} Not quite: the verifier learns that the statement is \emph{true}. It learns nothing \emph{beyond} that.
+\item \textbf{``Zero-knowledge is encryption.''} No. Nothing is hidden by a key; the secret simply never leaves the prover.
+\item \textbf{``The verifier is certain after the protocol.''} Only up to the soundness error $s$, which can be made as small as we like but never exactly zero for a short interactive protocol.
+\item \textbf{``The verifier can show the transcript to a friend as evidence.''} No: since a simulator can fabricate transcripts, a recording proves nothing to a third party. This is a feature, not a bug (it gives \emph{deniability}).
+\end{itemize}
+\end{warning}
+
+\subsection{Proofs of knowledge}
+There is a subtle difference between ``\emph{$x$ is true}'' and ``\emph{I know a witness for $x$}''. For example, the statement ``there is a private key matching this public key'' is always true, so proving it is useless; what we need is a proof that the prover \emph{actually possesses} the key. This is formalised through a second algorithm.
+
+\begin{definition}[Proof of knowledge, first look]\label{def:intro-pok}
+A protocol is a \emph{proof of knowledge} for $R$ if there is an algorithm $\Ext$, the \emph{extractor}, with the following property. Whenever some prover $\Prv^*$ makes $\Ver$ accept $x$ with noticeable probability, $\Ext$, given the ability to interact with $\Prv^*$ (including restarting it), outputs a witness $w$ with $(x,w)\in R$. In words: \emph{anyone who can convince the verifier must really know a witness}, because we can pull it out of them.
+\end{definition}
+The extractor is the mirror image of the simulator: the simulator shows that the verifier learns no secret, the extractor shows that the prover must have one. Definition~\ref{def:pok} (Chapter~\ref{ch:zk}) gives the full definition.
+
+%=====================================================================
+\section{Classical proofs versus interactive proofs}
+%=====================================================================
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}L{3.1cm} L{5.6cm} L{5.6cm}@{}}
+\toprule
+ & \textbf{Classical (written) proof} & \textbf{Interactive zero-knowledge proof}\\
+\midrule
+Format & one static message (the witness) & several messages, with random challenges\\
+Verifier's confidence & absolute (if it checks) & overwhelming but probabilistic\\
+What is revealed & the whole witness & only that the statement is true\\
+Transferable to others? & yes, anyone can re-check it & no, only the verifier was convinced\\
+Verifier's work & check the full witness & check a few random responses\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{proposition}[Why randomness and interaction are both needed (preview)]
+If the verifier is deterministic, or if there is no interaction, then the only statements that can be proved are those in $\NP$, and the proof must essentially contain the witness itself.
+\end{proposition}
+\noindent\emph{Why:} a deterministic verifier's questions are predictable, so the prover can simply write down all the answers in advance and the ``interaction'' becomes a single document. A precise statement and proof appear in Chapter~\ref{ch:ip}. The surprising fact is that randomness \emph{and} interaction together allow us to prove far more than $\NP$.
+
+%=====================================================================
+\section{A second example: the Ali Baba cave}\label{sec:cave}
+%=====================================================================
+We now walk through a classic story from start to finish, using all of the vocabulary above. It was popularised by Quisquater and co-authors.
+
+\textbf{Setting.} A circular cave has one entrance. Deep inside, the corridor splits into two branches, path $A$ and path $B$, which meet again behind a \emph{magic door} that opens only when you say a secret word. Peggy (the prover) claims she knows the word. Victor (the verifier) wants to be sure, but Peggy does not want to reveal the word. Here the statement is ``Peggy knows the secret word'' and the witness is the word itself.
+
 \begin{center}
 \begin{tikzpicture}[scale=1.15,every node/.style={font=\small}]
-  % ring-shaped corridor
   \draw[thick,fill=gray!12] (0,0) circle (1.7); \draw[thick,fill=white] (0,0) circle (0.8);
-  % entrance corridor at the bottom
   \draw[thick,fill=gray!12] (-0.3,-1.7) rectangle (0.3,-2.3);
   \node at (0,-2.65) {entrance};
-  % magic door blocks the ring at the top
   \draw[line width=3pt,red] (0,0.8)--(0,1.7); \node[red] at (0,2.0) {magic door};
-  \node at (-1.25,0) {path $A$}; \node at (1.25,0) {path $B$};
+  \node at (-2.45,0) {path $A$}; \node at (2.45,0) {path $B$};
   \draw[->,thick,blue] (0,-2.3)--(0,-1.75);
   \draw[->,dashed,blue] (-0.1,-1.45) to[bend left=35] (-1.25,-0.5);
   \draw[->,dashed,blue] (0.1,-1.45) to[bend right=35] (1.25,-0.5);
 \end{tikzpicture}
 \end{center}
-\begin{enumerate}
-\item Peggy enters and walks randomly down path $A$ or $B$ while Victor waits outside (he cannot see which).
-\item Victor walks to the entrance and shouts ``come out via $A$'' or ``via $B$'' (a fair coin).
-\item Peggy complies, using the door if necessary.
+
+\begin{protocol}{Ali Baba cave (one round)}
+\begin{enumerate}[leftmargin=1.4em]
+\item \textbf{Commit.} Peggy walks into the cave and chooses path $A$ or $B$ by a fair coin. Victor waits at the entrance and cannot see which she took.
+\item \textbf{Challenge.} Victor walks to the fork and shouts a random side, ``come out via $A$'' or ``come out via $B$''.
+\item \textbf{Response.} Peggy walks out of the cave by the requested side, opening the magic door with the secret word if necessary.
+\item \textbf{Check.} Victor accepts if Peggy emerges from the requested side.
 \end{enumerate}
-If Peggy knows the secret she always succeeds. If she does not, she succeeds only if she guessed Victor's coin, probability $1/2$. After $k$ independent rounds a cheater survives with probability $2^{-k}$. Zero-knowledge: Victor sees only ``Peggy came out of the side I asked for'', which he could have staged with a friend (the \emph{simulator}) who simply hides in the correct side after seeing his request (rewinding!). Victor cannot even convince third parties, because a video of the exchange is equally producible by a fraudster.
+\end{protocol}
+
+\paragraph{Completeness.} If Peggy knows the word she can reach either side whatever Victor asks, so Victor accepts every round.
+
+\paragraph{Soundness.} Suppose Peggy does \emph{not} know the word. She went in via some side, say $A$. If Victor asks for $A$, she just walks out. If Victor asks for $B$, she is stuck behind the door and fails. Because Victor's coin is unpredictable, she survives a single round with probability exactly $\tfrac12$. After $k$ independent rounds she survives with probability $2^{-k}$:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}c|cccc@{}}
+\toprule
+rounds $k$ & $1$ & $10$ & $20$ & $40$\\ \midrule
+cheater survives & $50\%$ & $\approx 0.1\%$ & $\approx 10^{-6}$ & $\approx 10^{-12}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Here the soundness error is $s=2^{-k}$, and by choosing $k=\lambda$ it becomes negligible in the security parameter.
+
+\paragraph{Zero-knowledge.} What does Victor see in a round? Only ``Peggy came out of the side I asked for''. He never sees the word, never sees the door open, and never learns whether Peggy actually used the door. Here is the simulator argument, in story form. A fraudster \emph{Sam}, who does \emph{not} know the word, wants to fake a video of the protocol:
+\begin{enumerate}
+\item Sam enters the cave and picks a side at random, say $A$. \emph{Then Victor's challenge is announced.}
+\item If the challenge is $A$, Sam walks out and keeps the recording of this round.
+\item If the challenge is $B$, Sam \emph{cuts the take and starts again}. This is called \emph{rewinding}.
+\end{enumerate}
+Each attempt succeeds with probability $\tfrac12$, so on average Sam needs two attempts per round, and the final video is \emph{perfectly} indistinguishable from a real one. Since a person with no knowledge of the secret can manufacture the same ``evidence'' that Victor gets, Victor cannot have learned anything about the secret from it. (This also illustrates the last bullet of the warning above: the video convinces no one else.)
 
 \begin{intuition}[The three ideas behind every ZK protocol]
-\textbf{(1) Commit-challenge-response:} the prover commits to something random; the verifier asks one of several questions; the prover can answer \emph{every} question only if she knows the witness, but any \emph{single} answer is independent of the witness.
-\textbf{(2) Special soundness:} two answers to two different questions under the \emph{same} commitment reveal the witness. Hence a prover who could answer both ``knows'' the witness.
-\textbf{(3) Simulation by rewinding/programming:} a simulator that knows the question in advance can fabricate a convincing transcript without the witness.
+\textbf{(1) Commit--challenge--response.} The prover commits to something random (a side of the cave); the verifier asks one of several questions; the prover can answer \emph{every} possible question only if she knows the witness, but any \emph{single} answer is independent of the witness.\\
+\textbf{(2) Special soundness.} If a prover could answer \emph{two different} questions about the \emph{same} commitment, then putting the two answers together reveals the witness. (In the cave: someone who could exit through both $A$ and $B$ after entering via $A$ must have passed through the door.) Hence a prover who can answer everything must ``know'' the witness.\\
+\textbf{(3) Simulation by rewinding or programming.} A simulator that knows the question in advance (or can try again) can fabricate a convincing transcript without the witness.
 \end{intuition}
 
+\begin{remark}[The same skeleton again and again]
+Most protocols in this book have the shape of the generic three-move template below. Whenever you meet a new protocol, ask: \emph{what is the commitment, what is the challenge, what is the response, and what does the verifier check?}
+\end{remark}
+
+\begin{protocol}{Generic three-move template (``$\Sigma$-protocol'' shape)}
+\begin{flow}{Prover $\Prv(x,w)$}{Verifier $\Ver(x)$}
+choose fresh randomness; compute commitment $a$ & $\ra{\;a\;}$ & \\
+ & $\la{\;e\;}$ & pick random challenge $e$\\
+compute response $z$ from $(x,w,a,e)$ & $\ra{\;z\;}$ & check that $(a,e,z)$ is valid for $x$; accept or reject
+\end{flow}
+\end{protocol}
+
+%=====================================================================
 \section{Why do we care?}
+%=====================================================================
+Zero-knowledge is not only a curiosity. It lets two parties who do not trust each other cooperate. Typical uses:
+
 \begin{itemize}
-\item \textbf{Authentication}: prove knowledge of a password/secret key without revealing it (Schnorr, Fiat--Shamir identification).
-\item \textbf{Signatures}: Fiat--Shamir converts ZK identification protocols into signature schemes.
-\item \textbf{Cryptographic protocol design}: GMW compiler---any protocol secure against honest-but-curious parties becomes secure against malicious ones by having each party prove in ZK that it followed the protocol.
-\item \textbf{Blockchains}: Zcash (shielded transactions), zk-rollups (verify $10^6$ transactions with one short proof), anonymous credentials, verifiable computation.
-\item \textbf{Complexity theory}: ZK led to $\IP=\PSPACE$, PCP theorem, hardness of approximation.
+\item \textbf{Authentication.} Prove that you know a password or secret key without sending it, so a hacked server learns nothing reusable (Schnorr and Fiat--Shamir identification).
+\item \textbf{Digital signatures.} The Fiat--Shamir transform converts an interactive identification protocol into a signature scheme. Many real signatures are built this way.
+\item \textbf{Privacy-preserving credentials.} Prove ``I am over $18$'' or ``I live in this country'' without revealing your birth date or address.
+\item \textbf{Designing secure protocols.} The GMW compiler turns any protocol that is secure against \emph{honest-but-curious} parties into one that is secure against \emph{malicious} parties, by having each party prove in zero-knowledge that it followed the rules.
+\item \textbf{Blockchains.} Zcash hides who paid whom while still letting the network verify that no coins were created from nothing. Zk-rollups let a network check many thousands of transactions by verifying one short proof.
+\item \textbf{Verifiable computation.} Outsource a heavy computation to a server and receive a short proof that the answer is correct, which is much cheaper to check than redoing the work.
+\item \textbf{Complexity theory.} The study of interactive proofs led to the theorems $\IP=\PSPACE$ and the PCP theorem, and to results on the hardness of approximation.
 \end{itemize}
 
+%=====================================================================
 \section{A map of the territory}\label{sec:map}
+%=====================================================================
+The rest of the notes build upwards from the definitions of this chapter. Arrows show which chapters lead into which.
 \begin{center}
 \begin{tikzpicture}[node distance=1.0cm and 1.3cm, every node/.style={font=\small},
  box/.style={draw,rounded corners,align=center,minimum height=0.9cm,fill=blue!6,inner sep=4pt}]
@@ -183,11 +469,63 @@ If Peggy knows the secret she always succeeds. If she does not, she succeeds onl
  \draw[-{Stealth}] (cl.south) -- ++(0,-0.4) -| (th.north);
 \end{tikzpicture}
 \end{center}
+\textbf{Suggested path for a first reading:} Chapter~\ref{ch:prelim} (only the parts you need), then Chapters~\ref{ch:ip}, \ref{ch:zk}, \ref{ch:classical} and \ref{ch:sigma}. The later chapters on SNARKs and STARKs can be read after that.
 
-\section{Conventions}
-Security parameter $\lambda$; $1^\lambda$ is its unary encoding. $x\getsr S$ means sampling uniformly from the finite set $S$.
-$[n]=\{1,\dots,n\}$. For a finite group $\GG$ of prime order $q$ with generator $g$ we write exponents in $\ZZ_q$.
-Algorithms are probabilistic; ``PPT'' means probabilistic polynomial time in $\lambda$ (or in $|x|$ when $x$ is the input).
+%=====================================================================
+\section{Conventions and glossary}
+%=====================================================================
+Throughout: $\lambda$ is the security parameter and $1^\lambda$ is its unary encoding; $x\getsr S$ means sampling uniformly from the finite set $S$; $[n]=\{1,\dots,n\}$. For a finite group $\GG$ of prime order $q$ with generator $g$ we write exponents in $\ZZ_q$. All algorithms are probabilistic, and ``$\PPT$'' means probabilistic polynomial time in $\lambda$ (or in $|x|$ when $x$ is the input).
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}L{3.0cm} L{3.0cm} L{8.2cm}@{}}
+\toprule
+\textbf{Term} & \textbf{Symbol} & \textbf{Meaning in one line}\\
+\midrule
+statement / instance & $x$ & the claim being proved; known to both parties\\
+witness & $w$ & private evidence that $x$ is true; known only to the prover\\
+relation & $R$ & the set of valid pairs $(x,w)$, checkable in polynomial time\\
+language & $L_R$ & the set of true statements $\{x:\exists w,(x,w)\in R\}$\\
+prover & $\Prv$ & party that holds $w$ and tries to convince\\
+verifier & $\Ver$ & efficient party that holds only $x$ and outputs accept/reject\\
+cheating parties & $\Prv^*,\ \Ver^*$ & arbitrary (dishonest) strategies\\
+transcript & $(m_1,\dots,m_t)$ & the list of all messages exchanged\\
+view & $\view$ & everything one party sees: input, coins and received messages\\
+completeness / soundness error & $c,\ s$ & chance that an honest prover is rejected / a cheat is accepted\\
+simulator & $\Sim$ & algorithm without a witness that fakes the verifier's view\\
+extractor & $\Ext$ & algorithm that pulls a witness out of a successful prover\\
+negligible & $\negl(\lambda)$ & smaller than every inverse polynomial, e.g.\ $2^{-\lambda}$\\
+proof vs.\ argument & & soundness against all provers vs.\ only efficient ones\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Exercises}
+\begin{exercise}[Warm-up]
+Write down a relation $R$ for the statement ``the number $N$ is a perfect square''. What is a witness for $N=144$? Is it easy to check?
+\end{exercise}
+\begin{exercise}[Soundness in the cave]
+In the cave protocol, how many rounds $k$ are needed so that a cheating prover is accepted with probability below $10^{-9}$? Below $2^{-128}$?
+\end{exercise}
+\begin{exercise}[A prover who guesses better]
+Suppose Victor's challenge in the cave is \emph{not} a fair coin, but he picks $A$ with probability $0.9$. Peggy does not know the word and always enters via $A$. What is her success probability per round? Why is a fair coin the best choice for Victor?
+\end{exercise}
+\begin{exercise}[Colour-blind verifier]
+Describe, in terms of completeness, soundness and zero-knowledge, what each property says in the colour-blind game of Section~\ref{sec:colourblind}. What is the verifier's view, and how would a simulator produce it?
+\end{exercise}
+\begin{exercise}[Why not just send the witness?]
+Give two reasons, one concerning privacy and one concerning reuse, why sending the password in the clear is a poor authentication protocol. Which of the three properties does the trivial protocol ``prover sends $w$'' fail?
+\end{exercise}
+\begin{exercise}[Spot the missing property]
+For each of the following protocols for a relation $R$, name the property that fails.
+(a) $\Ver$ always accepts. (b) $\Ver$ always rejects. (c) $\Prv$ sends the witness $w$ and $\Ver$ checks it.
+\end{exercise}
+\begin{exercise}[Negligible or not?]
+Decide which of $2^{-\lambda}$, $1/\lambda^{100}$, $2^{-\sqrt{\lambda}}$ and $1/\lambda!$ are negligible, and justify each answer.
+\end{exercise}
+\begin{exercise}[Transferability]
+Explain why a zero-knowledge proof cannot be used by the verifier to convince a third party. How does this relate to the existence of a simulator?
+\end{exercise}
 
 \chapter{Mathematical Preliminaries}\label{ch:prelim}
 \section{Asymptotics, negligible functions and indistinguishability}
