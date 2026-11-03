@@ -267,9 +267,28 @@ An \emph{interactive protocol} is a pair $(\Prv,\Ver)$ of programs that take tur
 for the (random) output bit of $\Ver$ when $\Prv$ holds the witness $w$ and both parties hold the statement $x$.
 \end{definition}
 
-\begin{definition}[Verifier's randomness and public coins]
-The \emph{challenge} is a message that the verifier chooses at random and sends to the prover (for example ``come out via path $A$ or $B$'' in the cave below, or Victor's coin in the colour-blind game). A protocol is \emph{public-coin} if all the verifier's messages are just its fresh random coins. Public-coin protocols are the easiest to analyse, and later we will see that they can be made non-interactive.
+\begin{definition}[Challenge, public-coin and private-coin protocols]\label{def:intro-publiccoin}
+A \emph{challenge} is a random message that the verifier sends to the prover (for example ``come out via path $A$ or $B$'' in the cave below).
+A protocol is \emph{public-coin} if every message of the verifier is simply the outcome of its coin tosses, sent to the prover exactly as tossed. The verifier has \emph{no hidden randomness}: the prover sees the coins as soon as they are used.
+A protocol is \emph{private-coin} if the verifier keeps some of its random choices secret and uses them later, for example to check an answer.
 \end{definition}
+
+\begin{example}[Public-coin versus private-coin]
+\textbf{Cave: public-coin.} Victor flips a coin and shouts the result (``$A$'' or ``$B$''). Peggy hears the coin, so nothing is hidden.
+\textbf{Colour-blind game: private-coin.} Victor's swap bit must stay secret. If Peggy knew whether he swapped the balls, she could ``answer'' correctly without being able to tell the colours apart, and the protocol would prove nothing.
+\end{example}
+
+\begin{remark}[What ``public'' does \emph{not} mean]
+It does not mean that someone proves the coins were fair, and it does not involve any trusted authority or outside source of randomness. Each verifier simply tosses its own coins and shows the results to the prover. Public-coin protocols are the easiest to analyse, and in Chapter~\ref{ch:fs} we will see that they can be made non-interactive by replacing the verifier's coins with the output of a hash function.
+\end{remark}
+
+\begin{intuition}[What if the verifier is not honest?]
+``Public-coin'' describes the \emph{honest} verifier's program. It does not promise that a real verifier follows it, so we must check each property against the right kind of verifier.
+\begin{itemize}
+\item \textbf{Soundness: the verifier is honest by definition.} Soundness protects the verifier, so a verifier that rigged its own challenges would only weaken its own guarantee. The cheating party here is the \emph{prover}, who must not be able to predict the verifier's coins.
+\item \textbf{Zero-knowledge: the verifier may cheat.} A cheating verifier $\Ver^*$ need not toss fair coins. It may always ask for $B$, or choose each challenge cleverly from what it has seen so far, in order to squeeze out information. That is exactly why Definition~\ref{def:intro-zk} requires a simulator for \emph{every} efficient $\Ver^*$, and not just for the honest one. A protocol that is zero-knowledge only against the honest verifier is weaker; it is called \emph{honest-verifier zero-knowledge} and reappears with $\Sigma$-protocols in Chapter~\ref{ch:sigma}.
+\end{itemize}
+\end{intuition}
 
 \subsection{Honest and dishonest behaviour}
 A security definition has to say what can go wrong. We therefore distinguish parties that follow the rules from those that do not.
@@ -306,6 +325,8 @@ Each one protects someone different, and it is a good habit to always ask ``\emp
 \begin{remark}[Is the completeness error $c$ ever nonzero?]
 In almost all protocols in these notes (the colour-blind game, the cave, graph isomorphism, Schnorr) an honest prover is \emph{never} rejected, so $c=0$. This is called \emph{perfect completeness}. The general definition keeps a tiny error $c$ only so that it also covers protocols in which an honest prover may occasionally abort, for example because a random value it picked falls outside an allowed range; some lattice-based protocols behave this way.
 Note the contrast with soundness: the completeness error can be removed by careful design, whereas the soundness error $s$ comes from a cheater guessing the verifier's challenge. In a short protocol with random challenges it is therefore always positive, and we can only make it negligible by repeating rounds.
+
+\emph{Do not confuse the two errors.} $c=0$ does \textbf{not} mean that the verifier is always sure when it accepts. It only says that a \emph{true} statement proved by an honest prover is never rejected. The doubt about a \emph{false} statement is measured by $s$. The result is a one-sided guarantee: if the verifier \textbf{rejects}, it is certain that something is wrong (the statement is false or the prover deviated), whereas if it \textbf{accepts}, a small doubt of at most $s$ remains.
 \end{remark}
 
 \begin{definition}[Soundness]\label{def:intro-sound}
@@ -350,7 +371,7 @@ The simulator is that forger. It does not need to be the \emph{same} as the real
 \begin{itemize}
 \item \textbf{``Zero-knowledge means the prover reveals nothing.''} Not quite: the verifier learns that the statement is \emph{true}. It learns nothing \emph{beyond} that.
 \item \textbf{``Zero-knowledge is encryption.''} No. Nothing is hidden by a key; the secret simply never leaves the prover.
-\item \textbf{``The verifier is certain after the protocol.''} Only up to the soundness error $s$, which can be made as small as we like but never exactly zero for a short interactive protocol.
+\item \textbf{``The verifier is certain after the protocol.''} Only up to the soundness error $s$, which can be made as small as we like but never exactly zero for a short interactive protocol. (This does not contradict perfect completeness $c=0$: completeness says that a \emph{true} statement is never rejected, while $s$ measures the chance of accepting a \emph{false} one.)
 \item \textbf{``The verifier can show the transcript to a friend as evidence.''} No: since a simulator can fabricate transcripts, a recording proves nothing to a third party. This is a feature, not a bug (it gives \emph{deniability}).
 \end{itemize}
 \end{warning}
