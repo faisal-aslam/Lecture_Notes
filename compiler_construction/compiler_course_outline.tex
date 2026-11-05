@@ -42,10 +42,9 @@
     \centering
     \def\arraystretch{1.5}
     \begin{tabularx}{\textwidth}{ l X l X }
-        \textbf{Coordinator}: & Dr. Faisal Aslam & \textbf{Office hours}: & Monday to Thursday \\
-        & & & 10:00 to 11:00\\
         \textbf{Credit Hours:} & 3 & \textbf{Prerequisites:} & Programming Fundamentals\\
         & & & Theory of Automata \\
+        \textbf{Office hours}: & \multicolumn{3}{l}{Monday to Thursday, 10:00 to 11:00} \\
         \multicolumn{4}{l}{\textbf{Instructors:} Farooq Ahmad, Faisal Aslam, Aamir Raheem, Hamad Ulqudous} \\
     \end{tabularx}
     \label{tab:Intro}
@@ -53,7 +52,7 @@
 \vspace{-1cm}
 
 \section*{Course Description}
-Compiler Construction introduces students to the theory and practice of translating high-level programs into executable code. The course follows a working compiler front-to-back: lexical analysis, syntax analysis (parsing), semantic analysis, intermediate-code generation, run-time environments, and code optimization. Emphasis is placed on the formal models that make each phase tractable -- regular expressions and finite automata for scanning, context-free grammars and both top-down and bottom-up parsing (including the industry-standard LALR(1) algorithm) for parsing, and data-flow analysis for optimization -- alongside hands-on construction of each phase using standard tools (Flex, Yacc/Bison) and a semester-long project. By the end of the course, students should be able to explain why each phase of a compiler is structured the way it is, analyze and choose appropriate parsing and optimization algorithms for a given language, and independently design and implement the lexical analyzer, parser, and intermediate-code generator for a small language.
+Compiler Construction introduces students to the theory and practice of translating high-level programs into executable code. The course follows a working compiler front-to-back: lexical analysis, syntax analysis (parsing), semantic analysis, intermediate-code generation, run-time environments, and code optimization. Emphasis is placed on the formal models that make each phase tractable -- regular expressions and finite automata for scanning, context-free grammars and both top-down and bottom-up parsing (including the industry-standard LALR(1) algorithm) for parsing, and data-flow analysis for optimization -- alongside hands-on construction of each phase using standard tools (e.g., Flex and LLVM) and a semester-long project. By the end of the course, students should be able to explain why each phase of a compiler is structured the way it is, analyze and choose appropriate parsing and optimization algorithms for a given language, and independently design and implement the lexical analyzer, parser, and intermediate-code generator for a small language.
 
 \section*{Program Learning Outcomes (PLOs)}
 This course covers the following PLOs:
@@ -93,49 +92,37 @@ CLO 3 & Design and implement a lexical analyzer, parser, and intermediate-code g
 \section*{Primary Textbooks}
 These are cited by section number throughout the lecture table below and should be treated as the core references for lecture preparation.
 \begin{enumerate}
-    \item[{[DB]}] \textit{Compilers: Principles, Techniques, and Tools} (2nd ed.) by Aho, Lam, Sethi, Ullman --- \textbf{the "Dragon Book"; primary reference for section numbers below}
-    \item[{[ET]}] \textit{Engineering a Compiler} (2nd ed.) by Cooper and Torczon
-    \item[{[AP]}] \textit{Modern Compiler Implementation in C/Java/ML} by Appel
+    \item[{[DB]}] A.~V.~Aho, M.~S.~Lam, R.~Sethi, and J.~D.~Ullman, \textit{Compilers: Principles, Techniques, and Tools}, 2nd ed., Pearson/Addison-Wesley, 2006 --- \textbf{the ``Dragon Book''; primary reference for the section numbers below}
+    \item[{[ET]}] K.~D.~Cooper and L.~Torczon, \textit{Engineering a Compiler}, 2nd ed., Morgan Kaufmann, 2011
+    \item[{[AP]}] A.~W.~Appel, \textit{Modern Compiler Implementation in C / Java / ML}, Cambridge University Press
 \end{enumerate}
 
 \section*{Supplementary / Further Reading}
 Referenced occasionally for specific topics; useful for deeper treatment but not required for lecture preparation.
 \begin{enumerate}
-    \item[{[PP]}] \textit{Programming Language Pragmatics} by Scott
-    \item[{[MU]}] \textit{Advanced Compiler Design and Implementation} by Muchnick
-    \item[{[AN]}] \textit{The Definitive ANTLR 4 Reference} by Parr
-    \item[{[GR]}] \textit{Compilers: A Survey} by Gries
+    \item[{[PP]}] M.~L.~Scott, \textit{Programming Language Pragmatics}, 4th ed., Morgan Kaufmann, 2015
+    \item[{[MU]}] S.~S.~Muchnick, \textit{Advanced Compiler Design and Implementation}, Morgan Kaufmann, 1997
+    \item[{[GR]}] D.~Gries, \textit{Compiler Construction for Digital Computers}, Wiley, 1971
 \end{enumerate}
 
 \section*{Online / Tool References}
+Used for the optional, instructor's-choice topics (Opt.\,1--Opt.\,5).
 \begin{enumerate}
     \item[{[LLVM-LR]}] LLVM Language Reference Manual \\
     \href{https://llvm.org/docs/LangRef.html}{\small\texttt{llvm.org/docs/LangRef.html}}
-    \item[{[LLVM-KA]}] "My First Language Frontend with LLVM" (Kaleidoscope Tutorial) \\
+    \item[{[LLVM-KA]}] ``My First Language Frontend with LLVM'' (Kaleidoscope tutorial) \\
     \href{https://llvm.org/docs/tutorial/}{\small\texttt{llvm.org/docs/tutorial}}
-    \item[{[ANTLR]}] ANTLR4 project site \& documentation \\
-    \href{https://www.antlr.org/}{\small\texttt{antlr.org}}
-    \item[{[TS]}] Tree-sitter --- incremental, error-tolerant parsing library \\
-    \href{https://tree-sitter.github.io/tree-sitter/}{\small\texttt{tree-sitter.github.io/tree-sitter}}
+    \item[{[LLVM]}] C.~Lattner and V.~Adve, ``LLVM: A Compilation Framework for Lifelong Program Analysis \& Transformation,'' \textit{Proc.\ CGO}, 2004
+    \item[{[MLIR]}] C.~Lattner et al., ``MLIR: Scaling Compiler Infrastructure for Domain Specific Computation,'' \textit{Proc.\ IEEE/ACM CGO}, 2021, pp.\,2--14. DOI: 10.1109/CGO51591.2021.9370308
+    \item[{[MLIR-DOC]}] MLIR documentation, including the Toy language tutorial \\
+    \href{https://mlir.llvm.org/}{\small\texttt{mlir.llvm.org}}
+    \item[{[GCC-INT]}] \textit{GNU Compiler Collection (GCC) Internals} manual \\
+    \href{https://gcc.gnu.org/onlinedocs/gccint/}{\small\texttt{gcc.gnu.org/onlinedocs/gccint}}
 \end{enumerate}
 
 
 \section*{Lecture-Wise Course Outline (30 Lectures)}
 
-\begin{quote}
-\small\textbf{Note on this revision:} following the agreement reached
-by all instructors, the material after Midterm 1 has been
-resequenced so that the project's Intermediate-Code-Generator phase
-can be assigned around Midterm 2. Bottom-up parsing (shift-reduce,
-LR(0)/SLR, LALR(1)/CLR(1), and parser-generator tool use) now comes
-\emph{after} Midterm 2 instead of before it; syntax-directed
-definitions, semantic-analysis foundations (symbol tables), and
-intermediate code generation now come \emph{before} it. No lecture
-content has been cut --- every topic below is the same one lecture's
-worth of material as before, only reordered. Lecture count remains
-exactly 30, and both midterms stay positioned after Lecture 10 and
-Lecture 20 respectively.
-\end{quote}
 
 \renewcommand{\arraystretch}{1.35}
 \setlength{\tabcolsep}{4pt}
@@ -188,60 +175,43 @@ Opt.1 & \emph{\textbf{[Optional -- instructor's tool choice: Flex]}} Building th
 19 & Type checking during translation; intermediate code for procedure calls & CLO1, CLO2 & \S6.3, \S6.5, \S6.9 & [AP] \S5.2, \S7.4 \\ \hline
 20 & Building an intermediate-code generator: full AST $\to$ three-address-code translator \emph{(hands-on)} & CLO3 & \S6.1--\S6.9 (synthesis) & [ET] Ch.5 \\ \hline
 \rowcolor{blue!8}
-Opt.5 & \emph{\textbf{[Optional -- instructor's tool choice: LLVM, Part 1]}} Architecture, LLVM IR, key classes (Module, Function, BasicBlock, IRBuilder). Others may substitute GCC internals, a custom bytecode VM, or skip and use the time as buffer/review. & CLO3 & (tool choice for \S6.1--\S6.9) & [LLVM-LR] LLVM Language Reference Manual \\ \hline
+Opt.2 & \emph{\textbf{[Optional -- instructor's tool choice: LLVM, Part 1]}} Architecture, LLVM IR, key classes (Module, Function, BasicBlock, IRBuilder). Others may substitute a custom bytecode VM or skip this topic. & CLO3 & (tool choice for \S6.1--\S6.9) & [LLVM-LR] LLVM Language Reference Manual; [LLVM] Lattner \& Adve, CGO 2004 \\ \hline
 \rowcolor{blue!8}
-Opt.6 & \emph{\textbf{[Optional -- instructor's tool choice: LLVM, Part 2]}} Generating LLVM IR from an AST, end to end (hands-on). & CLO3 & (tool choice for \S6.1--\S6.9) & [LLVM-KA] LLVM Kaleidoscope Tutorial \\ \hline
+Opt.3 & \emph{\textbf{[Optional -- instructor's tool choice: LLVM, Part 2]}} Generating LLVM IR from an AST, end to end (hands-on). & CLO3 & (tool choice for \S6.1--\S6.9) & [LLVM-KA] LLVM Kaleidoscope Tutorial \\ \hline
 
 \multicolumn{5}{|c|}{\cellcolor{yellow!25}\textit{--- Midterm 2 (after Lecture 20; covers L11--L20: top-down parsing, SDD \& semantic-analysis foundations, intermediate code generation) ---}} \\ \hline
 
-\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 7: Bottom-Up Parsing Algorithms (Lectures 21--25)}} \\ \hline
-21 & Bottom-up parsing: shift-reduce parsing, handles, shift-reduce \& reduce-reduce conflicts & CLO1, CLO2 & \S4.5 & [AP] \S3.3 \\ \hline
-22 & LR(0) items \& automaton; SLR parsing & CLO2 & \S4.6 & [ET] \S3.4.1--3.4.2 \\ \hline
-23 & \textbf{LALR(1) parsing} --- the industry-standard, state-of-the-art table-driven algorithm (used by Yacc/Bison), with a brief comparative look at canonical LR(1) & CLO2 & \S4.7.1--\S4.7.5 (canonical LR(1) covered briefly; LALR(1) in full) & [ET] \S3.4.3--3.4.4; [AN] Ch.1 \\ \hline
-24 & Using ambiguous grammars in practice; building a parser with a parser-generator tool (hands-on) & CLO3 & \S4.8, \S4.9 & [AN] Ch.4--5 \\ \hline
+\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 6 (cont.): Intermediate Code Generation (Lecture 21)}} \\ \hline
+21 & Three-address code generation via syntax-directed translation and via DAGs (value-number method; common subexpressions in basic blocks) & CLO2, CLO3 & \S6.1.1--\S6.1.2, \S6.2.1--\S6.2.3, \S6.4, \S8.5.1 & [ET] \S5.2--5.3; [AP] \S7.2 \\ \hline
 \rowcolor{blue!8}
-Opt.2 & \emph{\textbf{[Optional -- instructor's tool choice: Bison/Yacc]}} Building the L24 parser concretely with Bison/Yacc. & CLO3 & (tool choice for \S4.8, \S4.9) & --- \\ \hline
-\rowcolor{blue!8}
-Opt.3 & \emph{\textbf{[Optional -- modern alternative]}} ANTLR4: generates a combined lexer + adaptive LL(*) parser from one grammar file, with strong IDE/multi-language support -- a direct modern successor to Lex/Yacc. & CLO3 & (not in DB; extends \S4.9) & [ANTLR] ANTLR4 site \\ \hline
-\rowcolor{blue!8}
-Opt.4 & \emph{\textbf{[Optional -- modern alternative]}} Tree-sitter: incremental, error-tolerant GLR-style parsing -- the current state of the art for editor/IDE-grade parsing (used by Neovim, GitHub, VS Code). & CLO3 & (not in DB; extends \S4.9) & [TS] Tree-sitter site \\ \hline
-25 & \textbf{Review 3:} bottom-up parsing algorithms (shift-reduce, LR(0)/SLR, LALR(1), canonical LR(1)) -- consolidation and worked examples (no new material; top-down parsing and SDT were already reviewed as part of Midterm 2 preparation) & CLO1, CLO2 & (review of \S4.5--4.9) & --- \\ \hline
+Opt.4 & \emph{\textbf{[Optional -- modern IR infrastructure: MLIR]}} Generating high-level intermediate code with MLIR on top of LLVM: dialects, operations and regions, and progressive lowering from a high-level dialect to the LLVM dialect and then to LLVM IR. Builds on Opt.\,2--Opt.\,3. & CLO3 & (tool choice for \S6.1--\S6.2) & [MLIR] Lattner et al., CGO 2021; [MLIR-DOC] Toy tutorial \\ \hline
 
-\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 8: Run-Time Environments (2 Lectures)}} \\ \hline
-26 & Storage organization; stack allocation; activation records; nonlocal access & CLO1 & \S7.1--\S7.3 & [ET] Ch.6 \\ \hline
-27 & Heap management; introduction to garbage collection & CLO1 & \S7.4--\S7.5 & [AP] Ch.13 \\ \hline
+\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 7: Bottom-Up Parsing Algorithms (Lectures 22--23)}} \\ \hline
+22 & Bottom-up parsing: shift-reduce parsing, handles, shift-reduce \& reduce-reduce conflicts; LR(0) items and automaton; SLR parsing & CLO1, CLO2 & \S4.5, \S4.6.1--\S4.6.4 & [AP] \S3.3; [ET] \S3.4 \\ \hline
+23 & \textbf{LALR(1) parsing} --- the industry-standard, state-of-the-art table-driven algorithm (used by Yacc/Bison) --- together with canonical LR(1) parsing & CLO2 & \S4.7.1--\S4.7.5 & [AP] \S3.3; [ET] \S3.4 \\ \hline
 
-\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 9: Code Generation \& Optimization (3 Lectures)}} \\ \hline
-28 & Basic blocks \& flow graphs; local optimizations (constant folding, copy/constant propagation, CSE); peephole optimization & CLO1, CLO2 & \S8.4--\S8.5, \S8.7 & [MU] Ch.12 \\ \hline
-29 & \textbf{Optimization Algorithm:} Common Subexpression Elimination via Available-Expressions data-flow analysis & CLO2 & \S9.1--\S9.3 & [MU] \S13.1--13.2 \\ \hline
-30 & Register allocation \& assignment; instruction selection overview \emph{(previously-uncovered material from Ch.\,8, now restored)} & CLO1, CLO2 & \S8.8--\S8.9 & [AP] Ch.11 \\ \hline
-\multicolumn{5}{|c|}{\cellcolor{yellow!25}\textit{--- Comprehensive Final Exam (covers L1--L30, emphasis on L21--L30) ---}} \\ \hline
+\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 8: Run-Time Environments (Lectures 24--25)}} \\ \hline
+24 & Storage organization; stack allocation; activation records; nonlocal access & CLO1 & \S7.1--\S7.3 & [ET] Ch.6 \\ \hline
+25 & Heap management; introduction to garbage collection & CLO1 & \S7.4--\S7.5 & [AP] Ch.13 \\ \hline
+
+\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 9: Code Optimization (Lectures 26--27)}} \\ \hline
+26 & Basic blocks \& flow graphs; local optimizations (constant folding, copy/constant propagation, CSE); peephole optimization & CLO1, CLO2 & \S8.4--\S8.5, \S8.7 & [MU] Ch.12 \\ \hline
+27 & \textbf{Optimization algorithm:} Common Subexpression Elimination via Available-Expressions data-flow analysis & CLO2 & \S9.1--\S9.3 & [MU] \S13.1 \\ \hline
+\rowcolor{blue!8}
+Opt.5 & \emph{\textbf{[Optional -- production compiler study: GCC]}} Structure of GCC and its optimization layers: front ends and GENERIC; the middle end (GIMPLE and the SSA-based optimization passes run by the pass manager); the back end (RTL, instruction selection, register allocation). Inspecting intermediate dumps (e.g.\ \texttt{-fdump-tree-all}, \texttt{-fdump-rtl-all}) and the effect of the \texttt{-O} levels. & CLO1, CLO2 & (tool choice; extends \S8.4--\S8.5, \S9.1--\S9.3) & [GCC-INT] GCC Internals manual \\ \hline
+
+\multicolumn{5}{|c|}{\cellcolor{gray!20}\textbf{Unit 10: Revision and Optional Advanced Topics (Lectures 28--30)}} \\ \hline
+28--30 & Revision, and optional advanced topics selected by the instructor (e.g., register allocation \& instruction selection) & CLO1, CLO2, CLO3 & \S8.8--\S8.9 (if chosen) & [AP] Ch.11 (if chosen) \\ \hline
+\multicolumn{5}{|c|}{\cellcolor{yellow!25}\textit{--- Comprehensive Final Exam (covers L1--L30, with emphasis on L21--L30) ---}} \\ \hline
 \end{longtable}
-
-\normalsize
-
-\begin{quote}
-\small\textbf{Open item for the team:} the project bullet below
-originally aligned the lexer/parser/IR-generator project phases with
-the hands-on lectures in that order (L7, old-L17, old-L25). Under this
-revision, the hands-on IR-generator lecture (new L20) now comes
-\emph{before} the hands-on parser-generator-tool lecture (new L24).
-If the ``Intermediate Code Generator'' project phase is to be
-assigned around Midterm 2 as intended, the project's parser phase
-likely needs to rely on the hand-written recursive-descent parser
-from L11--L13 (available well before Midterm 2) rather than waiting
-for the tool-based parser at L24. Please confirm how the project
-phases should be sequenced so the assessment instruments section and
-project handout can be updated consistently.
-\end{quote}
 
 \normalsize
 
 \section*{Assessment Instruments}
 \begin{itemize}
-    \item \textbf{Project} -- students build a working compiler (lexer $\to$ parser $\to$ IR generator, optionally with basic optimization) for a small language, in stages aligned with the hands-on lectures (L7 lexer; L20 IR generator; L24 parser-generator tool -- \textbf{see the open item above regarding project-phase sequencing}).
+    \item \textbf{Project} -- students build a working compiler (lexer $\to$ parser $\to$ intermediate-code generator, optionally with basic optimization) for a small language, in stages aligned with the lectures on lexical analysis (L7), top-down/recursive-descent parsing (L11--L13), and intermediate-code generation (L17--L20).
     \item \textbf{Quizzes} -- 7 short quizzes distributed across the semester (roughly one every 4 lectures), primarily on the lecture immediately preceding each quiz.
-    \item \textbf{Assignments} -- 3--4 assignments: (1) regular expressions \& finite automata, (2) grammar transformation \& top-down parsing, (3) intermediate code generation (now timed around L17--L20), and optionally (4) bottom-up parsing tables (SLR/CLR/LALR) / a chosen optimization (now timed after Midterm 2).
+    \item \textbf{Assignments} -- 3--4 assignments: (1) regular expressions \& finite automata, (2) grammar transformation \& top-down parsing, (3) intermediate code generation, and optionally (4) bottom-up parsing tables (SLR/LALR/CLR) or a chosen optimization.
     \item \textbf{Midterm 1} (after L10), \textbf{Midterm 2} (after L20), \textbf{Comprehensive Final} (after L30).
 \end{itemize}
 
