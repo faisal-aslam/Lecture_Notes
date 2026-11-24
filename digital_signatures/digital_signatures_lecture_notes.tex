@@ -598,6 +598,23 @@ and the signature is $(r,s)=(13,\,4)$.
 \emph{Verification.} Bob recomputes $e=5$. The left side is $g^s=2^4=16$. For the right side he computes $y^e=18^5 \bmod 23$ by repeated squaring: $18^2=324\equiv 2$, $18^4\equiv 2^2=4$ and $18^5=18^4\cdot 18\equiv 4\cdot 18=72\equiv 3$. Then $r\,y^e=13\cdot 3=39\equiv 16 \pmod{23}$. Both sides equal $16$, so Bob accepts.
 \end{example}
 
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\node[actor] (A) at (0,0) {Alice (signer)};
+\node[actor] (B) at (10.5,0) {Bob (verifier)};
+\draw[life] (A) -- (0,-9.6); \draw[life] (B) -- (10.5,-9.6);
+\node[box,align=left] at (0,-1.5) {public: $p=23,\ q=11,\ g=2$\\secret key $x=6$\\public key $y=g^x=2^6=18 \bmod 23$};
+\draw[msg] (0,-2.8) -- (10.5,-2.8) node[midway,above,font=\footnotesize] {public key $y=18$};
+\node[box,align=left] at (0,-4.9) {sign $m$:\\pick fresh nonce $k=7$\\$r=g^k=2^7=13 \bmod 23$\\$e=\Hash(r\Vert m) \bmod 11=5$\\$s=k+xe=7+6\cdot 5=37\equiv 4 \pmod{11}$};
+\draw[msg] (0,-7.0) -- (10.5,-7.0) node[midway,above,font=\footnotesize] {$(m,\ r=13,\ s=4)$};
+\node[box,align=left] at (10.5,-8.4) {$e=\Hash(13\Vert m) \bmod 11=5$\\$g^s=2^4=16$\\$r\,y^e=13\cdot 18^5\equiv 13\cdot 3=39\equiv 16 \pmod{23}$};
+\node[box,fill=green!10] at (10.5,-9.4) {$16=16$: accept};
+\end{tikzpicture}
+\caption{Example~\ref{ex:schnorrmult} as an interaction. Each side computes only in its own column, and only the public key and the signed message cross the channel.}
+\end{figure}
+
+
 \begin{example}[A different message is rejected]
 Oscar replaces the message, and the hash value of the new message is $e'=6$. Bob checks $g^s=16$ against $r\,y^{e'}=13\cdot 18^6$. Since $18^6=18^5\cdot 18\equiv 3\cdot 18=54\equiv 8$, the right side is $13\cdot 8=104\equiv 12\pmod{23}$. As $16\ne 12$, Bob rejects.
 \end{example}
