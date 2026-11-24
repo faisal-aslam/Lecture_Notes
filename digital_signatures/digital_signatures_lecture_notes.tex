@@ -545,6 +545,69 @@ Bob recomputes $e=13$ and checks both sides of $sG=R+eQ$. The left side is $8G=(
 
 \emph{Why $k$ must be fresh and secret.} If Eve learns $k$, then $d=(s-k)\,e^{-1}$ follows by one modular computation. In the example, $d=(8-10)\cdot 13^{-1} \bmod 31$; since $13\cdot 12=156\equiv 1$ we get $13^{-1}=12$ and $d=(-2)\cdot 12=-24\equiv 7$.
 
+\subsection{Schnorr signatures in a multiplicative group}
+
+Schnorr's original scheme was formulated not on a curve but in a subgroup of $\Z_p^*$, the group of Example~\ref{ex:dlp}. The construction is identical, and only the notation changes: the group operation is multiplication modulo $p$, and ``multiple $kG$'' becomes ``power $g^k$''. This version is also the model for DSA, and Table~\ref{tab:dictionary} translates between the two notations.
+
+\emph{Parameters.} Choose a prime $p$ and a prime $q$ that divides $p-1$. Let $g\in\Z_p^*$ be an element of order $q$, that is $g\ne 1$ and $g^q\equiv 1 \pmod p$. The powers of $g$ form a cyclic subgroup of order $q$. Exponents are therefore computed modulo $q$, while the group elements are computed modulo $p$. For a modern security level $p$ has $2048$ bits and $q$ has $256$ bits.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+ & Elliptic curve (additive) & Subgroup of $\Z_p^*$ (multiplicative)\\
+\midrule
+Group & points of $E$, order $n$ & elements $g^i \bmod p$, order $q$\\
+Generator & $G$ & $g$\\
+Secret key & $d\in\{1,\dots,n-1\}$ & $x\in\{1,\dots,q-1\}$\\
+Public key & $Q=dG$ & $y=g^x \bmod p$\\
+Commitment & $R=kG$ & $r=g^k \bmod p$\\
+Challenge & $e=\Hash(R\Vert Q\Vert m) \bmod n$ & $e=\Hash(r\Vert m) \bmod q$\\
+Response & $s=k+ed \bmod n$ & $s=k+xe \bmod q$\\
+Verification & $sG=R+eQ$ & $g^s\equiv r\,y^e \pmod p$\\
+Fast computation & double-and-add & square-and-multiply\\
+\bottomrule
+\end{tabular}
+\caption{The same Schnorr scheme in the two notations.}\label{tab:dictionary}
+\end{table}
+
+\begin{definition}[Schnorr signature in $\Z_p^*$]
+\emph{Keys.} $\sk=x\in\{1,\dots,q-1\}$ and $\pk=y=g^x \bmod p$.
+
+\emph{Signing.} Choose a fresh random $k\in\{1,\dots,q-1\}$ and compute $r=g^k \bmod p$, $e=\Hash(r\Vert m) \bmod q$ and $s=k+xe \bmod q$. The signature is $(r,s)$.
+
+\emph{Verification.} Compute $e=\Hash(r\Vert m) \bmod q$ and accept iff $g^s\equiv r\,y^e \pmod p$.
+\end{definition}
+
+\begin{theorem}[Correctness]
+An honestly generated signature is accepted.
+\end{theorem}
+\begin{proof}
+Since $g^q\equiv 1$, exponents may be reduced modulo $q$, and so $g^s=g^{k+xe}=g^k\,(g^x)^e\equiv r\,y^e \pmod p$.
+\end{proof}
+
+\begin{example}[Schnorr signature with $p=23$]\label{ex:schnorrmult}
+Take $p=23$, $q=11$ (note $p-1=22=2\cdot 11$) and $g=2$, which has order $11$ as computed in Example~\ref{ex:dlp}. Alice chooses the secret key $x=6$ and publishes $y=g^x=2^6=18 \bmod 23$.
+
+\emph{Signing.} Alice chooses the fresh nonce $k=7$ and computes $r=2^7=13 \bmod 23$. Suppose the toy hash value is $e=\Hash(r\Vert m) \bmod 11=5$. Then
+\[
+s=k+xe=7+6\cdot 5=37\equiv 4 \pmod{11},
+\]
+and the signature is $(r,s)=(13,\,4)$.
+
+\emph{Verification.} Bob recomputes $e=5$. The left side is $g^s=2^4=16$. For the right side he computes $y^e=18^5 \bmod 23$ by repeated squaring: $18^2=324\equiv 2$, $18^4\equiv 2^2=4$ and $18^5=18^4\cdot 18\equiv 4\cdot 18=72\equiv 3$. Then $r\,y^e=13\cdot 3=39\equiv 16 \pmod{23}$. Both sides equal $16$, so Bob accepts.
+\end{example}
+
+\begin{example}[A different message is rejected]
+Oscar replaces the message, and the hash value of the new message is $e'=6$. Bob checks $g^s=16$ against $r\,y^{e'}=13\cdot 18^6$. Since $18^6=18^5\cdot 18\equiv 3\cdot 18=54\equiv 8$, the right side is $13\cdot 8=104\equiv 12\pmod{23}$. As $16\ne 12$, Bob rejects.
+\end{example}
+
+\begin{remark}[Shorter signatures, and the nonce]
+Schnorr's original signature is the pair $(e,s)$ rather than $(r,s)$. Bob computes $r'=g^s\,y^{-e} \bmod p$ and accepts iff $e=\Hash(r'\Vert m) \bmod q$. In the example $y^{-1}=9$ (since $18\cdot 9=162\equiv 1$) and $y^{-5}=9^5\equiv 8$, so $r'=16\cdot 8=128\equiv 13=r$, and the hash of $r'$ reproduces $e$. With a $256$-bit hash, a signature $(e,s)$ takes $512$ bits, whereas a value $r$ would need $2048$ bits.
+
+The nonce must again be fresh and secret. Anybody who learns $k$ computes $x=(s-k)\,e^{-1} \bmod q$; in the example $e^{-1}=5^{-1}=9 \bmod 11$ and $x=(4-7)\cdot 9=-27\equiv 6$. If the same $k$ is used for two messages with challenges $e_1\ne e_2$, then $s_1-s_2=x(e_1-e_2)$ and $x=(s_1-s_2)(e_1-e_2)^{-1} \bmod q$.
+\end{remark}
+
 \subsection{ECDSA}
 
 ECDSA is the older and more intricate sibling. It does not hash the nonce point into the challenge and it uses a modular inverse in the signing equation.
