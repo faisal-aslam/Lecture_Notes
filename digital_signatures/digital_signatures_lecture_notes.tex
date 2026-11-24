@@ -864,6 +864,26 @@ A signature proves that whoever holds a secret key signed a message. It does not
 
 One solution is to meet in person and exchange keys, which works for a handful of friends and not for a web browser that visits thousands of sites. The solution used in practice is to let a trusted party vouch for the binding between a name and a key, by signing it.
 
+\subsection{Terminology}
+
+The following terms are used in this section. Each is explained again where it first appears in an example.
+
+\begin{description}[itemsep=0.4em]
+\item[Public key infrastructure (PKI).] The whole system of certificate authorities, certificates and software that binds public keys to identities and distributes them.
+\item[Subject.] The identity that a certificate is about, for instance the domain name \texttt{alice.example}. The subject is the owner of the public key inside the certificate.
+\item[Certificate authority (CA).] An organization that checks the identity of a subject and then signs a certificate for it. The CA is the \emph{issuer} of every certificate it signs.
+\item[Issuer.] The CA whose signature is on a certificate. The issuer's public key is needed to verify the certificate.
+\item[Relying party.] The party that verifies a certificate and then acts on it, for instance Bob's browser.
+\item[To-be-signed part (tbs).] The data that the CA actually signs: the subject, the subject's public key and the validity period. The certificate is this data together with the signature.
+\item[Validity period.] The interval between a ``not before'' date and a ``not after'' date. Outside this interval the certificate must be rejected.
+\item[Root CA and trust anchor.] A root CA is a CA whose public key is installed in the browser or operating system in advance, so that it is trusted without any signature to check. Such a trusted key is called a trust anchor. The root's own certificate is \emph{self-signed}: subject and issuer are the same, and the signature is made with the key the certificate contains. A self-signature adds no trust, since anybody can make one, and the certificate serves only as a container for the root key. The list of root keys shipped with the software is the \emph{trust store}.
+\item[Intermediate CA.] A CA whose own certificate was signed by another CA, and which in turn signs other certificates.
+\item[End-entity (leaf) certificate.] A certificate for a website or a person, as opposed to a certificate of a CA. Its key is used to authenticate the subject and not to sign other certificates.
+\item[Certificate chain (certification path).] The sequence of certificates from the end-entity certificate up to a certificate signed by a trust anchor.
+\item[Revocation.] Declaring a certificate invalid before its validity period ends, for example because its private key was stolen. A CA can publish a \emph{certificate revocation list} (CRL), or answer status queries through the \emph{Online Certificate Status Protocol} (OCSP).
+\item[Certificate transparency.] A system of public, append-only logs in which issued certificates are recorded, so that a domain owner can detect certificates that were issued for the domain without the owner's request.
+\end{description}
+
 \subsection{Certificates}
 
 \begin{definition}[Certificate]
@@ -926,6 +946,21 @@ The Bitcoin network avoids the binding problem by removing identities. A public 
 \subsection{The TLS 1.3 handshake}\label{sec:tls}
 
 TLS is the protocol behind every \texttt{https} connection. Its handshake combines three tools from these notes. A key exchange (Diffie--Hellman) lets the two sides agree on a secret over an open channel, signatures and certificates authenticate the server, and a MAC confirms that both sides saw the same handshake. Encryption, which was the starting point of Section~0, comes only afterwards and uses the agreed secret.
+
+The handshake uses the following terms.
+
+\begin{description}[itemsep=0.4em]
+\item[TLS (Transport Layer Security).] The protocol that protects \texttt{https} connections. It is the successor of SSL. One side is the \emph{client} (the browser, here Bob) and the other the \emph{server} (here Alice).
+\item[Handshake.] The first exchange of messages of a connection, in which the two sides agree on keys and the client authenticates the server.
+\item[Key share.] The public Diffie--Hellman value that a side sends in its hello message, $A=aG$ from the client and $B=bG$ from the server.
+\item[Ephemeral.] Chosen freshly for each connection and discarded afterwards. ECDHE stands for elliptic curve Diffie--Hellman \emph{ephemeral}.
+\item[Transcript.] All handshake messages sent and received so far, in order. Hashing the transcript produces a short value that depends on every message, including both key shares.
+\item[Session keys.] The symmetric keys derived from the shared secret $S$. They encrypt and authenticate the data that is exchanged after the handshake.
+\item[\texttt{CertificateVerify}.] The server's signature over the hash of the transcript. It proves that the server holds the secret key belonging to its certificate.
+\item[\texttt{Finished}.] A MAC over the transcript, computed with a key derived from $S$. Each side sends one to confirm that it computed the same secret and saw the same messages.
+\item[Forward secrecy.] The property that recorded connections stay secret even if the server's long-term key is stolen later.
+\item[Man-in-the-middle attack.] An attack in which Oscar sits between the two parties, relays their messages and tries to alter them.
+\end{description}
 
 \emph{Key exchange.} In the ephemeral Diffie--Hellman variant (ECDHE) Bob, the client, picks a fresh secret $a$ and sends $A=aG$. The server Alice picks a fresh secret $b$ and sends $B=bG$. Both compute the same shared point $S=aB=bA=abG$ and derive their session keys from it. The numbers $a$ and $b$ are thrown away after the handshake. A key exchange alone does not authenticate anybody, because Oscar could run one exchange with Bob and another with Alice.
 
